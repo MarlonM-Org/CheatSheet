@@ -20,6 +20,7 @@ hier im Code anders ist, ist ein Fehler oder gehört dort nachgetragen.
 - Fachlogik rein und getestet in `src/domain/` — neue Regeln dort zuerst als Test.
 - Die Adresse steht nur in `src/adresse.ts`.
 - Offline: `public/sw.js` + `scripts/precache.mjs`. Neue statische Dateien
-  landen automatisch im Vorab-Cache.
+  landen automatisch im Vorab-Cache. Der pdf.js-Worker liegt versioniert in
+  `public/pdf.worker-<version>.min.mjs` (erzeugt, nicht eingecheckt).
 - Vor jedem Push: `npm run typecheck && npm run lint && npm test && npm run build`.
 - Deutsch in Oberfläche, Code-Bezeichnern und Commits.

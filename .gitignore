@@ -3,4 +3,4 @@ node_modules/
 out/
 *.tsbuildinfo
 next-env.d.ts
-public/pdf.worker.min.mjs
+public/pdf.worker-*.min.mjs

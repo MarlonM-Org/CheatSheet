@@ -271,3 +271,12 @@ details[open] > summary::before { transform: rotate(90deg); }
   .b-schwebend { font-size: 0.75rem; }
   .b-schwebend .b-farbe { width: 2.2rem; height: 2.2rem; }
 }
+
+/* ── Hinweis: neue Version ── */
+.neue-version {
+  position: fixed; left: 50%; bottom: max(0.75rem, env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 50;
+  display: flex; align-items: center; gap: 0.6rem; max-width: calc(100% - 1.5rem); padding: 0.4rem 0.5rem 0.4rem 1rem;
+  border-radius: 14px; background: var(--karte); color: var(--tinte); border: 1px solid var(--linie);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 18%); font-size: 0.9rem; font-weight: 600;
+}
+.neue-version-weg { min-width: 2.2rem; min-height: 2.2rem; border-radius: 10px; font-size: 1.2rem; color: var(--gedaempft); }

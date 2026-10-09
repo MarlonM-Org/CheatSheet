@@ -1,12 +1,30 @@
 'use client';
 
 import type { PDFDocumentProxy } from 'pdfjs-dist';
+import { istNachladeFehler } from '@/domain/nachladen';
+
+// Eine neuere Version ist ausgeliefert, und Code dieser Seite fehlt: neu laden.
+export class NeueVersionFehler extends Error {
+  constructor() { super('Neue Version verfügbar — bitte neu laden.'); }
+}
+
+// Name des Workers mit pdf.js-Version, beim Build aus next.config.ts eingesetzt.
+const WORKER = process.env.PDF_WORKER as string;
 
 // pdf.js erst im Browser laden (groß, braucht DOM). Worker liegt in public/.
 export async function pdfLaden(datei: Blob): Promise<PDFDocumentProxy> {
-  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
-  pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
-  return pdfjs.getDocument({ data: new Uint8Array(await datei.arrayBuffer()) }).promise;
+  let pdfjs: typeof import('pdfjs-dist/legacy/build/pdf.mjs');
+  try {
+    pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  } catch {
+    throw new NeueVersionFehler();
+  }
+  pdfjs.GlobalWorkerOptions.workerSrc = WORKER;
+  try {
+    return await pdfjs.getDocument({ data: new Uint8Array(await datei.arrayBuffer()) }).promise;
+  } catch (e) {
+    throw istNachladeFehler(e) ? new NeueVersionFehler() : e;
+  }
 }
 
 // Rendert eine Seite in eine Leinwand mit gegebener Breite in CSS-Pixeln.

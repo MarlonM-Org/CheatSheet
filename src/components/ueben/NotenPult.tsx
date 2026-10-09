@@ -2,12 +2,14 @@
 
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { istNachladeFehler } from '@/domain/nachladen';
 import { mitRand } from '@/domain/ueben';
+import { NeueVersion } from '@/components/NeueVersion';
 import { notenAendern, notenHolen, stelleAendern, stelleLoeschen, stellenVon, tempoGeschafft, type LokaleNoten, type LokaleStelle as Stelle } from './lokal';
 import { useMetronom } from './MetronomKontext';
 import { MiniMetronom } from './MiniMetronom';
 import { NotenBetrachter } from './NotenBetrachter';
-import { pdfLaden, seiteZeichnen } from './pdf';
+import { NeueVersionFehler, pdfLaden, seiteZeichnen } from './pdf';
 
 const RAND = 0.06;
 
@@ -17,6 +19,7 @@ export function NotenPult({ notenId }: { notenId: string }) {
   const [noten, setNoten] = useState<LokaleNoten | null>(null);
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
   const [fehler, setFehler] = useState('');
+  const [neueVersion, setNeueVersion] = useState(false);
   const [stellen, setStellen] = useState<Stelle[]>([]);
   const [offen, setOffen] = useState<{ modus: 'lesen' | 'stellen'; stelle?: string } | null>(null);
   const [umbenennen, setUmbenennen] = useState(false);
@@ -31,10 +34,15 @@ export function NotenPult({ notenId }: { notenId: string }) {
       const [d, st] = await Promise.all([pdfLaden(n.datei), stellenVon(notenId)]);
       if (weg) return;
       setNoten(n); setPdf(d); setStellen(st);
-    })().catch((e) => { if (!weg) setFehler(`Noten lassen sich nicht öffnen: ${(e as Error).message}`); });
+    })().catch((e) => {
+      if (weg) return;
+      if (e instanceof NeueVersionFehler || istNachladeFehler(e)) setNeueVersion(true);
+      else setFehler(`Noten lassen sich nicht öffnen: ${(e as Error).message}`);
+    });
     return () => { weg = true; };
   }, [notenId]);
 
+  if (neueVersion) return <NeueVersion />;
   if (fehler) return <p className="karte warnung">{fehler}</p>;
   if (!noten || !pdf) return <p className="gedaempft">Noten werden geladen …</p>;
 

@@ -22,7 +22,7 @@ Früher unter Admin → „Üben (Prototyp)“ in der Registerführer-App.
 ## Entwickeln
 
 ```
-npm install          # kopiert auch den pdf.js-Worker nach public/
+npm install          # kopiert auch den pdf.js-Worker nach public/ (mit Version im Namen)
 npm test
 npm run typecheck && npm run lint && npm run build
 npm run dev
@@ -59,12 +59,39 @@ samt Notenbetrachter:
 - `scripts/precache.mjs` läuft nach `next build`, schreibt alle Dateien aus
   `out/` nach `out/precache.json` und setzt eine Version (Hash über Namen und
   Inhalt) in `out/sw.js` ein. Jeder Build ergibt so einen neuen Service Worker.
-- `public/sw.js` legt beim Installieren alle Dateien in einen versionierten
-  Cache und räumt alte Caches beim Aktivieren weg. Seitenaufrufe kommen zuerst
-  aus dem Netz (online immer der neueste Stand), alles andere zuerst aus dem
-  Cache. Fremde Adressen werden nie gecacht.
+- `public/sw.js` legt beim Installieren alle Dateien aus `precache.json` in
+  einen versionierten Cache — alle oder keine: Fehlt eine, scheitert die
+  Installation, die alte Version bleibt aktiv und der Browser versucht es
+  später erneut. Beim Aktivieren bleiben der neue und der direkt vorige Stand
+  liegen (ältere fliegen raus), damit eine noch offene alte Seite ihre
+  Code-Stücke findet.
+- Seitenaufrufe kommen zuerst aus dem Netz, nach spätestens 3 s aus dem Cache
+  (schlechtes Netz im Proberaum); die Netzantwort landet trotzdem im Cache.
+  Alles andere kommt zuerst aus dem Cache (über alle behaltenen Stände).
+  Fremde Adressen werden nie gecacht.
+- Übernimmt eine neue Version eine offene Seite, erscheint unten „Neue Version
+  da — neu laden“. Neu geladen wird nur auf Tipp, nie automatisch. Fehlt einer
+  alten Seite trotzdem ein Code-Stück, meldet sie „Neue Version verfügbar —
+  bitte neu laden“ statt eines technischen Fehlers.
+- Der pdf.js-Worker heißt `pdf.worker-<pdf.js-Version>.min.mjs`
+  (`scripts/pdf-worker.mjs` legt ihn ab, `next.config.ts` gibt den Namen an
+  `src/components/ueben/pdf.ts`). Nicht eingecheckt.
 - Angemeldet wird der Service Worker nur im Produktions-Build
   (`src/components/Offline.tsx`), nicht bei `npm run dev`.
+
+## Sicherheits-Header
+
+`vercel.json` setzt `X-Content-Type-Options: nosniff`, `Referrer-Policy:
+no-referrer` und `Permissions-Policy: microphone=(self), camera=(),
+geolocation=()` (Mikrofon nur fürs Stimmgerät); `/sw.js` kommt mit
+`Cache-Control: no-cache`, damit Updates sofort ankommen.
+
+**Offene Frage: Content-Security-Policy.** Bewusst noch keine. Next.js
+schreibt Inline-Skripte in die exportierten Seiten, pdf.js braucht seinen
+Worker und erzeugt Schriften zur Laufzeit; eine zu strenge CSP legt im
+schlimmsten Fall den Notenbetrachter still — und das erst auf dem Gerät.
+Vor einer CSP: Inline-Skripte per Hash erfassen (oder `script-src 'self'
+'unsafe-inline'`), `worker-src 'self'`, im Browser mit echten Noten prüfen.
 
 Lokal prüfen: `npm run build`, dann `python3 -m http.server 3470 --directory out`.
 
