@@ -286,4 +286,8 @@ details[open] > summary::before { transform: rotate(90deg); }
   .segment button, .knopf-klein, .text-knopf, .schalter-zeile { min-height: 2.75rem; }
   .text-knopf { display: inline-flex; align-items: center; }
   details > summary { min-height: 2.75rem; display: flex; align-items: center; }
+  .alle-waehlen { min-height: 2.75rem; }
+  .b-segment button { min-width: 2.75rem; }
+  .rund-knopf { min-width: 2.75rem; min-height: 2.75rem; }
+  input.regler { height: 2.75rem; }
 }

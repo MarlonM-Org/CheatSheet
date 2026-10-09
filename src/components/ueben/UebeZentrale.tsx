@@ -203,7 +203,7 @@ function NotenListe({ oeffnen }: { oeffnen: (id: string) => void }) {
 
       {!!noten?.length && (
         <div className="karte flex flex-wrap items-center gap-2 !py-2">
-          <label className="flex items-center gap-2 text-sm font-semibold">
+          <label className="alle-waehlen flex items-center gap-2 text-sm font-semibold">
             <input type="checkbox" className="auswahl-box" checked={alleGewaehlt}
               onChange={() => setAuswahl(alleGewaehlt ? new Set() : new Set(noten.map((n) => n.id)))} aria-label="Alle auswählen" />
             {auswahl.size ? `${auswahl.size} ausgewählt` : 'Auswählen'}
@@ -231,9 +231,9 @@ function NotenListe({ oeffnen }: { oeffnen: (id: string) => void }) {
           <li className="karte space-y-3">
             <p>Noch keine Noten auf diesem Gerät. Mit „+ Noten hinzufügen“ eine oder mehrere PDF-Dateien wählen.</p>
             <p>
-              <strong>Umzug aus der Registerführer-App?</strong> Dort auf der Übe-Seite „Sicherung speichern“, dann hier
-              „Sicherung laden“. Auf jedem Gerät einzeln — Safari-Tab und Home-Bildschirm-App haben getrennte Speicher.
-              Metronom-Einstellungen (Tempo, Klang) bitte neu setzen.
+              <strong>Umzug aus der Registerführer-App?</strong> Dort auf der Übe-Seite „Sicherung vorbereiten“ und
+              herunterladen, dann hier „Sicherung laden“. Auf jedem Gerät einzeln — Safari-Tab und Home-Bildschirm-App
+              haben getrennte Speicher. Metronom-Einstellungen bitte neu setzen.
             </p>
             <div className="flex flex-wrap gap-2">
               <button type="button" className="knopf" onClick={sicherung.waehlen} disabled={sicherung.laeuft || laeuft}>
@@ -257,7 +257,8 @@ function NotenListe({ oeffnen }: { oeffnen: (id: string) => void }) {
         ))}
       </ul>
 
-      {noten && <Sicherung leer={noten.length === 0} laden={sicherung} />}
+      {/* Bei leerer Liste steht „Sicherung laden“ schon in der Hinweis-Karte, speichern gibt es nichts. */}
+      {!!noten?.length && <Sicherung laden={sicherung} />}
     </div>
   );
 }

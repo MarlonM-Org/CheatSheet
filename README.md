@@ -117,19 +117,22 @@ Unter **Noten → Sicherung**:
 
 - **Sicherung vorbereiten** packt eine Datei `Uebe-Sicherung JJJJ-MM-TT.uebe`:
   alle Noten-PDFs, markierten Stellen mit Tempo-Verlauf und Anmerkungen
-  dieses Geräts. Danach erscheinen ein echter Link „Herunterladen (x MB)“
+  dieses Geräts. Noten, deren PDF sich nicht lesen lässt („%PDF-“ nicht in den
+  ersten 1024 Bytes), bleiben samt Stellen und Anmerkungen draußen und werden
+  mit Titel gemeldet. Danach erscheinen ein echter Link „Herunterladen (x MB)“
   und — wo der Browser Dateien teilen kann (iPhone/iPad) — „Teilen / In
   Dateien sichern“. Zweistufig, weil Safari Download und Teilen nur aus einer
   frischen Berührung zulässt; als Home-Bildschirm-App steht Teilen vorn.
 - **Sicherung laden** liest die Datei erst vollständig und prüft sie (jede
   Note mit Titel, Stimme und Datum; jede Stelle und Anmerkung einer Note
-  zugeordnet — verwaiste werden übersprungen und gezählt). Gibt es Noten
-  schon auf dem Gerät (gleiche id), fragt die App vorher, ob sie samt Stellen
-  und Anmerkungen durch den Stand der Sicherung ersetzt werden sollen; bei
-  „Abbrechen“ bleibt alles, wie es war. Geschrieben wird in einer einzigen
-  Transaktion — alles oder nichts. Alle anderen Noten bleiben unberührt.
-  Zweimal laden verdoppelt nichts. Danach: „X neu, Y ersetzt; Z Stellen,
-  K Seiten mit Anmerkungen“.
+  zugeordnet — verwaiste werden übersprungen und gezählt). Laden führt
+  zusammen: Bei gleicher id gewinnt die Sicherung, Stellen und Anmerkungen,
+  die es nur auf dem Gerät gibt, bleiben. Würde etwas überschrieben, fragt die
+  App vorher und nennt Noten, Stellen und Seiten mit Anmerkungen samt Datum der
+  Sicherung; bei „Abbrechen“ bleibt alles, wie es war. Geschrieben wird in
+  einer einzigen Transaktion — alles oder nichts. Zweimal laden verdoppelt
+  nichts. Danach: „X Noten neu, Y aktualisiert; Z Stellen, K Seiten mit
+  Anmerkungen“. Bei falscher Datei sagt die App, wo die .uebe-Datei liegt.
 - Ist der Gerätespeicher blockiert (ein anderes CheatSheet-Fenster hält noch
   eine alte Version offen), sagt die App das, statt still zu hängen.
 
@@ -137,7 +140,7 @@ Das Format steht in `src/domain/sicherung.ts` und ist der Vertrag mit der
 Registerführer-App — dort wird mit demselben Code gespeichert.
 
 **Umzug aus der Registerführer-App:** dort auf der Übe-Seite „Sicherung
-speichern“, hier unter Noten „Sicherung laden“ — bei leerer Liste steht der
+vorbereiten“ und herunterladen, hier unter Noten „Sicherung laden“ — bei leerer Liste steht der
 Knopf direkt in der Hinweis-Karte. Wer zum ersten Mal kommt (kein gemerkter
 Reiter) oder über `?reiter=noten` bzw. `#noten` kommt, startet gleich bei den
 Noten; der Parameter verschwindet danach aus der Adresse. Danach dieselben

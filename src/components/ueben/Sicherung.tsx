@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { ueberschreibt } from '@/domain/einspielen';
 import { SicherungsFehler, sicherungsName } from '@/domain/sicherung';
 import { sicherungErstellen, sicherungPruefen, sicherungSchreiben } from './lokal';
 
@@ -16,8 +17,8 @@ export interface SicherungLaden {
 }
 
 // Sicherung laden — als Hook, damit die leere Notenliste denselben Ablauf
-// anbieten kann wie die Sicherungs-Karte. Erst prüfen und abgleichen, bei
-// Überschneidungen nachfragen, dann alles auf einmal schreiben.
+// anbieten kann wie die Sicherungs-Karte. Erst prüfen und abgleichen; würde
+// etwas überschrieben, nachfragen; dann alles auf einmal schreiben.
 export function useSicherungLaden(geaendert: () => void): SicherungLaden {
   const [laeuft, setLaeuft] = useState(false);
   const [meldung, setMeldung] = useState('');
@@ -29,20 +30,23 @@ export function useSicherungLaden(geaendert: () => void): SicherungLaden {
     setLaeuft(true); setMeldung(''); setFehler('');
     try {
       const e = await sicherungPruefen(datei);
-      if (e.ersetzt.length && !confirm(
-        `${e.ersetzt.length} Noten (mit ihren Stellen und Anmerkungen) gibt es schon auf diesem Gerät. `
-        + `Durch den Stand der Sicherung vom ${zeitpunkt(e.erstellt)} ersetzen?`,
+      const u = e.ueberschrieben;
+      if (ueberschreibt(e) && !confirm(
+        `Die Sicherung vom ${zeitpunkt(e.erstellt)} überschreibt auf diesem Gerät: `
+        + [anzahl(u.noten, 'Noten', 'Noten'), anzahl(u.stellen, 'Stelle', 'Stellen'), anzahl(u.anmerkungen, 'Seite mit Anmerkungen', 'Seiten mit Anmerkungen')]
+          .filter(Boolean).join(', ')
+        + '. Stellen und Anmerkungen, die es nur auf diesem Gerät gibt, bleiben. Laden?',
       )) {
         setMeldung('Nichts geladen — auf diesem Gerät ist alles wie vorher.');
         return;
       }
       const n = await sicherungSchreiben(e);
-      setMeldung(`Sicherung geladen: ${n.neu} neu, ${n.ersetzt} ersetzt; ${n.stellen} ${n.stellen === 1 ? 'Stelle' : 'Stellen'}, `
-        + `${n.anmerkungen} ${n.anmerkungen === 1 ? 'Seite' : 'Seiten'} mit Anmerkungen.`
-        + (n.uebersprungen ? ` ${n.uebersprungen} ${n.uebersprungen === 1 ? 'Eintrag' : 'Einträge'} ohne zugehörige Noten übersprungen.` : ''));
+      setMeldung(`Sicherung geladen: ${n.neu} Noten neu, ${n.aktualisiert} aktualisiert; `
+        + `${anzahl(n.stellen, 'Stelle', 'Stellen', true)}, ${anzahl(n.anmerkungen, 'Seite', 'Seiten', true)} mit Anmerkungen.`
+        + (n.uebersprungen ? ` ${anzahl(n.uebersprungen, 'Eintrag', 'Einträge')} ohne zugehörige Noten übersprungen.` : ''));
       geaendert();
     } catch (x) {
-      const err = x as Error;
+      const err = x instanceof Error ? x : new Error(String(x));
       setFehler(x instanceof SicherungsFehler
         ? err.message
         : `Die Sicherung ließ sich nicht speichern: ${err.message}${err.name === 'QuotaExceededError' ? ' (Gerätespeicher voll)' : ''}`);
@@ -80,7 +84,7 @@ function alsApp(): boolean {
 // auf einen echten Link bzw. „Teilen“. Safari auf iPad/iPhone lässt Download
 // und Teilen nur aus einer frischen Berührung zu — nach dem Packen ist die
 // erste Berührung längst verbraucht.
-export function Sicherung({ leer, laden }: { leer: boolean; laden: SicherungLaden }) {
+export function Sicherung({ laden }: { laden: SicherungLaden }) {
   const [laeuft, setLaeuft] = useState(false);
   const [fehler, setFehler] = useState('');
   const [fertig, setFertig] = useState<Vorbereitet | null>(null);
@@ -96,8 +100,14 @@ export function Sicherung({ leer, laden }: { leer: boolean; laden: SicherungLade
     if (aktuelleUrl.current) { URL.revokeObjectURL(aktuelleUrl.current); aktuelleUrl.current = null; }
     setFertig(null);
     try {
-      const inhalt = await sicherungErstellen();
-      const datei = new File([inhalt], sicherungsName(new Date()), { type: 'application/octet-stream' });
+      const s = await sicherungErstellen();
+      const fehlen = s.fehlen.map((n) => n.titel + (n.stimme ? ` (${n.stimme})` : '')).join(', ');
+      if (!s.noten) {
+        setFehler(fehlen ? `Keine Noten lesbar, es gibt keine Sicherung. Nicht lesbar: ${fehlen}.` : 'Auf diesem Gerät sind keine Noten — es gibt nichts zu sichern.');
+        return;
+      }
+      if (fehlen) setFehler(`Nicht lesbar, nicht in der Sicherung: ${fehlen}.`);
+      const datei = new File([s.datei], sicherungsName(new Date()), { type: 'application/octet-stream' });
       const url = URL.createObjectURL(datei);
       aktuelleUrl.current = url;
       const nav = navigator as TeilenNavigator;
@@ -107,7 +117,7 @@ export function Sicherung({ leer, laden }: { leer: boolean; laden: SicherungLade
       setApp(alsApp());
       setFertig({ url, datei });
     } catch (e) {
-      setFehler(`Sicherung fehlgeschlagen: ${(e as Error).message}`);
+      setFehler(`Sicherung fehlgeschlagen: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setLaeuft(false);
     }
@@ -116,9 +126,12 @@ export function Sicherung({ leer, laden }: { leer: boolean; laden: SicherungLade
   async function teilen() {
     if (!fertig) return;
     try {
-      await navigator.share({ files: [fertig.datei], title: fertig.datei.name });
+      // Nur die Datei: Mit Titel oder Text legen manche Ziele (z. B. „In Dateien
+      // sichern“) zusätzlich eine Textdatei an oder bieten sich gar nicht an.
+      await navigator.share({ files: [fertig.datei] });
     } catch (e) {
-      if ((e as Error).name !== 'AbortError') setFehler(`Teilen ging nicht: ${(e as Error).message}`);
+      const err = e instanceof Error ? e : new Error(String(e));
+      if (err.name !== 'AbortError') setFehler(`Teilen ging nicht: ${err.message}`);
     }
   }
 
@@ -137,12 +150,11 @@ export function Sicherung({ leer, laden }: { leer: boolean; laden: SicherungLade
     <section className="karte space-y-3" aria-label="Sicherung">
       <h2 className="abschnitt-titel">Sicherung</h2>
       <p className="gedaempft text-sm">
-        Eine Datei mit allen Noten, markierten Stellen, Tempi und Anmerkungen dieses Geräts. Laden ergänzt die Liste;
-        Noten, die es schon gibt, werden nach Rückfrage samt Stellen und Anmerkungen durch den Stand der Sicherung ersetzt,
-        alle anderen bleiben.
+        Eine Datei mit allen Noten, markierten Stellen, Tempi und Anmerkungen dieses Geräts. Laden ergänzt die Liste:
+        Was es schon gibt, bekommt nach Rückfrage den Stand der Sicherung; was nur auf diesem Gerät ist, bleibt.
       </p>
       <div className="flex flex-wrap gap-2">
-        <button type="button" className={`knopf ${fertig ? 'knopf-leise' : ''}`} onClick={() => void vorbereiten()} disabled={leer || laeuft || laden.laeuft}>
+        <button type="button" className={`knopf ${fertig ? 'knopf-leise' : ''}`} onClick={() => void vorbereiten()} disabled={laeuft || laden.laeuft}>
           {laeuft ? 'Sicherung wird gepackt …' : fertig ? 'Neu vorbereiten' : 'Sicherung vorbereiten'}
         </button>
         <button type="button" className="knopf knopf-leise" onClick={laden.waehlen} disabled={laeuft || laden.laeuft}>
@@ -163,6 +175,12 @@ export function Sicherung({ leer, laden }: { leer: boolean; laden: SicherungLade
       {fehler && <p className="warnung text-sm" role="alert">{fehler}</p>}
     </section>
   );
+}
+
+// „2 Noten“, „1 Stelle“; 0 nur mit `auchNull`, sonst leer (fällt aus Aufzählungen).
+function anzahl(n: number, eins: string, mehr: string, auchNull = false): string {
+  if (!n && !auchNull) return '';
+  return `${n} ${n === 1 ? eins : mehr}`;
 }
 
 const zeitpunkt = (t: number) => Number.isFinite(t)

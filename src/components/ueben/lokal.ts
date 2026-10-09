@@ -1,8 +1,9 @@
 'use client';
 
 import type { Anmerkung, Blaettermodus } from '@/domain/notenpult';
-import { einspielenPlanen, type Einspielplan } from '@/domain/einspielen';
-import { sicherungLesen, sicherungPacken, SicherungsFehler } from '@/domain/sicherung';
+import { einspielenPlanen, type Einspielplan, type Vorhanden } from '@/domain/einspielen';
+import { nurLesbare } from '@/domain/lesbar';
+import { sicherungLesen, sicherungPacken, SicherungsFehler, type SicherungsInhalt } from '@/domain/sicherung';
 
 // Ablage nur auf diesem Gerät (IndexedDB): Noten-PDFs, markierte Stellen,
 // geschaffte Tempi, Anmerkungen. Keine Datenbank, kein Server. Safari kann die
@@ -63,16 +64,35 @@ function oeffnen(): Promise<IDBDatabase> {
   return verbindung;
 }
 
-async function tx<T>(speicher: Speicher, modus: IDBTransactionMode, arbeit: (s: IDBObjectStore) => IDBRequest<T> | void): Promise<T> {
+// Eine Transaktion über einen oder mehrere Speicher. Abgelehnt wird nur in
+// onabort: Jeder Fehler bricht die Transaktion ab, und erst dann steht der
+// Grund in t.error (in onerror ist er noch leer). Wirft die Arbeit selbst,
+// bricht sie mit genau diesem Grund ab. `arbeit` liefert optional, was nach
+// dem Abschluss herauskommt.
+async function transaktion<T>(
+  speicher: Speicher | Speicher[],
+  modus: IDBTransactionMode,
+  arbeit: (t: IDBTransaction, abbrechen: (grund: unknown) => void) => (() => T) | void,
+): Promise<T> {
   const db = await oeffnen();
   return new Promise((ok, fehler) => {
     const t = db.transaction(speicher, modus);
-    const req = arbeit(t.objectStore(speicher));
-    t.oncomplete = () => ok(req ? req.result : (undefined as T));
-    t.onerror = () => fehler(t.error);
-    t.onabort = () => fehler(t.error ?? new Error('Abgebrochen.'));
+    let grund: unknown = null;
+    let ergebnis: (() => T) | void = undefined;
+    const abbrechen = (x: unknown) => { grund ??= x; try { t.abort(); } catch { /* schon beendet */ } };
+    t.oncomplete = () => ok(ergebnis ? ergebnis() : (undefined as T));
+    t.onabort = () => fehler(grund ?? t.error ?? new Error('Der Gerätespeicher hat den Vorgang abgebrochen.'));
+    try { ergebnis = arbeit(t, abbrechen); } catch (x) { abbrechen(x); }
   });
 }
+
+const tx = <T>(speicher: Speicher, modus: IDBTransactionMode, arbeit: (s: IDBObjectStore) => IDBRequest<T> | void) =>
+  transaktion<T>(speicher, modus, (t) => {
+    const req = arbeit(t.objectStore(speicher));
+    return req ? () => req.result : undefined;
+  });
+
+const ALLE: Speicher[] = ['noten', 'stellen', 'anmerkungen'];
 
 // ── Noten ──
 export const alleNoten = () => tx<LokaleNoten[]>('noten', 'readonly', (s) => s.getAll());
@@ -87,11 +107,17 @@ export async function notenAendern(id: string, felder: Partial<LokaleNoten>) {
   const alt = await notenHolen(id);
   if (alt) await tx('noten', 'readwrite', (s) => s.put({ ...alt, ...felder, id }));
 }
-export async function notenLoeschen(id: string) {
-  for (const st of await stellenVon(id)) await stelleLoeschen(st.id);
-  for (const a of await anmerkungenVon(id)) await tx('anmerkungen', 'readwrite', (s) => s.delete(a.id));
-  await tx('noten', 'readwrite', (s) => s.delete(id));
-}
+// Noten samt Stellen und Anmerkungen in EINER Transaktion: ganz oder gar nicht.
+export const notenLoeschen = (id: string) => transaktion<void>(ALLE, 'readwrite', (t, abbrechen) => {
+  t.objectStore('noten').delete(id);
+  for (const name of ['stellen', 'anmerkungen'] as const) {
+    const s = t.objectStore(name);
+    const r = s.index('notenId').getAllKeys(id);
+    r.onsuccess = () => {
+      try { for (const k of r.result) s.delete(k); } catch (x) { abbrechen(x); }
+    };
+  }
+});
 
 // ── Stellen ──
 export const stellenVon = async (notenId: string) =>
@@ -126,12 +152,24 @@ function dauerhaftAnfragen() {
 }
 
 // ── Übe-Sicherung (.uebe, Format in @/domain/sicherung) ──
-export const alleStellen = () => tx<LokaleStelle[]>('stellen', 'readonly', (s) => s.getAll());
-export const alleAnmerkungen = () => tx<SeitenAnmerkungen[]>('anmerkungen', 'readonly', (s) => s.getAll());
+type Bestand = SicherungsInhalt<LokaleNoten, LokaleStelle, SeitenAnmerkungen>;
 
-export async function sicherungErstellen(): Promise<Blob> {
-  const [noten, stellen, anmerkungen] = await Promise.all([alleNoten(), alleStellen(), alleAnmerkungen()]);
-  return sicherungPacken({ noten, stellen, anmerkungen }, 'cheatsheet', Date.now());
+// Alle drei Speicher in EINER Transaktion: ein stimmiger Stand, auch wenn
+// nebenher etwas geändert wird. Die Verbindung bleibt offen — Safari kann die
+// PDF-Blobs sonst nicht mehr lesen.
+export const allesLesen = () => transaktion<Bestand>(ALLE, 'readonly', (t) => {
+  const noten = t.objectStore('noten').getAll() as IDBRequest<LokaleNoten[]>;
+  const stellen = t.objectStore('stellen').getAll() as IDBRequest<LokaleStelle[]>;
+  const anmerkungen = t.objectStore('anmerkungen').getAll() as IDBRequest<SeitenAnmerkungen[]>;
+  return () => ({ noten: noten.result, stellen: stellen.result, anmerkungen: anmerkungen.result });
+});
+
+// Nicht lesbare Noten (kaputter oder verlorener PDF-Inhalt) kommen samt ihren
+// Stellen und Anmerkungen nicht mit; `fehlen` nennt sie.
+export async function sicherungErstellen(): Promise<{ datei: Blob; noten: number; fehlen: LokaleNoten[] }> {
+  const { bestand, fehlen } = await nurLesbare(await allesLesen());
+  const datei = await sicherungPacken(bestand, 'cheatsheet', Date.now());
+  return { datei, noten: bestand.noten.length, fehlen };
 }
 
 // Einspielen in zwei Schritten, damit die Oberfläche dazwischen nachfragen
@@ -141,61 +179,45 @@ export interface Einspielung extends Einspielplan<Record<string, unknown> & { id
   erstellt: number;
 }
 
+// Falsche Datei gewählt: Der Vertrag sagt nur, dass es keine Sicherung ist —
+// hier kommt dazu, wo die richtige liegt.
+const FALSCHE_DATEI = 'Das ist keine Übe-Sicherung';
+const WO_SIE_LIEGT = ' Bitte die .uebe-Datei wählen (in Dateien → Downloads).';
+
 export async function sicherungPruefen(datei: Blob): Promise<Einspielung> {
   let gelesen: Awaited<ReturnType<typeof sicherungLesen>>;
   try {
     gelesen = await sicherungLesen(datei);
   } catch (e) {
+    if (e instanceof SicherungsFehler && e.message.startsWith(FALSCHE_DATEI)) throw new SicherungsFehler(e.message + WO_SIE_LIEGT);
     // Alles, was das Format nicht selbst benennt (z. B. kaputter Kopf mit
     // falschen Typen), ist für die Person dasselbe.
     throw e instanceof SicherungsFehler ? e : new SicherungsFehler('Die Sicherung ist beschädigt.');
   }
   const { kopf, noten } = gelesen;
-  const vorhanden = new Set((await tx<IDBValidKey[]>('noten', 'readonly', (s) => s.getAllKeys())).map(String));
+  const vorhanden = await transaktion<Vorhanden>(ALLE, 'readonly', (t) => {
+    const [n, s, a] = ALLE.map((name) => t.objectStore(name).getAllKeys());
+    const ids = (r: IDBRequest<IDBValidKey[]>) => new Set(r.result.map(String));
+    return () => ({ noten: ids(n), stellen: ids(s), anmerkungen: ids(a) });
+  });
   const plan = einspielenPlanen({ noten, stellen: kopf.stellen, anmerkungen: kopf.anmerkungen }, vorhanden);
   return { ...plan, erstellt: kopf.erstellt };
 }
 
 // Schreibt eine geprüfte Sicherung: entweder kommt alles an oder nichts.
-// Ersetzte Noten bekommen genau den Stand der Sicherung — Stellen und
-// Anmerkungen, die es dort zu ihnen nicht gibt, werden entfernt. Alle anderen
-// Noten bleiben unberührt.
+// Zusammenführen: Bei gleicher id gewinnt die Sicherung; Stellen und
+// Anmerkungen, die es nur auf dem Gerät gibt, bleiben.
 // Die PDF-Ausschnitte gehen direkt an put: IndexedDB legt ihren Inhalt selbst
 // ab und hängt danach nicht mehr an der gewählten Datei.
-export async function sicherungSchreiben(e: Einspielung): Promise<{ neu: number; ersetzt: number; stellen: number; anmerkungen: number; uebersprungen: number }> {
-  const db = await oeffnen();
-  await new Promise<void>((ok, fehler) => {
-    const t = db.transaction(['noten', 'stellen', 'anmerkungen'], 'readwrite');
-    let grund: unknown = null;
-    t.oncomplete = () => ok();
-    t.onerror = () => fehler(t.error);
-    t.onabort = () => fehler(grund ?? t.error ?? new Error('Speichern abgebrochen.'));
-    const abbrechen = (x: unknown) => { grund ??= x; try { t.abort(); } catch { /* schon beendet */ } };
-    try {
-      const noten = t.objectStore('noten');
-      const stellen = t.objectStore('stellen');
-      const anmerkungen = t.objectStore('anmerkungen');
-      for (const n of e.noten) noten.put(n);
-      for (const st of e.stellen) stellen.put(st);
-      for (const a of e.anmerkungen) anmerkungen.put(a);
-      const behalten = new Map([
-        [stellen, new Set(e.stellen.map((x) => x.id))],
-        [anmerkungen, new Set(e.anmerkungen.map((x) => x.id))],
-      ]);
-      for (const notenId of e.ersetzt) {
-        for (const [speicher, ids] of behalten) {
-          const r = speicher.index('notenId').getAllKeys(notenId);
-          r.onsuccess = () => {
-            try {
-              for (const k of r.result) if (!ids.has(String(k))) speicher.delete(k);
-            } catch (x) { abbrechen(x); }
-          };
-        }
-      }
-    } catch (x) {
-      abbrechen(x);
-    }
+export async function sicherungSchreiben(e: Einspielung): Promise<{ neu: number; aktualisiert: number; stellen: number; anmerkungen: number; uebersprungen: number }> {
+  await transaktion<void>(ALLE, 'readwrite', (t) => {
+    const noten = t.objectStore('noten');
+    const stellen = t.objectStore('stellen');
+    const anmerkungen = t.objectStore('anmerkungen');
+    for (const n of e.noten) noten.put(n);
+    for (const st of e.stellen) stellen.put(st);
+    for (const a of e.anmerkungen) anmerkungen.put(a);
   });
   dauerhaftAnfragen();
-  return { neu: e.neu, ersetzt: e.ersetzt.length, stellen: e.stellen.length, anmerkungen: e.anmerkungen.length, uebersprungen: e.uebersprungen };
+  return { neu: e.neu, aktualisiert: e.ueberschrieben.noten, stellen: e.stellen.length, anmerkungen: e.anmerkungen.length, uebersprungen: e.uebersprungen };
 }
