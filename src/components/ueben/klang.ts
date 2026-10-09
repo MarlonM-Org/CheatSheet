@@ -1,0 +1,62 @@
+'use client';
+
+// Klänge für das Metronom, einmal synthetisiert und als Puffer abgelegt —
+// kurz, trocken und mit klarem Anschlag, damit man sie im Ensemble-Lärm hört.
+export type Klang = 'holz' | 'klick' | 'glocke';
+export type Art = 'betont' | 'normal' | 'unter';
+
+const DAUER = { holz: 0.09, klick: 0.03, glocke: 0.35 };
+
+export function klangPuffer(ctx: BaseAudioContext, klang: Klang, art: Art): AudioBuffer {
+  const rate = ctx.sampleRate;
+  const n = Math.floor(rate * DAUER[klang]);
+  const puffer = ctx.createBuffer(1, n, rate);
+  const d = puffer.getChannelData(0);
+  const hoehe = art === 'betont' ? 1.45 : art === 'unter' ? 0.8 : 1;
+  let zufall = 7;
+  const rauschen = () => { zufall = (zufall * 16807) % 2147483647; return zufall / 1073741823 - 1; };
+  for (let i = 0; i < n; i++) {
+    const t = i / rate;
+    let v = 0;
+    if (klang === 'holz') {
+      // Holzblock: zwei unharmonische Teiltöne, sehr schneller Abfall, kurzer Rauschanschlag
+      const f = 1050 * hoehe;
+      v = 0.75 * Math.sin(2 * Math.PI * f * t) * Math.exp(-t * 55)
+        + 0.35 * Math.sin(2 * Math.PI * f * 2.71 * t) * Math.exp(-t * 90)
+        + 0.25 * rauschen() * Math.exp(-t * 900);
+    } else if (klang === 'klick') {
+      v = rauschen() * Math.exp(-t * (art === 'betont' ? 260 : 380)) * (art === 'unter' ? 0.6 : 1)
+        + 0.3 * Math.sin(2 * Math.PI * 3200 * hoehe * t) * Math.exp(-t * 300);
+    } else {
+      const f = 880 * hoehe;
+      v = 0.6 * Math.sin(2 * Math.PI * f * t) * Math.exp(-t * 9)
+        + 0.2 * Math.sin(2 * Math.PI * f * 2 * t) * Math.exp(-t * 14)
+        + 0.1 * Math.sin(2 * Math.PI * f * 3.01 * t) * Math.exp(-t * 20);
+    }
+    // weicher Einsatz gegen Knacksen
+    d[i] = v * Math.min(1, i / (rate * 0.0008)) * (art === 'unter' ? 0.45 : art === 'betont' ? 1 : 0.75);
+  }
+  return puffer;
+}
+
+type AudioSessionNavigator = Navigator & { audioSession?: { type: string } };
+// iPhone/iPad: Wiedergabe auch bei Stummschalter (wo der Browser es kann).
+export function audioSitzung(typ: 'playback' | 'play-and-record') {
+  const nav = navigator as AudioSessionNavigator;
+  try { if (nav.audioSession) nav.audioSession.type = typ; } catch { /* egal */ }
+}
+
+type WakeLockNavigator = Navigator & { wakeLock?: { request: (t: 'screen') => Promise<{ release: () => Promise<void> }> } };
+// Bildschirm nicht ausgehen lassen, solange Metronom oder Stimmgerät laufen.
+export async function wachHalten(): Promise<(() => void) | null> {
+  try {
+    const sperre = await (navigator as WakeLockNavigator).wakeLock?.request('screen');
+    return sperre ? () => { void sperre.release(); } : null;
+  } catch { return null; }
+}
+
+export function gespeichert<T>(k: string, standard: T): T {
+  if (typeof window === 'undefined') return standard;
+  try { const v = localStorage.getItem(k); return v === null ? standard : (JSON.parse(v) as T); } catch { return standard; }
+}
+export function speichern(k: string, v: unknown) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* egal */ } }
