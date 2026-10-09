@@ -280,3 +280,10 @@ details[open] > summary::before { transform: rotate(90deg); }
   box-shadow: 0 6px 24px rgb(0 0 0 / 18%); font-size: 0.9rem; font-weight: 600;
 }
 .neue-version-weg { min-width: 2.2rem; min-height: 2.2rem; border-radius: 10px; font-size: 1.2rem; color: var(--gedaempft); }
+
+/* ── Trefferflächen bei Finger-Bedienung: mindestens 44 px ── */
+@media (pointer: coarse) {
+  .segment button, .knopf-klein, .text-knopf, .schalter-zeile { min-height: 2.75rem; }
+  .text-knopf { display: inline-flex; align-items: center; }
+  details > summary { min-height: 2.75rem; display: flex; align-items: center; }
+}

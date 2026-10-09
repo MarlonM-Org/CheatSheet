@@ -120,10 +120,15 @@ Unter **Noten → Sicherung**:
 Das Format steht in `src/domain/sicherung.ts` und ist der Vertrag mit der
 Registerführer-App — dort wird mit demselben Code gespeichert.
 
-**Umzug aus der Registerführer-App:** dort unter Admin → Üben „Sicherung
-speichern“, hier unter Noten „Sicherung laden“. Danach dieselben Noten, Stellen,
-Tempi und Anmerkungen. Einstellungen wie Metronom-Tempo oder Klang kommen nicht
-mit (die liegen im `localStorage`, je Adresse getrennt).
+**Umzug aus der Registerführer-App:** dort auf der Übe-Seite „Sicherung
+speichern“, hier unter Noten „Sicherung laden“ — bei leerer Liste steht der
+Knopf direkt in der Hinweis-Karte. Wer zum ersten Mal kommt (kein gemerkter
+Reiter) oder über `?reiter=noten` bzw. `#noten` kommt, startet gleich bei den
+Noten; der Parameter verschwindet danach aus der Adresse. Danach dieselben
+Noten, Stellen, Tempi und Anmerkungen. Auf jedem Gerät einzeln: Safari-Tab und
+Home-Bildschirm-App haben getrennte Speicher. Einstellungen wie Metronom-Tempo
+oder Klang kommen nicht mit (die liegen im `localStorage`, je Adresse
+getrennt).
 
 **Gegen Datenverlust:** Safari kann Gerätedaten einer Website löschen, die
 lange nicht geöffnet wurde (als Home-Bildschirm-App seltener). Beim ersten

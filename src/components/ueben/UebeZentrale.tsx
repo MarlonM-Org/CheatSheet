@@ -11,14 +11,36 @@ import { Sicherung, useSicherungLaden } from './Sicherung';
 import { Stimmgeraet } from './Stimmgeraet';
 
 type Reiter = 'metronom' | 'stimmgeraet' | 'noten';
+const REITER: Reiter[] = ['metronom', 'stimmgeraet', 'noten'];
+
+// Wer neu ist (nichts gemerkt) oder über einen Umzugs-Link kommt
+// (?reiter=noten bzw. #noten), landet bei den Noten — dort liegt „Sicherung
+// laden“. Sonst der zuletzt benutzte Reiter.
+function startReiter(): Reiter {
+  const url = new URL(location.href);
+  if (url.searchParams.get('reiter') === 'noten' || url.hash === '#noten') return 'noten';
+  const gemerkt = gespeichert<Reiter | null>('ueben:reiter', null);
+  return gemerkt && REITER.includes(gemerkt) ? gemerkt : 'noten';
+}
+
+// Den Umzugs-Parameter nach dem Start aus der Adresse nehmen, damit Neuladen
+// und Lesezeichen wieder den gemerkten Reiter zeigen.
+function adresseAufraeumen() {
+  const url = new URL(location.href);
+  if (!url.searchParams.has('reiter') && url.hash !== '#noten') return;
+  url.searchParams.delete('reiter');
+  if (url.hash === '#noten') url.hash = '';
+  history.replaceState(history.state, '', url.pathname + url.search + url.hash);
+}
 
 export function UebeZentrale() {
   return <MetronomAnbieter><Zentrale /></MetronomAnbieter>;
 }
 
 function Zentrale() {
-  const [reiter, setReiter] = useState<Reiter>(() => gespeichert('ueben:reiter', 'metronom'));
+  const [reiter, setReiter] = useState<Reiter>(startReiter);
   const [offen, setOffen] = useState<string | null>(null);
+  useEffect(adresseAufraeumen, []);
   const wechseln = (k: Reiter) => { setReiter(k); speichern('ueben:reiter', k); if (k !== 'noten') setOffen(null); };
 
   return (
@@ -33,7 +55,7 @@ function Zentrale() {
       {reiter === 'noten' && (offen
         ? (
           <div className="space-y-3">
-            <button type="button" className="text-sm underline" onClick={() => setOffen(null)}>← Alle Noten</button>
+            <button type="button" className="text-knopf text-sm underline" onClick={() => setOffen(null)}>← Alle Noten</button>
             <NotenPult notenId={offen} />
           </div>
         )
@@ -167,14 +189,17 @@ function NotenListe({ oeffnen }: { oeffnen: (id: string) => void }) {
       {sicherung.fehler && <p className="karte warnung" role="alert">{sicherung.fehler}</p>}
       {sicherung.eingabe}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <button type="button" className="knopf" onClick={() => void hinzufuegen()} disabled={laeuft}>+ Noten hinzufügen</button>
-        <span className="flex-1" />
-        <div className="segment !mx-0" role="group" aria-label="Sortieren">
-          <button type="button" aria-pressed={sortierung === 'zuletzt'} onClick={() => { setSortierung('zuletzt'); speichern('ueben:sort', 'zuletzt'); }}>Zuletzt genutzt</button>
-          <button type="button" aria-pressed={sortierung === 'abc'} onClick={() => { setSortierung('abc'); speichern('ueben:sort', 'abc'); }}>A–Z</button>
+      {/* Leere Liste: Hinzufügen und Laden stehen in der Hinweis-Karte, Sortieren gibt es noch nichts. */}
+      {!!noten?.length && (
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" className="knopf" onClick={() => void hinzufuegen()} disabled={laeuft}>+ Noten hinzufügen</button>
+          <span className="flex-1" />
+          <div className="segment !mx-0" role="group" aria-label="Sortieren">
+            <button type="button" aria-pressed={sortierung === 'zuletzt'} onClick={() => { setSortierung('zuletzt'); speichern('ueben:sort', 'zuletzt'); }}>Zuletzt genutzt</button>
+            <button type="button" aria-pressed={sortierung === 'abc'} onClick={() => { setSortierung('abc'); speichern('ueben:sort', 'abc'); }}>A–Z</button>
+          </div>
         </div>
-      </div>
+      )}
 
       {!!noten?.length && (
         <div className="karte flex flex-wrap items-center gap-2 !py-2">
@@ -191,7 +216,7 @@ function NotenListe({ oeffnen }: { oeffnen: (id: string) => void }) {
             Alle aktualisieren
           </button>
           {!!auswahl.size && (
-            <button type="button" className="gedaempft text-sm underline" disabled={laeuft} onClick={async () => {
+            <button type="button" className="text-knopf gedaempft text-sm underline" disabled={laeuft} onClick={async () => {
               if (!confirm(`${auswahl.size} Noten mit allen Stellen und Anmerkungen von diesem Gerät löschen?`)) return;
               for (const id of auswahl) await notenLoeschen(id);
               setAuswahl(new Set()); laden();
@@ -203,9 +228,19 @@ function NotenListe({ oeffnen }: { oeffnen: (id: string) => void }) {
 
       <ul className="space-y-2">
         {noten?.length === 0 && (
-          <li className="karte space-y-2">
+          <li className="karte space-y-3">
             <p>Noch keine Noten auf diesem Gerät. Mit „+ Noten hinzufügen“ eine oder mehrere PDF-Dateien wählen.</p>
-            <p className="font-bold">Umzug aus der Registerführer-App? Dort unter Admin → Üben ‚Sicherung speichern‘, dann hier ‚Sicherung laden‘.</p>
+            <p>
+              <strong>Umzug aus der Registerführer-App?</strong> Dort auf der Übe-Seite „Sicherung speichern“, dann hier
+              „Sicherung laden“. Auf jedem Gerät einzeln — Safari-Tab und Home-Bildschirm-App haben getrennte Speicher.
+              Metronom-Einstellungen (Tempo, Klang) bitte neu setzen.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className="knopf" onClick={sicherung.waehlen} disabled={sicherung.laeuft || laeuft}>
+                {sicherung.laeuft ? 'Sicherung wird geladen …' : 'Sicherung laden'}
+              </button>
+              <button type="button" className="knopf knopf-leise" onClick={() => void hinzufuegen()} disabled={sicherung.laeuft || laeuft}>+ Noten hinzufügen</button>
+            </div>
           </li>
         )}
         {sortiert.map((n) => (

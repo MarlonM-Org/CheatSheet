@@ -51,7 +51,7 @@ export function NotenPult({ notenId }: { notenId: string }) {
       <div className="flex flex-wrap items-baseline gap-x-3">
         <h2 className="text-xl font-extrabold">{noten.titel}</h2>
         {noten.stimme && <span className="gedaempft">{noten.stimme}</span>}
-        <button type="button" className="gedaempft text-sm underline" onClick={() => setUmbenennen(!umbenennen)}>umbenennen</button>
+        <button type="button" className="text-knopf gedaempft text-sm underline" onClick={() => setUmbenennen(!umbenennen)}>umbenennen</button>
       </div>
       {umbenennen && (
         <form className="karte grid gap-2" onSubmit={async (e) => {
@@ -116,8 +116,8 @@ function UebeAnsicht({ pdf, stellen, bpm, tempoSetzen, neuLaden, zeigen }: {
 
   return (
     <div ref={huelle} className="space-y-4">
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={rand} onChange={(e) => setRand(e.target.checked)} /> etwas Rand davor und danach zeigen
+      <label className="schalter-zeile flex items-center gap-2 text-sm">
+        <input type="checkbox" className="auswahl-box" checked={rand} onChange={(e) => setRand(e.target.checked)} /> etwas Rand davor und danach zeigen
       </label>
       {breite > 0 && stellen.map((s) => (
         <UebeStelle key={s.id} stelle={s} breite={breite} rand={rand} seiteHolen={seiteHolen} bpm={bpm} tempoSetzen={tempoSetzen} neuLaden={neuLaden} zeigen={() => zeigen(s.id)} />
