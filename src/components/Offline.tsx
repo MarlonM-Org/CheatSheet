@@ -36,16 +36,34 @@ export function Offline() {
   useEffect(() => {
     if (process.env.NODE_ENV !== 'production' || !('serviceWorker' in navigator)) return;
     const sw = navigator.serviceWorker;
-    const eigene = process.env.BUILD_KENNUNG;
+    const eigene = process.env.__CHEATSHEET_BUILD_KENNUNG;
     let aus = false;
     let registrierung: ServiceWorkerRegistration | null = null;
     let zuletzt = Date.now();
 
-    // Nach einem Wechsel des Service Workers: Weicht seine Kennung ab, ist die
-    // Seite veraltet.
-    const gewechselt = async () => {
+    // Kennungen vergleichen — aber nur, wenn kein weiterer Stand unterwegs ist.
+    const vergleichen = async (r: ServiceWorkerRegistration | null) => {
+      if (r && (r.installing || r.waiting)) return;
       const k = await kennungFragen(sw);
       if (!aus && k) setNeu(k !== eigene);
+    };
+
+    // Nach einem Wechsel des Service Workers: erst selbst nachsehen, ob es
+    // einen noch neueren Stand gibt. Wird gerade einer installiert, meldet
+    // dessen Wechsel sich selbst — oder er scheitert, dann zählt der jetzige.
+    // Erst wenn keiner mehr unterwegs ist und die Kennungen abweichen, ist die
+    // Seite veraltet.
+    const gewechselt = async () => {
+      const r = registrierung ?? (await sw.getRegistration()) ?? null;
+      if (r) {
+        try { await r.update(); } catch { return; } // offline: lieber kein Hinweis als ein falscher
+        const unterwegs = r.installing || r.waiting;
+        if (unterwegs) {
+          unterwegs.addEventListener('statechange', () => { if (unterwegs.state === 'redundant') void vergleichen(r); });
+          return;
+        }
+      }
+      await vergleichen(r);
     };
 
     // Beim Start ist eine Abweichung zweideutig: Die Seite kann neuer sein als

@@ -62,16 +62,22 @@ samt Notenbetrachter:
   Build-Kennung in `out/sw.js` ein. Jeder Build ergibt so einen neuen Service
   Worker.
 - Die Build-Kennung erzeugt `next.config.ts` einmal je Build: als Build-ID von
-  Next und als `process.env.BUILD_KENNUNG` in der Seite. `precache.mjs` liest
-  sie aus `.next/BUILD_ID` und bricht ab, wenn sie nicht im Code der Seite
-  steckt.
+  Next und als `process.env.__CHEATSHEET_BUILD_KENNUNG` in der Seite (per
+  `compiler.define`). Die Variable gilt nur innerhalb desselben Builds — von
+  außen gesetzt wird sie nicht übernommen, sonst hätten alle Builds dieselbe
+  Kennung. `precache.mjs` liest sie aus `.next/BUILD_ID` und bricht ab, wenn
+  sie nicht im Code der Seite, in `index.html` oder in den Seitendaten
+  (`.txt`) steckt.
 - `public/sw.js` legt beim Installieren alle Dateien aus `precache.json` in
   einen versionierten Cache — alle oder keine: Fehlt eine oder gehört die
   Liste zu einem anderen Stand als `sw.js`, scheitert die Installation, die
   alte Version bleibt aktiv und der Browser versucht es später erneut. Ein
   dabei neu angelegter Cache wird wieder gelöscht, ein schon vorhandener
-  (Rollback auf einen früheren Deploy) bleibt. Erst ein vollständiger Stand
-  bekommt den Marker `/__fertig` mit Zeitpunkt.
+  (Rollback auf einen früheren Deploy) bleibt. Vor dem Marker liest der
+  Service Worker `/` und alle gelisteten `.txt` aus dem neuen Cache und prüft,
+  dass seine Kennung darin steht; kam unterwegs ein anderer Stand an, scheitert
+  die Installation genauso. Erst ein vollständiger, geprüfter Stand bekommt den
+  Marker `/__fertig` mit Zeitpunkt.
 - Beim Aktivieren fliegen Caches ohne Marker raus; von den übrigen bleiben der
   neue und der mit dem jüngsten Marker, damit eine noch offene alte Seite ihre
   Code-Stücke findet.
@@ -85,8 +91,17 @@ samt Notenbetrachter:
   Worker eine andere Build-Kennung meldet als die Seite (Frage per
   `postMessage({ frage: 'version' })`) — nicht, wenn die Seite schon frisch
   aus dem Netz den neuen Stand hat. Neu geladen wird nur auf Tipp, nie
-  automatisch. Fehlt einer alten Seite trotzdem ein Code-Stück, meldet sie
+  automatisch. Nach einem Wechsel des Service Workers ruft die Seite erst
+  selbst `registration.update()` auf und meldet sich nur, wenn danach kein
+  weiterer Stand mehr installiert wird oder wartet und die Kennungen
+  abweichen. Fehlt einer alten Seite trotzdem ein Code-Stück, meldet sie
   „Neue Version verfügbar — bitte neu laden“ statt eines technischen Fehlers.
+- **Grenze:** Behalten werden nur zwei Stände. Ist eine Seite über ZWEI
+  Updates hinweg offen (alte Seite A, inzwischen B und C), ist ihr Cache
+  weg; Code-Stücke, die sie noch nicht geladen hatte, fehlen ihr dann
+  womöglich — offline sicher, online, sobald der Server nur noch den neuen
+  Stand ausliefert. Sie zeigt dann „Neue Version verfügbar — bitte neu laden“; Neuladen holt
+  den aktuellen Stand.
 - Kommt die App zurück in den Vordergrund, schaut sie höchstens alle 6 h nach
   einer neuen Version (Home-Bildschirm-Apps bleiben oft tagelang offen).
 - Der pdf.js-Worker heißt `pdf.worker-<pdf.js-Version>.min.mjs`

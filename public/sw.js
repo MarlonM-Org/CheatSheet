@@ -3,8 +3,10 @@
 // Version und Build-Kennung ein — dadurch ändert sich diese Datei mit jedem
 // Build, und der Browser installiert den neuen Stand.
 const VERSION = 'entwicklung';
-// Dieselbe Kennung steckt in der Seite (process.env.BUILD_KENNUNG); nur wenn
-// sie abweicht, zeigt die Seite „Neue Version da“.
+// Dieselbe Kennung steckt in der Seite (process.env.__CHEATSHEET_BUILD_KENNUNG);
+// nur wenn sie abweicht, zeigt die Seite „Neue Version da“. Sie steht auch in
+// der Startseite und den Seitendaten (.txt) — daran prüft die Installation,
+// dass sie wirklich diesen Stand im Cache hat.
 const KENNUNG = 'entwicklung';
 const PRAEFIX = 'ueben-';
 const CACHE = PRAEFIX + VERSION;
@@ -37,6 +39,10 @@ self.addEventListener('install', (event) => {
           if (version !== VERSION) throw new Error(`precache.json gehört zu ${version}, nicht zu ${VERSION}`);
           // Alles oder nichts: Fehlt eine Datei, wäre der neue Stand offline kaputt.
           await Promise.all(dateien.map((pfad) => cache.add(new Request(pfad, { cache: 'reload' }))));
+          // Startseite und Seitendaten müssen zu diesem Stand gehören. Kam von
+          // einem Zwischenspeicher unterwegs noch der alte (oder schon ein
+          // neuerer) Stand, wäre die App offline gemischt: Installation scheitert.
+          await kennungPruefen(cache, dateien.filter((pfad) => pfad === '/' || pfad.endsWith('.txt')));
         }
         await cache.put(FERTIG, new Response(String(Date.now())));
         // Hat ein gleichzeitiges Aufräumen den Cache gelöscht, ist nichts davon da.
@@ -49,6 +55,15 @@ self.addEventListener('install', (event) => {
     })(),
   );
 });
+
+async function kennungPruefen(cache, pfade) {
+  if (!pfade.includes('/')) throw new Error('precache.json ohne Startseite');
+  for (const pfad of pfade) {
+    const antwort = await cache.match(pfad);
+    const text = antwort ? await antwort.text() : '';
+    if (!text.includes(KENNUNG)) throw new Error(`${pfad} gehört nicht zum Stand ${KENNUNG}`);
+  }
+}
 
 // Behält den aktuellen und den jüngsten anderen vollständigen Stand: Eine noch
 // offene alte Seite findet so weiter ihre Code-Stücke. Halbe Installationen

@@ -2,7 +2,7 @@
 // und setzt Version und Build-Kennung in out/sw.js ein. Die Version ist ein
 // Hash über Namen und Inhalt aller Dateien — jeder neue Stand bekommt einen
 // neuen Cache. Die Build-Kennung ist dieselbe, die next.config.ts der Seite
-// mitgibt (process.env.BUILD_KENNUNG).
+// mitgibt (process.env.__CHEATSHEET_BUILD_KENNUNG).
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
@@ -28,10 +28,18 @@ const dateien = alle(OUT)
   .sort();
 
 // Die Seite muss dieselbe Kennung im Code tragen, sonst käme nach jedem
-// Update ein falscher oder gar kein Hinweis.
-const alsText = new RegExp(`["'\`]${kennung}["'\`]`);
+// Update ein falscher oder gar kein Hinweis — und zwar als genau dieses
+// Textstück, nicht doppelt in Anführungszeichen ('"…"' wäre eine andere Kennung).
+const alsText = new RegExp(`(?<!["'\`])(["'\`])${kennung}\\1(?!["'\`])`);
 if (!dateien.some((d) => d.startsWith('_next/static/chunks/') && d.endsWith('.js') && alsText.test(readFileSync(join(OUT, d), 'utf8')))) {
   throw new Error(`precache: Kennung „${kennung}“ steckt in keinem Code-Stück der Seite`);
+}
+
+// Der Service Worker prüft beim Installieren, dass Startseite und Seitendaten
+// die Kennung tragen (public/sw.js, kennungPruefen). Fehlt sie schon hier,
+// würde jede Installation scheitern.
+for (const d of dateien.filter((d) => d === 'index.html' || d.endsWith('.txt'))) {
+  if (!readFileSync(join(OUT, d), 'utf8').includes(kennung)) throw new Error(`precache: Kennung „${kennung}“ fehlt in ${d}`);
 }
 
 const hash = createHash('sha256');

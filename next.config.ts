@@ -11,10 +11,22 @@ if (!existsSync(`public${PDF_WORKER}`)) {
 
 // Kennung dieses Builds: Seite und Service Worker kennen beide dieselbe, so
 // meldet die Seite eine neue Version nur bei echtem Unterschied. Einmal beim
-// Laden der Konfiguration erzeugt und in die Umgebung gelegt — Next lädt die
-// Konfiguration in Hilfsprozessen erneut, die erben dann dieselbe Kennung.
+// Laden der Konfiguration erzeugt; Next lädt die Konfiguration mehrmals (und
+// womöglich in Hilfsprozessen), alle sollen dieselbe Kennung bekommen. Dafür
+// liegt sie in einer eigenen Variable, zusammen mit der Nummer des Prozesses,
+// der sie erzeugt hat — übernommen wird sie nur im selben Prozess oder in
+// einem direkten Kindprozess. Von außen (CI, Hosting) gesetzt, gilt sie nicht:
+// Sonst hätten alle Builds dieselbe Kennung und es käme nie ein Hinweis.
 // scripts/precache.mjs liest sie aus .next/BUILD_ID und setzt sie in sw.js ein.
-const BUILD_KENNUNG = (process.env.BUILD_KENNUNG ||= randomBytes(9).toString('base64url'));
+const NAME = '__CHEATSHEET_BUILD_KENNUNG';
+function kennung(): string {
+  const [pid, wert] = (process.env[NAME] ?? '').split(':');
+  if (wert && /^[\w-]{12}$/.test(wert) && (pid === String(process.pid) || pid === String(process.ppid))) return wert;
+  const neu = randomBytes(9).toString('base64url');
+  process.env[NAME] = `${process.pid}:${neu}`;
+  return neu;
+}
+const BUILD_KENNUNG = kennung();
 
 // Statische App: kein Server, alles läuft im Browser und bleibt auf dem Gerät.
 const nextConfig: NextConfig = {
@@ -22,7 +34,10 @@ const nextConfig: NextConfig = {
   images: { unoptimized: true },
   generateBuildId: () => BUILD_KENNUNG,
   // Wird beim Build fest in den Code geschrieben (process.env.…).
-  env: { PDF_WORKER, BUILD_KENNUNG },
+  env: { PDF_WORKER },
+  // Namen mit __ nimmt `env` nicht an; define schreibt sie genauso fest ein
+  // (der Wert ist der Text selbst, Next setzt die Anführungszeichen).
+  compiler: { define: { [`process.env.${NAME}`]: BUILD_KENNUNG } },
 };
 
 export default nextConfig;
