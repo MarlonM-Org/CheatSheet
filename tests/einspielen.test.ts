@@ -165,16 +165,20 @@ describe('Rückfrage beim Laden', () => {
   it('nennt Datum, Anzahlen und was zusammengeführt wird', () => {
     expect(rueckfrage(plan(2, 1, 3), '09.10.2026, 16:27 Uhr')).toBe(
       'Die Sicherung vom 09.10.2026, 16:27 Uhr aktualisiert auf diesem Gerät 2 Noten, 1 Stelle und 3 Seiten mit Anmerkungen. '
-      + 'Tempo-Verläufe und Striche werden zusammengeführt, nichts geht verloren; Titel, Notizen und Rahmen kommen aus der Sicherung. Laden?',
+      + 'Titel, Notizen, Rahmen, PDF-Dateien und Blättermodus kommen aus der Sicherung. '
+      + 'Tempo-Verläufe und Striche werden zusammengeführt; Striche, die hier seit der Sicherung wegradiert wurden, erscheinen wieder. Laden?',
     );
   });
 
   it('ohne Datum und mit übersprungenen Einträgen', () => {
     expect(rueckfrage(plan(0, 2, 1, 1), null)).toBe(
-      'Die Sicherung (Datum unbekannt) aktualisiert auf diesem Gerät 0 Noten, 2 Stellen und 1 Seite mit Anmerkungen. '
-      + 'Tempo-Verläufe und Striche werden zusammengeführt, nichts geht verloren; Titel, Notizen und Rahmen kommen aus der Sicherung. '
+      'Die Sicherung (Datum unbekannt) aktualisiert auf diesem Gerät 2 Stellen und 1 Seite mit Anmerkungen. '
+      + 'Titel, Notizen, Rahmen, PDF-Dateien und Blättermodus kommen aus der Sicherung. '
+      + 'Tempo-Verläufe und Striche werden zusammengeführt; Striche, die hier seit der Sicherung wegradiert wurden, erscheinen wieder. '
       + '1 Eintrag ohne zugehörige Noten wird übersprungen. Laden?',
     );
     expect(rueckfrage(plan(1, 0, 0, 3), null)).toContain(' 3 Einträge ohne zugehörige Noten werden übersprungen.');
+    expect(rueckfrage(plan(1, 0, 0), null)).toContain('aktualisiert auf diesem Gerät 1 Noten. ');
+    expect(rueckfrage(plan(0, 0, 0, 2), null)).toContain('aktualisiert auf diesem Gerät nichts. ');
   });
 });

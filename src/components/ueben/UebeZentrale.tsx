@@ -8,7 +8,7 @@ import { Metronom } from './Metronom';
 import { MetronomAnbieter } from './MetronomKontext';
 import { NotenPult } from './NotenPult';
 import { Sicherung, useSicherungLaden } from './Sicherung';
-import { fehlerGrund, speicherFehler, SpeicherHinweis } from './speicherfehler';
+import { fehlerGrund, SpeicherHinweis } from './speicherfehler';
 import { Stimmgeraet } from './Stimmgeraet';
 
 type Reiter = 'metronom' | 'stimmgeraet' | 'noten';
@@ -141,7 +141,6 @@ function NotenListe({ oeffnen }: { oeffnen: (id: string) => void }) {
       }
       setMeldung(`${gewaehlt.length} ${gewaehlt.length === 1 ? 'Datei' : 'Dateien'} hinzugefügt. Titel und Stimme stammen aus dem Dateinamen.`);
     } catch (x) {
-      speicherFehler(x);
       setWarnung(`${fertig} von ${gewaehlt.length} ${gewaehlt.length === 1 ? 'Datei' : 'Dateien'} hinzugefügt, dann ging es nicht weiter: ${fehlerGrund(x)}`);
     } finally {
       setLaeuft(false);
@@ -185,7 +184,6 @@ function NotenListe({ oeffnen }: { oeffnen: (id: string) => void }) {
       ].filter(Boolean).join(' '));
       setAuswahl(new Set());
     } catch (x) {
-      speicherFehler(x);
       setWarnung(`${fertig} von ${ziel.length} aktualisiert, dann ging es nicht weiter: ${fehlerGrund(x)}`);
     } finally {
       setLaeuft(false);
@@ -204,7 +202,6 @@ function NotenListe({ oeffnen }: { oeffnen: (id: string) => void }) {
       for (const id of ids) { await notenLoeschen(id); geloescht.add(id); }
       setAuswahl(new Set());
     } catch (x) {
-      speicherFehler(x);
       setWarnung(`${geloescht.size} von ${ids.length} gelöscht, der Rest ist noch da und weiter ausgewählt: ${fehlerGrund(x)}`);
       setAuswahl(new Set(ids.filter((id) => !geloescht.has(id))));
     } finally {

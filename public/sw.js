@@ -42,7 +42,7 @@ self.addEventListener('install', (event) => {
           // Startseite und Seitendaten müssen zu diesem Stand gehören. Kam von
           // einem Zwischenspeicher unterwegs noch der alte (oder schon ein
           // neuerer) Stand, wäre die App offline gemischt: Installation scheitert.
-          await kennungPruefen(cache, dateien.filter((pfad) => pfad === '/' || pfad.endsWith('.txt')));
+          await kennungPruefen(cache, dateien.filter((pfad) => pfad === '/' || pfad === '/index.txt' || /\/__next\.[^/]*\.txt$/.test(pfad)));
         }
         await cache.put(FERTIG, new Response(String(Date.now())));
         // Hat ein gleichzeitiges Aufräumen den Cache gelöscht, ist nichts davon da.

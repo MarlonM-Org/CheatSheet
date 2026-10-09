@@ -37,8 +37,10 @@ if (!dateien.some((d) => d.startsWith('_next/static/chunks/') && d.endsWith('.js
 
 // Der Service Worker prüft beim Installieren, dass Startseite und Seitendaten
 // die Kennung tragen (public/sw.js, kennungPruefen). Fehlt sie schon hier,
-// würde jede Installation scheitern.
-for (const d of dateien.filter((d) => d === 'index.html' || d.endsWith('.txt'))) {
+// würde jede Installation scheitern. Nur Next-Seitendaten, keine eigenen
+// Textdateien aus public/ (etwa robots.txt) — derselbe Filter steht in sw.js.
+const seitendaten = (d) => d === 'index.html' || d === 'index.txt' || /(^|\/)__next\.[^/]*\.txt$/.test(d);
+for (const d of dateien.filter(seitendaten)) {
   if (!readFileSync(join(OUT, d), 'utf8').includes(kennung)) throw new Error(`precache: Kennung „${kennung}“ fehlt in ${d}`);
 }
 

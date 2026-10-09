@@ -42,8 +42,10 @@ export function Offline() {
     let zuletzt = Date.now();
 
     // Kennungen vergleichen — aber nur, wenn kein weiterer Stand unterwegs ist.
-    const vergleichen = async (r: ServiceWorkerRegistration | null) => {
-      if (r && (r.installing || r.waiting)) return;
+    // Ein gerade gescheiterter Stand zählt nicht: Laut Spezifikation steht er
+    // beim 'redundant'-Ereignis womöglich noch in r.installing.
+    const vergleichen = async (r: ServiceWorkerRegistration | null, gescheitert?: ServiceWorker) => {
+      if (r && [r.installing, r.waiting].some((w) => w && w !== gescheitert)) return;
       const k = await kennungFragen(sw);
       if (!aus && k) setNeu(k !== eigene);
     };
@@ -59,7 +61,7 @@ export function Offline() {
         try { await r.update(); } catch { return; } // offline: lieber kein Hinweis als ein falscher
         const unterwegs = r.installing || r.waiting;
         if (unterwegs) {
-          unterwegs.addEventListener('statechange', () => { if (unterwegs.state === 'redundant') void vergleichen(r); });
+          unterwegs.addEventListener('statechange', () => { if (unterwegs.state === 'redundant') void vergleichen(r, unterwegs); });
           return;
         }
       }

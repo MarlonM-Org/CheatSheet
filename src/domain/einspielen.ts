@@ -157,9 +157,15 @@ export function notenZusammenfuehren<N extends Record<string, unknown>>(geraet: 
 export function rueckfrage(p: Pick<Einspielplan<unknown>, 'ueberschrieben' | 'uebersprungen'>, datum: string | null): string {
   const u = p.ueberschrieben;
   const n = (z: number, eins: string, mehr: string) => `${z} ${z === 1 ? eins : mehr}`;
-  return `${datum ? `Die Sicherung vom ${datum}` : 'Die Sicherung (Datum unbekannt)'} aktualisiert auf diesem Gerät `
-    + `${n(u.noten, 'Noten', 'Noten')}, ${n(u.stellen, 'Stelle', 'Stellen')} und ${n(u.anmerkungen, 'Seite', 'Seiten')} mit Anmerkungen. `
-    + 'Tempo-Verläufe und Striche werden zusammengeführt, nichts geht verloren; Titel, Notizen und Rahmen kommen aus der Sicherung.'
+  const teile = [
+    u.noten ? n(u.noten, 'Noten', 'Noten') : '',
+    u.stellen ? n(u.stellen, 'Stelle', 'Stellen') : '',
+    u.anmerkungen ? `${n(u.anmerkungen, 'Seite', 'Seiten')} mit Anmerkungen` : '',
+  ].filter(Boolean);
+  const was = teile.length ? teile.slice(0, -1).join(', ') + (teile.length > 1 ? ' und ' : '') + teile[teile.length - 1] : 'nichts';
+  return `${datum ? `Die Sicherung vom ${datum}` : 'Die Sicherung (Datum unbekannt)'} aktualisiert auf diesem Gerät ${was}. `
+    + 'Titel, Notizen, Rahmen, PDF-Dateien und Blättermodus kommen aus der Sicherung. '
+    + 'Tempo-Verläufe und Striche werden zusammengeführt; Striche, die hier seit der Sicherung wegradiert wurden, erscheinen wieder.'
     + (p.uebersprungen ? ` ${n(p.uebersprungen, 'Eintrag', 'Einträge')} ohne zugehörige Noten ${p.uebersprungen === 1 ? 'wird' : 'werden'} übersprungen.` : '')
     + ' Laden?';
 }
