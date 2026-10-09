@@ -1,0 +1,23 @@
+# Prüft nach dem Deploy die echte Adresse: Liefert Vercel jede Datei aus
+# precache.json aus, und gehören alle zum selben Stand? Die *.vercel.app-
+# Adressen sind per Vercel-Anmeldung geschützt, geprüft wird deshalb die
+# eigene Domain. Vorerst nur von Hand (Actions → Auslieferung prüfen → Run).
+name: Auslieferung prüfen
+on:
+  workflow_dispatch:
+    inputs:
+      adresse:
+        description: Adresse der App
+        default: https://cheat-sheet.ma-und-ma.de
+permissions:
+  contents: read
+jobs:
+  pruefen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .node-version }
+      - run: node scripts/auslieferung.mjs "$ADRESSE"
+        env:
+          ADRESSE: ${{ inputs.adresse }}
