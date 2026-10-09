@@ -57,22 +57,38 @@ Icons in `public/`). Nach einem Besuch mit Netz läuft sie auch ohne Netz,
 samt Notenbetrachter:
 
 - `scripts/precache.mjs` läuft nach `next build`, schreibt alle Dateien aus
-  `out/` nach `out/precache.json` und setzt eine Version (Hash über Namen und
-  Inhalt) in `out/sw.js` ein. Jeder Build ergibt so einen neuen Service Worker.
+  `out/` nach `out/precache.json` (ohne reine Fehlerseiten wie `404.html`,
+  `_not-found*`) und setzt Version (Hash über Namen und Inhalt) und
+  Build-Kennung in `out/sw.js` ein. Jeder Build ergibt so einen neuen Service
+  Worker.
+- Die Build-Kennung erzeugt `next.config.ts` einmal je Build: als Build-ID von
+  Next und als `process.env.BUILD_KENNUNG` in der Seite. `precache.mjs` liest
+  sie aus `.next/BUILD_ID` und bricht ab, wenn sie nicht im Code der Seite
+  steckt.
 - `public/sw.js` legt beim Installieren alle Dateien aus `precache.json` in
-  einen versionierten Cache — alle oder keine: Fehlt eine, scheitert die
-  Installation, die alte Version bleibt aktiv und der Browser versucht es
-  später erneut. Beim Aktivieren bleiben der neue und der direkt vorige Stand
-  liegen (ältere fliegen raus), damit eine noch offene alte Seite ihre
+  einen versionierten Cache — alle oder keine: Fehlt eine oder gehört die
+  Liste zu einem anderen Stand als `sw.js`, scheitert die Installation, die
+  alte Version bleibt aktiv und der Browser versucht es später erneut. Ein
+  dabei neu angelegter Cache wird wieder gelöscht, ein schon vorhandener
+  (Rollback auf einen früheren Deploy) bleibt. Erst ein vollständiger Stand
+  bekommt den Marker `/__fertig` mit Zeitpunkt.
+- Beim Aktivieren fliegen Caches ohne Marker raus; von den übrigen bleiben der
+  neue und der mit dem jüngsten Marker, damit eine noch offene alte Seite ihre
   Code-Stücke findet.
 - Seitenaufrufe kommen zuerst aus dem Netz, nach spätestens 3 s aus dem Cache
-  (schlechtes Netz im Proberaum); die Netzantwort landet trotzdem im Cache.
-  Alles andere kommt zuerst aus dem Cache (über alle behaltenen Stände).
-  Fremde Adressen werden nie gecacht.
-- Übernimmt eine neue Version eine offene Seite, erscheint unten „Neue Version
-  da — neu laden“. Neu geladen wird nur auf Tipp, nie automatisch. Fehlt einer
-  alten Seite trotzdem ein Code-Stück, meldet sie „Neue Version verfügbar —
-  bitte neu laden“ statt eines technischen Fehlers.
+  (schlechtes Netz im Proberaum). Seiten und Seitendaten werden nie zur
+  Laufzeit gecacht, nur aus dem Vorab-Cache ihres Stands geliefert — sonst
+  läge HTML eines neuen Deploys ohne seine Code-Stücke im alten Cache. Alles
+  andere kommt zuerst aus dem Cache (über alle behaltenen Stände). Fremde
+  Adressen werden nie gecacht.
+- „Neue Version da — neu laden“ erscheint nur, wenn der steuernde Service
+  Worker eine andere Build-Kennung meldet als die Seite (Frage per
+  `postMessage({ frage: 'version' })`) — nicht, wenn die Seite schon frisch
+  aus dem Netz den neuen Stand hat. Neu geladen wird nur auf Tipp, nie
+  automatisch. Fehlt einer alten Seite trotzdem ein Code-Stück, meldet sie
+  „Neue Version verfügbar — bitte neu laden“ statt eines technischen Fehlers.
+- Kommt die App zurück in den Vordergrund, schaut sie höchstens alle 6 h nach
+  einer neuen Version (Home-Bildschirm-Apps bleiben oft tagelang offen).
 - Der pdf.js-Worker heißt `pdf.worker-<pdf.js-Version>.min.mjs`
   (`scripts/pdf-worker.mjs` legt ihn ab, `next.config.ts` gibt den Namen an
   `src/components/ueben/pdf.ts`). Nicht eingecheckt.
