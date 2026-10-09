@@ -7,6 +7,7 @@ import { alleNoten, notenAendern, notenAnlegen, notenLoeschen, type LokaleNoten 
 import { Metronom } from './Metronom';
 import { MetronomAnbieter } from './MetronomKontext';
 import { NotenPult } from './NotenPult';
+import { Sicherung } from './Sicherung';
 import { Stimmgeraet } from './Stimmgeraet';
 
 type Reiter = 'metronom' | 'stimmgeraet' | 'noten';
@@ -197,7 +198,12 @@ function NotenListe({ oeffnen }: { oeffnen: (id: string) => void }) {
       {laeuft && <p className="gedaempft text-sm">Einen Moment …</p>}
 
       <ul className="space-y-2">
-        {noten?.length === 0 && <li className="karte">Noch keine Noten auf diesem Gerät. Mit „+ Noten hinzufügen“ eine oder mehrere PDF-Dateien wählen.</li>}
+        {noten?.length === 0 && (
+          <li className="karte space-y-2">
+            <p>Noch keine Noten auf diesem Gerät. Mit „+ Noten hinzufügen“ eine oder mehrere PDF-Dateien wählen.</p>
+            <p className="font-bold">Umzug aus der Registerführer-App? Dort unter Admin → Üben ‚Sicherung speichern‘, dann hier ‚Sicherung laden‘.</p>
+          </li>
+        )}
         {sortiert.map((n) => (
           <li key={n.id} className={`karte flex items-center gap-3 !py-3 ${auswahl.has(n.id) ? 'gewaehlt' : ''}`}>
             <label className="auswahl-feld"><input type="checkbox" className="auswahl-box" checked={auswahl.has(n.id)} onChange={() => umschalten(n.id)} aria-label={`${n.titel} auswählen`} /></label>
@@ -211,6 +217,8 @@ function NotenListe({ oeffnen }: { oeffnen: (id: string) => void }) {
           </li>
         ))}
       </ul>
+
+      {noten && <Sicherung leer={noten.length === 0} geaendert={laden} />}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import type { Anmerkung, Blaettermodus } from '@/domain/notenpult';
+import { sicherungLesen, sicherungPacken, SicherungsFehler } from '@/domain/sicherung';
 
 // Ablage nur auf diesem Gerät (IndexedDB): Noten-PDFs, markierte Stellen,
 // geschaffte Tempi, Anmerkungen. Keine Datenbank, kein Server. Safari kann die
@@ -57,6 +58,7 @@ export const notenHolen = (id: string) => tx<LokaleNoten | undefined>('noten', '
 export async function notenAnlegen(n: { titel: string; stimme: string; datei: Blob; dateiname?: string; handle?: FileSystemFileHandle }): Promise<string> {
   const id = crypto.randomUUID();
   await tx('noten', 'readwrite', (s) => s.put({ ...n, id, erstellt: Date.now() }));
+  dauerhaftAnfragen();
   return id;
 }
 export async function notenAendern(id: string, felder: Partial<LokaleNoten>) {
@@ -91,3 +93,48 @@ export const anmerkungenVon = (notenId: string) =>
   tx<SeitenAnmerkungen[]>('anmerkungen', 'readonly', (s) => s.index('notenId').getAll(notenId));
 export const anmerkungenSpeichern = (notenId: string, seite: number, objekte: Anmerkung[]) =>
   tx('anmerkungen', 'readwrite', (s) => s.put({ id: `${notenId}:${seite}`, notenId, seite, objekte }));
+
+// Bittet den Browser, die Daten nicht von selbst zu löschen. Still: Lehnt er
+// ab oder kann er das nicht, bleibt es beim Normalfall.
+let angefragt = false;
+function dauerhaftAnfragen() {
+  if (angefragt) return;
+  angefragt = true;
+  try { navigator.storage?.persist?.().catch(() => {}); } catch { /* egal */ }
+}
+
+// ── Übe-Sicherung (.uebe, Format in @/domain/sicherung) ──
+export const alleStellen = () => tx<LokaleStelle[]>('stellen', 'readonly', (s) => s.getAll());
+export const alleAnmerkungen = () => tx<SeitenAnmerkungen[]>('anmerkungen', 'readonly', (s) => s.getAll());
+
+export async function sicherungErstellen(): Promise<Blob> {
+  const [noten, stellen, anmerkungen] = await Promise.all([alleNoten(), alleStellen(), alleAnmerkungen()]);
+  return sicherungPacken({ noten, stellen, anmerkungen }, 'uebe-app', Date.now());
+}
+
+// Spielt eine Sicherung ein. Erst wird alles gelesen und geprüft, dann in EINER
+// Transaktion geschrieben: entweder kommt alles an oder nichts. Einträge mit
+// gleicher id werden ersetzt, alle anderen bleiben unberührt.
+export async function sicherungEinspielen(datei: Blob): Promise<{ noten: number; stellen: number; anmerkungen: number }> {
+  const { kopf, noten } = await sicherungLesen(datei);
+  const mitNotenId = (e: { id?: unknown; notenId?: unknown }) => typeof e.id === 'string' && typeof e.notenId === 'string';
+  if (!kopf.stellen.every(mitNotenId) || !kopf.anmerkungen.every(mitNotenId)) {
+    throw new SicherungsFehler('Die Sicherung ist beschädigt (Stelle oder Anmerkung ohne Zuordnung).');
+  }
+  // PDFs als eigene Blobs ablösen: Ein Ausschnitt der gewählten Datei hinge
+  // sonst an ihr, und die kann (iCloud, Downloads) später verschwinden.
+  const fertig = await Promise.all(noten.map(async (n) => ({ ...n, datei: new Blob([await n.datei.arrayBuffer()], { type: n.datei.type }) })));
+
+  const db = await oeffnen();
+  await new Promise<void>((ok, fehler) => {
+    const t = db.transaction(['noten', 'stellen', 'anmerkungen'], 'readwrite');
+    for (const n of fertig) t.objectStore('noten').put(n);
+    for (const st of kopf.stellen) t.objectStore('stellen').put(st);
+    for (const a of kopf.anmerkungen) t.objectStore('anmerkungen').put(a);
+    t.oncomplete = () => ok();
+    t.onerror = () => fehler(t.error);
+    t.onabort = () => fehler(t.error ?? new Error('Speichern abgebrochen.'));
+  });
+  dauerhaftAnfragen();
+  return { noten: fertig.length, stellen: kopf.stellen.length, anmerkungen: kopf.anmerkungen.length };
+}

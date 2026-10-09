@@ -60,3 +60,28 @@ samt Notenbetrachter:
   (`src/components/Offline.tsx`), nicht bei `npm run dev`.
 
 Lokal prüfen: `npm run build`, dann `python3 -m http.server 3470 --directory out`.
+
+## Sicherung (.uebe)
+
+Unter **Noten → Sicherung**:
+
+- **Sicherung speichern** lädt eine Datei `Uebe-Sicherung JJJJ-MM-TT.uebe`
+  herunter: alle Noten-PDFs, markierten Stellen mit Tempo-Verlauf und
+  Anmerkungen dieses Geräts. Wo der Browser Dateien teilen kann (iPhone/iPad),
+  kommt danach zusätzlich „Teilen …“ (AirDrop, Mail, „In Dateien sichern“).
+- **Sicherung laden** liest die Datei erst vollständig und prüft sie; erst dann
+  wird alles in einem Schritt gespeichert. Gleiche Einträge (gleiche id) werden
+  ersetzt, alle anderen bleiben. Zweimal laden verdoppelt nichts.
+
+Das Format steht in `src/domain/sicherung.ts` und ist der Vertrag mit der
+Registerführer-App — dort wird mit demselben Code gespeichert.
+
+**Umzug aus der Registerführer-App:** dort unter Admin → Üben „Sicherung
+speichern“, hier unter Noten „Sicherung laden“. Danach dieselben Noten, Stellen,
+Tempi und Anmerkungen. Einstellungen wie Metronom-Tempo oder Klang kommen nicht
+mit (die liegen im `localStorage`, je Adresse getrennt).
+
+**Gegen Datenverlust:** Safari kann Gerätedaten einer Website löschen, die
+lange nicht geöffnet wurde (als Home-Bildschirm-App seltener). Beim ersten
+Hinzufügen oder Laden bittet die App den Browser still um dauerhaften Speicher
+(`navigator.storage.persist`). Trotzdem gelegentlich eine Sicherung speichern.
