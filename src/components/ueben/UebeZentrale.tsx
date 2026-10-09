@@ -7,7 +7,7 @@ import { alleNoten, notenAendern, notenAnlegen, notenLoeschen, type LokaleNoten 
 import { Metronom } from './Metronom';
 import { MetronomAnbieter } from './MetronomKontext';
 import { NotenPult } from './NotenPult';
-import { Sicherung } from './Sicherung';
+import { Sicherung, useSicherungLaden } from './Sicherung';
 import { Stimmgeraet } from './Stimmgeraet';
 
 type Reiter = 'metronom' | 'stimmgeraet' | 'noten';
@@ -95,6 +95,7 @@ function NotenListe({ oeffnen }: { oeffnen: (id: string) => void }) {
   const [laeuft, setLaeuft] = useState(false);
   const laden = useCallback(() => { alleNoten().then(setNoten).catch((e) => setFehler(`Gerätespeicher nicht verfügbar: ${(e as Error).message}`)); }, []);
   useEffect(laden, [laden]);
+  const sicherung = useSicherungLaden(laden);
 
   const sortiert = useMemo(() => [...(noten ?? [])].sort((a, b) => sortierung === 'abc'
     ? a.titel.localeCompare(b.titel, 'de') || a.stimme.localeCompare(b.stimme, 'de')
@@ -162,6 +163,9 @@ function NotenListe({ oeffnen }: { oeffnen: (id: string) => void }) {
       </p>
       {fehler && <p className="karte warnung">{fehler}</p>}
       {meldung && <p className="karte" role="status">{meldung}</p>}
+      {sicherung.meldung && <p className="karte" role="status">{sicherung.meldung}</p>}
+      {sicherung.fehler && <p className="karte warnung" role="alert">{sicherung.fehler}</p>}
+      {sicherung.eingabe}
 
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" className="knopf" onClick={() => void hinzufuegen()} disabled={laeuft}>+ Noten hinzufügen</button>
@@ -218,7 +222,7 @@ function NotenListe({ oeffnen }: { oeffnen: (id: string) => void }) {
         ))}
       </ul>
 
-      {noten && <Sicherung leer={noten.length === 0} geaendert={laden} />}
+      {noten && <Sicherung leer={noten.length === 0} laden={sicherung} />}
     </div>
   );
 }

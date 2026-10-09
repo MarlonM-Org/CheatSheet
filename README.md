@@ -103,9 +103,17 @@ Unter **Noten → Sicherung**:
   herunter: alle Noten-PDFs, markierten Stellen mit Tempo-Verlauf und
   Anmerkungen dieses Geräts. Wo der Browser Dateien teilen kann (iPhone/iPad),
   kommt danach zusätzlich „Teilen …“ (AirDrop, Mail, „In Dateien sichern“).
-- **Sicherung laden** liest die Datei erst vollständig und prüft sie; erst dann
-  wird alles in einem Schritt gespeichert. Gleiche Einträge (gleiche id) werden
-  ersetzt, alle anderen bleiben. Zweimal laden verdoppelt nichts.
+- **Sicherung laden** liest die Datei erst vollständig und prüft sie (jede
+  Note mit Titel, Stimme und Datum; jede Stelle und Anmerkung einer Note
+  zugeordnet — verwaiste werden übersprungen und gezählt). Gibt es Noten
+  schon auf dem Gerät (gleiche id), fragt die App vorher, ob sie samt Stellen
+  und Anmerkungen durch den Stand der Sicherung ersetzt werden sollen; bei
+  „Abbrechen“ bleibt alles, wie es war. Geschrieben wird in einer einzigen
+  Transaktion — alles oder nichts. Alle anderen Noten bleiben unberührt.
+  Zweimal laden verdoppelt nichts. Danach: „X neu, Y ersetzt; Z Stellen,
+  K Seiten mit Anmerkungen“.
+- Ist der Gerätespeicher blockiert (ein anderes CheatSheet-Fenster hält noch
+  eine alte Version offen), sagt die App das, statt still zu hängen.
 
 Das Format steht in `src/domain/sicherung.ts` und ist der Vertrag mit der
 Registerführer-App — dort wird mit demselben Code gespeichert.

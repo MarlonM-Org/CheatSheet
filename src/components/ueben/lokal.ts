@@ -1,6 +1,7 @@
 'use client';
 
 import type { Anmerkung, Blaettermodus } from '@/domain/notenpult';
+import { einspielenPlanen, type Einspielplan } from '@/domain/einspielen';
 import { sicherungLesen, sicherungPacken, SicherungsFehler } from '@/domain/sicherung';
 
 // Ablage nur auf diesem Gerät (IndexedDB): Noten-PDFs, markierte Stellen,
@@ -26,8 +27,14 @@ export interface SeitenAnmerkungen { id: string; notenId: string; seite: number;
 
 type Speicher = 'noten' | 'stellen' | 'anmerkungen';
 
+// Eine Verbindung für die ganze Seite, einmal geöffnet und wiederverwendet.
+// Will ein anderes Fenster (neuere Version) das Schema anheben, gibt diese
+// Seite die Verbindung frei und öffnet beim nächsten Zugriff neu.
+let verbindung: Promise<IDBDatabase> | null = null;
+
 function oeffnen(): Promise<IDBDatabase> {
-  return new Promise((ok, fehler) => {
+  verbindung ??= new Promise<IDBDatabase>((ok, fehler) => {
+    let aufgegeben = false;
     const r = indexedDB.open('ueben', 2);
     r.onupgradeneeded = (e) => {
       const db = r.result;
@@ -37,9 +44,23 @@ function oeffnen(): Promise<IDBDatabase> {
       }
       if (e.oldVersion < 2) db.createObjectStore('anmerkungen', { keyPath: 'id' }).createIndex('notenId', 'notenId');
     };
-    r.onsuccess = () => ok(r.result);
-    r.onerror = () => fehler(r.error);
+    r.onsuccess = () => {
+      const db = r.result;
+      // Kam die Verbindung doch noch, nachdem wir aufgegeben haben: gleich wieder zu.
+      if (aufgegeben) { db.close(); return; }
+      db.onversionchange = () => { db.close(); verbindung = null; };
+      db.onclose = () => { verbindung = null; };
+      ok(db);
+    };
+    r.onerror = () => { verbindung = null; fehler(r.error); };
+    // Ein anderes Fenster hält noch eine ältere Version offen.
+    r.onblocked = () => {
+      aufgegeben = true;
+      verbindung = null;
+      fehler(new Error('Der Gerätespeicher ist gerade blockiert. Bitte andere CheatSheet-Fenster und -Tabs schließen und neu laden.'));
+    };
   });
+  return verbindung;
 }
 
 async function tx<T>(speicher: Speicher, modus: IDBTransactionMode, arbeit: (s: IDBObjectStore) => IDBRequest<T> | void): Promise<T> {
@@ -49,6 +70,7 @@ async function tx<T>(speicher: Speicher, modus: IDBTransactionMode, arbeit: (s: 
     const req = arbeit(t.objectStore(speicher));
     t.oncomplete = () => ok(req ? req.result : (undefined as T));
     t.onerror = () => fehler(t.error);
+    t.onabort = () => fehler(t.error ?? new Error('Abgebrochen.'));
   });
 }
 
@@ -112,29 +134,68 @@ export async function sicherungErstellen(): Promise<Blob> {
   return sicherungPacken({ noten, stellen, anmerkungen }, 'cheatsheet', Date.now());
 }
 
-// Spielt eine Sicherung ein. Erst wird alles gelesen und geprüft, dann in EINER
-// Transaktion geschrieben: entweder kommt alles an oder nichts. Einträge mit
-// gleicher id werden ersetzt, alle anderen bleiben unberührt.
-export async function sicherungEinspielen(datei: Blob): Promise<{ noten: number; stellen: number; anmerkungen: number }> {
-  const { kopf, noten } = await sicherungLesen(datei);
-  const mitNotenId = (e: { id?: unknown; notenId?: unknown }) => typeof e.id === 'string' && typeof e.notenId === 'string';
-  if (!kopf.stellen.every(mitNotenId) || !kopf.anmerkungen.every(mitNotenId)) {
-    throw new SicherungsFehler('Die Sicherung ist beschädigt (Stelle oder Anmerkung ohne Zuordnung).');
-  }
-  // PDFs als eigene Blobs ablösen: Ein Ausschnitt der gewählten Datei hinge
-  // sonst an ihr, und die kann (iCloud, Downloads) später verschwinden.
-  const fertig = await Promise.all(noten.map(async (n) => ({ ...n, datei: new Blob([await n.datei.arrayBuffer()], { type: n.datei.type }) })));
+// Einspielen in zwei Schritten, damit die Oberfläche dazwischen nachfragen
+// kann: erst lesen, prüfen und mit dem Gerät abgleichen — dabei wird nichts
+// geschrieben —, dann alles in EINER Transaktion schreiben.
+export interface Einspielung extends Einspielplan<Record<string, unknown> & { id: string; datei: Blob }> {
+  erstellt: number;
+}
 
+export async function sicherungPruefen(datei: Blob): Promise<Einspielung> {
+  let gelesen: Awaited<ReturnType<typeof sicherungLesen>>;
+  try {
+    gelesen = await sicherungLesen(datei);
+  } catch (e) {
+    // Alles, was das Format nicht selbst benennt (z. B. kaputter Kopf mit
+    // falschen Typen), ist für die Person dasselbe.
+    throw e instanceof SicherungsFehler ? e : new SicherungsFehler('Die Sicherung ist beschädigt.');
+  }
+  const { kopf, noten } = gelesen;
+  const vorhanden = new Set((await tx<IDBValidKey[]>('noten', 'readonly', (s) => s.getAllKeys())).map(String));
+  const plan = einspielenPlanen({ noten, stellen: kopf.stellen, anmerkungen: kopf.anmerkungen }, vorhanden);
+  return { ...plan, erstellt: kopf.erstellt };
+}
+
+// Schreibt eine geprüfte Sicherung: entweder kommt alles an oder nichts.
+// Ersetzte Noten bekommen genau den Stand der Sicherung — Stellen und
+// Anmerkungen, die es dort zu ihnen nicht gibt, werden entfernt. Alle anderen
+// Noten bleiben unberührt.
+// Die PDF-Ausschnitte gehen direkt an put: IndexedDB legt ihren Inhalt selbst
+// ab und hängt danach nicht mehr an der gewählten Datei.
+export async function sicherungSchreiben(e: Einspielung): Promise<{ neu: number; ersetzt: number; stellen: number; anmerkungen: number; uebersprungen: number }> {
   const db = await oeffnen();
   await new Promise<void>((ok, fehler) => {
     const t = db.transaction(['noten', 'stellen', 'anmerkungen'], 'readwrite');
-    for (const n of fertig) t.objectStore('noten').put(n);
-    for (const st of kopf.stellen) t.objectStore('stellen').put(st);
-    for (const a of kopf.anmerkungen) t.objectStore('anmerkungen').put(a);
+    let grund: unknown = null;
     t.oncomplete = () => ok();
     t.onerror = () => fehler(t.error);
-    t.onabort = () => fehler(t.error ?? new Error('Speichern abgebrochen.'));
+    t.onabort = () => fehler(grund ?? t.error ?? new Error('Speichern abgebrochen.'));
+    const abbrechen = (x: unknown) => { grund ??= x; try { t.abort(); } catch { /* schon beendet */ } };
+    try {
+      const noten = t.objectStore('noten');
+      const stellen = t.objectStore('stellen');
+      const anmerkungen = t.objectStore('anmerkungen');
+      for (const n of e.noten) noten.put(n);
+      for (const st of e.stellen) stellen.put(st);
+      for (const a of e.anmerkungen) anmerkungen.put(a);
+      const behalten = new Map([
+        [stellen, new Set(e.stellen.map((x) => x.id))],
+        [anmerkungen, new Set(e.anmerkungen.map((x) => x.id))],
+      ]);
+      for (const notenId of e.ersetzt) {
+        for (const [speicher, ids] of behalten) {
+          const r = speicher.index('notenId').getAllKeys(notenId);
+          r.onsuccess = () => {
+            try {
+              for (const k of r.result) if (!ids.has(String(k))) speicher.delete(k);
+            } catch (x) { abbrechen(x); }
+          };
+        }
+      }
+    } catch (x) {
+      abbrechen(x);
+    }
   });
   dauerhaftAnfragen();
-  return { noten: fertig.length, stellen: kopf.stellen.length, anmerkungen: kopf.anmerkungen.length };
+  return { neu: e.neu, ersetzt: e.ersetzt.length, stellen: e.stellen.length, anmerkungen: e.anmerkungen.length, uebersprungen: e.uebersprungen };
 }
