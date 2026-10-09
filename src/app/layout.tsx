@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { ADRESSE } from '@/adresse';
+import { Offline } from '@/components/Offline';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -8,6 +9,11 @@ export const metadata: Metadata = {
   description: 'Metronom, Stimmgerät und Notenpult zum Üben. Alles bleibt auf dem Gerät.',
   // Persönliches Werkzeug, nicht für Suchmaschinen.
   robots: { index: false, follow: false },
+  appleWebApp: { capable: true, title: 'Üben', statusBarStyle: 'black' },
+  icons: {
+    icon: [{ url: '/icon.svg', type: 'image/svg+xml' }, { url: '/icon-192.png', sizes: '192x192', type: 'image/png' }],
+    apple: { url: '/apple-touch-icon.png', sizes: '180x180' },
+  },
 };
 
 export const viewport: Viewport = { width: 'device-width', initialScale: 1, themeColor: '#111111' };
@@ -26,6 +32,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <footer className="mx-auto max-w-3xl px-4 pb-8">
           <p className="gedaempft text-sm">Alles bleibt auf diesem Gerät — keine Anmeldung, kein Konto, nichts auf einem Server.</p>
         </footer>
+        <Offline />
       </body>
     </html>
   );

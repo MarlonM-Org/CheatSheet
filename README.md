@@ -42,3 +42,21 @@ Kein Login, kein Konto, kein Server: Noten-PDFs, markierte Stellen, Tempi und
 Anmerkungen liegen nur im Browser dieses Geräts (IndexedDB `ueben`).
 Einstellungen wie Tempo und Reiter liegen im `localStorage`. Beides ist je
 Adresse getrennt — eine andere Adresse sieht diese Daten nicht.
+
+## Home-Bildschirm und offline
+
+Die App lässt sich zum Home-Bildschirm hinzufügen (`src/app/manifest.ts`,
+Icons in `public/`). Nach einem Besuch mit Netz läuft sie auch ohne Netz,
+samt Notenbetrachter:
+
+- `scripts/precache.mjs` läuft nach `next build`, schreibt alle Dateien aus
+  `out/` nach `out/precache.json` und setzt eine Version (Hash über Namen und
+  Inhalt) in `out/sw.js` ein. Jeder Build ergibt so einen neuen Service Worker.
+- `public/sw.js` legt beim Installieren alle Dateien in einen versionierten
+  Cache und räumt alte Caches beim Aktivieren weg. Seitenaufrufe kommen zuerst
+  aus dem Netz (online immer der neueste Stand), alles andere zuerst aus dem
+  Cache. Fremde Adressen werden nie gecacht.
+- Angemeldet wird der Service Worker nur im Produktions-Build
+  (`src/components/Offline.tsx`), nicht bei `npm run dev`.
+
+Lokal prüfen: `npm run build`, dann `python3 -m http.server 3470 --directory out`.
