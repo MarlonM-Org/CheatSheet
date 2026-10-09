@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { SicherungsFehler, sicherungsName } from '@/domain/sicherung';
 import { sicherungErstellen, sicherungPruefen, sicherungSchreiben } from './lokal';
 
@@ -61,35 +61,51 @@ export function useSicherungLaden(geaendert: () => void): SicherungLaden {
   };
 }
 
+interface Vorbereitet { url: string; datei: File }
+
+// Als Home-Bildschirm-App gibt es keine Download-Leiste; Teilen ist dort der
+// verlässliche Weg, die Datei in „Dateien“ abzulegen.
+function alsApp(): boolean {
+  try {
+    return window.matchMedia('(display-mode: standalone)').matches
+      || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+  } catch { return false; }
+}
+
 // Alle Noten, Stellen und Anmerkungen als eine .uebe-Datei speichern und wieder
 // laden — zum Umzug aus der Registerführer-App und als Schutz, falls der
 // Browser die Gerätedaten löscht. Meldungen zum Laden zeigt die Notenliste.
+//
+// Speichern geht in zwei Schritten: Erst packen, dann tippt die Person selbst
+// auf einen echten Link bzw. „Teilen“. Safari auf iPad/iPhone lässt Download
+// und Teilen nur aus einer frischen Berührung zu — nach dem Packen ist die
+// erste Berührung längst verbraucht.
 export function Sicherung({ leer, laden }: { leer: boolean; laden: SicherungLaden }) {
   const [laeuft, setLaeuft] = useState(false);
-  const [meldung, setMeldung] = useState('');
   const [fehler, setFehler] = useState('');
-  const [teilbar, setTeilbar] = useState<File | null>(null);
+  const [fertig, setFertig] = useState<Vorbereitet | null>(null);
+  const [teilbar, setTeilbar] = useState(false);
+  const [app, setApp] = useState(false);
+  // Objekt-URL erst beim nächsten Vorbereiten oder beim Verlassen freigeben:
+  // Ein Timer kann einen langsamen Download (großes PDF, iPad) abschneiden.
+  const aktuelleUrl = useRef<string | null>(null);
+  useEffect(() => () => { if (aktuelleUrl.current) URL.revokeObjectURL(aktuelleUrl.current); }, []);
 
-  async function speichern() {
-    setLaeuft(true); setMeldung(''); setFehler(''); setTeilbar(null);
+  async function vorbereiten() {
+    setLaeuft(true); setFehler('');
+    if (aktuelleUrl.current) { URL.revokeObjectURL(aktuelleUrl.current); aktuelleUrl.current = null; }
+    setFertig(null);
     try {
       const inhalt = await sicherungErstellen();
-      const name = sicherungsName(new Date());
-      const url = URL.createObjectURL(inhalt);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = name;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      // Etwas warten, sonst bricht der Download in manchen Browsern (Safari) ab.
-      window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
-      setMeldung(`Sicherung gespeichert: „${name}“ (${groesse(inhalt.size)}). Sie liegt bei den Downloads bzw. in der Dateien-App.`);
-      // Teilen (AirDrop, Mail, „In Dateien sichern“) erst auf eigenen Tipp:
-      // Der Browser verlangt dafür eine frische Berührung.
-      const datei = new File([inhalt], name, { type: 'application/octet-stream' });
+      const datei = new File([inhalt], sicherungsName(new Date()), { type: 'application/octet-stream' });
+      const url = URL.createObjectURL(datei);
+      aktuelleUrl.current = url;
       const nav = navigator as TeilenNavigator;
-      try { if ('share' in nav && nav.canShare?.({ files: [datei] })) setTeilbar(datei); } catch { /* kein Teilen */ }
+      let kannTeilen = false;
+      try { kannTeilen = 'share' in nav && !!nav.canShare?.({ files: [datei] }); } catch { /* kein Teilen */ }
+      setTeilbar(kannTeilen);
+      setApp(alsApp());
+      setFertig({ url, datei });
     } catch (e) {
       setFehler(`Sicherung fehlgeschlagen: ${(e as Error).message}`);
     } finally {
@@ -98,13 +114,24 @@ export function Sicherung({ leer, laden }: { leer: boolean; laden: SicherungLade
   }
 
   async function teilen() {
-    if (!teilbar) return;
+    if (!fertig) return;
     try {
-      await navigator.share({ files: [teilbar], title: teilbar.name });
+      await navigator.share({ files: [fertig.datei], title: fertig.datei.name });
     } catch (e) {
       if ((e as Error).name !== 'AbortError') setFehler(`Teilen ging nicht: ${(e as Error).message}`);
     }
   }
+
+  const herunterladen = fertig && (
+    <a key="laden" className={`knopf ${app && teilbar ? 'knopf-leise' : ''}`} href={fertig.url} download={fertig.datei.name}>
+      Herunterladen ({groesse(fertig.datei.size)})
+    </a>
+  );
+  const teilenKnopf = fertig && teilbar && (
+    <button key="teilen" type="button" className={`knopf ${app ? '' : 'knopf-leise'}`} onClick={() => void teilen()}>
+      Teilen / In Dateien sichern
+    </button>
+  );
 
   return (
     <section className="karte space-y-3" aria-label="Sicherung">
@@ -115,15 +142,24 @@ export function Sicherung({ leer, laden }: { leer: boolean; laden: SicherungLade
         alle anderen bleiben.
       </p>
       <div className="flex flex-wrap gap-2">
-        <button type="button" className="knopf" onClick={() => void speichern()} disabled={leer || laeuft || laden.laeuft}>
-          {laeuft ? 'Sicherung wird erstellt …' : 'Sicherung speichern'}
+        <button type="button" className={`knopf ${fertig ? 'knopf-leise' : ''}`} onClick={() => void vorbereiten()} disabled={leer || laeuft || laden.laeuft}>
+          {laeuft ? 'Sicherung wird gepackt …' : fertig ? 'Neu vorbereiten' : 'Sicherung vorbereiten'}
         </button>
-        {teilbar && <button type="button" className="knopf knopf-leise" onClick={() => void teilen()}>Teilen …</button>}
         <button type="button" className="knopf knopf-leise" onClick={laden.waehlen} disabled={laeuft || laden.laeuft}>
           {laden.laeuft ? 'Sicherung wird geladen …' : 'Sicherung laden'}
         </button>
       </div>
-      {meldung && <p className="text-sm" role="status">{meldung}</p>}
+      {fertig && (
+        <div className="space-y-2" role="status">
+          <p className="text-sm">„{fertig.datei.name}“ ist bereit. Jetzt speichern:</p>
+          <div className="flex flex-wrap gap-2">{app ? [teilenKnopf, herunterladen] : [herunterladen, teilenKnopf]}</div>
+          <p className="gedaempft text-sm">
+            {teilbar
+              ? 'Auf iPad/iPhone: „Teilen“ → „In Dateien sichern“ legt sie in die Dateien-App; AirDrop und Mail gehen auch.'
+              : 'Die Datei landet bei den Downloads.'}
+          </p>
+        </div>
+      )}
       {fehler && <p className="warnung text-sm" role="alert">{fehler}</p>}
     </section>
   );

@@ -99,10 +99,12 @@ Lokal prüfen: `npm run build`, dann `python3 -m http.server 3470 --directory ou
 
 Unter **Noten → Sicherung**:
 
-- **Sicherung speichern** lädt eine Datei `Uebe-Sicherung JJJJ-MM-TT.uebe`
-  herunter: alle Noten-PDFs, markierten Stellen mit Tempo-Verlauf und
-  Anmerkungen dieses Geräts. Wo der Browser Dateien teilen kann (iPhone/iPad),
-  kommt danach zusätzlich „Teilen …“ (AirDrop, Mail, „In Dateien sichern“).
+- **Sicherung vorbereiten** packt eine Datei `Uebe-Sicherung JJJJ-MM-TT.uebe`:
+  alle Noten-PDFs, markierten Stellen mit Tempo-Verlauf und Anmerkungen
+  dieses Geräts. Danach erscheinen ein echter Link „Herunterladen (x MB)“
+  und — wo der Browser Dateien teilen kann (iPhone/iPad) — „Teilen / In
+  Dateien sichern“. Zweistufig, weil Safari Download und Teilen nur aus einer
+  frischen Berührung zulässt; als Home-Bildschirm-App steht Teilen vorn.
 - **Sicherung laden** liest die Datei erst vollständig und prüft sie (jede
   Note mit Titel, Stimme und Datum; jede Stelle und Anmerkung einer Note
   zugeordnet — verwaiste werden übersprungen und gezählt). Gibt es Noten
