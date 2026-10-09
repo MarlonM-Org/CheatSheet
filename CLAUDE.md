@@ -1,16 +1,19 @@
-# Übe-App
+# CheatSheet
 
-Persönliches Übe-Werkzeug: Metronom, Stimmgerät, Notenpult. **Die Anforderungen
-liegen nicht hier**, sondern in `MarlonM-Org/app-factory` unter
-`apps/uebe-app/`. Was dort steht, gilt; was hier im Code anders ist, ist ein
-Fehler oder gehört dort nachgetragen.
+Übe-Werkzeug: Noten, schwierige Stellen, Metronom, Stimmgerät. Repo
+`MarlonM-Org/CheatSheet` (öffentlich — keine Secrets, keine privaten Daten
+einchecken), Adresse https://cheat-sheet.ma-und-ma.de, Vercel-Projekt
+`cheat-sheet`. **Die Anforderungen liegen nicht hier**, sondern in
+`MarlonM-Org/app-factory` unter `apps/cheatsheet/`. Was dort steht, gilt; was
+hier im Code anders ist, ist ein Fehler oder gehört dort nachgetragen.
 
 - Statische App (`output: 'export'`): kein Server-Code, keine API-Routen, keine
   Server Actions, kein Login, keine Datenbank. Wer etwas davon braucht, klärt
   das zuerst in den Anforderungen.
 - Alle Daten liegen nur auf dem Gerät (IndexedDB `ueben`, Version 2, Stores
   `noten`/`stellen`/`anmerkungen` — Schema wie in der Registerführer-App).
-  Schema nur per Versionssprung ändern, nie Daten verwerfen.
+  Der Name `ueben` bleibt trotz Umbenennung (Vertrag). Schema nur per
+  Versionssprung ändern, nie Daten verwerfen.
 - Das Sicherungsformat `.uebe` (`src/domain/sicherung.ts`) ist der Vertrag mit
   `registerfuehrer`: Dateien von dort müssen hier ladbar bleiben. Nicht
   ändern; eine neue Version nur mit Lesen der alten.

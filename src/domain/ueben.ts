@@ -1,4 +1,4 @@
-// Fachlogik der Übe-App: Stimmgerät und Ausschnitte. Rein, getestet.
+// Fachlogik von CheatSheet: Stimmgerät und Ausschnitte. Rein, getestet.
 
 const NAMEN = ['C', 'Cis', 'D', 'Es', 'E', 'F', 'Fis', 'G', 'As', 'A', 'B', 'H'];
 

@@ -2,6 +2,7 @@
 # Die Git-Anbindung verlangt für Repos einer GitHub-Organisation den Pro-Tarif,
 # die CLI geht auch mit Hobby. Läuft erst, wenn CI auf main grün ist.
 # Einmalig nötig: Repo-Secret VERCEL_TOKEN (vercel.com → Account Settings → Tokens).
+# Vercel-CLI fest auf eine Version: ein neuer Stand kommt nur per Commit.
 name: Deploy (Vercel)
 on:
   workflow_run:
@@ -10,6 +11,8 @@ on:
     branches: [main]
   workflow_dispatch:
 concurrency: vercel
+permissions:
+  contents: read
 jobs:
   deploy:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
@@ -29,7 +32,7 @@ jobs:
         with: { node-version-file: .node-version }
       - name: Projekt verknüpfen (legt es beim ersten Mal an)
         if: env.VERCEL_TOKEN != ''
-        run: npx --yes vercel@latest link --yes --project uebe-app --token "$VERCEL_TOKEN"
+        run: npx --yes vercel@63.1.0 link --yes --project cheat-sheet --token "$VERCEL_TOKEN"
       - name: Produktion deployen
         if: env.VERCEL_TOKEN != ''
-        run: npx --yes vercel@latest deploy --prod --yes --token "$VERCEL_TOKEN"
+        run: npx --yes vercel@63.1.0 deploy --prod --yes --token "$VERCEL_TOKEN"

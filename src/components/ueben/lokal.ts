@@ -109,7 +109,7 @@ export const alleAnmerkungen = () => tx<SeitenAnmerkungen[]>('anmerkungen', 'rea
 
 export async function sicherungErstellen(): Promise<Blob> {
   const [noten, stellen, anmerkungen] = await Promise.all([alleNoten(), alleStellen(), alleAnmerkungen()]);
-  return sicherungPacken({ noten, stellen, anmerkungen }, 'uebe-app', Date.now());
+  return sicherungPacken({ noten, stellen, anmerkungen }, 'cheatsheet', Date.now());
 }
 
 // Spielt eine Sicherung ein. Erst wird alles gelesen und geprüft, dann in EINER

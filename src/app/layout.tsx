@@ -5,11 +5,11 @@ import './globals.css';
 
 export const metadata: Metadata = {
   metadataBase: new URL(ADRESSE),
-  title: 'Üben · Notenpult',
-  description: 'Metronom, Stimmgerät und Notenpult zum Üben. Alles bleibt auf dem Gerät.',
+  title: 'CheatSheet',
+  description: 'Noten, schwierige Stellen, Metronom und Stimmgerät — alles auf deinem Gerät.',
   // Persönliches Werkzeug, nicht für Suchmaschinen.
   robots: { index: false, follow: false },
-  appleWebApp: { capable: true, title: 'Üben', statusBarStyle: 'black' },
+  appleWebApp: { capable: true, title: 'CheatSheet', statusBarStyle: 'black' },
   icons: {
     icon: [{ url: '/icon.svg', type: 'image/svg+xml' }, { url: '/icon-192.png', sizes: '192x192', type: 'image/png' }],
     apple: { url: '/apple-touch-icon.png', sizes: '180x180' },
@@ -24,7 +24,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <body>
         <header className="kopf">
           <div className="mx-auto max-w-3xl px-4 py-3">
-            <span className="block text-lg font-extrabold leading-tight">Üben</span>
+            <span className="block text-lg font-extrabold leading-tight">CheatSheet</span>
             <span className="block text-xs tracking-wider opacity-70">METRONOM · STIMMGERÄT · NOTENPULT</span>
           </div>
         </header>

@@ -6,9 +6,9 @@ export const dynamic = 'force-static';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Üben',
-    short_name: 'Üben',
-    description: 'Metronom, Stimmgerät und Notenpult. Alles bleibt auf dem Gerät.',
+    name: 'CheatSheet',
+    short_name: 'CheatSheet',
+    description: 'Noten, schwierige Stellen, Metronom und Stimmgerät — alles auf deinem Gerät.',
     lang: 'de',
     start_url: '/',
     scope: '/',

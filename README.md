@@ -1,10 +1,14 @@
-# Übe-App
+# CheatSheet
 
-Metronom, Stimmgerät und Notenpult zum Üben — als eigene, statische Web-App.
+Noten, schwierige Stellen, Metronom und Stimmgerät — alles auf deinem Gerät.
+Eine eigene, statische Web-App unter https://cheat-sheet.ma-und-ma.de.
 Früher unter Admin → „Üben (Prototyp)“ in der Registerführer-App.
 
-**Anforderungen und Entscheidungen:** `apps/uebe-app/` in
-`MarlonM-Org/app-factory`.
+- **Repo:** `MarlonM-Org/CheatSheet`, öffentlich. Deshalb nie Secrets, Tokens
+  oder echte Noten einchecken.
+- **Anforderungen und Entscheidungen:** `apps/cheatsheet/` in
+  `MarlonM-Org/app-factory`.
+- Die Icons (Viertelnote) sind vorläufig, ein eigenes Logo kommt später.
 
 ## Was sie kann
 
@@ -31,15 +35,18 @@ npm run dev
 Vercel Hobby, über die Vercel-CLI aus GitHub Actions (`.github/workflows/vercel.yml`),
 weil die Git-Anbindung von Vercel für Repos einer GitHub-Organisation Pro
 verlangt. Läuft, wenn CI auf `main` grün ist. Einmalig nötig: Repo-Secret
-`VERCEL_TOKEN`. Das Vercel-Projekt heißt `uebe-app` und wird beim ersten Lauf
+`VERCEL_TOKEN`. Das Vercel-Projekt heißt `cheat-sheet` und wird beim ersten Lauf
 angelegt; die eigene Domain danach in Vercel unter Project → Settings → Domains
 eintragen und beim DNS-Anbieter den angezeigten CNAME setzen. Die Adresse steht
-im Code nur in `src/adresse.ts`.
+im Code nur in `src/adresse.ts` (und als Link zum Umzug in der
+Registerführer-App, `src/components/ueben/umzug.ts`). Die Vercel-CLI ist im
+Workflow fest auf eine Version gesetzt.
 
 ## Datenhaltung
 
 Kein Login, kein Konto, kein Server: Noten-PDFs, markierte Stellen, Tempi und
-Anmerkungen liegen nur im Browser dieses Geräts (IndexedDB `ueben`).
+Anmerkungen liegen nur im Browser dieses Geräts (IndexedDB `ueben` — der
+Name bleibt aus der Übe-App, damit Sicherungen und Schema passen).
 Einstellungen wie Tempo und Reiter liegen im `localStorage`. Beides ist je
 Adresse getrennt — eine andere Adresse sieht diese Daten nicht.
 

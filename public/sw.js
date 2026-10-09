@@ -1,4 +1,4 @@
-// Offline-Betrieb der Übe-App. Die Liste der Dateien schreibt
+// Offline-Betrieb von CheatSheet. Die Liste der Dateien schreibt
 // scripts/precache.mjs nach dem Build nach /precache.json und setzt hier die
 // Version ein — dadurch ändert sich diese Datei mit jedem Build, und der
 // Browser installiert den neuen Stand.
