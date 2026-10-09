@@ -42,6 +42,19 @@ im Code nur in `src/adresse.ts` (und als Link zum Umzug in der
 Registerführer-App, `src/components/ueben/umzug.ts`). Die Vercel-CLI ist im
 Workflow fest auf eine Version gesetzt.
 
+`vercel.json` setzt `"framework": null` und `"outputDirectory": "out"`: Vercel
+liefert genau den Ordner `out/` aus, wie er lokal entsteht. Mit der
+automatisch erkannten Next.js-Voreinstellung baut Vercel mit eigenem Builder,
+und was `scripts/precache.mjs` nach `next build` in `out/` schreibt
+(`precache.json`, Version und Kennung in `sw.js`), käme nie an — so geschehen
+beim ersten Deploy.
+
+Nach jedem Deploy prüft `.github/workflows/auslieferung.yml` die echte Domain
+(`scripts/auslieferung.mjs`): `sw.js` mit eingesetzter Version, jede Datei aus
+`precache.json` erreichbar und aus demselben Stand, Module mit JavaScript-Typ,
+Header aus `vercel.json`. Die `*.vercel.app`-Adressen sind per Vercel-Anmeldung
+geschützt und lassen sich so nicht prüfen.
+
 ## Datenhaltung
 
 Kein Login, kein Konto, kein Server: Noten-PDFs, markierte Stellen, Tempi und
@@ -115,7 +128,9 @@ samt Notenbetrachter:
 `vercel.json` setzt `X-Content-Type-Options: nosniff`, `Referrer-Policy:
 no-referrer` und `Permissions-Policy: microphone=(self), camera=(),
 geolocation=()` (Mikrofon nur fürs Stimmgerät); `/sw.js` kommt mit
-`Cache-Control: no-cache`, damit Updates sofort ankommen.
+`Cache-Control: no-cache`, damit Updates sofort ankommen. Die Code-Stücke unter
+`/_next/static/` tragen einen Inhalts-Hash im Namen und dürfen deshalb ein Jahr
+lang unverändert im Browser bleiben (`immutable`).
 
 **Offene Frage: Content-Security-Policy.** Bewusst noch keine. Next.js
 schreibt Inline-Skripte in die exportierten Seiten, pdf.js braucht seinen

@@ -1,9 +1,14 @@
 # Prüft nach dem Deploy die echte Adresse: Liefert Vercel jede Datei aus
 # precache.json aus, und gehören alle zum selben Stand? Die *.vercel.app-
 # Adressen sind per Vercel-Anmeldung geschützt, geprüft wird deshalb die
-# eigene Domain. Vorerst nur von Hand (Actions → Auslieferung prüfen → Run).
+# eigene Domain. Läuft nach jedem erfolgreichen Deploy und von Hand
+# (Actions → Auslieferung prüfen → Run).
 name: Auslieferung prüfen
 on:
+  workflow_run:
+    workflows: [Deploy (Vercel)]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       adresse:
@@ -13,6 +18,7 @@ permissions:
   contents: read
 jobs:
   pruefen:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

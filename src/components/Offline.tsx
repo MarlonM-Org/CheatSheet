@@ -6,7 +6,9 @@ import { useEffect, useState } from 'react';
 const PRUEFABSTAND = 6 * 60 * 60 * 1000;
 
 // Fragt den steuernden Service Worker nach seiner Build-Kennung. Keine Antwort
-// (kein Controller, ältere sw.js ohne Kennung): null.
+// (kein Controller, ältere sw.js ohne Kennung): null. Ebenso „entwicklung“:
+// Diese sw.js hat keine eingesetzte Kennung, ein Vergleich sagt nichts — er
+// ergäbe nur einen Hinweis, den kein Neuladen wegbekommt.
 function kennungFragen(sw: ServiceWorkerContainer): Promise<string | null> {
   const ziel = sw.controller;
   if (!ziel) return Promise.resolve(null);
@@ -15,7 +17,7 @@ function kennungFragen(sw: ServiceWorkerContainer): Promise<string | null> {
     const uhr = window.setTimeout(() => ok(null), 3000);
     kanal.port1.onmessage = (e: MessageEvent<{ kennung?: unknown }>) => {
       window.clearTimeout(uhr);
-      ok(typeof e.data?.kennung === 'string' ? e.data.kennung : null);
+      ok(typeof e.data?.kennung === 'string' && e.data.kennung !== 'entwicklung' ? e.data.kennung : null);
     };
     ziel.postMessage({ frage: 'version' }, [kanal.port2]);
   });
