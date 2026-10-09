@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ueberschreibt } from '@/domain/einspielen';
+import { rueckfrage, ueberschreibt } from '@/domain/einspielen';
 import { SicherungsFehler, sicherungsName } from '@/domain/sicherung';
 import { sicherungErstellen, sicherungPruefen, sicherungSchreiben } from './lokal';
+import { fehlerGrund } from './speicherfehler';
 
 type TeilenNavigator = Navigator & { canShare?: (d: { files: File[] }) => boolean };
 
@@ -17,8 +18,9 @@ export interface SicherungLaden {
 }
 
 // Sicherung laden — als Hook, damit die leere Notenliste denselben Ablauf
-// anbieten kann wie die Sicherungs-Karte. Erst prüfen und abgleichen; würde
-// etwas überschrieben, nachfragen; dann alles auf einmal schreiben.
+// anbieten kann wie die Sicherungs-Karte. Erst prüfen und abgleichen; gibt es
+// schon etwas davon auf dem Gerät, nachfragen; dann alles auf einmal schreiben
+// und dabei zusammenführen.
 export function useSicherungLaden(geaendert: () => void): SicherungLaden {
   const [laeuft, setLaeuft] = useState(false);
   const [meldung, setMeldung] = useState('');
@@ -30,13 +32,7 @@ export function useSicherungLaden(geaendert: () => void): SicherungLaden {
     setLaeuft(true); setMeldung(''); setFehler('');
     try {
       const e = await sicherungPruefen(datei);
-      const u = e.ueberschrieben;
-      if (ueberschreibt(e) && !confirm(
-        `Die Sicherung vom ${zeitpunkt(e.erstellt)} überschreibt auf diesem Gerät: `
-        + [anzahl(u.noten, 'Noten', 'Noten'), anzahl(u.stellen, 'Stelle', 'Stellen'), anzahl(u.anmerkungen, 'Seite mit Anmerkungen', 'Seiten mit Anmerkungen')]
-          .filter(Boolean).join(', ')
-        + '. Stellen und Anmerkungen, die es nur auf diesem Gerät gibt, bleiben. Laden?',
-      )) {
+      if (ueberschreibt(e) && !confirm(rueckfrage(e, zeitpunkt(e.erstellt)))) {
         setMeldung('Nichts geladen — auf diesem Gerät ist alles wie vorher.');
         return;
       }
@@ -46,10 +42,7 @@ export function useSicherungLaden(geaendert: () => void): SicherungLaden {
         + (n.uebersprungen ? ` ${anzahl(n.uebersprungen, 'Eintrag', 'Einträge')} ohne zugehörige Noten übersprungen.` : ''));
       geaendert();
     } catch (x) {
-      const err = x instanceof Error ? x : new Error(String(x));
-      setFehler(x instanceof SicherungsFehler
-        ? err.message
-        : `Die Sicherung ließ sich nicht speichern: ${err.message}${err.name === 'QuotaExceededError' ? ' (Gerätespeicher voll)' : ''}`);
+      setFehler(x instanceof SicherungsFehler ? x.message : `Die Sicherung ließ sich nicht speichern: ${fehlerGrund(x)}`);
     } finally {
       setLaeuft(false);
     }
@@ -117,7 +110,7 @@ export function Sicherung({ laden }: { laden: SicherungLaden }) {
       setApp(alsApp());
       setFertig({ url, datei });
     } catch (e) {
-      setFehler(`Sicherung fehlgeschlagen: ${e instanceof Error ? e.message : String(e)}`);
+      setFehler(`Sicherung fehlgeschlagen: ${fehlerGrund(e)}`);
     } finally {
       setLaeuft(false);
     }
@@ -151,7 +144,8 @@ export function Sicherung({ laden }: { laden: SicherungLaden }) {
       <h2 className="abschnitt-titel">Sicherung</h2>
       <p className="gedaempft text-sm">
         Eine Datei mit allen Noten, markierten Stellen, Tempi und Anmerkungen dieses Geräts. Laden ergänzt die Liste:
-        Was es schon gibt, bekommt nach Rückfrage den Stand der Sicherung; was nur auf diesem Gerät ist, bleibt.
+        Was es schon gibt, wird nach Rückfrage zusammengeführt — Tempo-Verläufe und Striche bleiben, Titel, Notizen und
+        Rahmen kommen aus der Sicherung; was nur auf diesem Gerät ist, bleibt.
       </p>
       <div className="flex flex-wrap gap-2">
         <button type="button" className={`knopf ${fertig ? 'knopf-leise' : ''}`} onClick={() => void vorbereiten()} disabled={laeuft || laden.laeuft}>
@@ -183,8 +177,9 @@ function anzahl(n: number, eins: string, mehr: string, auchNull = false): string
   return `${n} ${n === 1 ? eins : mehr}`;
 }
 
-const zeitpunkt = (t: number) => Number.isFinite(t)
+// Lesbarer Zeitpunkt der Sicherung; null, wenn der Kopf keinen brauchbaren hat.
+const zeitpunkt = (t: unknown) => typeof t === 'number' && Number.isFinite(t)
   ? new Date(t).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' Uhr'
-  : 'unbekanntem Datum';
+  : null;
 
 const groesse = (b: number) => b < 1024 * 1024 ? `${Math.max(1, Math.round(b / 1024))} KB` : `${(b / 1024 / 1024).toFixed(1).replace('.', ',')} MB`;

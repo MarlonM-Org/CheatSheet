@@ -281,6 +281,14 @@ details[open] > summary::before { transform: rotate(90deg); }
 }
 .neue-version-weg { min-width: 2.2rem; min-height: 2.2rem; border-radius: 10px; font-size: 1.2rem; color: var(--gedaempft); }
 
+/* ── Hinweis: nicht gespeichert ── oben und über allem, auch dem Notenbetrachter. */
+.speicher-hinweis {
+  position: fixed; left: 50%; top: max(0.75rem, env(safe-area-inset-top)); transform: translateX(-50%); z-index: 90;
+  display: flex; align-items: center; gap: 0.6rem; width: max-content; max-width: calc(100% - 1.5rem); padding: 0.6rem 0.5rem 0.6rem 1rem;
+  border-radius: 14px; background: var(--warnung-hell); color: var(--warnung); border: 2px solid var(--warnung);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 30%);
+}
+
 /* ── Trefferflächen bei Finger-Bedienung: mindestens 44 px ── */
 @media (pointer: coarse) {
   .segment button, .knopf-klein, .text-knopf, .schalter-zeile { min-height: 2.75rem; }

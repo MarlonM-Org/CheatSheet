@@ -8,6 +8,7 @@ import { Metronom } from './Metronom';
 import { MetronomAnbieter } from './MetronomKontext';
 import { NotenPult } from './NotenPult';
 import { Sicherung, useSicherungLaden } from './Sicherung';
+import { fehlerGrund, speicherFehler, SpeicherHinweis } from './speicherfehler';
 import { Stimmgeraet } from './Stimmgeraet';
 
 type Reiter = 'metronom' | 'stimmgeraet' | 'noten';
@@ -45,6 +46,7 @@ function Zentrale() {
 
   return (
     <div className="space-y-5">
+      <SpeicherHinweis />
       <div className="segment" role="tablist" aria-label="Werkzeug">
         {([['metronom', 'Metronom'], ['stimmgeraet', 'Stimmgerät'], ['noten', 'Noten']] as const).map(([k, name]) => (
           <button key={k} type="button" role="tab" aria-selected={reiter === k} onClick={() => wechseln(k)}>{name}</button>
@@ -112,6 +114,8 @@ function NotenListe({ oeffnen }: { oeffnen: (id: string) => void }) {
   const [noten, setNoten] = useState<LokaleNoten[] | null>(null);
   const [fehler, setFehler] = useState('');
   const [meldung, setMeldung] = useState('');
+  // Teilweise gescheitert (Gerätespeicher): was geklappt hat und was nicht.
+  const [warnung, setWarnung] = useState('');
   const [auswahl, setAuswahl] = useState<Set<string>>(new Set());
   const [sortierung, setSortierung] = useState<'zuletzt' | 'abc'>(() => gespeichert('ueben:sort', 'zuletzt'));
   const [laeuft, setLaeuft] = useState(false);
@@ -127,52 +131,86 @@ function NotenListe({ oeffnen }: { oeffnen: (id: string) => void }) {
   async function hinzufuegen() {
     const gewaehlt = await dateienWaehlen();
     if (!gewaehlt.length) return;
-    setLaeuft(true);
-    for (const { datei, handle } of gewaehlt) {
-      const { titel, stimme } = ausDateiname(datei.name);
-      await notenAnlegen({ titel, stimme, datei, dateiname: datei.name, handle });
+    setLaeuft(true); setMeldung(''); setWarnung('');
+    let fertig = 0;
+    try {
+      for (const { datei, handle } of gewaehlt) {
+        const { titel, stimme } = ausDateiname(datei.name);
+        await notenAnlegen({ titel, stimme, datei, dateiname: datei.name, handle });
+        fertig++;
+      }
+      setMeldung(`${gewaehlt.length} ${gewaehlt.length === 1 ? 'Datei' : 'Dateien'} hinzugefügt. Titel und Stimme stammen aus dem Dateinamen.`);
+    } catch (x) {
+      speicherFehler(x);
+      setWarnung(`${fertig} von ${gewaehlt.length} ${gewaehlt.length === 1 ? 'Datei' : 'Dateien'} hinzugefügt, dann ging es nicht weiter: ${fehlerGrund(x)}`);
+    } finally {
+      setLaeuft(false);
+      laden();
     }
-    setLaeuft(false);
-    setMeldung(`${gewaehlt.length} ${gewaehlt.length === 1 ? 'Datei' : 'Dateien'} hinzugefügt. Titel und Stimme stammen aus dem Dateinamen.`);
-    laden();
   }
 
   // Dieselben Dateien neu einlesen; markierte Stellen und Anmerkungen bleiben.
   async function aktualisieren(ziel: LokaleNoten[]) {
     if (!ziel.length) return;
-    setMeldung(''); setLaeuft(true);
+    setMeldung(''); setWarnung(''); setLaeuft(true);
     let fertig = 0;
-    const offen: LokaleNoten[] = [];
-    if (kannVerweise()) {
-      for (const n of ziel) {
-        const datei = await ausVerweis(n);
-        if (datei) { await notenAendern(n.id, { datei, aktualisiert: Date.now() }); fertig++; } else offen.push(n);
-      }
-    } else offen.push(...ziel);
+    try {
+      const offen: LokaleNoten[] = [];
+      if (kannVerweise()) {
+        for (const n of ziel) {
+          const datei = await ausVerweis(n);
+          if (datei) { await notenAendern(n.id, { datei, aktualisiert: Date.now() }); fertig++; } else offen.push(n);
+        }
+      } else offen.push(...ziel);
 
-    let fehlen: LokaleNoten[] = [];
-    let uebrig = 0;
-    if (offen.length) {
-      // Ohne Dateiverweis (iPad/iPhone): einmal die Dateien wählen, Zuordnung über den Namen.
-      const gewaehlt = await dateienWaehlen();
-      if (!gewaehlt.length && !fertig) { setLaeuft(false); return; } // abgebrochen: keine Meldung
-      const r = zuordnen(offen, gewaehlt.map((g) => g.datei.name));
-      for (const p of r.paare) {
-        const g = gewaehlt[p.datei];
-        await notenAendern(p.notenId, { datei: g.datei, dateiname: g.datei.name, aktualisiert: Date.now(), ...(g.handle ? { handle: g.handle } : {}) });
-        fertig++;
+      let fehlen: LokaleNoten[] = [];
+      let uebrig = 0;
+      if (offen.length) {
+        // Ohne Dateiverweis (iPad/iPhone): einmal die Dateien wählen, Zuordnung über den Namen.
+        const gewaehlt = await dateienWaehlen();
+        if (!gewaehlt.length && !fertig) return; // abgebrochen: keine Meldung
+        const r = zuordnen(offen, gewaehlt.map((g) => g.datei.name));
+        for (const p of r.paare) {
+          const g = gewaehlt[p.datei];
+          await notenAendern(p.notenId, { datei: g.datei, dateiname: g.datei.name, aktualisiert: Date.now(), ...(g.handle ? { handle: g.handle } : {}) });
+          fertig++;
+        }
+        fehlen = r.ohneDatei;
+        uebrig = r.ohneNoten.length;
       }
-      fehlen = r.ohneDatei;
-      uebrig = r.ohneNoten.length;
+      setMeldung([
+        fertig ? `${fertig} von ${ziel.length} aktualisiert — markierte Stellen und Anmerkungen sind erhalten.` : 'Nichts aktualisiert.',
+        fehlen.length ? `Keine passende Datei für: ${fehlen.map((n) => n.titel + (n.stimme ? ` (${n.stimme})` : '')).join(', ')}.` : '',
+        uebrig ? `${uebrig} gewählte ${uebrig === 1 ? 'Datei passte' : 'Dateien passten'} zu keinen Noten (über „Noten hinzufügen“ neu anlegen).` : '',
+      ].filter(Boolean).join(' '));
+      setAuswahl(new Set());
+    } catch (x) {
+      speicherFehler(x);
+      setWarnung(`${fertig} von ${ziel.length} aktualisiert, dann ging es nicht weiter: ${fehlerGrund(x)}`);
+    } finally {
+      setLaeuft(false);
+      laden();
     }
-    setLaeuft(false);
-    setMeldung([
-      fertig ? `${fertig} von ${ziel.length} aktualisiert — markierte Stellen und Anmerkungen sind erhalten.` : 'Nichts aktualisiert.',
-      fehlen.length ? `Keine passende Datei für: ${fehlen.map((n) => n.titel + (n.stimme ? ` (${n.stimme})` : '')).join(', ')}.` : '',
-      uebrig ? `${uebrig} gewählte ${uebrig === 1 ? 'Datei passte' : 'Dateien passten'} zu keinen Noten (über „Noten hinzufügen“ neu anlegen).` : '',
-    ].filter(Boolean).join(' '));
-    setAuswahl(new Set());
-    laden();
+  }
+
+  // Einzeln nacheinander (jede Note samt Stellen und Anmerkungen in einer
+  // Transaktion). Scheitert eine, sagt die Meldung, wie weit es kam.
+  async function loeschen() {
+    const ids = [...auswahl];
+    if (!confirm(`${ids.length} Noten mit allen Stellen und Anmerkungen von diesem Gerät löschen?`)) return;
+    setMeldung(''); setWarnung(''); setLaeuft(true);
+    const geloescht = new Set<string>();
+    try {
+      for (const id of ids) { await notenLoeschen(id); geloescht.add(id); }
+      setAuswahl(new Set());
+    } catch (x) {
+      speicherFehler(x);
+      setWarnung(`${geloescht.size} von ${ids.length} gelöscht, der Rest ist noch da und weiter ausgewählt: ${fehlerGrund(x)}`);
+      setAuswahl(new Set(ids.filter((id) => !geloescht.has(id))));
+    } finally {
+      setLaeuft(false);
+      laden();
+    }
   }
 
   const umschalten = (id: string) => setAuswahl((a) => { const n = new Set(a); if (n.has(id)) n.delete(id); else n.add(id); return n; });
@@ -185,6 +223,7 @@ function NotenListe({ oeffnen }: { oeffnen: (id: string) => void }) {
       </p>
       {fehler && <p className="karte warnung">{fehler}</p>}
       {meldung && <p className="karte" role="status">{meldung}</p>}
+      {warnung && <p className="karte warnung" role="alert">{warnung}</p>}
       {sicherung.meldung && <p className="karte" role="status">{sicherung.meldung}</p>}
       {sicherung.fehler && <p className="karte warnung" role="alert">{sicherung.fehler}</p>}
       {sicherung.eingabe}
@@ -216,11 +255,7 @@ function NotenListe({ oeffnen }: { oeffnen: (id: string) => void }) {
             Alle aktualisieren
           </button>
           {!!auswahl.size && (
-            <button type="button" className="text-knopf gedaempft text-sm underline" disabled={laeuft} onClick={async () => {
-              if (!confirm(`${auswahl.size} Noten mit allen Stellen und Anmerkungen von diesem Gerät löschen?`)) return;
-              for (const id of auswahl) await notenLoeschen(id);
-              setAuswahl(new Set()); laden();
-            }}>löschen</button>
+            <button type="button" className="text-knopf gedaempft text-sm underline" disabled={laeuft} onClick={() => void loeschen()}>löschen</button>
           )}
         </div>
       )}

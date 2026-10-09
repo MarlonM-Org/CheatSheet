@@ -132,24 +132,39 @@ Unter **Noten → Sicherung**:
 
 - **Sicherung vorbereiten** packt eine Datei `Uebe-Sicherung JJJJ-MM-TT.uebe`:
   alle Noten-PDFs, markierten Stellen mit Tempo-Verlauf und Anmerkungen
-  dieses Geräts. Noten, deren PDF sich nicht lesen lässt („%PDF-“ nicht in den
-  ersten 1024 Bytes), bleiben samt Stellen und Anmerkungen draußen und werden
-  mit Titel gemeldet. Danach erscheinen ein echter Link „Herunterladen (x MB)“
-  und — wo der Browser Dateien teilen kann (iPhone/iPad) — „Teilen / In
-  Dateien sichern“. Zweistufig, weil Safari Download und Teilen nur aus einer
+  dieses Geräts. Jede PDF wird dafür einmal komplett gelesen (als Strom, ohne
+  den Inhalt zu behalten) und die Bytes werden gegen die gespeicherte Größe
+  gezählt. Noten, deren PDF sich nicht lesen lässt („%PDF-“ nicht in den
+  ersten 1024 Bytes, Lesefehler oder zu wenige bzw. zu viele Bytes), bleiben
+  samt Stellen und Anmerkungen draußen und werden mit Titel gemeldet. Danach
+  erscheinen ein echter Link „Herunterladen (x MB)“ und — wo der Browser
+  Dateien teilen kann (iPhone/iPad) — „Teilen / In Dateien sichern“. Zweistufig, weil Safari Download und Teilen nur aus einer
   frischen Berührung zulässt; als Home-Bildschirm-App steht Teilen vorn.
 - **Sicherung laden** liest die Datei erst vollständig und prüft sie (jede
-  Note mit Titel, Stimme und Datum; jede Stelle und Anmerkung einer Note
-  zugeordnet — verwaiste werden übersprungen und gezählt). Laden führt
-  zusammen: Bei gleicher id gewinnt die Sicherung, Stellen und Anmerkungen,
-  die es nur auf dem Gerät gibt, bleiben. Würde etwas überschrieben, fragt die
-  App vorher und nennt Noten, Stellen und Seiten mit Anmerkungen samt Datum der
-  Sicherung; bei „Abbrechen“ bleibt alles, wie es war. Geschrieben wird in
-  einer einzigen Transaktion — alles oder nichts. Zweimal laden verdoppelt
-  nichts. Danach: „X Noten neu, Y aktualisiert; Z Stellen, K Seiten mit
+  Note mit Titel, Stimme und Datum; jede Stelle mit Seite ab 1, Rahmen und
+  Tempo-Verlauf; jede Seite mit Anmerkungen mit Seite, Objekten und der id
+  „notenId:seite“; alles einer Note zugeordnet — verwaiste werden übersprungen
+  und gezählt). Laden führt ohne Verlust zusammen
+  (`src/domain/einspielen.ts`): Was es nur auf dem Gerät gibt, bleibt. Bei
+  gleicher id kommen Titel, Notizen, Zieltempo und Rahmen aus der Sicherung,
+  aber Tempo-Verläufe werden vereinigt (jeder Eintrag einmal, nach Zeit
+  sortiert) und Striche/Texte einer Seite nach ihrer id (bei gleicher id gilt
+  die Sicherung). Bei Noten kommt auch die Datei aus der Sicherung, der
+  Dateiverweis des Geräts bleibt. Gibt es schon etwas davon auf dem Gerät,
+  fragt die App vorher („Die Sicherung vom … aktualisiert auf diesem Gerät N
+  Noten, M Stellen und K Seiten mit Anmerkungen …“); bei „Abbrechen“ bleibt
+  alles, wie es war. Gelesen und geschrieben wird in einer einzigen
+  readwrite-Transaktion — alles oder nichts, und nichts kann dazwischenfallen.
+  Zweimal laden verdoppelt nichts. Danach: „X Noten neu, Y aktualisiert; Z Stellen, K Seiten mit
   Anmerkungen“. Bei falscher Datei sagt die App, wo die .uebe-Datei liegt.
 - Ist der Gerätespeicher blockiert (ein anderes CheatSheet-Fenster hält noch
   eine alte Version offen), sagt die App das, statt still zu hängen.
+- Scheitert irgendein Speichern (Striche, Blätterlinie, Stellen, Tempi,
+  Umbenennen, Hinzufügen, Löschen), erscheint oben über allem „Nicht
+  gespeichert — Gerätespeicher voll oder blockiert. Bitte neu laden.“ mit dem
+  Grund. Löschen mehrerer Noten sagt, wie weit es kam („X von Y gelöscht …“).
+  Hat der Browser die Verbindung zum Gerätespeicher von selbst geschlossen
+  (Safari), öffnet die App sie neu und versucht es einmal erneut.
 
 Das Format steht in `src/domain/sicherung.ts` und ist der Vertrag mit der
 Registerführer-App — dort wird mit demselben Code gespeichert.

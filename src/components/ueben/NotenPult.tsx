@@ -10,6 +10,7 @@ import { useMetronom } from './MetronomKontext';
 import { MiniMetronom } from './MiniMetronom';
 import { NotenBetrachter } from './NotenBetrachter';
 import { NeueVersionFehler, pdfLaden, seiteZeichnen } from './pdf';
+import { ladeFehler, speicherFehler } from './speicherfehler';
 
 const RAND = 0.06;
 
@@ -23,14 +24,14 @@ export function NotenPult({ notenId }: { notenId: string }) {
   const [stellen, setStellen] = useState<Stelle[]>([]);
   const [offen, setOffen] = useState<{ modus: 'lesen' | 'stellen'; stelle?: string } | null>(null);
   const [umbenennen, setUmbenennen] = useState(false);
-  const neuLaden = useCallback(() => { void stellenVon(notenId).then(setStellen); }, [notenId]);
+  const neuLaden = useCallback(() => { stellenVon(notenId).then(setStellen).catch(ladeFehler); }, [notenId]);
 
   useEffect(() => {
     let weg = false;
     (async () => {
       const n = await notenHolen(notenId);
       if (!n) throw new Error('nicht mehr auf diesem Gerät');
-      void notenAendern(notenId, { zuletzt: Date.now() });
+      notenAendern(notenId, { zuletzt: Date.now() }).catch(speicherFehler);
       const [d, st] = await Promise.all([pdfLaden(n.datei), stellenVon(notenId)]);
       if (weg) return;
       setNoten(n); setPdf(d); setStellen(st);
@@ -58,7 +59,8 @@ export function NotenPult({ notenId }: { notenId: string }) {
           e.preventDefault();
           const f = new FormData(e.currentTarget);
           const neu = { titel: String(f.get('titel') || noten.titel), stimme: String(f.get('stimme') ?? '') };
-          await notenAendern(noten.id, neu); setNoten({ ...noten, ...neu }); setUmbenennen(false);
+          try { await notenAendern(noten.id, neu); } catch (x) { speicherFehler(x); return; }
+          setNoten({ ...noten, ...neu }); setUmbenennen(false);
         }}>
           <input className="feld" name="titel" defaultValue={noten.titel} aria-label="Titel" />
           <input className="feld" name="stimme" defaultValue={noten.stimme} placeholder="Stimme" aria-label="Stimme" />
@@ -76,7 +78,7 @@ export function NotenPult({ notenId }: { notenId: string }) {
       <UebeAnsicht pdf={pdf} stellen={stellen} bpm={bpm} neuLaden={neuLaden} tempoSetzen={setBpm} zeigen={(id) => setOffen({ modus: 'stellen', stelle: id })} />
       {offen && (
         <NotenBetrachter noten={noten} pdf={pdf} stellen={stellen} start={offen} geaendert={neuLaden}
-          schliessen={() => { setOffen(null); void notenHolen(notenId).then((n) => n && setNoten(n)); }} />
+          schliessen={() => { setOffen(null); notenHolen(notenId).then((n) => n && setNoten(n)).catch(ladeFehler); }} />
       )}
     </div>
   );
@@ -170,7 +172,7 @@ function UebeStelle({ stelle, breite, rand, seiteHolen, bpm, tempoSetzen, neuLad
         <button className="knopf knopf-leise knopf-klein" type="button" onClick={() => tempoSetzen(zuletzt ?? stelle.zielTempo ?? 60)}>
           ♩ auf {zuletzt ?? stelle.zielTempo ?? 60}
         </button>
-        <button className="knopf knopf-klein" type="button" onClick={async () => { await tempoGeschafft(stelle.id, bpm); neuLaden(); }}>
+        <button className="knopf knopf-klein" type="button" onClick={() => { tempoGeschafft(stelle.id, bpm).then(neuLaden, speicherFehler); }}>
           ✓ Geschafft bei {bpm}
         </button>
         <button className="knopf knopf-leise knopf-klein" type="button" onClick={zeigen}>In den Noten</button>
@@ -181,7 +183,9 @@ function UebeStelle({ stelle, breite, rand, seiteHolen, bpm, tempoSetzen, neuLad
           e.preventDefault();
           const f = new FormData(e.currentTarget);
           const z = Number(String(f.get('ziel')).replace(/\D/g, ''));
-          await stelleAendern(stelle.id, { titel: String(f.get('titel') ?? ''), notiz: String(f.get('notiz') ?? ''), zielTempo: z >= 20 && z <= 400 ? z : null });
+          try {
+            await stelleAendern(stelle.id, { titel: String(f.get('titel') ?? ''), notiz: String(f.get('notiz') ?? ''), zielTempo: z >= 20 && z <= 400 ? z : null });
+          } catch (x) { speicherFehler(x); return; }
           setBearbeiten(false); neuLaden();
         }}>
           <input className="feld" name="titel" defaultValue={stelle.titel} placeholder="Takte, z. B. T. 32–48" aria-label="Bezeichnung" />
@@ -189,7 +193,7 @@ function UebeStelle({ stelle, breite, rand, seiteHolen, bpm, tempoSetzen, neuLad
           <input className="feld" name="notiz" defaultValue={stelle.notiz ?? ''} placeholder="Notiz, z. B. Atmung nach Takt 34" aria-label="Notiz" />
           <div className="flex gap-2">
             <button className="knopf knopf-klein" type="submit">Speichern</button>
-            <button className="knopf knopf-leise knopf-klein" type="button" onClick={async () => { await stelleLoeschen(stelle.id); neuLaden(); }}>Stelle löschen</button>
+            <button className="knopf knopf-leise knopf-klein" type="button" onClick={() => { stelleLoeschen(stelle.id).then(neuLaden, speicherFehler); }}>Stelle löschen</button>
           </div>
         </form>
       )}

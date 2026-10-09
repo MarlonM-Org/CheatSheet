@@ -11,6 +11,7 @@ import {
 } from './lokal';
 import { useMetronom } from './MetronomKontext';
 import { MiniMetronom } from './MiniMetronom';
+import { ladeFehler, speicherFehler } from './speicherfehler';
 import { anmerkungenZeichnen, strichZeichnen } from './zeichnen';
 
 type Werkzeug = 'stift' | 'marker' | 'text' | 'radierer' | 'stelle';
@@ -38,7 +39,7 @@ export function NotenBetrachter({ noten, pdf, stellen, start, schliessen, geaend
     const seite = hauptseite(ansicht);
     setBlaettern(b);
     setIndex(ansichtVonSeite(ansichten(seiten, b.modus, b.linien), seite));
-    void notenAendern(noten.id, { blaettern: b });
+    notenAendern(noten.id, { blaettern: b }).catch(speicherFehler);
   };
 
   // ── Modus: lesen oder Stelle für Stelle ──
@@ -61,7 +62,7 @@ export function NotenBetrachter({ noten, pdf, stellen, start, schliessen, geaend
   const [metronomLeiste, setMetronomLeiste] = useState(true);
   const [anm, setAnm] = useState<Record<number, Anmerkung[]>>({});
   useEffect(() => {
-    void anmerkungenVon(noten.id).then((l) => setAnm(Object.fromEntries(l.map((x) => [x.seite, x.objekte]))));
+    anmerkungenVon(noten.id).then((l) => setAnm(Object.fromEntries(l.map((x) => [x.seite, x.objekte])))).catch(ladeFehler);
   }, [noten.id]);
 
   const sichtbareSeite = stelle ? stelle.seite : hauptseite(ansicht);
@@ -222,7 +223,12 @@ export function NotenBetrachter({ noten, pdf, stellen, start, schliessen, geaend
   async function geschafft(id: string) {
     const jetzt = performance.now(), z = zuletztGespeichert.current;
     if (!(z && z.id === id && z.tempo === bpm && jetzt - z.t < 10000)) {
-      await tempoGeschafft(id, bpm);
+      try {
+        await tempoGeschafft(id, bpm);
+      } catch (x) {
+        speicherFehler(x);
+        return;
+      }
       zuletztGespeichert.current = { id, tempo: bpm, t: jetzt };
       geaendert();
     }
@@ -247,7 +253,7 @@ export function NotenBetrachter({ noten, pdf, stellen, start, schliessen, geaend
   function anmerkungenSetzen(seite: number, neu: Anmerkung[], merken = true) {
     if (merken) verlaufAnm.current = [...verlaufAnm.current.slice(-49), { seite, vorher: anm[seite] ?? [] }];
     setAnm((a) => ({ ...a, [seite]: neu }));
-    void anmerkungenSpeichern(noten.id, seite, neu);
+    anmerkungenSpeichern(noten.id, seite, neu).catch(speicherFehler);
   }
 
   function liveZeichnen() {
@@ -324,7 +330,7 @@ export function NotenBetrachter({ noten, pdf, stellen, start, schliessen, geaend
       const neu = alt.filter((a) => !getroffen(a, x, y, 0.012, format));
       if (neu.length === alt.length) return alleAnm;
       if (!radierZug.current) { verlaufAnm.current = [...verlaufAnm.current.slice(-49), { seite, vorher: alt }]; radierZug.current = true; }
-      void anmerkungenSpeichern(noten.id, seite, neu);
+      anmerkungenSpeichern(noten.id, seite, neu).catch(speicherFehler);
       return { ...alleAnm, [seite]: neu };
     });
   }
@@ -337,7 +343,13 @@ export function NotenBetrachter({ noten, pdf, stellen, start, schliessen, geaend
   async function stelleSpeichern() {
     if (!neueStelle || zeichenSeite === null) return;
     const r = neueStelle;
-    await stelleAnlegen({ notenId: noten.id, seite: zeichenSeite, ...r, titel: stelleTitel.trim() });
+    try {
+      await stelleAnlegen({ notenId: noten.id, seite: zeichenSeite, ...r, titel: stelleTitel.trim() });
+    } catch (x) {
+      // Rahmen bleibt stehen: nach dem Neuladen ist er weg, aber bis dahin sichtbar.
+      speicherFehler(x);
+      return;
+    }
     setNeueStelle(null);
     neueStelleMerken.current = { seite: zeichenSeite, y: r.y, x: r.x };
     geaendert();

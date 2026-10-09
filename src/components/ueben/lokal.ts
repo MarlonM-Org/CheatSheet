@@ -1,7 +1,9 @@
 'use client';
 
 import type { Anmerkung, Blaettermodus } from '@/domain/notenpult';
-import { einspielenPlanen, type Einspielplan, type Vorhanden } from '@/domain/einspielen';
+import {
+  einspielenPlanen, notenZusammenfuehren, seiteZusammenfuehren, stelleZusammenfuehren, type Einspielplan, type Vorhanden,
+} from '@/domain/einspielen';
 import { nurLesbare } from '@/domain/lesbar';
 import { sicherungLesen, sicherungPacken, SicherungsFehler, type SicherungsInhalt } from '@/domain/sicherung';
 
@@ -30,11 +32,14 @@ type Speicher = 'noten' | 'stellen' | 'anmerkungen';
 
 // Eine Verbindung für die ganze Seite, einmal geöffnet und wiederverwendet.
 // Will ein anderes Fenster (neuere Version) das Schema anheben, gibt diese
-// Seite die Verbindung frei und öffnet beim nächsten Zugriff neu.
+// Seite die Verbindung frei und öffnet beim nächsten Zugriff neu. Schlägt das
+// Öffnen fehl, wird der Merker zurückgesetzt — der nächste Zugriff versucht es
+// wieder, statt ewig denselben Fehler zu liefern.
 let verbindung: Promise<IDBDatabase> | null = null;
 
 function oeffnen(): Promise<IDBDatabase> {
-  verbindung ??= new Promise<IDBDatabase>((ok, fehler) => {
+  if (verbindung) return verbindung;
+  const diese: Promise<IDBDatabase> = new Promise<IDBDatabase>((ok, fehler) => {
     let aufgegeben = false;
     const r = indexedDB.open('ueben', 2);
     r.onupgradeneeded = (e) => {
@@ -49,19 +54,28 @@ function oeffnen(): Promise<IDBDatabase> {
       const db = r.result;
       // Kam die Verbindung doch noch, nachdem wir aufgegeben haben: gleich wieder zu.
       if (aufgegeben) { db.close(); return; }
-      db.onversionchange = () => { db.close(); verbindung = null; };
-      db.onclose = () => { verbindung = null; };
+      db.onversionchange = () => { db.close(); vergessen(diese); };
+      db.onclose = () => vergessen(diese);
       ok(db);
     };
-    r.onerror = () => { verbindung = null; fehler(r.error); };
+    r.onerror = () => fehler(r.error);
     // Ein anderes Fenster hält noch eine ältere Version offen.
     r.onblocked = () => {
       aufgegeben = true;
-      verbindung = null;
       fehler(new Error('Der Gerätespeicher ist gerade blockiert. Bitte andere CheatSheet-Fenster und -Tabs schließen und neu laden.'));
     };
   });
-  return verbindung;
+  verbindung = diese;
+  // Jeder Fehler beim Öffnen (auch ein sofort geworfener, etwa im privaten
+  // Modus) gibt den Merker frei.
+  diese.catch(() => vergessen(diese));
+  return diese;
+}
+
+// Den Merker nur freigeben, wenn er noch auf diese Verbindung zeigt — eine
+// inzwischen neu geöffnete bleibt.
+function vergessen(welche: Promise<IDBDatabase>) {
+  if (verbindung === welche) verbindung = null;
 }
 
 // Eine Transaktion über einen oder mehrere Speicher. Abgelehnt wird nur in
@@ -69,14 +83,28 @@ function oeffnen(): Promise<IDBDatabase> {
 // Grund in t.error (in onerror ist er noch leer). Wirft die Arbeit selbst,
 // bricht sie mit genau diesem Grund ab. `arbeit` liefert optional, was nach
 // dem Abschluss herauskommt.
+//
+// Ist die Verbindung inzwischen zu (Safari schließt sie mitunter von selbst,
+// db.transaction wirft dann InvalidStateError), wird sie vergessen und die
+// Transaktion EINMAL mit einer frischen Verbindung versucht.
 async function transaktion<T>(
   speicher: Speicher | Speicher[],
   modus: IDBTransactionMode,
   arbeit: (t: IDBTransaction, abbrechen: (grund: unknown) => void) => (() => T) | void,
+  nochmal = true,
 ): Promise<T> {
-  const db = await oeffnen();
+  const offen = oeffnen();
+  const db = await offen;
+  let t: IDBTransaction;
+  try {
+    t = db.transaction(speicher, modus);
+  } catch (x) {
+    if (!nochmal || !(x instanceof DOMException) || x.name !== 'InvalidStateError') throw x;
+    vergessen(offen);
+    try { db.close(); } catch { /* schon zu */ }
+    return transaktion(speicher, modus, arbeit, false);
+  }
   return new Promise((ok, fehler) => {
-    const t = db.transaction(speicher, modus);
     let grund: unknown = null;
     let ergebnis: (() => T) | void = undefined;
     const abbrechen = (x: unknown) => { grund ??= x; try { t.abort(); } catch { /* schon beendet */ } };
@@ -164,8 +192,9 @@ export const allesLesen = () => transaktion<Bestand>(ALLE, 'readonly', (t) => {
   return () => ({ noten: noten.result, stellen: stellen.result, anmerkungen: anmerkungen.result });
 });
 
-// Nicht lesbare Noten (kaputter oder verlorener PDF-Inhalt) kommen samt ihren
-// Stellen und Anmerkungen nicht mit; `fehlen` nennt sie.
+// Nicht lesbare Noten (kaputter, verlorener oder nicht ganz lesbarer
+// PDF-Inhalt — jede Datei wird dafür einmal komplett gelesen) kommen samt
+// ihren Stellen und Anmerkungen nicht mit; `fehlen` nennt sie.
 export async function sicherungErstellen(): Promise<{ datei: Blob; noten: number; fehlen: LokaleNoten[] }> {
   const { bestand, fehlen } = await nurLesbare(await allesLesen());
   const datei = await sicherungPacken(bestand, 'cheatsheet', Date.now());
@@ -205,18 +234,35 @@ export async function sicherungPruefen(datei: Blob): Promise<Einspielung> {
 }
 
 // Schreibt eine geprüfte Sicherung: entweder kommt alles an oder nichts.
-// Zusammenführen: Bei gleicher id gewinnt die Sicherung; Stellen und
-// Anmerkungen, die es nur auf dem Gerät gibt, bleiben.
+// Zusammenführen ohne Verlust (Regeln in @/domain/einspielen): Bei gleicher id
+// gewinnen die Felder der Sicherung, aber Tempo-Verläufe und Striche werden
+// vereinigt und der Dateiverweis des Geräts bleibt. Was es nur auf dem Gerät
+// gibt, bleibt unberührt. Lesen und Schreiben in EINER readwrite-Transaktion:
+// Was nebenher geändert wird, kann nicht zwischen Lesen und Schreiben fallen.
 // Die PDF-Ausschnitte gehen direkt an put: IndexedDB legt ihren Inhalt selbst
 // ab und hängt danach nicht mehr an der gewählten Datei.
 export async function sicherungSchreiben(e: Einspielung): Promise<{ neu: number; aktualisiert: number; stellen: number; anmerkungen: number; uebersprungen: number }> {
-  await transaktion<void>(ALLE, 'readwrite', (t) => {
-    const noten = t.objectStore('noten');
-    const stellen = t.objectStore('stellen');
-    const anmerkungen = t.objectStore('anmerkungen');
-    for (const n of e.noten) noten.put(n);
-    for (const st of e.stellen) stellen.put(st);
-    for (const a of e.anmerkungen) anmerkungen.put(a);
+  await transaktion<void>(ALLE, 'readwrite', (t, abbrechen) => {
+    const einspielen = <E extends { id: string }>(
+      name: Speicher, eintraege: E[], zusammen: (geraet: Record<string, unknown> | undefined, neu: E) => E,
+    ) => {
+      const s = t.objectStore(name);
+      // Stand je id: Kommt eine id mehrfach vor, baut jeder Eintrag auf dem vorigen auf.
+      const stand = new Map<string, E>();
+      for (const eintrag of eintraege) {
+        const r = s.get(eintrag.id) as IDBRequest<Record<string, unknown> | undefined>;
+        r.onsuccess = () => {
+          try {
+            const zusammengefuehrt = zusammen(stand.get(eintrag.id) ?? r.result, eintrag);
+            stand.set(eintrag.id, zusammengefuehrt);
+            s.put(zusammengefuehrt);
+          } catch (x) { abbrechen(x); }
+        };
+      }
+    };
+    einspielen('noten', e.noten, notenZusammenfuehren);
+    einspielen('stellen', e.stellen, stelleZusammenfuehren);
+    einspielen('anmerkungen', e.anmerkungen, seiteZusammenfuehren);
   });
   dauerhaftAnfragen();
   return { neu: e.neu, aktualisiert: e.ueberschrieben.noten, stellen: e.stellen.length, anmerkungen: e.anmerkungen.length, uebersprungen: e.uebersprungen };
