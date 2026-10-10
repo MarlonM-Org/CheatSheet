@@ -202,57 +202,74 @@ a { color: inherit; text-decoration: underline; text-decoration-color: var(--mes
   border-radius: 999px; border: 1px solid var(--linie-stark); vertical-align: -1px;
 }
 
-/* ── Stift-Palette (E-03): schwebende Werkzeugleiste im Pencil-Stil ── */
+/* ── Stift-Palette (E-03): die Pille der iPad-Stiftpalette nachempfunden.
+   Die Instrumente stehen in der Schale und werden unten beschnitten; das
+   aktive hebt sich heraus und ragt über den Pillenrand hinaus. ── */
 .stift-palette {
   position: fixed; z-index: 42;
   left: 50%; transform: translateX(-50%);
-  bottom: calc(var(--leiste-hoehe) + env(safe-area-inset-bottom, 0px) + 10px);
+  bottom: calc(var(--leiste-hoehe) + env(safe-area-inset-bottom, 0px) + 12px);
+  display: flex; align-items: center; gap: 2px;
   width: max-content; max-width: min(430px, calc(100vw - 12px));
-  background: var(--schleier); backdrop-filter: blur(8px);
-  border: 1px solid var(--linie); border-radius: 8px;
-  box-shadow: 0 10px 36px rgb(0 0 0 / 22%);
-  padding: 6px 8px;
+  height: 58px; padding: 0 10px 0 6px;
+  background: var(--schleier); backdrop-filter: blur(16px);
+  border: 1px solid var(--linie); border-radius: 18px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 8%), 0 8px 20px rgb(0 0 0 / 14%), 0 20px 50px rgb(0 0 0 / 16%);
   touch-action: none; user-select: none; -webkit-user-select: none;
   cursor: grab;
 }
 .stift-palette.schwebt { transform: none; bottom: auto; }
-.stift-palette .griff { width: 10px; height: 16px; flex: none; fill: var(--leise); opacity: 0.7; }
-.palette-zeile { display: flex; align-items: center; gap: 3px; flex-wrap: wrap; justify-content: center; }
-.palette-zeile.optionen { margin-top: 6px; padding-top: 7px; border-top: 1px solid var(--linie); gap: 8px; }
-.palette-zeile.fuss { margin-top: 2px; gap: 10px; }
-.palette-knopf { width: 34px; height: 38px; display: grid; place-items: center; border-radius: 5px; color: var(--gedaempft); }
+.stift-palette .griff { width: 10px; height: 16px; flex: none; fill: var(--leise); opacity: 0.6; }
+.palette-knopf { flex: none; width: 34px; height: 44px; display: grid; place-items: center; border-radius: 8px; color: var(--gedaempft); }
 .palette-knopf svg { width: 19px; height: 19px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .palette-knopf:disabled { opacity: 0.3; }
 .palette-knopf:active:not(:disabled) { background: var(--flaeche); }
-.palette-trenner { width: 1px; height: 22px; background: var(--linie-stark); margin: 0 1px; flex: none; }
-.palette-werkzeuge { display: flex; gap: 2px; }
+
+/* Schale: beschneidet die Stiftkörper unten, lässt sie oben herausragen. */
+.werkzeug-schale {
+  display: flex; align-items: flex-end; gap: 0;
+  height: 58px; margin-bottom: -1px; padding: 0 2px;
+  overflow: hidden;
+}
 .werkzeug-knopf {
-  position: relative; width: 40px; height: 44px; display: grid; place-items: center;
-  border-radius: 5px; color: var(--gedaempft); transition: transform 120ms, color 120ms;
+  position: relative; width: 42px; height: 58px; flex: none;
+  display: flex; align-items: flex-end; justify-content: center;
+  transition: transform 160ms ease;
+  transform: translateY(14px);
 }
-.werkzeug-knopf svg { width: 21px; height: 21px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.werkzeug-knopf[aria-pressed="true"] { color: var(--messing); transform: translateY(-3px); }
-.werkzeug-knopf[aria-pressed="true"]::after {
-  content: ""; position: absolute; left: 50%; transform: translateX(-50%); bottom: 2px;
-  width: 16px; height: 2px; background: var(--messing);
-}
+.werkzeug-knopf .instrument { width: 26px; height: 86px; display: block; margin-bottom: -34px; filter: drop-shadow(0 1px 1.5px rgb(0 0 0 / 30%)); }
+.werkzeug-knopf[aria-pressed="true"] { transform: translateY(-2px); }
 @media (prefers-reduced-motion: reduce) { .werkzeug-knopf { transition: none; } }
-.palette-dicken { display: flex; gap: 2px; }
-.dicke-knopf { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 5px; }
-.dicke-knopf i { display: block; border-radius: 999px; background: var(--gedaempft); }
-.dicke-knopf[aria-pressed="true"] { background: var(--flaeche2); }
-.dicke-knopf[aria-pressed="true"] i { background: var(--messing); }
-.palette-farben { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; }
-.farb-knopf { width: 26px; height: 26px; border-radius: 999px; border: 1px solid var(--linie-stark); }
-.farb-knopf[aria-pressed="true"] { outline: 2.5px solid var(--messing); outline-offset: 1.5px; }
-.palette-schalter { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.78rem; color: var(--gedaempft); min-height: 30px; }
-.palette-schalter input { accent-color: var(--messing); }
-.palette-hinweis { font-size: 0.75rem; color: var(--leise); }
-@media (pointer: coarse) {
-  .palette-knopf { width: 38px; height: 44px; }
-  .dicke-knopf { width: 40px; height: 40px; }
-  .farb-knopf { width: 30px; height: 30px; }
+
+/* Farbrondell: zeigt die Farbe des aktiven Werkzeugs, öffnet die Farb-Blase. */
+.farb-rondell {
+  flex: none; width: 34px; height: 34px; margin-left: 4px;
+  display: grid; place-items: center; border-radius: 999px;
+  border: 1.5px solid var(--linie-stark);
 }
+.farb-rondell i { display: block; width: 24px; height: 24px; border-radius: 999px; border: 1px solid rgb(0 0 0 / 12%); }
+.farb-rondell:disabled { opacity: 0.35; }
+.farb-rondell[aria-pressed="true"] { border-color: var(--messing); }
+
+/* Blasen: kleine Karten über der Pille (Strichstärken bzw. Farben). */
+.palette-blase {
+  position: absolute; bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 10px 12px; border-radius: 14px;
+  background: var(--schleier); backdrop-filter: blur(16px);
+  border: 1px solid var(--linie);
+  box-shadow: 0 8px 20px rgb(0 0 0 / 14%), 0 20px 50px rgb(0 0 0 / 16%);
+  cursor: auto;
+}
+.blase-dicken { display: flex; gap: 2px; }
+.dicke-knopf { width: 52px; height: 36px; display: grid; place-items: center; border-radius: 8px; color: var(--gedaempft); }
+.dicke-knopf svg { width: 44px; height: 20px; display: block; }
+.dicke-knopf[aria-pressed="true"] { background: var(--flaeche2); color: var(--tinte); }
+.blase-farben { display: grid; grid-template-columns: repeat(5, auto); gap: 8px; }
+.farb-knopf { width: 30px; height: 30px; border-radius: 999px; border: 1px solid var(--linie-stark); }
+.farb-knopf[aria-pressed="true"] { outline: 2.5px solid var(--messing); outline-offset: 2px; }
+.palette-schalter { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.78rem; color: var(--gedaempft); min-height: 30px; white-space: nowrap; }
+.palette-schalter input { accent-color: var(--messing); }
 .panel-kopf h2 {
   font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--leise);
 }

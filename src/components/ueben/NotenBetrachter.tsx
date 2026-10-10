@@ -446,11 +446,10 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   const linieHinweis = linieEinstellen && modus === 'lesen'
     ? (linienSeite ? `Goldene Linie auf Seite ${linienSeite} ziehen: bis hierhin lesen, dann zeigt Weiterblättern oben schon die nächste Seite.` : 'Auf der letzten Seite gibt es keine Blätterlinie — eine Seite zurückblättern.')
     : null;
-  const paletteHinweis = !werkzeug || zeichenSeite === null ? null
+  const werkzeugHinweis = !werkzeug || zeichenSeite === null ? null
     : werkzeug === 'stelle' ? 'Rahmen um die Takte ziehen.'
     : werkzeug === 'text' ? 'Auf die Stelle tippen, an der der Text stehen soll.'
-    : werkzeug === 'radierer' ? 'Über Anmerkungen wischen.'
-    : fingerZeichnen ? 'Stift oder Finger zeichnen.' : 'Der Finger blättert weiter.';
+    : null;
   const paletteWechsel = (offen: boolean) => {
     setPaletteOffen(offen);
     setWerkzeug(offen ? 'stift' : null);
@@ -551,7 +550,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
           </>
         )}
         {/* Schwebende Hinweise: verkleinern das Blatt nicht. */}
-        {(linieHinweis || (werkzeug && zeichenSeite === null)) && (
+        {(linieHinweis || werkzeugHinweis || (werkzeug && zeichenSeite === null)) && (
           <div className="b-schwebend">
             {werkzeug && zeichenSeite === null ? (
               <>
@@ -561,7 +560,9 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
               </>
             ) : (
               <>
-                {linieHinweis && <span key={linieHinweis} className="b-hinweis b-verblassen">{linieHinweis}</span>}
+                {(linieHinweis || werkzeugHinweis) && (
+                  <span key={linieHinweis ?? werkzeugHinweis} className="b-hinweis b-verblassen">{linieHinweis ?? werkzeugHinweis}</span>
+                )}
               </>
             )}
           </div>
@@ -603,8 +604,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
           einst={einst} einstellen={einstellen}
           fingerZeichnen={fingerZeichnen} setFingerZeichnen={setFingerZeichnen}
           rueckgaengig={rueckgaengig} wiederholen={wiederholen}
-          kannRueck={staende.rueck > 0} kannWieder={staende.wieder > 0}
-          hinweis={paletteHinweis} schliessen={() => paletteWechsel(false)} />
+          kannRueck={staende.rueck > 0} kannWieder={staende.wieder > 0} />
       )}
     </div>
   );
