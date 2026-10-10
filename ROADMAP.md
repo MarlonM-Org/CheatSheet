@@ -32,6 +32,7 @@ nicht in der Breite, aber in der Sorgfalt.
 | M4 | **Notenmanagement I** | Metadaten, Bookmarks, Flags, Kontextmenüs, Drag & Drop | F-01, F-03, F-04, F-08, F-09 |
 | M5 | **Üben & Setlisten** | Setlisten, Wiederholungs-Links, Halbseiten-Blättern, Intonations-Trainer | F-02, F-05, F-06, C-04 |
 | M6 | **Design & Extras** | Themes, Stempel/Formen, Kamera-Scan | B-04, B-05, E-04, F-07 |
+| M7 | **Komponieren** (Vision) | Noteneingabe, Rhythmus-/Melodie-Transkription | G-01…G-03 |
 
 **Quick Wins** (klein, unabhängig, jederzeit zwischenschieben — guter
 Einstieg): C-01, C-02, C-03, D-01.
@@ -301,6 +302,43 @@ ganze App.
 PDFs aus dem Datei-Manager in die Bibliothek ziehen = Import. Noten in
 Setlisten ziehen, Setlisten-Einträge umsortieren. (Desktop zuerst; Touch
 soweit sinnvoll.)
+
+---
+
+## G — Komponieren (Vision, langfristig)
+
+Langfristperspektive: CheatSheet nicht nur zum Lesen und Üben, sondern auch
+zum **Schreiben** von Musik. Bewusst als Vision hinter M1–M6 — nichts davon
+anfangen, bevor die Noten-Grundpfeiler stehen. Und es gilt weiterhin: alles
+lokal, kein Server. „KI“ heißt hier on-device (Modelle, die im Browser
+laufen), kein Cloud-Dienst.
+
+### G-01 · Noteneingabe
+
+Ein cleanes, interaktives Eingabe-UI, um Noten direkt einzutippen: Tonhöhe,
+Notenwert, Pausen, Taktart, Vorzeichen — gedacht fürs schnelle Festhalten
+von Ideen und Stimmen, kein Notensatz-Programm-Ersatz. Technik-Kandidaten
+fürs Rendern: VexFlow oder abcjs (beides rein lokal lauffähig); als
+Speicherformat etwas Offenes (ABC-Notation oder MusicXML), nichts Eigenes.
+Export als PDF in die eigene Bibliothek — damit schließt sich der Kreis:
+komponieren → üben.
+
+### G-02 · Rhythmus-Transkription
+
+Einsingen oder klatschen → die App erkennt die Einsätze (Onset-Erkennung)
+und quantisiert sie am Metronom-Raster zu Notenwerten. Rein lokal
+realistisch machbar: Mikrofon-Pipeline und Tonerkennung
+(`grundfrequenz`/YIN) existieren schon, das Metronom gibt den Takt vor, die
+App schreibt den Rhythmus mit. Bewusst der erste Transkriptions-Schritt,
+weil deutlich robuster als Tonhöhen-Erkennung von Gesang.
+
+### G-03 · Melodie-Transkription
+
+Ausbaustufe von G-02: zusätzlich die Tonhöhen erkennen → gesungene Melodie
+wird vollständige Notation. Deutlich schwerer (Gesang schwankt,
+Oktavfehler, Übergänge); Kandidat wäre ein On-Device-Modell im Browser
+(ONNX/WASM, Richtung Basic Pitch). Eigenes Forschungsthema, bewusst von
+G-02 getrennt — Rhythmus zuerst, Töne später.
 
 ---
 
