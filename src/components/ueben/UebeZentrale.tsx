@@ -10,6 +10,7 @@ import { NotenPult } from './NotenPult';
 import { Sicherung, useSicherungLaden } from './Sicherung';
 import { fehlerGrund, SpeicherHinweis } from './speicherfehler';
 import { Stimmgeraet } from './Stimmgeraet';
+import { StimmgeraetAnbieter } from './StimmgeraetKontext';
 
 type Reiter = 'metronom' | 'stimmgeraet' | 'noten';
 const REITER: Reiter[] = ['metronom', 'stimmgeraet', 'noten'];
@@ -35,7 +36,7 @@ function adresseAufraeumen() {
 }
 
 export function UebeZentrale() {
-  return <MetronomAnbieter><Zentrale /></MetronomAnbieter>;
+  return <MetronomAnbieter><StimmgeraetAnbieter><Zentrale /></StimmgeraetAnbieter></MetronomAnbieter>;
 }
 
 function Zentrale() {
