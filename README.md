@@ -6,8 +6,11 @@ Früher unter Admin → „Üben (Prototyp)“ in der Registerführer-App.
 
 - **Repo:** `MarlonM-Org/CheatSheet`, öffentlich. Deshalb nie Secrets, Tokens
   oder echte Noten einchecken.
+- **Roadmap und Backlog:** [ROADMAP.md](ROADMAP.md) in diesem Repo — die
+  aktuelle Planungs- und Anforderungsquelle.
 - **Anforderungen und Entscheidungen:** `apps/cheatsheet/` in
-  `MarlonM-Org/app-factory`.
+  `MarlonM-Org/app-factory` (existiert dort noch nicht — siehe A-04 in der
+  Roadmap).
 - Die Icons (Viertelnote) sind vorläufig, ein eigenes Logo kommt später.
 
 ## Was sie kann
