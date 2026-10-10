@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<title>CheatSheet — Entwurf „Galerie“</title>
+<style>
+/* ───────────────────────── Entwurf „Galerie“ ─────────────────────────
+   Reines Weiß, das Notenblatt hängt wie ein Werk. Chrome verschwindet.
+   Messing (#a8781f) erscheint NUR an lebenden Zuständen.               */
+
+:root {
+  --wand: #fbfbfa;
+  --papier: #ffffff;
+  --tinte: #1c1b19;
+  --leise: #8f8c84;
+  --haar: rgba(28, 27, 25, 0.12);
+  --messing: #a8781f;
+  --insel: rgba(252, 252, 251, 0.78);
+  --insel-schatten: 0 1px 1px rgba(28,27,25,0.04), 0 14px 44px rgba(28,27,25,0.13);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; }
+
+html, body { height: 100%; }
+body {
+  background: var(--wand);
+  color: var(--tinte);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+:focus { outline: none; }
+:focus-visible { outline: 2px solid var(--tinte); outline-offset: 3px; border-radius: 4px; }
+
+/* ── Chrome, das sich zurücknimmt ── */
+.chrom { transition: opacity 0.5s ease; }
+body.ruhe .chrom { opacity: 0; pointer-events: none; }
+
+/* ── Zurück zur Übersicht (gehört nicht zum Design) ── */
+.zurueck {
+  position: fixed;
+  top: env(safe-area-inset-top);
+  left: env(safe-area-inset-left);
+  z-index: 60;
+  padding: 16px 14px; /* Trefferfläche ≥ 44 px, Schrift bleibt leise */
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--tinte);
+  opacity: 0.38;
+  text-decoration: none;
+}
+body.ruhe .zurueck { opacity: 0; }
+body.bib-offen .zurueck { visibility: hidden; } /* kollidiert sonst mit dem Bibliothekskopf */
+.zurueck:hover { opacity: 0.8; }
+
+/* ── Titel & Seite, so leise wie möglich ── */
+.status {
+  position: fixed;
+  top: calc(12px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 45;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  white-space: nowrap;
+  max-width: calc(100vw - 140px);
+  overflow: hidden;
+  pointer-events: none;
+}
+.status-titel {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--tinte);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.status-seite {
+  font-size: 11px;
+  color: var(--leise);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+/* ── Die Bühne: das Blatt hängt im Weißraum ── */
+.buehne {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(16px, 4.5vmin, 72px);
+  padding-top: calc(clamp(16px, 4.5vmin, 72px) + env(safe-area-inset-top) * 0.6);
+  padding-bottom: calc(clamp(16px, 4.5vmin, 72px) + env(safe-area-inset-bottom) * 0.6);
+}
+.papier { width: 100%; height: 100%; }
+.papier svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* Das Blatt hängt im Weißraum: Schatten folgt dem gemalten Blatt, nicht der Box */
+  filter: drop-shadow(0 2px 5px rgba(28, 27, 25, 0.05)) drop-shadow(0 18px 50px rgba(28, 27, 25, 0.09));
+}
+.papier text { font-family: inherit; }
+
+/* Blätter-Zonen: unsichtbar, halbes Fenster, über dem Blatt */
+.zone {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  z-index: 10;
+  cursor: default;
+}
+.zone-links { left: 0; }
+.zone-rechts { right: 0; }
+.zone:focus-visible {
+  outline: 2px solid rgba(28, 27, 25, 0.55);
+  outline-offset: -8px;
+  border-radius: 18px;
+}
+
+/* ── Untere Leiste: kleine schwebende Insel ── */
+.leiste {
+  position: fixed;
+  left: 50%;
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 40;
+  display: flex;
+  gap: 2px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: var(--insel);
+  -webkit-backdrop-filter: blur(18px) saturate(1.1);
+  backdrop-filter: blur(18px) saturate(1.1);
+  box-shadow: var(--insel-schatten);
+}
+.leiste button {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: 84px;
+  min-height: 54px;
+  padding: 8px 0 7px;
+  border-radius: 999px;
+  color: var(--tinte);
+  opacity: 0.62;
+  transition: opacity 0.2s ease;
+}
+.leiste button:hover { opacity: 0.9; }
+.leiste button.an { opacity: 1; background: rgba(28, 27, 25, 0.055); }
+.leiste button svg { display: block; }
+.leiste button span.beschriftung {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+/* Lebender Zustand: kleiner Messing-Punkt am Knopf */
+.punkt {
+  position: absolute;
+  top: 8px;
+  right: 24px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--messing);
+}
+.punkt.puls { animation: punktpuls 1.1s ease-in-out infinite; }
+@keyframes punktpuls {
+  50% { transform: scale(1.6); opacity: 0.7; }
+}
+
+/* ── Schwebende Werkzeuge über den Noten ── */
+.werkzeuge {
+  position: fixed;
+  left: 50%;
+  bottom: calc(86px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  width: min(372px, calc(100vw - 20px));
+  pointer-events: none;
+}
+.widget {
+  pointer-events: auto;
+  background: var(--insel);
+  -webkit-backdrop-filter: blur(18px) saturate(1.1);
+  backdrop-filter: blur(18px) saturate(1.1);
+  box-shadow: var(--insel-schatten);
+  border-radius: 20px;
+  padding: 10px 16px 14px;
+  animation: auftauchen 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes auftauchen {
+  from { opacity: 0; transform: translateY(10px); }
+}
+.w-kopf {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.w-titel {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--leise);
+}
+.w-zu {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: -8px -14px -10px 0;
+  color: var(--leise);
+  border-radius: 50%;
+}
+.w-zu:hover { color: var(--tinte); }
+
+/* Metronom */
+.m-mitte {
+  display: grid;
+  grid-template-columns: 44px 1fr 44px;
+  align-items: center;
+  margin-top: 2px;
+}
+.m-bpm { text-align: center; line-height: 1; }
+.m-bpm strong {
+  display: block;
+  font-size: 36px;
+  font-weight: 640;
+  letter-spacing: -0.015em;
+  font-variant-numeric: tabular-nums;
+}
+.m-bpm .m-einheit {
+  display: block;
+  margin-top: 4px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--leise);
+}
+.rund {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--tinte);
+}
+.rund:hover { background: rgba(28, 27, 25, 0.05); }
+.rund:active { background: rgba(28, 27, 25, 0.09); }
+.m-fuss {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
+}
+.m-start {
+  min-width: 84px;
+  height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: var(--tinte);
+  color: var(--papier);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.m-prozent {
+  height: 44px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--leise);
+}
+.m-prozent:hover { color: var(--tinte); }
+.m-takt {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.m-takt i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(28, 27, 25, 0.35);
+  background: transparent;
+  transition: transform 0.09s ease, background-color 0.09s ease, border-color 0.09s ease, box-shadow 0.09s ease;
+}
+.m-takt i.an {
+  background: var(--messing);
+  border-color: var(--messing);
+  transform: scale(1.2);
+}
+.m-takt i.an.eins { box-shadow: 0 0 0 4px rgba(168, 120, 31, 0.16); }
+.m-takt .m-taktart {
+  font-size: 11px;
+  color: var(--leise);
+  font-variant-numeric: tabular-nums;
+  margin-left: 2px;
+}
+
+/* Stimmgerät */
+.s-mitte {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 4px;
+}
+.s-ton {
+  flex-shrink: 0;
+  min-width: 56px;
+  text-align: center;
+  line-height: 1;
+}
+.s-ton strong {
+  font-size: 46px;
+  font-weight: 640;
+  letter-spacing: -0.02em;
+}
+.s-ton sub {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--leise);
+  margin-left: 1px;
+}
+.s-rechts { flex: 1; min-width: 0; }
+.s-skala { display: block; width: 100%; height: 46px; }
+.s-nadel { animation: wackeln 2.6s ease-in-out infinite; }
+@keyframes wackeln {
+  0%, 100% { transform: translateX(0); }
+  30% { transform: translateX(1.8px); }
+  65% { transform: translateX(-1.3px); }
+}
+.s-ablese {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 2px;
+  justify-content: center;
+}
+.s-abw {
+  font-size: 17px;
+  font-weight: 640;
+  font-variant-numeric: tabular-nums;
+}
+.s-zustand {
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  color: var(--leise);
+}
+
+/* ── Bibliothek: ein Schleier über den Noten ── */
+.bib {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(252, 252, 251, 0.92);
+  -webkit-backdrop-filter: blur(22px) saturate(1.05);
+  backdrop-filter: blur(22px) saturate(1.05);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  animation: schleier 0.25s ease;
+}
+@keyframes schleier { from { opacity: 0; } }
+.bib-innen {
+  max-width: 560px;
+  min-height: 100%;
+  margin: 0 auto;
+  padding: calc(16px + env(safe-area-inset-top)) 26px calc(26px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+}
+.bib-kopf {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.bib-kopf h2 {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+.bib-zu {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-right: -12px;
+  color: var(--leise);
+  border-radius: 50%;
+}
+.bib-zu:hover { color: var(--tinte); }
+.suche {
+  width: 100%;
+  margin: 26px 0 10px;
+  padding: 13px 2px; /* Trefferfläche ≥ 44 px */
+  font: inherit;
+  font-size: 16px;
+  color: var(--tinte);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--haar);
+  border-radius: 0;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.suche::placeholder { color: var(--leise); }
+.suche:focus { outline: none; border-bottom-color: var(--tinte); }
+.liste { list-style: none; flex: 1; }
+.liste button {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  min-height: 48px;
+  padding: 13px 2px;
+  text-align: left;
+  border-radius: 6px;
+}
+.liste button:hover .stueck-titel { color: var(--tinte); }
+.stueck-titel {
+  font-size: 17px;
+  font-weight: 420;
+  letter-spacing: 0.005em;
+  color: rgba(28, 27, 25, 0.82);
+}
+.stueck-genre {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--leise);
+}
+.liste button.aktuell { position: relative; }
+.liste button.aktuell .stueck-titel { font-weight: 640; color: var(--tinte); }
+.liste button.aktuell::before {
+  content: "";
+  position: absolute;
+  left: -16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--tinte);
+}
+.bib-leer {
+  padding: 20px 2px;
+  font-size: 13px;
+  color: var(--leise);
+}
+.bib-fuss {
+  margin-top: auto;
+  padding-top: 32px;
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--leise);
+}
+
+/* ── Ruhe bitte: reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+<a class="zurueck chrom" href="./">Übersicht</a>
+
+<div class="status chrom" id="status" aria-live="polite">
+  <span class="status-titel" id="statusTitel">Böhmischer Traum</span>
+  <span class="status-seite" id="statusSeite">Seite 2/5</span>
+</div>
+
+<main class="buehne" aria-label="Notenansicht">
+  <div class="papier" id="papier"></div>
+</main>
+
+<button class="zone zone-links" id="zoneLinks" type="button" aria-label="Vorherige Seite"></button>
+<button class="zone zone-rechts" id="zoneRechts" type="button" aria-label="Nächste Seite"></button>
+
+<div class="werkzeuge">
+
+  <section class="widget" id="wMetro" role="group" aria-label="Metronom" hidden>
+    <div class="w-kopf">
+      <span class="w-titel">Metronom</span>
+      <button class="w-zu" type="button" id="metroZu" aria-label="Metronom schließen">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="m-mitte">
+      <button class="rund" type="button" id="mMinus" aria-label="Ein Schlag pro Minute langsamer">−1</button>
+      <div class="m-bpm">
+        <strong id="mBpm">112</strong>
+        <span class="m-einheit">BPM</span>
+      </div>
+      <button class="rund" type="button" id="mPlus" aria-label="Ein Schlag pro Minute schneller">+1</button>
+    </div>
+    <div class="m-fuss">
+      <button class="m-start" type="button" id="mStart" aria-pressed="true">Stopp</button>
+      <button class="m-prozent" type="button" id="mProzMinus" aria-label="Tempo zehn Prozent langsamer">−10&nbsp;%</button>
+      <button class="m-prozent" type="button" id="mProzPlus" aria-label="Tempo zehn Prozent schneller">+10&nbsp;%</button>
+      <div class="m-takt" aria-label="Takt zwei Viertel">
+        <i id="mDot1"></i><i id="mDot2"></i>
+        <span class="m-taktart">2/4</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="widget" id="wStimm" role="group" aria-label="Stimmgerät" hidden>
+    <div class="w-kopf">
+      <span class="w-titel">Stimmgerät</span>
+      <button class="w-zu" type="button" id="stimmZu" aria-label="Stimmgerät schließen">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="s-mitte">
+      <div class="s-ton"><strong>B</strong><sub>3</sub></div>
+      <div class="s-rechts">
+        <svg class="s-skala" id="sSkala" viewBox="0 0 240 46" aria-hidden="true"></svg>
+        <div class="s-ablese">
+          <span class="s-abw" id="sAbw">+2</span>
+          <span class="s-zustand">fast rein</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<nav class="leiste chrom" aria-label="Werkzeugleiste">
+  <button type="button" id="kNoten" aria-expanded="false" aria-controls="bib">
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9 17.4V6.2l10-2v11.2"/>
+      <ellipse cx="6.6" cy="17.6" rx="2.6" ry="2.1" fill="currentColor" stroke="none"/>
+      <ellipse cx="16.6" cy="15.6" rx="2.6" ry="2.1" fill="currentColor" stroke="none"/>
+    </svg>
+    <span class="beschriftung">Noten</span>
+  </button>
+  <button type="button" id="kMetro" aria-pressed="false">
+    <span class="punkt" id="pMetro" hidden></span>
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9.2 3.5h5.6l2.9 17H6.3z"/>
+      <path d="M12 16.5L16.9 7"/>
+      <circle cx="16.9" cy="7" r="1.4" fill="currentColor" stroke="none"/>
+    </svg>
+    <span class="beschriftung">Metronom</span>
+  </button>
+  <button type="button" id="kStimm" aria-pressed="false">
+    <span class="punkt" id="pStimm" hidden></span>
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M8.5 3.5v6a3.5 3.5 0 0 0 7 0v-6"/>
+      <path d="M12 13v6.5"/>
+      <path d="M9.5 20.5h5"/>
+    </svg>
+    <span class="beschriftung">Stimmgerät</span>
+  </button>
+</nav>
+
+<div class="bib" id="bib" role="dialog" aria-modal="true" aria-label="Bibliothek" hidden>
+  <div class="bib-innen">
+    <div class="bib-kopf">
+      <h2>Bibliothek</h2>
+      <button class="bib-zu" type="button" id="bibZu" aria-label="Bibliothek schließen">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <input class="suche" id="suche" type="search" placeholder="Suchen …" aria-label="Stücke durchsuchen" autocomplete="off">
+    <ul class="liste" id="liste"></ul>
+    <p class="bib-fuss">Alles bleibt auf diesem Gerät. Kein Konto, kein Server.</p>
+  </div>
+</div>
+
+<noscript><p style="position:fixed;top:40%;width:100%;text-align:center;color:#8f8c84;">Dieses Mockup benötigt JavaScript.</p></noscript>
+
+<script>
+"use strict";
+
+/* ───────── Daten ───────── */
+var STUECKE = [
+  { titel: "Böhmischer Traum", gattung: "Polka", komponist: "Norbert Gälle", tempo: 112 },
+  { titel: "Dem Land Tirol die Treue", gattung: "Marsch", komponist: "Florian Pedarnig", tempo: 116 },
+  { titel: "Auf der Vogelwiese", gattung: "Polka", komponist: "Josef Poncar", tempo: 120 },
+  { titel: "Egerländer Musikanten-Marsch", gattung: "Marsch", komponist: "", tempo: 112 },
+  { titel: "Von Freund zu Freund", gattung: "Polka", komponist: "Martin Scharnagl", tempo: 108 },
+  { titel: "Kaiserin Sissi", gattung: "Walzer", komponist: "Timo Dellweg", tempo: 84 },
+  { titel: "Wir Musikanten", gattung: "Polka", komponist: "", tempo: 116 }
+];
+var SEITEN = 5;
+var TINTE = "#1c1b19";
+var LEISE = "#8f8c84";
+
+var zustand = {
+  stueck: 0,
+  seite: 2,
+  bpm: 112,
+  metroOffen: false,
+  metroLaeuft: false,
+  stimmOffen: false,
+  bibOffen: false
+};
+
+/* ───────── Deterministischer Zufall (Seite × Stück) ───────── */
+function rng(seed) {
+  var t = seed >>> 0;
+  return function () {
+    t += 0x6D2B79F5;
+    var r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/* ───────── Notenblatt, prozedural ───────── */
+function schluessel(x, y0) {
+  // Stilisierter Violinschlüssel: Spirale um die G-Linie + geschwungener Stiel
+  return '<g transform="translate(' + x + ',' + y0 + ')" fill="none" stroke="' + TINTE + '" stroke-linecap="round">' +
+    '<path d="M 6.2 -9 C 10 -5.5 9.6 1.5 4.6 6.5 C 0.4 10.7 -1.6 14.6 0 18.6 C 1.6 22.4 7 23 9.2 19.8 C 11.4 16.6 9.6 12.4 6 12.2 C 2.8 12 0.8 14.6 1.6 17.4" stroke-width="1.5"/>' +
+    '<path d="M 6.2 -9 C 4.4 -5 3.6 0 4.2 7 C 4.8 14 5.6 22 5.2 27.5" stroke-width="1.3"/>' +
+    '<circle cx="4" cy="29.4" r="1.8" fill="' + TINTE + '" stroke="none"/>' +
+    '</g>';
+}
+
+function baueBlatt(stueckIdx, seite) {
+  var st = STUECKE[stueckIdx];
+  var dreier = st.gattung === "Walzer"; // Walzer stehen im 3/4
+  var W = 640, H = 905, L = 46, R = W - 38, g = 7;
+  var Z = rng(stueckIdx * 7919 + seite * 2663 + 97);
+  var t = [];
+  var tonlage = 4 + Math.floor(Z() * 4); // Melodielage wandert pro Seite
+
+  t.push('<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Notenseite ' + seite + ' von ' + SEITEN + ': ' + st.titel + '">');
+  t.push('<rect x="0.5" y="0.5" width="' + (W - 1) + '" height="' + (H - 1) + '" fill="#ffffff" stroke="rgba(28,27,25,0.07)" stroke-width="1"/>');
+
+  // Kopf: Seite 1 trägt den vollen Titelkopf, Folgeseiten nur eine Kolumnenzeile
+  var kopfEnde;
+  if (seite === 1) {
+    var unter = st.gattung.toUpperCase() + (st.komponist ? " — " + st.komponist.toUpperCase() : "");
+    var tGr = st.titel.length > 18 ? 17 : 24, tSp = st.titel.length > 18 ? 5 : 8;
+    t.push('<text x="' + (W / 2) + '" y="62" text-anchor="middle" font-size="' + tGr + '" font-weight="600" letter-spacing="' + tSp + '" fill="' + TINTE + '">' + st.titel.toUpperCase() + '</text>');
+    t.push('<text x="' + (W / 2) + '" y="88" text-anchor="middle" font-size="11" letter-spacing="3.4" fill="' + LEISE + '">' + unter + '</text>');
+    t.push('<text x="' + L + '" y="126" font-size="12" font-style="italic" fill="' + TINTE + '">Tenorhorn in B</text>');
+    // Tempoangabe rechts: kleine Viertelnote + Zahl
+    var tx = R - 50, ty = 122;
+    t.push('<ellipse cx="' + tx + '" cy="' + ty + '" rx="3.3" ry="2.4" transform="rotate(-18 ' + tx + ' ' + ty + ')" fill="' + TINTE + '"/>');
+    t.push('<line x1="' + (tx + 3) + '" y1="' + (ty - 1) + '" x2="' + (tx + 3) + '" y2="' + (ty - 13) + '" stroke="' + TINTE + '" stroke-width="1.1"/>');
+    t.push('<text x="' + (tx + 9) + '" y="' + (ty + 4) + '" font-size="12" fill="' + TINTE + '">= ' + st.tempo + '</text>');
+    kopfEnde = 170;
+  } else {
+    t.push('<text x="' + (W / 2) + '" y="42" text-anchor="middle" font-size="10" font-weight="600" letter-spacing="3" fill="' + LEISE + '">' + st.titel.toUpperCase() + '</text>');
+    kopfEnde = 76;
+  }
+
+  // Hilfsfunktionen fürs Zeichnen
+  function posY(y0, p) { return y0 + p * g / 2; }
+
+  function hilfslinien(x, y0, p) {
+    var s = "";
+    if (p <= -2) s += '<line x1="' + (x - 7) + '" y1="' + (y0 - g) + '" x2="' + (x + 7) + '" y2="' + (y0 - g) + '" stroke="' + TINTE + '" stroke-width="0.9"/>';
+    if (p >= 10) s += '<line x1="' + (x - 7) + '" y1="' + (y0 + 5 * g) + '" x2="' + (x + 7) + '" y2="' + (y0 + 5 * g) + '" stroke="' + TINTE + '" stroke-width="0.9"/>';
+    return s;
+  }
+
+  // Kleines ♭: Hals + Bauch, sitzt mit dem Bauch auf seiner Linie/seinem Zwischenraum
+  function be(x, y) {
+    return '<path d="M ' + x + ' ' + (y - 10.5) + ' L ' + x + ' ' + (y + 2.6) + '" fill="none" stroke="' + TINTE + '" stroke-width="1"/>' +
+      '<path d="M ' + x + ' ' + (y + 2.6) + ' C ' + (x + 4.8) + ' ' + (y + 0.6) + ' ' + (x + 4.4) + ' ' + (y - 3.4) + ' ' + x + ' ' + (y - 0.8) + '" fill="none" stroke="' + TINTE + '" stroke-width="1.15"/>';
+  }
+
+  // Zeichnet Kopf + Hals, liefert Hals-Spitze fürs Balken/Fähnchen-Zeichnen
+  function note(x, y0, p, art, oben) {
+    var y = posY(y0, p);
+    t.push(hilfslinien(x, y0, p));
+    if (art === "halb") {
+      t.push('<ellipse cx="' + x + '" cy="' + y + '" rx="4.3" ry="3" transform="rotate(-18 ' + x + ' ' + y + ')" fill="none" stroke="' + TINTE + '" stroke-width="1.5"/>');
+    } else {
+      t.push('<ellipse cx="' + x + '" cy="' + y + '" rx="4.3" ry="3" transform="rotate(-18 ' + x + ' ' + y + ')" fill="' + TINTE + '"/>');
+    }
+    var sx = oben ? x + 3.9 : x - 3.9;
+    var spitze = oben ? y - 22.5 : y + 22.5;
+    t.push('<line x1="' + sx + '" y1="' + (y + (oben ? -1 : 1)) + '" x2="' + sx + '" y2="' + spitze + '" stroke="' + TINTE + '" stroke-width="1.1"/>');
+    return { sx: sx, sy: spitze, y: y };
+  }
+
+  function balken(a, b, oben) {
+    var d = oben ? 3 : -3;
+    t.push('<polygon points="' + a.sx + ',' + a.sy + ' ' + b.sx + ',' + b.sy + ' ' + b.sx + ',' + (b.sy + d) + ' ' + a.sx + ',' + (a.sy + d) + '" fill="' + TINTE + '"/>');
+  }
+
+  function faehnchen(n, oben) {
+    var r = oben ? 1 : -1;
+    t.push('<path d="M ' + n.sx + ' ' + n.sy + ' C ' + (n.sx + 4) + ' ' + (n.sy + 3 * r) + ' ' + (n.sx + 5.5) + ' ' + (n.sy + 7 * r) + ' ' + (n.sx + 2.5) + ' ' + (n.sy + 12 * r) + '" fill="none" stroke="' + TINTE + '" stroke-width="1.7" stroke-linecap="round"/>');
+  }
+
+  function viertelpause(x, y0) {
+    t.push('<path d="M ' + (x - 1.5) + ' ' + (y0 + 4) + ' L ' + (x + 2.5) + ' ' + (y0 + 9) + ' L ' + (x - 0.5) + ' ' + (y0 + 12.5) + ' L ' + (x + 3) + ' ' + (y0 + 17) + ' C ' + (x - 2) + ' ' + (y0 + 15) + ' ' + (x - 3.5) + ' ' + (y0 + 18.5) + ' ' + (x - 0.5) + ' ' + (y0 + 21.5) + '" fill="none" stroke="' + TINTE + '" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>');
+  }
+
+  function achtelpause(x, y0) {
+    t.push('<circle cx="' + (x - 0.8) + '" cy="' + (y0 + 10) + '" r="1.7" fill="' + TINTE + '"/>');
+    t.push('<path d="M ' + (x - 0.4) + ' ' + (y0 + 10.6) + ' Q ' + (x + 1.6) + ' ' + (y0 + 11.4) + ' ' + (x + 2.4) + ' ' + (y0 + 9) + ' L ' + (x - 1) + ' ' + (y0 + 19) + '" fill="none" stroke="' + TINTE + '" stroke-width="1.2" stroke-linecap="round"/>');
+  }
+
+  function stakkato(x, y, oben) {
+    t.push('<circle cx="' + x + '" cy="' + (y + (oben ? 6 : -6)) + '" r="1.1" fill="' + TINTE + '"/>');
+  }
+
+  function bogen(x1, y1, x2, y2, oben) {
+    var r = oben ? -1 : 1; // oben=true: Bogen über den Köpfen
+    var ym = Math.min(y1, y2) * (oben ? 1 : 0) + Math.max(y1, y2) * (oben ? 0 : 1);
+    t.push('<path d="M ' + x1 + ' ' + (y1 + 6 * r) + ' Q ' + ((x1 + x2) / 2) + ' ' + (ym + 12 * r) + ' ' + x2 + ' ' + (y2 + 6 * r) + '" fill="none" stroke="' + TINTE + '" stroke-width="1.1"/>');
+  }
+
+  function schrittTon(p) {
+    var d = [-2, -1, -1, 0, 1, 1, 2][Math.floor(Z() * 7)];
+    return Math.max(-2, Math.min(10, p + d));
+  }
+
+  // Ein Takt: wählt ein Muster, zeichnet Noten/Pausen, führt die Melodie weiter
+  function takt(xA, mw, y0, p) {
+    var p1, p2, p3, p4, oben, n1, n2, n3, n4;
+    function richtung(pa, pb) { return ((pa + (pb === undefined ? pa : pb)) / 2) >= 4; }
+
+    if (dreier) { // 3/4: Walzer-Muster
+      var s3 = [0.10, 0.40, 0.70].map(function (f) { return xA + mw * f + 4; });
+      var q = Z();
+      if (q < 0.30) { // drei Viertel
+        p1 = schrittTon(p); p2 = schrittTon(p1); p3 = schrittTon(p2);
+        note(s3[0], y0, p1, "viertel", richtung(p1));
+        note(s3[1], y0, p2, "viertel", richtung(p2));
+        note(s3[2], y0, p3, "viertel", richtung(p3));
+        return p3;
+      }
+      if (q < 0.52) { // Halbe + Viertel
+        p1 = schrittTon(p); p2 = schrittTon(p1);
+        note(s3[0], y0, p1, "halb", richtung(p1));
+        note(s3[2], y0, p2, "viertel", richtung(p2));
+        return p2;
+      }
+      if (q < 0.68) { // Viertel, Viertel, zwei verbalkte Achtel
+        p1 = schrittTon(p); p2 = schrittTon(p1); p3 = schrittTon(p2); p4 = schrittTon(p3);
+        note(s3[0], y0, p1, "viertel", richtung(p1));
+        note(s3[1], y0, p2, "viertel", richtung(p2));
+        oben = richtung(p3, p4);
+        n1 = note(s3[2] - 5, y0, p3, "achtel", oben);
+        n2 = note(s3[2] + 15, y0, p4, "achtel", oben);
+        balken(n1, n2, oben);
+        return p4;
+      }
+      if (q < 0.86) { // Nachschlag-Begleitung: Pause + zwei Viertel
+        p1 = schrittTon(p);
+        viertelpause(s3[0], y0);
+        n1 = note(s3[1], y0, p1, "viertel", richtung(p1));
+        n2 = note(s3[2], y0, p1, "viertel", richtung(p1));
+        if (Z() < 0.5) { stakkato(s3[1], n1.y, richtung(p1)); stakkato(s3[2], n2.y, richtung(p1)); }
+        return p1;
+      }
+      // punktierte Halbe (ganztaktig)
+      p1 = schrittTon(p);
+      n1 = note(s3[0] + mw * 0.06, y0, p1, "halb", richtung(p1));
+      t.push('<circle cx="' + (s3[0] + mw * 0.06 + 9) + '" cy="' + (n1.y - (p1 % 2 === 0 ? g / 2 : 0)) + '" r="1.4" fill="' + TINTE + '"/>');
+      return p1;
+    }
+
+    var slot = [0.10, 0.33, 0.56, 0.79].map(function (f) { return xA + mw * f + 4; });
+    var r = Z(), muster;
+    if (r < 0.26) muster = "A"; else if (r < 0.44) muster = "B"; else if (r < 0.58) muster = "C";
+    else if (r < 0.72) muster = "D"; else if (r < 0.84) muster = "E"; else if (r < 0.90) muster = "F";
+    else muster = "G";
+
+    if (muster === "A") { // vier Achtel, paarweise verbalkt
+      p1 = schrittTon(p); p2 = schrittTon(p1); p3 = schrittTon(p2); p4 = schrittTon(p3);
+      oben = richtung(p1, p2);
+      n1 = note(slot[0], y0, p1, "achtel", oben); n2 = note(slot[1], y0, p2, "achtel", oben);
+      balken(n1, n2, oben);
+      var oben2 = richtung(p3, p4);
+      n3 = note(slot[2], y0, p3, "achtel", oben2); n4 = note(slot[3], y0, p4, "achtel", oben2);
+      balken(n3, n4, oben2);
+      if (Z() < 0.2) bogen(slot[0], n1.y, slot[3], n4.y, !oben);
+      return p4;
+    }
+    if (muster === "B") { // zwei Viertel
+      p1 = schrittTon(p); p2 = schrittTon(p1);
+      if (Z() < 0.12) t.push(be(slot[0] - 9.5, posY(y0, p1))); // gelegentliches Akzidens
+      n1 = note(slot[0], y0, p1, "viertel", richtung(p1));
+      n2 = note(slot[2], y0, p2, "viertel", richtung(p2));
+      if (Z() < 0.4) { stakkato(slot[0], n1.y, richtung(p1)); stakkato(slot[2], n2.y, richtung(p2)); }
+      return p2;
+    }
+    if (muster === "C") { // zwei Achtel + Viertel
+      p1 = schrittTon(p); p2 = schrittTon(p1); p3 = schrittTon(p2);
+      oben = richtung(p1, p2);
+      n1 = note(slot[0], y0, p1, "achtel", oben); n2 = note(slot[1], y0, p2, "achtel", oben);
+      balken(n1, n2, oben);
+      n3 = note(slot[2], y0, p3, "viertel", richtung(p3));
+      if (Z() < 0.25) bogen(slot[0], n1.y, slot[1], n2.y, !oben);
+      return p3;
+    }
+    if (muster === "D") { // Viertel + zwei Achtel
+      p1 = schrittTon(p); p2 = schrittTon(p1); p3 = schrittTon(p2);
+      if (Z() < 0.1) t.push(be(slot[0] - 9.5, posY(y0, p1)));
+      n1 = note(slot[0], y0, p1, "viertel", richtung(p1));
+      oben = richtung(p2, p3);
+      n2 = note(slot[2], y0, p2, "achtel", oben); n3 = note(slot[3], y0, p3, "achtel", oben);
+      balken(n2, n3, oben);
+      return p3;
+    }
+    if (muster === "E") { // Nachschlag: Pause–Achtel, Pause–Achtel (Polka!)
+      p1 = schrittTon(p);
+      achtelpause(slot[0], y0);
+      oben = richtung(p1);
+      n1 = note(slot[1], y0, p1, "achtel", oben); faehnchen(n1, oben);
+      achtelpause(slot[2], y0);
+      n2 = note(slot[3], y0, p1, "achtel", oben); faehnchen(n2, oben);
+      if (Z() < 0.5) { stakkato(slot[1], n1.y, oben); stakkato(slot[3], n2.y, oben); }
+      return p1;
+    }
+    if (muster === "F") { // Halbe
+      p1 = schrittTon(p);
+      note(slot[0] + mw * 0.08, y0, p1, "halb", richtung(p1));
+      return p1;
+    }
+    // G: Viertelpause + Viertel
+    p1 = schrittTon(p);
+    viertelpause(slot[0], y0);
+    note(slot[2], y0, p1, "viertel", richtung(p1));
+    return p1;
+  }
+
+  // Systeme: Seite 1 trägt den Titelkopf (10 Systeme), Folgeseiten sind dichter (12)
+  var oben = kopfEnde, untenRand = H - 62, systeme = seite === 1 ? 10 : 12;
+  var schritt = (untenRand - oben) / systeme;
+  var takteVor = seite === 1 ? 0 : 40 + (seite - 2) * 48;
+  var dynamiken = ["mf", "p", "f", "mp"];
+
+  for (var s = 0; s < systeme; s++) {
+    var y0 = Math.round(oben + s * schritt + (schritt - 4 * g) / 2);
+    if (!(seite === 1 && s === 0)) { // Taktzahl über dem Systemanfang
+      t.push('<text x="' + (L - 1) + '" y="' + (y0 - 8) + '" font-size="8.5" fill="' + LEISE + '" style="font-variant-numeric:tabular-nums">' + (takteVor + s * 4 + 1) + '</text>');
+    }
+    for (var i = 0; i < 5; i++) {
+      t.push('<line x1="' + L + '" y1="' + (y0 + i * g) + '" x2="' + R + '" y2="' + (y0 + i * g) + '" stroke="#55534d" stroke-width="0.7"/>');
+    }
+    t.push('<line x1="' + L + '" y1="' + y0 + '" x2="' + L + '" y2="' + (y0 + 4 * g) + '" stroke="' + TINTE + '" stroke-width="1"/>');
+    t.push(schluessel(L + 7, y0));
+    // Vorzeichnung: zwei B (B und Es) auf jedem System
+    t.push(be(L + 26, posY(y0, 4)));
+    t.push(be(L + 33.5, posY(y0, 1)));
+
+    var x0 = L + 44;
+    if (seite === 1 && s === 0) { // Taktart nur ganz am Anfang des Stücks
+      t.push('<text x="' + (x0 + 5) + '" y="' + (y0 + 2 * g - 2) + '" text-anchor="middle" font-size="16.5" font-weight="700" font-family="Georgia, \'Times New Roman\', serif" fill="' + TINTE + '">' + (dreier ? 3 : 2) + '</text>');
+      t.push('<text x="' + (x0 + 5) + '" y="' + (y0 + 4 * g - 2) + '" text-anchor="middle" font-size="16.5" font-weight="700" font-family="Georgia, \'Times New Roman\', serif" fill="' + TINTE + '">4</text>');
+      x0 += 18;
+    }
+
+    var mw = (R - x0) / 4;
+    if (Z() < 0.3) { // Dynamik unter dem Systemanfang
+      t.push('<text x="' + (x0 + 6) + '" y="' + (y0 + 4 * g + 17) + '" font-size="13" font-style="italic" font-weight="700" font-family="Georgia, \'Times New Roman\', serif" fill="' + TINTE + '">' + dynamiken[Math.floor(Z() * dynamiken.length)] + '</text>');
+    }
+
+    for (var m = 0; m < 4; m++) {
+      var xA = x0 + m * mw;
+      tonlage = takt(xA, mw, y0, tonlage);
+      var xB = x0 + (m + 1) * mw;
+      var ende = (seite === SEITEN && s === systeme - 1 && m === 3);
+      if (ende) {
+        t.push('<line x1="' + (xB - 5) + '" y1="' + y0 + '" x2="' + (xB - 5) + '" y2="' + (y0 + 4 * g) + '" stroke="' + TINTE + '" stroke-width="1"/>');
+        t.push('<rect x="' + (xB - 2.4) + '" y="' + y0 + '" width="2.4" height="' + (4 * g) + '" fill="' + TINTE + '"/>');
+      } else {
+        t.push('<line x1="' + xB + '" y1="' + y0 + '" x2="' + xB + '" y2="' + (y0 + 4 * g) + '" stroke="' + TINTE + '" stroke-width="0.9"/>');
+      }
+    }
+    if (Z() < 0.18) { // Crescendo-Winkel unter Takt 3
+      var cx1 = x0 + 2 * mw + 8, cx2 = x0 + 3 * mw - 10, cy = y0 + 4 * g + 13;
+      t.push('<line x1="' + cx1 + '" y1="' + cy + '" x2="' + cx2 + '" y2="' + (cy - 3.2) + '" stroke="' + TINTE + '" stroke-width="0.9"/>');
+      t.push('<line x1="' + cx1 + '" y1="' + cy + '" x2="' + cx2 + '" y2="' + (cy + 3.2) + '" stroke="' + TINTE + '" stroke-width="0.9"/>');
+    }
+    if (s < systeme - 1 && Z() < 0.22) { // Atemzeichen am Zeilenende
+      t.push('<path d="M ' + (R - 10) + ' ' + (y0 - 8) + ' Q ' + (R - 7.5) + ' ' + (y0 - 6) + ' ' + (R - 9.5) + ' ' + (y0 - 2.5) + '" fill="none" stroke="' + TINTE + '" stroke-width="1.4" stroke-linecap="round"/>');
+    }
+  }
+
+  t.push('<text x="' + (W / 2) + '" y="' + (H - 28) + '" text-anchor="middle" font-size="11" fill="' + LEISE + '" style="font-variant-numeric:tabular-nums">– ' + seite + ' –</text>');
+  t.push('</svg>');
+  return t.join("");
+}
+/* ───────── Elemente ───────── */
+function $(id) { return document.getElementById(id); }
+var elPapier = $("papier"), elStatusTitel = $("statusTitel"), elStatusSeite = $("statusSeite");
+var kNoten = $("kNoten"), kMetro = $("kMetro"), kStimm = $("kStimm");
+var wMetro = $("wMetro"), wStimm = $("wStimm"), bib = $("bib");
+var pMetro = $("pMetro"), pStimm = $("pStimm");
+var mBpm = $("mBpm"), mStart = $("mStart"), mDot1 = $("mDot1"), mDot2 = $("mDot2");
+var liste = $("liste"), suche = $("suche");
+var ruhigeBewegung = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ───────── Anzeige ───────── */
+function zeichnen() {
+  elPapier.innerHTML = baueBlatt(zustand.stueck, zustand.seite);
+  elStatusTitel.textContent = STUECKE[zustand.stueck].titel;
+  elStatusSeite.textContent = "Seite " + zustand.seite + "/" + SEITEN;
+}
+
+function blaettern(richtung) {
+  var neu = Math.min(SEITEN, Math.max(1, zustand.seite + richtung));
+  if (neu === zustand.seite) return;
+  zustand.seite = neu;
+  zeichnen();
+}
+
+/* ───────── Chrome, das sich zurücknimmt ───────── */
+var ruheTimer = null;
+function wach() {
+  document.body.classList.remove("ruhe");
+  if (ruheTimer) clearTimeout(ruheTimer);
+  if (ruhigeBewegung || zustand.bibOffen) return; // bleibt einfach sichtbar
+  ruheTimer = setTimeout(function () {
+    document.body.classList.add("ruhe");
+  }, 3800);
+}
+document.addEventListener("pointerdown", wach, true);
+document.addEventListener("keydown", wach, true);
+document.addEventListener("focusin", wach, true);
+
+/* ───────── Metronom ───────── */
+var metroTimer = null, schlag = 0;
+function metroTick() {
+  schlag = (schlag % 2) + 1;
+  mDot1.className = schlag === 1 ? "an eins" : "";
+  mDot2.className = schlag === 2 ? "an" : "";
+}
+function metroNeuStarten() {
+  if (metroTimer) clearInterval(metroTimer);
+  metroTimer = setInterval(metroTick, 60000 / zustand.bpm);
+}
+function metroStartStopp(an) {
+  zustand.metroLaeuft = an;
+  mStart.textContent = an ? "Stopp" : "Start";
+  mStart.setAttribute("aria-pressed", String(an));
+  if (an) { schlag = 0; metroTick(); metroNeuStarten(); }
+  else {
+    if (metroTimer) { clearInterval(metroTimer); metroTimer = null; }
+    mDot1.className = ""; mDot2.className = "";
+  }
+  lebendeZustaende();
+}
+function bpmSetzen(wert) {
+  zustand.bpm = Math.min(240, Math.max(30, Math.round(wert)));
+  mBpm.textContent = String(zustand.bpm);
+  if (zustand.metroLaeuft) metroNeuStarten();
+}
+mStart.addEventListener("click", function () { metroStartStopp(!zustand.metroLaeuft); });
+$("mMinus").addEventListener("click", function () { bpmSetzen(zustand.bpm - 1); });
+$("mPlus").addEventListener("click", function () { bpmSetzen(zustand.bpm + 1); });
+$("mProzMinus").addEventListener("click", function () { bpmSetzen(zustand.bpm * 0.9); });
+$("mProzPlus").addEventListener("click", function () { bpmSetzen(zustand.bpm * 1.1); });
+
+/* ───────── Stimmgerät: feine Skala mit Nadel ───────── */
+function baueSkala() {
+  var s = [], mitte = 120, b = 2.1, abw = 2; // +2, fast rein
+  for (var c = -50; c <= 50; c += 5) {
+    var x = mitte + c * b;
+    var h = c === 0 ? 17 : (c % 10 === 0 ? 11 : 7);
+    var farbe = c === 0 ? TINTE : "rgba(28,27,25,0.28)";
+    s.push('<line x1="' + x + '" y1="' + (36 - h) + '" x2="' + x + '" y2="36" stroke="' + farbe + '" stroke-width="' + (c === 0 ? 1.4 : 1) + '"/>');
+  }
+  s.push('<text x="' + (mitte - 50 * b) + '" y="45" text-anchor="middle" font-size="7.5" fill="' + LEISE + '">−50</text>');
+  s.push('<text x="' + (mitte + 50 * b) + '" y="45" text-anchor="middle" font-size="7.5" fill="' + LEISE + '">+50</text>');
+  // Lebender Zustand: die Nadel trägt das Messing
+  var nx = mitte + abw * b;
+  s.push('<g class="s-nadel">' +
+    '<line x1="' + nx + '" y1="8" x2="' + nx + '" y2="36" stroke="#a8781f" stroke-width="2" stroke-linecap="round"/>' +
+    '<circle cx="' + nx + '" cy="6" r="2.4" fill="#a8781f"/>' +
+    '</g>');
+  $("sSkala").innerHTML = s.join("");
+}
+
+/* ───────── Lebende Zustände an der Leiste (nur dort Messing) ───────── */
+function lebendeZustaende() {
+  pMetro.hidden = !zustand.metroLaeuft;
+  pMetro.classList.toggle("puls", zustand.metroLaeuft && !ruhigeBewegung);
+  pStimm.hidden = !zustand.stimmOffen;
+}
+
+/* ───────── Widgets & Leiste ───────── */
+function metroZeigen(an) {
+  zustand.metroOffen = an;
+  wMetro.hidden = !an;
+  kMetro.setAttribute("aria-pressed", String(an));
+  kMetro.classList.toggle("an", an);
+}
+function stimmZeigen(an) {
+  zustand.stimmOffen = an;
+  wStimm.hidden = !an;
+  kStimm.setAttribute("aria-pressed", String(an));
+  kStimm.classList.toggle("an", an);
+  lebendeZustaende();
+}
+kMetro.addEventListener("click", function () { metroZeigen(!zustand.metroOffen); });
+kStimm.addEventListener("click", function () { stimmZeigen(!zustand.stimmOffen); });
+$("metroZu").addEventListener("click", function () { metroZeigen(false); });
+$("stimmZu").addEventListener("click", function () { stimmZeigen(false); });
+
+/* ───────── Bibliothek ───────── */
+function baueListe(filter) {
+  var f = (filter || "").trim().toLowerCase();
+  var teile = [];
+  STUECKE.forEach(function (st, i) {
+    if (f && st.titel.toLowerCase().indexOf(f) < 0 && st.gattung.toLowerCase().indexOf(f) < 0) return;
+    teile.push('<li><button type="button" data-i="' + i + '" class="' + (i === zustand.stueck ? "aktuell" : "") + '"' +
+      (i === zustand.stueck ? ' aria-current="true"' : "") + '>' +
+      '<span class="stueck-titel">' + st.titel + '</span>' +
+      '<span class="stueck-genre">' + st.gattung + '</span>' +
+      '</button></li>');
+  });
+  liste.innerHTML = teile.length ? teile.join("") : '<li class="bib-leer">Nichts gefunden.</li>';
+}
+function bibZeigen(an) {
+  var fokusDrin = document.activeElement && bib.contains(document.activeElement);
+  zustand.bibOffen = an;
+  bib.hidden = !an;
+  document.body.classList.toggle("bib-offen", an);
+  kNoten.setAttribute("aria-expanded", String(an));
+  kNoten.classList.toggle("an", an);
+  if (an) { baueListe(suche.value); wach(); $("bibZu").focus(); }
+  else if (fokusDrin) { kNoten.focus(); }
+}
+kNoten.addEventListener("click", function () { bibZeigen(!zustand.bibOffen); });
+$("bibZu").addEventListener("click", function () { bibZeigen(false); });
+suche.addEventListener("input", function () { baueListe(suche.value); });
+liste.addEventListener("click", function (ev) {
+  var knopf = ev.target.closest("button[data-i]");
+  if (!knopf) return;
+  var i = parseInt(knopf.getAttribute("data-i"), 10);
+  if (i !== zustand.stueck) { zustand.stueck = i; zustand.seite = 1; zeichnen(); }
+  bibZeigen(false);
+});
+document.addEventListener("keydown", function (ev) {
+  if (ev.key === "Escape" && zustand.bibOffen) bibZeigen(false);
+});
+
+/* ───────── Blättern: Tipp auf linke/rechte Blatthälfte ───────── */
+$("zoneLinks").addEventListener("click", function () { blaettern(-1); });
+$("zoneRechts").addEventListener("click", function () { blaettern(1); });
+document.addEventListener("keydown", function (ev) {
+  if (zustand.bibOffen) return;
+  if (ev.key === "ArrowLeft") blaettern(-1);
+  if (ev.key === "ArrowRight") blaettern(1);
+});
+
+/* ───────── Start: Seite 2, Metronom offen und läuft (112, 2/4) ───────── */
+zeichnen();
+baueSkala();
+baueListe("");
+metroZeigen(true);
+metroStartStopp(true);
+wach();
+</script>
+</body>
+</html>
