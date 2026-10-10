@@ -145,6 +145,18 @@ Aufgabe: 2–3 ausgearbeitete Designvorschläge (HTML-Mockups) für
 Noten-Vollansicht + untere Leiste + Overlays + je ein Theme aus B-04,
 dann gemeinsam entscheiden. Erst danach B-01…B-03 umsetzen.
 
+**Stand 2026-10-10:** Fokus auf Marlons Wunsch geändert — zuerst ein
+**helles Standard-Design**, Farbwelten/Themes werden nachgezogen. Drei
+Entwürfe liegen in `docs/design/` (eigenständige, antippbare HTML-Dateien
+mit identischem Funktionsumfang): **Blatt** (druckgrafisch-warm, Serifen),
+**Studio** (präzise Haarlinien-Flächen, forScore-Sachlichkeit), **Galerie**
+(maximal reduziert, Chrome blendet aus). Empfehlung: **Studio**, weil die
+Zustands-Sprache (Messing nur an Aktivem) und die flache Haarlinien-Gliederung
+am besten auf die vielen echten Bedien-Zustände der App skalieren; das
+Ausblende-Verhalten aus „Galerie" ist davon unabhängig übernehmbar.
+Entscheidung durch Marlon steht aus — Umsetzung läuft als Arbeitsannahme
+token-basiert mit Studio, ein Wechsel bleibt günstig.
+
 ---
 
 ## C — Stimmgerät
