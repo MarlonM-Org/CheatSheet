@@ -26,7 +26,7 @@ nicht in der Breite, aber in der Sorgfalt.
 
 | # | Meilenstein | Inhalt | Backlog-Punkte |
 |---|---|---|---|
-| M1 | **Fundament aufräumen** | Sicherung raus, Datenmodell klären, Tests für die Speicherschicht | A-01…A-04 |
+| M1 | **Fundament aufräumen** | Sicherung raus, Datenmodell klären, Tests für die Speicherschicht | A-01…A-03 |
 | M2 | **Noten im Zentrum** | UI-Neuaufbau: Noten vollflächig, Werkzeuge als Overlays, drei Knöpfe unten | B-01…B-03 |
 | M3 | **Werkzeuge schärfen** | Stimmgerät- und Metronom-Verbesserungen, Stift-Ausbau | C-01…C-03, D-01, E-01…E-03 |
 | M4 | **Notenmanagement I** | Metadaten, Bookmarks, Flags, Kontextmenüs, Drag & Drop | F-01, F-03, F-04, F-08, F-09 |
@@ -91,14 +91,6 @@ brauchen Platz. Dabei:
 Stores, Transaktions-Wiederholung). Vor dem Schema-Sprung aus A-02 mit
 `fake-indexeddb` absichern. Danach gilt: Schema-Änderungen nur mit
 Migrationstest.
-
-### A-04 · Anforderungsquelle klären
-
-CLAUDE.md und README verweisen auf `apps/cheatsheet/` in
-`MarlonM-Org/app-factory` — **diesen Ordner gibt es dort nicht** (Stand
-2026-10-10). Entweder dort anlegen (Fabrik-Prozess) oder die Verweise auf
-dieses Dokument umbiegen. Bis dahin gilt: diese ROADMAP.md ist die
-Anforderungsquelle.
 
 ---
 
@@ -313,3 +305,9 @@ soweit sinnvoll.)
 ## Erledigt
 
 *(Abgeschlossene Punkte hierher verschieben, mit Datum und Commit.)*
+
+- **A-04 · Anforderungsquelle geklärt** (2026-10-10): Diese ROADMAP.md ist
+  die einzige Anforderungsliste; die Verweise auf
+  `app-factory/apps/cheatsheet/` wurden aus CLAUDE.md und README entfernt.
+  (Die alten Fabrik-Unterlagen liegen, falls je gebraucht, im app-factory-
+  Branch `claude/peaceful-newton-k09fjl`.)

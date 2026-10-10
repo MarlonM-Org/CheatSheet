@@ -3,9 +3,9 @@
 Übe-Werkzeug: Noten, schwierige Stellen, Metronom, Stimmgerät. Repo
 `MarlonM-Org/CheatSheet` (öffentlich — keine Secrets, keine privaten Daten
 einchecken), Adresse https://cheat-sheet.ma-und-ma.de, Vercel-Projekt
-`cheat-sheet`. **Die Anforderungen liegen nicht hier**, sondern in
-`MarlonM-Org/app-factory` unter `apps/cheatsheet/`. Was dort steht, gilt; was
-hier im Code anders ist, ist ein Fehler oder gehört dort nachgetragen.
+`cheat-sheet`. **Die Anforderungen stehen in `ROADMAP.md`** in diesem Repo —
+das ist die einzige Anforderungsliste. Was dort steht, gilt; was im Code
+anders ist, ist ein Fehler oder gehört dort nachgetragen.
 
 - Statische App (`output: 'export'`): kein Server-Code, keine API-Routen, keine
   Server Actions, kein Login, keine Datenbank. Wer etwas davon braucht, klärt
