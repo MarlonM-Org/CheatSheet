@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Stimmgeraet } from './Stimmgeraet';
 import { useStimmgeraet } from './StimmgeraetKontext';
 
@@ -65,7 +66,9 @@ export function StimmgeraetWidget({ schliessen }: { schliessen: () => void }) {
         </div>
       </div>
       {fehler && <p className="warnung px-4 pb-3 text-sm">{fehler}</p>}
-      {voll && (
+      {/* Als Portal: Das Dock bildet einen eigenen Stapel-Kontext (z-index),
+          der Dialog muss aber über Leiste und Bibliothek liegen. */}
+      {voll && createPortal(
         <div className="blatt-hintergrund" onClick={() => setVoll(false)}>
           <div className="blatt" role="dialog" aria-label="Stimmgerät" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 flex justify-end">
@@ -73,7 +76,8 @@ export function StimmgeraetWidget({ schliessen }: { schliessen: () => void }) {
             </div>
             <Stimmgeraet />
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </section>
   );

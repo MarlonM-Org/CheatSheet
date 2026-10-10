@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Metronom } from './Metronom';
 import { useMetronom } from './MetronomKontext';
 
@@ -58,7 +59,9 @@ export function MetronomWidget({ schliessen }: { schliessen: () => void }) {
           <button type="button" onClick={() => setBpm(bpm * 1.1)} aria-label="Zehn Prozent schneller">+10 %</button>
         </div>
       </div>
-      {voll && (
+      {/* Als Portal: Das Dock bildet einen eigenen Stapel-Kontext (z-index),
+          der Dialog muss aber über Leiste und Bibliothek liegen. */}
+      {voll && createPortal(
         <div className="blatt-hintergrund" onClick={() => setVoll(false)}>
           <div className="blatt" role="dialog" aria-label="Metronom" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 flex justify-end">
@@ -66,7 +69,8 @@ export function MetronomWidget({ schliessen }: { schliessen: () => void }) {
             </div>
             <Metronom />
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </section>
   );
