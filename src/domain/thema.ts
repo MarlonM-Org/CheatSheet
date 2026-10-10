@@ -25,11 +25,12 @@ export const MODUS_NAME: Record<Modus, string> = {
   dunkel: 'Dunkel',
 };
 
-// Browser-Chrome (meta theme-color) je Thema — der Grundton der Fläche.
+// Browser-Chrome (meta theme-color) je Thema — identisch zum jeweiligen
+// --papier in globals.css.
 export const THEMA_CHROME: Record<Thema, string> = {
   weiss: '#fcfcfb',
-  sommer: '#fdf3f1',
-  dunkelblau: '#0b1420',
+  sommer: '#fdf4f2',
+  dunkelblau: '#0f1722',
   schwarz: '#000000',
 };
 

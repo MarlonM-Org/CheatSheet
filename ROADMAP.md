@@ -97,29 +97,8 @@ Migrationstest.
 
 ## B — UI-Neuaufbau: Noten im Zentrum
 
-*(in Arbeit: Claude, seit 2026-10-10, Branch `feature/ui-noten-im-zentrum`,
-PR #1 — B-01…B-03 und B-05 umgesetzt, B-04 teilweise)*
-
-### B-04 · Einstellungen mit Licht/Dunkel und Themes
-
-Es gibt heute keinen manuellen Modus-Umschalter (nur
-`prefers-color-scheme`). Ziel: Einstellungsbereich mit
-
-- Hell / Dunkel / System
-- Themes (Farbwelten auf Basis der bestehenden CSS-Tokens in `globals.css`):
-  **Dunkelblau**, **Schwarz** (echtes OLED-Schwarz), **Weiß** (hell,
-  neutral), **Sommer** (hell, fröhlich, Rosa-/Blumen-Akzente)
-
-Technisch: `data-theme`-Attribut + Token-Sätze; Auswahl persistieren
-(siehe A-02, Einstellungs-Store). `themeColor`/Manifest mitziehen.
-
-**Teilweise erledigt (2026-10-10):** Mechanik steht — `data-thema` am
-`<html>` vor dem ersten Bild (Inline-Script), Auflösung
-Modus × helle/dunkle Farbwelt in `src/domain/thema.ts` (getestet),
-Einstellungsbereich mit Hell/Dunkel/System über die Bibliothek. **Offen:**
-die vier Farbwelten als Token-Sätze (Dunkelblau, Schwarz, Weiß, Sommer)
-samt Auswahl-UI und `themeColor` je Welt — auf Marlons Wunsch bewusst
-nachgezogen, das helle Standard-Design kam zuerst.
+*(komplett umgesetzt am 2026-10-10 — alle Punkte unter „Erledigt“;
+Branch `feature/ui-noten-im-zentrum`, PR #1)*
 
 ---
 
@@ -340,6 +319,16 @@ G-02 getrennt — Rhythmus zuerst, Töne später.
   anfassen; Position wird gemerkt, Ablegen an der Leiste dockt wieder an),
   damit die Noten lesbar bleiben. Der MiniMetronom ging im Widget auf; die
   Stimmgerät-Logik liegt im `StimmgeraetKontext`.
+- **B-04 · Einstellungen mit Licht/Dunkel und Themes** (2026-10-10):
+  Einstellungsbereich (Zahnrad in der Bibliothek) mit Hell/Dunkel/System
+  und je einer hellen (**Weiß**, **Sommer**) und dunklen (**Dunkelblau**,
+  **Schwarz** als echtes OLED-Schwarz) Farbwelt; „System“ wechselt zwischen
+  den beiden gewählten. Technik: `data-thema` am `<html>` vor dem ersten
+  Bild (Inline-Script), Auflösung in `src/domain/thema.ts` (getestet),
+  Token-Sätze je Welt in `globals.css` (No-JS-Fallback nur ohne Attribut),
+  `themeColor` je Welt, Manifest hell. Auswahl liegt in localStorage
+  (`ueben:modus`, `ueben:thema-hell`, `ueben:thema-dunkel`) — Umzug in den
+  Einstellungs-Store bleibt Thema von A-02.
 - **B-05 · Design-Überarbeitung** (2026-10-10): **Entscheidung Marlon:
   Studio.** Drei helle Entwürfe (Blatt · Studio · Galerie, identischer
   Funktionsumfang) liegen als antippbare HTML-Mockups in `docs/design/` und
