@@ -201,6 +201,58 @@ a { color: inherit; text-decoration: underline; text-decoration-color: var(--mes
   display: inline-block; width: 0.8rem; height: 0.8rem; margin-right: 0.4rem;
   border-radius: 999px; border: 1px solid var(--linie-stark); vertical-align: -1px;
 }
+
+/* ── Stift-Palette (E-03): schwebende Werkzeugleiste im Pencil-Stil ── */
+.stift-palette {
+  position: fixed; z-index: 42;
+  left: 50%; transform: translateX(-50%);
+  bottom: calc(var(--leiste-hoehe) + env(safe-area-inset-bottom, 0px) + 10px);
+  width: max-content; max-width: min(430px, calc(100vw - 12px));
+  background: var(--schleier); backdrop-filter: blur(8px);
+  border: 1px solid var(--linie); border-radius: 8px;
+  box-shadow: 0 10px 36px rgb(0 0 0 / 22%);
+  padding: 6px 8px;
+  touch-action: none; user-select: none; -webkit-user-select: none;
+  cursor: grab;
+}
+.stift-palette.schwebt { transform: none; bottom: auto; }
+.stift-palette .griff { width: 10px; height: 16px; flex: none; fill: var(--leise); opacity: 0.7; }
+.palette-zeile { display: flex; align-items: center; gap: 3px; flex-wrap: wrap; justify-content: center; }
+.palette-zeile.optionen { margin-top: 6px; padding-top: 7px; border-top: 1px solid var(--linie); gap: 8px; }
+.palette-zeile.fuss { margin-top: 2px; gap: 10px; }
+.palette-knopf { width: 34px; height: 38px; display: grid; place-items: center; border-radius: 5px; color: var(--gedaempft); }
+.palette-knopf svg { width: 19px; height: 19px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.palette-knopf:disabled { opacity: 0.3; }
+.palette-knopf:active:not(:disabled) { background: var(--flaeche); }
+.palette-trenner { width: 1px; height: 22px; background: var(--linie-stark); margin: 0 1px; flex: none; }
+.palette-werkzeuge { display: flex; gap: 2px; }
+.werkzeug-knopf {
+  position: relative; width: 40px; height: 44px; display: grid; place-items: center;
+  border-radius: 5px; color: var(--gedaempft); transition: transform 120ms, color 120ms;
+}
+.werkzeug-knopf svg { width: 21px; height: 21px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.werkzeug-knopf[aria-pressed="true"] { color: var(--messing); transform: translateY(-3px); }
+.werkzeug-knopf[aria-pressed="true"]::after {
+  content: ""; position: absolute; left: 50%; transform: translateX(-50%); bottom: 2px;
+  width: 16px; height: 2px; background: var(--messing);
+}
+@media (prefers-reduced-motion: reduce) { .werkzeug-knopf { transition: none; } }
+.palette-dicken { display: flex; gap: 2px; }
+.dicke-knopf { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 5px; }
+.dicke-knopf i { display: block; border-radius: 999px; background: var(--gedaempft); }
+.dicke-knopf[aria-pressed="true"] { background: var(--flaeche2); }
+.dicke-knopf[aria-pressed="true"] i { background: var(--messing); }
+.palette-farben { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; }
+.farb-knopf { width: 26px; height: 26px; border-radius: 999px; border: 1px solid var(--linie-stark); }
+.farb-knopf[aria-pressed="true"] { outline: 2.5px solid var(--messing); outline-offset: 1.5px; }
+.palette-schalter { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.78rem; color: var(--gedaempft); min-height: 30px; }
+.palette-schalter input { accent-color: var(--messing); }
+.palette-hinweis { font-size: 0.75rem; color: var(--leise); }
+@media (pointer: coarse) {
+  .palette-knopf { width: 38px; height: 44px; }
+  .dicke-knopf { width: 40px; height: 40px; }
+  .farb-knopf { width: 30px; height: 30px; }
+}
 .panel-kopf h2 {
   font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--leise);
 }

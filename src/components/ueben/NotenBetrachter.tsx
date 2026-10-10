@@ -3,18 +3,18 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ansichten, ansichtVonSeite, getroffen, hauptseite, type Anmerkung, type Ansicht, type Blaettermodus } from '@/domain/notenpult';
+import { einstellungPruefen, TEXT_GROESSE, type StiftEinstellung, type ZeichenWerkzeug } from '@/domain/stift';
 import { mitRand, rechteckAus, type Rechteck } from '@/domain/ueben';
+import { gespeichert as gespeicherterWert, speichern } from './klang';
 import {
   anmerkungenSpeichern, anmerkungenVon, notenAendern, stelleAnlegen, tempoGeschafft,
   type LokaleNoten, type LokaleStelle,
 } from './lokal';
 import { useMetronom } from './MetronomKontext';
 import { ladeFehler, speicherFehler } from './speicherfehler';
+import { StiftPalette, type Werkzeug } from './StiftPalette';
 import { anmerkungenZeichnen, strichZeichnen } from './zeichnen';
 
-type Werkzeug = 'stift' | 'marker' | 'text' | 'radierer' | 'stelle';
-const STIFTFARBEN = ['#1b1b1b', '#d12d2d', '#1f5fd1'];
-const MARKERFARBEN = ['rgba(255, 214, 0, 0.45)', 'rgba(80, 220, 120, 0.4)', 'rgba(255, 120, 200, 0.35)'];
 const RAND = 0.06;
 const MAX_PX = 2800;
 
@@ -57,8 +57,17 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
 
   // ── Werkzeuge ──
   const [werkzeug, setWerkzeug] = useState<Werkzeug | null>(null);
-  const [stiftfarbe, setStiftfarbe] = useState(STIFTFARBEN[0]);
-  const [markerfarbe, setMarkerfarbe] = useState(MARKERFARBEN[0]);
+  const [paletteOffen, setPaletteOffen] = useState(false);
+  // Jedes Werkzeug merkt sich Farbe und Dicke (E-01/E-02, Pencil-Muster).
+  const [einst, setEinst] = useState<Record<ZeichenWerkzeug, StiftEinstellung>>(() => ({
+    stift: einstellungPruefen('stift', gespeicherterWert('ueben:stift', null)),
+    marker: einstellungPruefen('marker', gespeicherterWert('ueben:marker', null)),
+    text: einstellungPruefen('text', gespeicherterWert('ueben:text', null)),
+  }));
+  const einstellen = (w: ZeichenWerkzeug, e: StiftEinstellung) => {
+    setEinst((s) => ({ ...s, [w]: e }));
+    speichern(`ueben:${w}`, e);
+  };
   const [fingerZeichnen, setFingerZeichnen] = useState(false);
   const [leiste, setLeiste] = useState(true);
 
@@ -266,12 +275,17 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   const darfZeichnen = (e: React.PointerEvent) =>
     werkzeug !== null && zeichenSeite !== null && (e.pointerType !== 'touch' || fingerZeichnen || werkzeug === 'stelle' || werkzeug === 'text');
 
-  // Rückgängig nimmt die letzte Aktion zurück (auch Radieren), nicht nur die letzte Anmerkung.
+  // Rückgängig/Wiederholen je Aktion (auch Radier-Wische), nicht je Strich.
   const verlaufAnm = useRef<{ seite: number; vorher: Anmerkung[] }[]>([]);
+  const wiederholenAnm = useRef<{ seite: number; vorher: Anmerkung[] }[]>([]);
+  // Für die Knopf-Zustände: Stack-Längen als State (Refs sind im Rendern tabu).
+  const [staende, setStaende] = useState({ rueck: 0, wieder: 0 });
+  const staendeAktualisieren = () => setStaende({ rueck: verlaufAnm.current.length, wieder: wiederholenAnm.current.length });
   function anmerkungenSetzen(seite: number, neu: Anmerkung[], merken = true) {
-    if (merken) verlaufAnm.current = [...verlaufAnm.current.slice(-49), { seite, vorher: anm[seite] ?? [] }];
+    if (merken) { verlaufAnm.current = [...verlaufAnm.current.slice(-49), { seite, vorher: anm[seite] ?? [] }]; wiederholenAnm.current = []; }
     setAnm((a) => ({ ...a, [seite]: neu }));
     anmerkungenSpeichern(noten.id, seite, neu).catch(speicherFehler);
+    staendeAktualisieren();
   }
 
   function liveZeichnen() {
@@ -281,8 +295,8 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     c.width = Math.round(blatt.current.offsetWidth * dpr); c.height = Math.round(blatt.current.offsetHeight * dpr);
     const ctx = c.getContext('2d')!;
     ctx.clearRect(0, 0, c.width, c.height);
-    if (werkzeug === 'stift') strichZeichnen(ctx, z.punkte, stiftfarbe, 0.0025 * c.width, 0, 0, c.width, c.height);
-    if (werkzeug === 'marker') strichZeichnen(ctx, z.punkte, markerfarbe, 0.014 * c.width, 0, 0, c.width, c.height, true);
+    if (werkzeug === 'stift') strichZeichnen(ctx, z.punkte, einst.stift.farbe, einst.stift.breite * c.width, 0, 0, c.width, c.height);
+    if (werkzeug === 'marker') strichZeichnen(ctx, z.punkte, einst.marker.farbe, einst.marker.breite * c.width, 0, 0, c.width, c.height, true);
   }
 
   function runter(e: React.PointerEvent) {
@@ -324,10 +338,13 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       return;
     }
     const seite = zeichenSeite!;
+    // Radier-Wisch zu Ende: Verlaufszähler nachziehen (der Verlauf wird im
+    // setAnm-Updater geschrieben, der bis hierhin längst gelaufen ist).
+    if (werkzeug === 'radierer') staendeAktualisieren();
     if (werkzeug === 'stift' || werkzeug === 'marker') {
       const neu: Anmerkung = werkzeug === 'stift'
-        ? { id: crypto.randomUUID(), art: 'stift', farbe: stiftfarbe, breite: 0.0025, punkte: z.punkte }
-        : { id: crypto.randomUUID(), art: 'marker', farbe: markerfarbe, breite: 0.014, punkte: z.punkte };
+        ? { id: crypto.randomUUID(), art: 'stift', farbe: einst.stift.farbe, breite: einst.stift.breite, punkte: z.punkte }
+        : { id: crypto.randomUUID(), art: 'marker', farbe: einst.marker.farbe, breite: einst.marker.breite, punkte: z.punkte };
       anmerkungenSetzen(seite, [...(anm[seite] ?? []), neu]);
       const c = live.current; if (c) c.getContext('2d')!.clearRect(0, 0, c.width, c.height);
     }
@@ -347,14 +364,22 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       const alt = alleAnm[seite] ?? [];
       const neu = alt.filter((a) => !getroffen(a, x, y, 0.012, format));
       if (neu.length === alt.length) return alleAnm;
-      if (!radierZug.current) { verlaufAnm.current = [...verlaufAnm.current.slice(-49), { seite, vorher: alt }]; radierZug.current = true; }
+      if (!radierZug.current) { verlaufAnm.current = [...verlaufAnm.current.slice(-49), { seite, vorher: alt }]; wiederholenAnm.current = []; radierZug.current = true; }
       anmerkungenSpeichern(noten.id, seite, neu).catch(speicherFehler);
       return { ...alleAnm, [seite]: neu };
     });
   }
   function rueckgaengig() {
     const letzter = verlaufAnm.current.pop();
-    if (letzter) anmerkungenSetzen(letzter.seite, letzter.vorher, false);
+    if (!letzter) return;
+    wiederholenAnm.current = [...wiederholenAnm.current.slice(-49), { seite: letzter.seite, vorher: anm[letzter.seite] ?? [] }];
+    anmerkungenSetzen(letzter.seite, letzter.vorher, false);
+  }
+  function wiederholen() {
+    const naechster = wiederholenAnm.current.pop();
+    if (!naechster) return;
+    verlaufAnm.current = [...verlaufAnm.current.slice(-49), { seite: naechster.seite, vorher: anm[naechster.seite] ?? [] }];
+    anmerkungenSetzen(naechster.seite, naechster.vorher, false);
   }
   // Ein Radierer-Wisch ist eine Aktion: nur der Stand vor dem ersten Treffer wird gemerkt.
   const radierZug = useRef(false);
@@ -379,7 +404,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     if (e && e.timeStamp - textEingabe.seit < 400) { (e.target as HTMLInputElement).focus(); return; }
     if (textEingabe.text.trim()) {
       anmerkungenSetzen(zeichenSeite, [...(anm[zeichenSeite] ?? []),
-        { id: crypto.randomUUID(), art: 'text', farbe: stiftfarbe, groesse: 0.024, x: textEingabe.x, y: textEingabe.y, text: textEingabe.text.trim() }]);
+        { id: crypto.randomUUID(), art: 'text', farbe: einst.text.farbe, groesse: TEXT_GROESSE, x: textEingabe.x, y: textEingabe.y, text: textEingabe.text.trim() }]);
     }
     setTextEingabe(null);
   }
@@ -416,18 +441,21 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   const anzeige = modus === 'stellen'
     ? `Stelle ${stelleNr + 1} von ${stellen.length}`
     : ansicht.art === 'ganz' ? `Seite ${ansicht.seite} von ${seiten}` : `Seite ${ansicht.unten} → ${ansicht.oben} von ${seiten}`;
-  const WERKZEUGE: [Werkzeug, string, string][] = [
-    ['stift', '✎', 'Stift'], ['marker', '▮', 'Marker'], ['text', 'T', 'Text'], ['radierer', '⌫', 'Radierer'], ['stelle', '▢', 'Stelle'],
-  ];
   const ladeTempo = stelle ? (zuletzt ?? stelle.zielTempo) : null;
-  const hinweis = linieEinstellen && modus === 'lesen'
+  // Linien-Hinweis schwebt über dem Blatt; Werkzeug-Hinweise stehen in der Palette.
+  const linieHinweis = linieEinstellen && modus === 'lesen'
     ? (linienSeite ? `Goldene Linie auf Seite ${linienSeite} ziehen: bis hierhin lesen, dann zeigt Weiterblättern oben schon die nächste Seite.` : 'Auf der letzten Seite gibt es keine Blätterlinie — eine Seite zurückblättern.')
-    : !werkzeug ? null
-    : zeichenSeite === null ? null
+    : null;
+  const paletteHinweis = !werkzeug || zeichenSeite === null ? null
     : werkzeug === 'stelle' ? 'Rahmen um die Takte ziehen.'
     : werkzeug === 'text' ? 'Auf die Stelle tippen, an der der Text stehen soll.'
-    : werkzeug === 'radierer' ? 'Über Anmerkungen wischen, um sie zu löschen.'
-    : fingerZeichnen ? 'Zeichnen mit Stift oder Finger.' : 'Mit dem Stift zeichnen — der Finger blättert weiter.';
+    : werkzeug === 'radierer' ? 'Über Anmerkungen wischen.'
+    : fingerZeichnen ? 'Stift oder Finger zeichnen.' : 'Der Finger blättert weiter.';
+  const paletteWechsel = (offen: boolean) => {
+    setPaletteOffen(offen);
+    setWerkzeug(offen ? 'stift' : null);
+    if (offen) setLinieEinstellen(false);
+  };
 
   return (
     <div className="betrachter" role="region" aria-label={`Noten: ${noten.titel}`}>
@@ -478,15 +506,12 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
               </div>
             )}
             <span className="flex-1" />
-            <div className="b-segment" role="group" aria-label="Werkzeug">
-              {WERKZEUGE.map(([w, zeichen, name]) => (
-                <button key={w} type="button" aria-pressed={werkzeug === w} aria-label={name} title={name}
-                  onClick={() => { setWerkzeug(werkzeug === w ? null : w); setLinieEinstellen(false); }}>
-                  <span aria-hidden="true">{zeichen}</span><span className="b-lang"> {name}</span>
-                </button>
-              ))}
-            </div>
-            {werkzeug && <button type="button" className="b-knopf" onClick={rueckgaengig} aria-label="Rückgängig" title="Rückgängig">↶</button>}
+            <button type="button" className="b-knopf" aria-pressed={paletteOffen} onClick={() => paletteWechsel(!paletteOffen)}
+              aria-label="Zeichenwerkzeuge" title="Zeichenwerkzeuge">
+              <svg viewBox="0 0 24 24" aria-hidden="true" style={{ width: 18, height: 18 }} fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 20l1.2-4.2L16.6 4.4a1.8 1.8 0 0 1 2.5 0l.5.5a1.8 1.8 0 0 1 0 2.5L8.2 18.8 4 20z" />
+              </svg>
+            </button>
           </div>
         </div>
       )}
@@ -525,8 +550,8 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
             <span className="b-tippzone rechts" aria-hidden="true">›</span>
           </>
         )}
-        {/* Schwebende Werkzeug-Optionen: verkleinern das Blatt nicht. */}
-        {(hinweis || (werkzeug && werkzeug !== 'stelle') || (werkzeug && zeichenSeite === null)) && (
+        {/* Schwebende Hinweise: verkleinern das Blatt nicht. */}
+        {(linieHinweis || (werkzeug && zeichenSeite === null)) && (
           <div className="b-schwebend">
             {werkzeug && zeichenSeite === null ? (
               <>
@@ -536,15 +561,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
               </>
             ) : (
               <>
-                {(werkzeug === 'stift' || werkzeug === 'text' || werkzeug === 'marker') && (werkzeug === 'marker' ? MARKERFARBEN : STIFTFARBEN).map((f) => (
-                  <button key={f} type="button" className="b-farbe b-greifbar" style={{ background: f }}
-                    onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()} aria-pressed={(werkzeug === 'marker' ? markerfarbe : stiftfarbe) === f}
-                    onClick={() => (werkzeug === 'marker' ? setMarkerfarbe(f) : setStiftfarbe(f))} aria-label="Farbe wählen" />
-                ))}
-                {(werkzeug === 'stift' || werkzeug === 'marker' || werkzeug === 'radierer') && (
-                  <label className="b-schalter b-greifbar" onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()}><input type="checkbox" checked={fingerZeichnen} onChange={(e) => setFingerZeichnen(e.target.checked)} /> auch mit dem Finger</label>
-                )}
-                {hinweis && <span key={hinweis} className="b-hinweis b-verblassen">{hinweis}</span>}
+                {linieHinweis && <span key={linieHinweis} className="b-hinweis b-verblassen">{linieHinweis}</span>}
               </>
             )}
           </div>
@@ -580,6 +597,15 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
         </div>
       )}
 
+      {paletteOffen && (
+        <StiftPalette werkzeug={werkzeug}
+          wechseln={(w) => { setWerkzeug(w); setLinieEinstellen(false); }}
+          einst={einst} einstellen={einstellen}
+          fingerZeichnen={fingerZeichnen} setFingerZeichnen={setFingerZeichnen}
+          rueckgaengig={rueckgaengig} wiederholen={wiederholen}
+          kannRueck={staende.rueck > 0} kannWieder={staende.wieder > 0}
+          hinweis={paletteHinweis} schliessen={() => paletteWechsel(false)} />
+      )}
     </div>
   );
 }

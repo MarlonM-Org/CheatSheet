@@ -146,25 +146,6 @@ funktionieren): *Tonkompass* · *Tonprofil* · *Stimmbild* · *Tonleiter-Check*.
 
 ## E — Stift & Anmerkungen
 
-### E-01 · Stiftdicke einstellbar
-
-Heute hart kodiert (`NotenBetrachter.tsx`: Stift 0.0025, Marker 0.014,
-relativ zur Seitenbreite — an **zwei** Stellen: Live-Vorschau und
-Speicherpfad). Neu: 3–4 Dickenstufen je Werkzeug, Auswahl wird gespeichert.
-Das `Anmerkung`-Datenmodell (`src/domain/notenpult.ts`) braucht dafür ein
-`breite`-Feld (alte Anmerkungen ohne Feld = bisherige Breite).
-
-### E-02 · Mehr Farben
-
-Heute je 3 feste Farben für Stift/Text und Marker. Neu: größere kuratierte
-Palette (8–12) + zuletzt benutzte Farben; Auswahl wird gespeichert.
-
-### E-03 · Stift-UI überarbeiten
-
-Das schwebende Werkzeugfeld ist funktional, aber unansehnlich. Zusammen mit
-B-05 neu gestalten. Zielbild forScore: speicherbare **Stift-Presets**
-(Werkzeug + Farbe + Dicke als ein Antipp-Preset). Redo zusätzlich zu Undo.
-
 ### E-04 · Anmerkungen, Ausbaustufe (forScore-Niveau)
 
 Später, nach E-01…E-03: Stempel (musikalische Symbole: Atemzeichen,
@@ -303,6 +284,25 @@ G-02 getrennt — Rhythmus zuerst, Töne später.
   `themeColor` je Welt, Manifest hell. Auswahl liegt in localStorage
   (`ueben:modus`, `ueben:thema-hell`, `ueben:thema-dunkel`) — Umzug in den
   Einstellungs-Store bleibt Thema von A-02.
+- **E-01 · Stiftdicke einstellbar** (2026-10-10): 4 Stift- und 3
+  Marker-Dicken (`src/domain/stift.ts`, getestet), je Werkzeug gemerkt
+  (`ueben:stift|marker|text`); Live-Vorschau und Speicherpfad nutzen
+  dieselbe Einstellung. Das `breite`-Feld je Anmerkung gab es schon —
+  alte Anmerkungen bleiben unverändert.
+- **E-02 · Mehr Farben** (2026-10-10): Kuratierte Palette (9 Stift-/
+  Textfarben, 6 Markerfarben), die alten Standardfarben sind enthalten.
+  Statt einer „Zuletzt“-Reihe merkt sich jedes Werkzeug Farbe + Dicke —
+  das Muster von Apples Pencil-Palette, auf Marlons Wunsch iOS-orientiert.
+- **E-03 · Stift-UI überarbeitet** (2026-10-10): Neue schwebende, frei
+  verschiebbare Werkzeug-Palette nach dem Vorbild von Apples
+  Pencil-Palette (Studio-Skin): Rückgängig **und neu Wiederholen**,
+  Werkzeuge mit angehobenem Aktiv-Zustand, Dicken-Punkte, Farb-Swatches,
+  Finger-Schalter; Einstieg über den Stift-Knopf in der Betrachter-Leiste.
+  **Doppeltipp auf die Werkzeug-Reihe wechselt Radierer ↔ voriges
+  Werkzeug** — der Hardware-Doppeltipp des Apple Pencil kommt in
+  Safari-Webinhalten nicht an (`UIPencilInteraction` ist nativen Apps
+  vorbehalten), deshalb als Bildschirm-Geste. Statt forScore-Presets gilt
+  das Pencil-Muster „jedes Werkzeug merkt sich seine Einstellung“.
 - **C-01 · Standard-Stimmung B** (2026-10-10): Erststart startet „in B“
   (deutsch, = internationales B♭); gespeicherte Auswahl `stimm:st` hat
   weiter Vorrang (`StimmgeraetKontext.tsx`).
