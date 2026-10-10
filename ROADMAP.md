@@ -96,6 +96,8 @@ Migrationstest.
 
 ## B — UI-Neuaufbau: Noten im Zentrum
 
+*(in Arbeit: Claude, seit 2026-10-10, Branch `feature/ui-noten-im-zentrum` — B-05 zuerst, dann B-01…B-04)*
+
 ### B-01 · Kopfzeile weg, drei große Knöpfe unten
 
 Die Kopfzeile („CheatSheet / METRONOM · STIMMGERÄT · NOTENPULT“ in
