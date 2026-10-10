@@ -70,6 +70,8 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   };
   const [fingerZeichnen, setFingerZeichnen] = useState(false);
   const [leiste, setLeiste] = useState(true);
+  // Ansicht-Menü (Blättern bzw. Rand/Zoom) als Popover unter der Leiste.
+  const [ansichtOffen, setAnsichtOffen] = useState(false);
 
   // Vollbild als bewusster Knopf (der automatische Versuch beim Öffnen
   // entfiel mit dem Portal). iPad-Safari kann kein Seiten-Vollbild — dann
@@ -460,58 +462,75 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     <div className="betrachter" role="region" aria-label={`Noten: ${noten.titel}`}>
       {leiste && (
         <div className="betrachter-leiste">
-          <div className="betrachter-zeile">
-            <button type="button" className="b-titel b-titel-knopf" onClick={titelTipp} title="Stück-Details und Stellen-Übersicht">
-              {noten.titel}{noten.stimme && <span className="b-leise"> · {noten.stimme}</span>}
+          <div className="nav-zeile">
+            <button type="button" className="nav-titel" onClick={titelTipp} title="Stück-Details und Stellen-Übersicht">
+              <span className="nav-titel-text">
+                <span className="nav-titel-schnitt">{noten.titel}{noten.stimme && <span className="b-leise"> · {noten.stimme}</span>}</span>
+                <svg className="nav-pfeil" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              </span>
+              <span className="nav-untertitel tabular-nums">{anzeige}</span>
             </button>
-            <span className="b-leise b-seite tabular-nums">{anzeige}</span>
             <span className="flex-1" />
-            <div className="b-segment" role="group" aria-label="Modus">
-              <button type="button" aria-pressed={modus === 'lesen'} onClick={zumLesen}>Lesen</button>
-              <button type="button" aria-pressed={modus === 'stellen'} disabled={!stellen.length}
-                onClick={() => { setModus('stellen'); setWerkzeug(null); setLinieEinstellen(false); }}>Stellen ({stellen.length})</button>
-            </div>
+            {stellen.length > 0 && (
+              <label className="nav-schalter" title="Stelle für Stelle üben">
+                <span className="nav-schalter-label">Stellen</span>
+                <input type="checkbox" role="switch" className="ios-schalter" checked={modus === 'stellen'}
+                  onChange={(e) => {
+                    if (e.target.checked) { setModus('stellen'); setWerkzeug(null); setLinieEinstellen(false); setAnsichtOffen(false); }
+                    else { zumLesen(); setAnsichtOffen(false); }
+                  }} />
+              </label>
+            )}
+            <button type="button" className="nav-rund" aria-pressed={ansichtOffen} onClick={() => setAnsichtOffen(!ansichtOffen)}
+              aria-label="Ansicht" title="Ansicht">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.5h10A1.5 1.5 0 0 1 18.5 5v14a1.5 1.5 0 0 1-1.5 1.5H7A1.5 1.5 0 0 1 5.5 19V5A1.5 1.5 0 0 1 7 3.5z" /><path d="M9.5 9L12 6.5 14.5 9M14.5 15L12 17.5 9.5 15" /></svg>
+            </button>
             {kannVollbild && (
-              <button type="button" className="b-knopf" aria-pressed={vollbild} onClick={vollbildWechseln}
-                aria-label={vollbild ? 'Vollbild verlassen' : 'Vollbild'} title={vollbild ? 'Vollbild verlassen' : 'Vollbild'}>⛶</button>
-            )}
-          </div>
-          <div className="betrachter-zeile">
-            {modus === 'lesen' && (
-              <button type="button" className="b-knopf b-nur-schmal" aria-label="Blättermodus wechseln" onClick={() => {
-                const m: Blaettermodus = blaettern.modus === 'ganz' ? 'halb' : blaettern.modus === 'halb' ? 'linie' : 'ganz';
-                blaetternSpeichern({ ...blaettern, modus: m }); setLinieEinstellen(m === 'linie'); if (m === 'linie') setWerkzeug(null);
-              }}>⇅ {blaettern.modus === 'ganz' ? 'Ganz' : blaettern.modus === 'halb' ? 'Halb' : 'Linie'}</button>
-            )}
-            {modus === 'lesen' && (
-              <div className="b-segment b-nur-breit" role="group" aria-label="Blättern">
-                {([['ganz', 'Ganz', 'Ganze Seite'], ['halb', 'Halb', 'Halbe Seite'], ['linie', 'Linie', 'Eigene Linie']] as const).map(([m, kurz, lang]) => (
-                  <button key={m} type="button" aria-pressed={blaettern.modus === m} aria-label={`Blättern: ${lang}`}
-                    onClick={() => { blaetternSpeichern({ ...blaettern, modus: m }); setLinieEinstellen(m === 'linie'); if (m === 'linie') setWerkzeug(null); }}>
-                    <span className="b-kurz">{kurz}</span><span className="b-lang">{lang}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-            {modus === 'lesen' && blaettern.modus === 'linie' && (
-              <button type="button" className="b-knopf" aria-pressed={linieEinstellen} onClick={() => { setLinieEinstellen(!linieEinstellen); setWerkzeug(null); }}>
-                {linieEinstellen ? 'Fertig' : <>Linie<span className="b-lang"> einstellen</span></>}
+              <button type="button" className="nav-rund" aria-pressed={vollbild} onClick={vollbildWechseln}
+                aria-label={vollbild ? 'Vollbild verlassen' : 'Vollbild'} title={vollbild ? 'Vollbild verlassen' : 'Vollbild'}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4.5H6A1.5 1.5 0 0 0 4.5 6v3M15 4.5h3A1.5 1.5 0 0 1 19.5 6v3M9 19.5H6A1.5 1.5 0 0 1 4.5 18v-3M15 19.5h3a1.5 1.5 0 0 0 1.5-1.5v-3" /></svg>
               </button>
             )}
-            {modus === 'stellen' && (
-              <div className="b-segment" role="group" aria-label="Ansicht der Stelle">
-                <button type="button" aria-pressed={rand} onClick={() => setRand(!rand)}>Rand</button>
-                <button type="button" aria-pressed={zoom} onClick={() => setZoom(!zoom)} aria-label="Heranzoomen">Zoom</button>
-              </div>
-            )}
-            <span className="flex-1" />
-            <button type="button" className="b-knopf" aria-pressed={paletteOffen} onClick={() => paletteWechsel(!paletteOffen)}
+            <button type="button" className="nav-rund" aria-pressed={paletteOffen} onClick={() => paletteWechsel(!paletteOffen)}
               aria-label="Zeichenwerkzeuge" title="Zeichenwerkzeuge">
-              <svg viewBox="0 0 24 24" aria-hidden="true" style={{ width: 18, height: 18 }} fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 20l1.2-4.2L16.6 4.4a1.8 1.8 0 0 1 2.5 0l.5.5a1.8 1.8 0 0 1 0 2.5L8.2 18.8 4 20z" />
-              </svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l1.2-4.2L16.6 4.4a1.8 1.8 0 0 1 2.5 0l.5.5a1.8 1.8 0 0 1 0 2.5L8.2 18.8 4 20z" /></svg>
             </button>
           </div>
+          {ansichtOffen && (
+            <>
+              <button type="button" className="nav-fang" aria-label="Menü schließen" onClick={() => setAnsichtOffen(false)} />
+              <div className="nav-blase" role="group" aria-label="Ansicht">
+                {modus === 'lesen' ? (
+                  <>
+                    <p className="nav-blase-titel">Blättern</p>
+                    <div className="segment nav-segment" role="group" aria-label="Blättern">
+                      {([['ganz', 'Ganz'], ['halb', 'Halb'], ['linie', 'Linie']] as const).map(([m, name]) => (
+                        <button key={m} type="button" aria-pressed={blaettern.modus === m}
+                          onClick={() => { blaetternSpeichern({ ...blaettern, modus: m }); setLinieEinstellen(m === 'linie'); if (m === 'linie') { setWerkzeug(null); setAnsichtOffen(false); } }}>
+                          {name}
+                        </button>
+                      ))}
+                    </div>
+                    {blaettern.modus === 'linie' && (
+                      <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => { setLinieEinstellen(true); setWerkzeug(null); setAnsichtOffen(false); }}>
+                        Blätterlinie einstellen
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <p className="nav-blase-titel">Ansicht der Stelle</p>
+                    <label className="nav-blase-reihe">Etwas Rand zeigen
+                      <input type="checkbox" role="switch" className="ios-schalter" checked={rand} onChange={(e) => setRand(e.target.checked)} />
+                    </label>
+                    <label className="nav-blase-reihe">Heranzoomen
+                      <input type="checkbox" role="switch" className="ios-schalter" checked={zoom} onChange={(e) => setZoom(e.target.checked)} />
+                    </label>
+                  </>
+                )}
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -563,6 +582,10 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
                 {(linieHinweis || werkzeugHinweis) && (
                   <span key={linieHinweis ?? werkzeugHinweis} className="b-hinweis b-verblassen">{linieHinweis ?? werkzeugHinweis}</span>
                 )}
+                {linieEinstellen && (
+                  <button type="button" className="b-knopf b-greifbar" onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()}
+                    onClick={() => setLinieEinstellen(false)}>Fertig</button>
+                )}
               </>
             )}
           </div>
@@ -598,7 +621,8 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
         </div>
       )}
 
-      {paletteOffen && (
+      {/* Beim Benennen einer neuen Stelle weicht die Palette der Eingabezeile. */}
+      {paletteOffen && !neueStelle && (
         <StiftPalette werkzeug={werkzeug}
           wechseln={(w) => { setWerkzeug(w); setLinieEinstellen(false); }}
           einst={einst} einstellen={einstellen}
