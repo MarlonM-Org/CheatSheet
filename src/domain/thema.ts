@@ -27,7 +27,7 @@ export const MODUS_NAME: Record<Modus, string> = {
 
 // Browser-Chrome (meta theme-color) je Thema — der Grundton der Fläche.
 export const THEMA_CHROME: Record<Thema, string> = {
-  weiss: '#f4f2ed',
+  weiss: '#fcfcfb',
   sommer: '#fdf3f1',
   dunkelblau: '#0b1420',
   schwarz: '#000000',
