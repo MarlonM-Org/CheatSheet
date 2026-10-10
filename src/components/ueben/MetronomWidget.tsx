@@ -4,10 +4,12 @@ import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Metronom } from './Metronom';
 import { useMetronom } from './MetronomKontext';
+import { useSchiebbar } from './schiebbar';
 import { useDialogFokus, useEscape } from './tasten';
 
-// Metronom als angedocktes Widget (B-03): Start/Stopp, Tempo (antippen zum
-// Eintippen), Regler, −1/+1 und ±10 %, Taktpunkte. „Alles" öffnet das volle
+// Metronom als Widget (B-03): Start/Stopp, Tempo (antippen zum Eintippen),
+// Regler, −1/+1 und ±10 %, Taktpunkte. Am Kopf frei über den Bildschirm
+// schiebbar, damit die Noten lesbar bleiben. „Alles" öffnet das volle
 // Metronom; dieser Zustand liegt in der Zentrale, damit die Blätter-Tasten
 // hinter dem Dialog gesperrt sind. Schließen blendet nur aus — der
 // Taktgeber läuft im Kontext weiter.
@@ -16,11 +18,15 @@ export function MetronomWidget({ schliessen, voll, vollSetzen }: {
 }) {
   const { bpm, setBpm, laeuft, start, stopp, aktiv, akzente } = useMetronom();
   const [eingabe, setEingabe] = useState<string | null>(null);
+  const { panel, lage, ebene, anfassen, bewegen, loslassen } = useSchiebbar('ueben:lage-metronom');
   const uebernehmen = () => { const n = Number(eingabe); if (n) setBpm(n); setEingabe(null); };
 
   return (
-    <section className="panel" role="region" aria-label="Metronom">
-      <div className="panel-kopf">
+    <section ref={panel} className={`panel ${lage ? 'schwebt' : ''}`}
+      style={lage ? { left: lage.x, top: lage.y, zIndex: 41 + ebene } : undefined}
+      role="region" aria-label="Metronom">
+      <div className="panel-kopf anfasser" onPointerDown={anfassen} onPointerMove={bewegen} onPointerUp={loslassen} onPointerCancel={loslassen}>
+        <svg className="griff" viewBox="0 0 10 16" aria-hidden="true"><circle cx="3" cy="3" r="1.2" /><circle cx="7" cy="3" r="1.2" /><circle cx="3" cy="8" r="1.2" /><circle cx="7" cy="8" r="1.2" /><circle cx="3" cy="13" r="1.2" /><circle cx="7" cy="13" r="1.2" /></svg>
         <h2>Metronom</h2>
         <button type="button" className="text-knopf gedaempft text-xs underline" onClick={() => vollSetzen(true)}>alles</button>
         <button type="button" className="panel-zu" onClick={schliessen} aria-label="Metronom-Widget ausblenden">

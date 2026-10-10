@@ -97,8 +97,8 @@ Migrationstest.
 
 ## B — UI-Neuaufbau: Noten im Zentrum
 
-*(in Arbeit: Claude, seit 2026-10-10, Branch `feature/ui-noten-im-zentrum` —
-B-01…B-03 umgesetzt, B-04 teilweise, B-05 wartet auf Marlons Entscheidung)*
+*(in Arbeit: Claude, seit 2026-10-10, Branch `feature/ui-noten-im-zentrum`,
+PR #1 — B-01…B-03 und B-05 umgesetzt, B-04 teilweise)*
 
 ### B-04 · Einstellungen mit Licht/Dunkel und Themes
 
@@ -120,29 +120,6 @@ Einstellungsbereich mit Hell/Dunkel/System über die Bibliothek. **Offen:**
 die vier Farbwelten als Token-Sätze (Dunkelblau, Schwarz, Weiß, Sommer)
 samt Auswahl-UI und `themeColor` je Welt — auf Marlons Wunsch bewusst
 nachgezogen, das helle Standard-Design kam zuerst.
-
-### B-05 · Design-Überarbeitung (vor M2 entscheiden)
-
-Das aktuelle UI wirkt generisch („generiert“): viele runde Ecken, Karten,
-wenig eigene Handschrift. Ziel ist ein cleanes, hochwertiges, inhaltsfokussiertes
-Design — Referenz sind die forScore-Screenshots: ruhige Flächen, dezentes
-Chrome, die Noten dominieren.
-
-Aufgabe: 2–3 ausgearbeitete Designvorschläge (HTML-Mockups) für
-Noten-Vollansicht + untere Leiste + Overlays + je ein Theme aus B-04,
-dann gemeinsam entscheiden. Erst danach B-01…B-03 umsetzen.
-
-**Stand 2026-10-10:** Fokus auf Marlons Wunsch geändert — zuerst ein
-**helles Standard-Design**, Farbwelten/Themes werden nachgezogen. Drei
-Entwürfe liegen in `docs/design/` (eigenständige, antippbare HTML-Dateien
-mit identischem Funktionsumfang): **Blatt** (druckgrafisch-warm, Serifen),
-**Studio** (präzise Haarlinien-Flächen, forScore-Sachlichkeit), **Galerie**
-(maximal reduziert, Chrome blendet aus). Empfehlung: **Studio**, weil die
-Zustands-Sprache (Messing nur an Aktivem) und die flache Haarlinien-Gliederung
-am besten auf die vielen echten Bedien-Zustände der App skalieren; das
-Ausblende-Verhalten aus „Galerie" ist davon unabhängig übernehmbar.
-Entscheidung durch Marlon steht aus — Umsetzung läuft als Arbeitsannahme
-token-basiert mit Studio, ein Wechsel bleibt günstig.
 
 ---
 
@@ -356,10 +333,20 @@ G-02 getrennt — Rhythmus zuerst, Töne später.
   Umzugs-Deep-Link `?reiter=noten` entfiel mit der Reiter-Architektur.
 - **B-03 · Metronom & Stimmgerät als Overlay-Widgets** (2026-10-10,
   `9b36fcc`): `MetronomWidget` (Start/Stopp, Tempo tippbar, −1/+1, ±10 %,
-  Taktpunkte; läuft beim Ausblenden weiter) und `StimmgeraetWidget` (Ton,
-  Skala, Abweichung „+2“; Ausblenden stoppt das Mikrofon) docken über der
-  Leiste; „alles“ öffnet jeweils die große Ansicht. Der MiniMetronom ging im
-  Widget auf; die Stimmgerät-Logik liegt im `StimmgeraetKontext`.
+  Regler, Taktpunkte; läuft beim Ausblenden weiter) und `StimmgeraetWidget`
+  (Ton, Skala, Abweichung „+2“; Ausblenden stoppt das Mikrofon) docken über
+  der Leiste; „alles“ öffnet jeweils die große Ansicht. Auf Marlons Wunsch
+  sind beide Widgets **frei über den ganzen Bildschirm schiebbar** (am Kopf
+  anfassen; Position wird gemerkt, Ablegen an der Leiste dockt wieder an),
+  damit die Noten lesbar bleiben. Der MiniMetronom ging im Widget auf; die
+  Stimmgerät-Logik liegt im `StimmgeraetKontext`.
+- **B-05 · Design-Überarbeitung** (2026-10-10): **Entscheidung Marlon:
+  Studio.** Drei helle Entwürfe (Blatt · Studio · Galerie, identischer
+  Funktionsumfang) liegen als antippbare HTML-Mockups in `docs/design/` und
+  bleiben als Referenz. Studio — helles Studio-Weiß, warm abgestufte
+  Neutrale, Haarlinien statt Schatten, kleine Radien, Messing nur an
+  Aktivem — ist als Standard-Design umgesetzt (Tokens in `globals.css`,
+  `5be6bba` ff.). Farbwelten/Themes werden bewusst nachgezogen (B-04).
 
 - **A-04 · Anforderungsquelle geklärt** (2026-10-10): Diese ROADMAP.md ist
   die einzige Anforderungsliste; die Verweise auf

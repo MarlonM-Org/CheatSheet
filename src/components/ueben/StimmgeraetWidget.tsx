@@ -3,12 +3,14 @@
 import { createPortal } from 'react-dom';
 import { Stimmgeraet } from './Stimmgeraet';
 import { useStimmgeraet } from './StimmgeraetKontext';
+import { useSchiebbar } from './schiebbar';
 import { useDialogFokus, useEscape } from './tasten';
 
 const SAUBER = 5; // ±Cent, die als sauber gelten
 
-// Stimmgerät als angedocktes Widget (B-03): Start/Stopp, erkannter Ton,
-// feine Skala, Abweichung als „+2"/„−3". „Alles" öffnet die große Ansicht
+// Stimmgerät als Widget (B-03): Start/Stopp, erkannter Ton, feine Skala,
+// Abweichung als „+2"/„−3". Am Kopf frei über den Bildschirm schiebbar,
+// damit die Noten lesbar bleiben. „Alles" öffnet die große Ansicht
 // (Kammerton, Stimmung, Referenzton); dieser Zustand liegt in der Zentrale,
 // damit die Blätter-Tasten hinter dem Dialog gesperrt sind. Ausblenden
 // stoppt das Mikrofon.
@@ -16,6 +18,7 @@ export function StimmgeraetWidget({ schliessen, voll, vollSetzen }: {
   schliessen: () => void; voll: boolean; vollSetzen: (an: boolean) => void;
 }) {
   const { an, start, stopp, fehler, ton, frisch } = useStimmgeraet();
+  const { panel, lage, ebene, anfassen, bewegen, loslassen } = useSchiebbar('ueben:lage-stimmgeraet');
 
   const cent = ton?.cent ?? 0;
   const sauber = ton && frisch && Math.abs(cent) <= SAUBER;
@@ -27,8 +30,11 @@ export function StimmgeraetWidget({ schliessen, voll, vollSetzen }: {
   const x = 110 + (Math.max(-50, Math.min(50, cent)) / 50) * 100;
 
   return (
-    <section className="panel" role="region" aria-label="Stimmgerät">
-      <div className="panel-kopf">
+    <section ref={panel} className={`panel ${lage ? 'schwebt' : ''}`}
+      style={lage ? { left: lage.x, top: lage.y, zIndex: 41 + ebene } : undefined}
+      role="region" aria-label="Stimmgerät">
+      <div className="panel-kopf anfasser" onPointerDown={anfassen} onPointerMove={bewegen} onPointerUp={loslassen} onPointerCancel={loslassen}>
+        <svg className="griff" viewBox="0 0 10 16" aria-hidden="true"><circle cx="3" cy="3" r="1.2" /><circle cx="7" cy="3" r="1.2" /><circle cx="3" cy="8" r="1.2" /><circle cx="7" cy="8" r="1.2" /><circle cx="3" cy="13" r="1.2" /><circle cx="7" cy="13" r="1.2" /></svg>
         <h2>Stimmgerät</h2>
         <button type="button" className="text-knopf gedaempft text-xs underline" onClick={() => vollSetzen(true)}>alles</button>
         <button type="button" className="panel-zu" onClick={() => { stopp(); schliessen(); }} aria-label="Stimmgerät ausblenden">
