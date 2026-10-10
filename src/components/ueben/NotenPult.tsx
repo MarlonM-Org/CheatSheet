@@ -10,6 +10,7 @@ import { useMetronom } from './MetronomKontext';
 import { NotenBetrachter } from './NotenBetrachter';
 import { NeueVersionFehler, pdfLaden, seiteZeichnen } from './pdf';
 import { ladeFehler, speicherFehler } from './speicherfehler';
+import { useDialogFokus, useEscape } from './tasten';
 
 const RAND = 0.06;
 
@@ -72,10 +73,12 @@ function StueckBlatt({ noten, pdf, stellen, bpm, tempoSetzen, neuLaden, umbenann
   neuLaden: () => void; umbenannt: (neu: { titel: string; stimme: string }) => void; zeigen: (id: string) => void; schliessen: () => void;
 }) {
   const [umbenennen, setUmbenennen] = useState(false);
+  useEscape(schliessen);
+  const fokus = useDialogFokus<HTMLDivElement>();
 
   return (
     <div className="blatt-hintergrund" onClick={schliessen}>
-      <div className="blatt space-y-4" role="dialog" aria-label={`Stück: ${noten.titel}`} onClick={(e) => e.stopPropagation()}>
+      <div ref={fokus} tabIndex={-1} className="blatt space-y-4" role="dialog" aria-modal="true" aria-label={`Stück: ${noten.titel}`} onClick={(e) => e.stopPropagation()}>
         <div className="flex flex-wrap items-baseline gap-x-3">
           <h2 className="text-xl font-extrabold">{noten.titel}</h2>
           {noten.stimme && <span className="gedaempft">{noten.stimme}</span>}

@@ -2,15 +2,18 @@
 
 import { MODI, MODUS_NAME } from '@/domain/thema';
 import { useThema } from '@/components/thema';
+import { useDialogFokus, useEscape } from './tasten';
 
 // Einstellungen (B-04): Erscheinungsbild Hell/Dunkel/System.
 // Eigene Farbwelten (Dunkelblau, Schwarz, Weiß, Sommer) folgen später.
 export function Einstellungen({ schliessen }: { schliessen: () => void }) {
   const { modus, setModus } = useThema();
+  useEscape(schliessen);
+  const fokus = useDialogFokus<HTMLDivElement>();
 
   return (
     <div className="blatt-hintergrund" onClick={schliessen}>
-      <div className="blatt space-y-4" role="dialog" aria-label="Einstellungen" onClick={(e) => e.stopPropagation()}>
+      <div ref={fokus} tabIndex={-1} className="blatt space-y-4" role="dialog" aria-modal="true" aria-label="Einstellungen" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h2 className="abschnitt-titel">Einstellungen</h2>
           <button type="button" className="knopf knopf-leise knopf-klein" onClick={schliessen}>Fertig</button>

@@ -6,23 +6,21 @@ import { gespeichert, speichern } from './klang';
 import { alleNoten, notenAendern, notenAnlegen, notenLoeschen, type LokaleNoten } from './lokal';
 import { Sicherung, useSicherungLaden } from './Sicherung';
 import { fehlerGrund } from './speicherfehler';
+import { useEscape } from './tasten';
 
 // Bibliothek (B-02): Overlay über den Noten — Liste, Hinzufügen, Aktualisieren,
 // Löschen, Sicherung. Tipp auf ein Stück öffnet es vollflächig.
-export function Bibliothek({ offen, oeffnen, schliessen, einstellungen, offenEntfernt }: {
+export function Bibliothek({ offen, oeffnen, schliessen, einstellungen, offenEntfernt, aktualisiert, escapeAktiv }: {
   offen: string | null;
   oeffnen: (id: string) => void;
   schliessen: () => void;
   einstellungen: () => void;
   offenEntfernt: () => void;
+  aktualisiert: (ids: string[]) => void;
+  escapeAktiv: boolean;
 }) {
   const [anzahl, setAnzahl] = useState<number | null>(null);
-
-  useEffect(() => {
-    const taste = (e: KeyboardEvent) => { if (e.key === 'Escape' && !(e.target as HTMLElement).closest('input, textarea')) schliessen(); };
-    window.addEventListener('keydown', taste);
-    return () => window.removeEventListener('keydown', taste);
-  }, [schliessen]);
+  useEscape(schliessen, escapeAktiv);
 
   return (
     <section className="bibliothek" role="region" aria-label="Bibliothek">
@@ -40,7 +38,7 @@ export function Bibliothek({ offen, oeffnen, schliessen, einstellungen, offenEnt
         </button>
       </div>
       <div className="bib-inhalt">
-        <NotenListe offen={offen} oeffnen={oeffnen} anzahlMelden={setAnzahl} offenEntfernt={offenEntfernt} />
+        <NotenListe offen={offen} oeffnen={oeffnen} anzahlMelden={setAnzahl} offenEntfernt={offenEntfernt} aktualisiert={aktualisiert} />
       </div>
       <div className="bib-fuss">Alles bleibt auf diesem Gerät. Kein Konto, kein Server.</div>
     </section>
@@ -91,8 +89,9 @@ async function ausVerweis(n: LokaleNoten): Promise<File | null> {
   } catch { return null; }
 }
 
-function NotenListe({ offen, oeffnen, anzahlMelden, offenEntfernt }: {
-  offen: string | null; oeffnen: (id: string) => void; anzahlMelden: (n: number) => void; offenEntfernt: () => void;
+function NotenListe({ offen, oeffnen, anzahlMelden, offenEntfernt, aktualisiert }: {
+  offen: string | null; oeffnen: (id: string) => void; anzahlMelden: (n: number) => void;
+  offenEntfernt: () => void; aktualisiert: (ids: string[]) => void;
 }) {
   const [noten, setNoten] = useState<LokaleNoten[] | null>(null);
   const [fehler, setFehler] = useState('');
@@ -137,12 +136,13 @@ function NotenListe({ offen, oeffnen, anzahlMelden, offenEntfernt }: {
     if (!ziel.length) return;
     setMeldung(''); setWarnung(''); setLaeuft(true);
     let fertig = 0;
+    const geaendert: string[] = [];
     try {
       const offenOhne: LokaleNoten[] = [];
       if (kannVerweise()) {
         for (const n of ziel) {
           const datei = await ausVerweis(n);
-          if (datei) { await notenAendern(n.id, { datei, aktualisiert: Date.now() }); fertig++; } else offenOhne.push(n);
+          if (datei) { await notenAendern(n.id, { datei, aktualisiert: Date.now() }); fertig++; geaendert.push(n.id); } else offenOhne.push(n);
         }
       } else offenOhne.push(...ziel);
 
@@ -157,6 +157,7 @@ function NotenListe({ offen, oeffnen, anzahlMelden, offenEntfernt }: {
           const g = gewaehlt[p.datei];
           await notenAendern(p.notenId, { datei: g.datei, dateiname: g.datei.name, aktualisiert: Date.now(), ...(g.handle ? { handle: g.handle } : {}) });
           fertig++;
+          geaendert.push(p.notenId);
         }
         fehlen = r.ohneDatei;
         uebrig = r.ohneNoten.length;
@@ -172,6 +173,8 @@ function NotenListe({ offen, oeffnen, anzahlMelden, offenEntfernt }: {
     } finally {
       setLaeuft(false);
       laden();
+      // Offenes Stück ggf. mit der frischen Datei neu aufbauen.
+      if (geaendert.length) aktualisiert(geaendert);
     }
   }
 

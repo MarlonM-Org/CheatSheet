@@ -24,12 +24,41 @@
   --schatten: none;
   --panel-schatten: 0 -12px 32px rgb(29 27 23 / 5%);
   --schleier: rgb(252 252 251 / 90%);
+  --messing-text: #ffffff;  /* Text auf Messing-Flächen (dunkel: Tinte) */
   --leiste-hoehe: 58px;
 }
 
-/* Dunkel: gleiche Sprache, dunkle Werte. Eigene Farbwelten (B-04) folgen. */
+/* Dunkel: gleiche Sprache, dunkle Werte. Eigene Farbwelten (B-04) folgen.
+   Das Inline-Script im Layout setzt data-thema vor dem ersten Bild — die
+   Attribut-Blöcke entscheiden; die Media-Query ist nur der No-JS-Fallback
+   (abgeschirmt, damit erzwungenes Hell auf dunklem System hell bleibt).
+   WICHTIG: Beide Dunkel-Blöcke identisch halten. */
+:root[data-thema='dunkelblau'],
+:root[data-thema='schwarz'] {
+  --papier: #121110;
+  --flaeche: #1b1a18;
+  --flaeche2: #242320;
+  --karte: #121110;
+  --tinte: #f0eee8;
+  --gedaempft: #aaa497;
+  --leise: #7d7869;
+  --linie: #292723;
+  --linie-stark: #403d36;
+  --messing: #d9ad55;
+  --messing-hell: #3a2f18;
+  --knopf: #f0eee8;
+  --knopf-text: #1d1b17;
+  --warnung: #ff8a7a;
+  --warnung-hell: #3b1a16;
+  --gut: #6fd39a;
+  --gut-hell: #15301f;
+  --schatten: none;
+  --panel-schatten: 0 -12px 32px rgb(0 0 0 / 35%);
+  --schleier: rgb(24 23 21 / 88%);
+  --messing-text: #1d1b17;
+}
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-thema='weiss']):not([data-thema='sommer']) {
     --papier: #121110;
     --flaeche: #1b1a18;
     --flaeche2: #242320;
@@ -50,6 +79,7 @@
     --schatten: none;
     --panel-schatten: 0 -12px 32px rgb(0 0 0 / 35%);
     --schleier: rgb(24 23 21 / 88%);
+    --messing-text: #1d1b17;
   }
 }
 
@@ -128,7 +158,7 @@ a { color: inherit; text-decoration: underline; text-decoration-color: var(--mes
   border: 1px solid var(--linie-stark); border-radius: 5px; background: var(--papier); color: var(--tinte);
 }
 .metro-start svg { width: 20px; height: 20px; }
-.metro-start[aria-pressed="true"] { background: var(--messing); border-color: var(--messing); color: #fff; }
+.metro-start[aria-pressed="true"] { background: var(--messing); border-color: var(--messing); color: var(--messing-text); }
 .metro-bpm { display: flex; align-items: baseline; gap: 7px; min-height: 44px; }
 .metro-zahl {
   font-size: 34px; font-weight: 700; line-height: 1; letter-spacing: -0.02em;
@@ -147,7 +177,8 @@ input.metro-zahl { width: 3ch; background: none; }
 .metro-punkte i.an { border-color: transparent; background: var(--tinte); animation: metro-pop 0.18s ease-out; }
 .metro-punkte i.an.eins { background: var(--messing); }
 @keyframes metro-pop { 0% { transform: scale(1.45); } 100% { transform: scale(1); } }
-.metro-zeile2 { display: flex; gap: 10px; padding: 12px 14px 14px; }
+.metro-zeile2 { display: flex; gap: 10px; padding: 12px 14px 0; }
+.metro-zeile3 { padding: 6px 14px 12px; }
 
 /* Stimmgerät-Widget */
 .stimm-zeile { display: flex; align-items: center; gap: 14px; padding: 10px 14px 14px; }
@@ -171,6 +202,7 @@ input.metro-zahl { width: 3ch; background: none; }
   bottom: calc(var(--leiste-hoehe) + env(safe-area-inset-bottom, 0px));
   display: flex; flex-direction: column;
   background: var(--papier); border-top: 1px solid var(--linie); box-shadow: var(--panel-schatten);
+  max-height: calc(100vh - var(--leiste-hoehe) - env(safe-area-inset-bottom, 0px) - env(safe-area-inset-top, 0px) - 64px);
   max-height: calc(100dvh - var(--leiste-hoehe) - env(safe-area-inset-bottom, 0px) - env(safe-area-inset-top, 0px) - 64px);
 }
 .bib-inhalt { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0.9rem 14px; }
@@ -196,7 +228,6 @@ input.metro-zahl { width: 3ch; background: none; }
   background: var(--karte); border: 1px solid var(--linie); border-radius: 6px; padding: 1rem 1.1rem;
   box-shadow: var(--schatten);
 }
-.karte-leise { background: transparent; border: 1px dashed var(--linie); border-radius: 6px; padding: 1rem; }
 
 .knopf {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; min-height: 46px;
@@ -205,7 +236,7 @@ input.metro-zahl { width: 3ch; background: none; }
 }
 .knopf:hover { filter: brightness(1.15); }
 .knopf-leise { background: transparent; color: var(--tinte); border: 1px solid var(--linie-stark); }
-.knopf-gefahr { background: var(--warnung); color: #fff; }
+.knopf-gefahr { background: var(--warnung); color: var(--messing-text); }
 .knopf-klein { min-height: 38px; padding: 0 0.8rem; font-size: 0.9rem; border-radius: 4px; }
 
 .feld {
@@ -215,7 +246,8 @@ input.metro-zahl { width: 3ch; background: none; }
 textarea.feld { padding: 0.6rem 0.8rem; min-height: 6rem; }
 .feld:focus { border-color: var(--messing); outline: none; }
 
-/* Marken: eckig, gestochen — Versalien mit Haarlinien-Rahmen statt Pillen. */
+/* Marken: eckig, gestochen — Versalien mit Haarlinien-Rahmen statt Pillen.
+   Derzeit ungenutzt; vorgesehen für Genre-/Status-Marken (F-01). */
 .marke {
   display: inline-flex; align-items: center; padding: 0.2rem 0.5rem; border-radius: 3px;
   font-size: 0.68rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
@@ -229,12 +261,6 @@ textarea.feld { padding: 0.6rem 0.8rem; min-height: 6rem; }
 .warnung { color: var(--warnung); font-weight: 700; }
 .gut { color: var(--gut); font-weight: 700; }
 
-.haken {
-  width: 30px; height: 30px; border-radius: 4px; border: 1px solid var(--linie-stark); display: inline-flex;
-  align-items: center; justify-content: center; flex-shrink: 0; background: var(--karte); cursor: pointer;
-  font-weight: 900; color: var(--knopf-text);
-}
-.haken[aria-pressed="true"] { background: var(--gut); border-color: var(--gut); color: #fff; }
 
 details > summary { cursor: pointer; list-style: none; }
 details > summary::-webkit-details-marker { display: none; }
@@ -256,7 +282,7 @@ details[open] > summary::before { transform: rotate(90deg); }
 .schlag-betont { border-color: var(--messing); }
 .schlag-stumm { opacity: 0.35; border-style: dashed; }
 .schlag.an { background: var(--tinte); color: var(--papier); border-color: var(--tinte); transform: scale(1.12); }
-.schlag-betont.an { background: var(--messing); border-color: var(--messing); color: #fff; }
+.schlag-betont.an { background: var(--messing); border-color: var(--messing); color: var(--messing-text); }
 .schlag.halb { border-color: var(--tinte); }
 .regler { width: 100%; accent-color: var(--messing); height: 2rem; }
 .rund-knopf {
@@ -267,7 +293,7 @@ details[open] > summary::before { transform: rotate(90deg); }
 .rund-knopf:active, .start-knopf:active, .ton-taste:active { transform: scale(0.94); }
 .start-knopf {
   min-width: 4.75rem; height: 4.75rem; border-radius: 999px; display: grid; place-items: center;
-  background: var(--messing); color: #fff; box-shadow: 0 6px 18px rgb(168 120 31 / 35%); transition: transform 80ms;
+  background: var(--messing); color: var(--messing-text); box-shadow: 0 6px 18px rgb(168 120 31 / 35%); transition: transform 80ms;
 }
 .start-knopf.breit { min-width: 0; height: 3.25rem; padding: 0 1.75rem; font-weight: 800; }
 .start-knopf.laeuft { background: var(--tinte); color: var(--papier); box-shadow: none; }
@@ -279,7 +305,7 @@ details[open] > summary::before { transform: rotate(90deg); }
 .ton-name { font-size: clamp(3.5rem, 16vw, 4.75rem); font-weight: 800; line-height: 1; transition: color 120ms; }
 .ton-oktave { font-size: 1.25rem; font-weight: 600; margin-left: 0.1rem; }
 .ton-taste { padding: 0.6rem 0; border-radius: 4px; font-weight: 700; border: 1px solid var(--linie-stark); background: var(--karte); }
-.ton-taste.an { background: var(--messing); border-color: var(--messing); color: #fff; }
+.ton-taste.an { background: var(--messing); border-color: var(--messing); color: var(--messing-text); }
 
 .tempo-eingabe { width: 4ch; border: none; border-bottom: 3px solid var(--messing); outline: none; padding: 0; }
 .rund-knopf.breit { width: auto; min-width: 4.25rem; padding: 0 0.9rem; }
@@ -305,13 +331,13 @@ details[open] > summary::before { transform: rotate(90deg); }
 .b-leise { color: var(--gedaempft); }
 .b-hinweis { font-size: 0.78rem; color: var(--gedaempft); padding: 0.15rem 0.2rem 0; }
 .b-knopf { min-width: 2.2rem; height: 2.2rem; padding: 0 0.5rem; border-radius: 4px; font-weight: 700; background: var(--flaeche); color: inherit; }
-.b-knopf[aria-pressed="true"] { background: var(--messing); color: #fff; }
+.b-knopf[aria-pressed="true"] { background: var(--messing); color: var(--messing-text); }
 .b-knopf.gross { min-width: 2.75rem; height: 2.75rem; font-size: 1.4rem; }
 .b-knopf:disabled { opacity: 0.3; }
 .b-segment { display: flex; border: 1px solid var(--linie-stark); border-radius: 5px; background: var(--papier); overflow: hidden; flex-wrap: wrap; }
 .b-segment button { padding: 0.32rem 0.6rem; font-size: 0.82rem; font-weight: 650; white-space: nowrap; color: var(--gedaempft); }
 .b-segment button + button { border-left: 1px solid var(--linie-stark); }
-.b-segment button[aria-pressed="true"] { background: var(--messing); color: #fff; }
+.b-segment button[aria-pressed="true"] { background: var(--messing); color: var(--messing-text); }
 .b-segment button:disabled { opacity: 0.35; }
 .b-farbe { width: 1.7rem; height: 1.7rem; border-radius: 99px; border: 2px solid var(--linie-stark); }
 .b-farbe[aria-pressed="true"] { outline: 3px solid var(--messing); outline-offset: 1px; }
@@ -324,7 +350,7 @@ details[open] > summary::before { transform: rotate(90deg); }
 .b-rechteck.fest { border-style: solid; border-color: #a8781f; background: rgb(168 120 31 / 14%); }
 .b-linie { position: absolute; left: -2%; right: -2%; height: 34px; margin-top: -17px; cursor: ns-resize; touch-action: none; display: flex; align-items: center; }
 .b-linie::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 3px; margin-top: -1.5px; background: var(--messing); box-shadow: 0 0 0 1px rgb(0 0 0 / 20%); }
-.b-linie span { position: relative; margin-left: auto; margin-right: 3%; padding: 2px 8px; border-radius: 99px; font-size: 0.72rem; font-weight: 700; background: var(--messing); color: #fff; }
+.b-linie span { position: relative; margin-left: auto; margin-right: 3%; padding: 2px 8px; border-radius: 99px; font-size: 0.72rem; font-weight: 700; background: var(--messing); color: var(--messing-text); }
 .b-texteingabe { position: absolute; transform: translateY(-100%); min-width: 8rem; padding: 2px 6px; font-weight: 600; color: #111; background: #fffbe8; border: 2px solid var(--messing); border-radius: 4px; outline: none; }
 .b-tippzone { position: absolute; top: 50%; transform: translateY(-50%); font-size: 2.2rem; color: var(--leise); opacity: 0.5; pointer-events: none; padding: 0 0.4rem; }
 .b-tippzone.links { left: 0; } .b-tippzone.rechts { right: 0; }
@@ -394,7 +420,8 @@ details[open] > summary::before { transform: rotate(90deg); }
 
 /* ── Hinweis: neue Version ── */
 .neue-version {
-  position: fixed; left: 50%; bottom: max(0.75rem, env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 50;
+  position: fixed; left: 50%; transform: translateX(-50%); z-index: 70;
+  bottom: calc(var(--leiste-hoehe) + env(safe-area-inset-bottom, 0px) + 0.75rem);
   display: flex; align-items: center; gap: 0.6rem; max-width: calc(100% - 1.5rem); padding: 0.4rem 0.5rem 0.4rem 1rem;
   border-radius: 6px; background: var(--karte); color: var(--tinte); border: 1px solid var(--linie);
   box-shadow: 0 6px 24px rgb(0 0 0 / 18%); font-size: 0.9rem; font-weight: 600;

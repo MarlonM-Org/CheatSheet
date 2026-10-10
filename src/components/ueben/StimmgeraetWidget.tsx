@@ -1,18 +1,21 @@
 'use client';
 
-import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Stimmgeraet } from './Stimmgeraet';
 import { useStimmgeraet } from './StimmgeraetKontext';
+import { useDialogFokus, useEscape } from './tasten';
 
 const SAUBER = 5; // ±Cent, die als sauber gelten
 
 // Stimmgerät als angedocktes Widget (B-03): Start/Stopp, erkannter Ton,
 // feine Skala, Abweichung als „+2"/„−3". „Alles" öffnet die große Ansicht
-// (Kammerton, Stimmung, Referenzton). Ausblenden stoppt das Mikrofon.
-export function StimmgeraetWidget({ schliessen }: { schliessen: () => void }) {
+// (Kammerton, Stimmung, Referenzton); dieser Zustand liegt in der Zentrale,
+// damit die Blätter-Tasten hinter dem Dialog gesperrt sind. Ausblenden
+// stoppt das Mikrofon.
+export function StimmgeraetWidget({ schliessen, voll, vollSetzen }: {
+  schliessen: () => void; voll: boolean; vollSetzen: (an: boolean) => void;
+}) {
   const { an, start, stopp, fehler, ton, frisch } = useStimmgeraet();
-  const [voll, setVoll] = useState(false);
 
   const cent = ton?.cent ?? 0;
   const sauber = ton && frisch && Math.abs(cent) <= SAUBER;
@@ -27,7 +30,7 @@ export function StimmgeraetWidget({ schliessen }: { schliessen: () => void }) {
     <section className="panel" role="region" aria-label="Stimmgerät">
       <div className="panel-kopf">
         <h2>Stimmgerät</h2>
-        <button type="button" className="text-knopf gedaempft text-xs underline" onClick={() => setVoll(true)}>alles</button>
+        <button type="button" className="text-knopf gedaempft text-xs underline" onClick={() => vollSetzen(true)}>alles</button>
         <button type="button" className="panel-zu" onClick={() => { stopp(); schliessen(); }} aria-label="Stimmgerät ausblenden">
           <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" /></svg>
         </button>
@@ -66,19 +69,25 @@ export function StimmgeraetWidget({ schliessen }: { schliessen: () => void }) {
         </div>
       </div>
       {fehler && <p className="warnung px-4 pb-3 text-sm">{fehler}</p>}
-      {/* Als Portal: Das Dock bildet einen eigenen Stapel-Kontext (z-index),
-          der Dialog muss aber über Leiste und Bibliothek liegen. */}
-      {voll && createPortal(
-        <div className="blatt-hintergrund" onClick={() => setVoll(false)}>
-          <div className="blatt" role="dialog" aria-label="Stimmgerät" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-2 flex justify-end">
-              <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => setVoll(false)}>Fertig</button>
-            </div>
-            <Stimmgeraet />
-          </div>
-        </div>,
-        document.body,
-      )}
+      {voll && <StimmgeraetBlatt schliessen={() => vollSetzen(false)} />}
     </section>
+  );
+}
+
+// Als Portal: Das Dock bildet einen eigenen Stapel-Kontext (z-index),
+// der Dialog muss aber über Leiste und Bibliothek liegen.
+function StimmgeraetBlatt({ schliessen }: { schliessen: () => void }) {
+  useEscape(schliessen);
+  const fokus = useDialogFokus<HTMLDivElement>();
+  return createPortal(
+    <div className="blatt-hintergrund" onClick={schliessen}>
+      <div ref={fokus} tabIndex={-1} className="blatt" role="dialog" aria-modal="true" aria-label="Stimmgerät" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-2 flex justify-end">
+          <button type="button" className="knopf knopf-leise knopf-klein" onClick={schliessen}>Fertig</button>
+        </div>
+        <Stimmgeraet />
+      </div>
+    </div>,
+    document.body,
   );
 }

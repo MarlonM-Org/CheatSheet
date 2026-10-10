@@ -4,21 +4,25 @@ import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Metronom } from './Metronom';
 import { useMetronom } from './MetronomKontext';
+import { useDialogFokus, useEscape } from './tasten';
 
 // Metronom als angedocktes Widget (B-03): Start/Stopp, Tempo (antippen zum
-// Eintippen), −1/+1 und ±10 %, Taktpunkte. „Alles" öffnet das volle Metronom.
-// Schließen blendet nur aus — der Taktgeber läuft im Kontext weiter.
-export function MetronomWidget({ schliessen }: { schliessen: () => void }) {
+// Eintippen), Regler, −1/+1 und ±10 %, Taktpunkte. „Alles" öffnet das volle
+// Metronom; dieser Zustand liegt in der Zentrale, damit die Blätter-Tasten
+// hinter dem Dialog gesperrt sind. Schließen blendet nur aus — der
+// Taktgeber läuft im Kontext weiter.
+export function MetronomWidget({ schliessen, voll, vollSetzen }: {
+  schliessen: () => void; voll: boolean; vollSetzen: (an: boolean) => void;
+}) {
   const { bpm, setBpm, laeuft, start, stopp, aktiv, akzente } = useMetronom();
   const [eingabe, setEingabe] = useState<string | null>(null);
-  const [voll, setVoll] = useState(false);
   const uebernehmen = () => { const n = Number(eingabe); if (n) setBpm(n); setEingabe(null); };
 
   return (
     <section className="panel" role="region" aria-label="Metronom">
       <div className="panel-kopf">
         <h2>Metronom</h2>
-        <button type="button" className="text-knopf gedaempft text-xs underline" onClick={() => setVoll(true)}>alles</button>
+        <button type="button" className="text-knopf gedaempft text-xs underline" onClick={() => vollSetzen(true)}>alles</button>
         <button type="button" className="panel-zu" onClick={schliessen} aria-label="Metronom-Widget ausblenden">
           <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" /></svg>
         </button>
@@ -59,19 +63,28 @@ export function MetronomWidget({ schliessen }: { schliessen: () => void }) {
           <button type="button" onClick={() => setBpm(bpm * 1.1)} aria-label="Zehn Prozent schneller">+10 %</button>
         </div>
       </div>
-      {/* Als Portal: Das Dock bildet einen eigenen Stapel-Kontext (z-index),
-          der Dialog muss aber über Leiste und Bibliothek liegen. */}
-      {voll && createPortal(
-        <div className="blatt-hintergrund" onClick={() => setVoll(false)}>
-          <div className="blatt" role="dialog" aria-label="Metronom" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-2 flex justify-end">
-              <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => setVoll(false)}>Fertig</button>
-            </div>
-            <Metronom />
-          </div>
-        </div>,
-        document.body,
-      )}
+      <div className="metro-zeile3">
+        <input className="regler" type="range" min={20} max={300} value={bpm} onChange={(e) => setBpm(Number(e.target.value))} aria-label="Tempo" />
+      </div>
+      {voll && <MetronomBlatt schliessen={() => vollSetzen(false)} />}
     </section>
+  );
+}
+
+// Als Portal: Das Dock bildet einen eigenen Stapel-Kontext (z-index),
+// der Dialog muss aber über Leiste und Bibliothek liegen.
+function MetronomBlatt({ schliessen }: { schliessen: () => void }) {
+  useEscape(schliessen);
+  const fokus = useDialogFokus<HTMLDivElement>();
+  return createPortal(
+    <div className="blatt-hintergrund" onClick={schliessen}>
+      <div ref={fokus} tabIndex={-1} className="blatt" role="dialog" aria-modal="true" aria-label="Metronom" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-2 flex justify-end">
+          <button type="button" className="knopf knopf-leise knopf-klein" onClick={schliessen}>Fertig</button>
+        </div>
+        <Metronom />
+      </div>
+    </div>,
+    document.body,
   );
 }

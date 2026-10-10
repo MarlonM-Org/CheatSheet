@@ -1,26 +1,41 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { frequenzZuTon, grundfrequenz, median, STIMMUNGEN, tonFrequenz, type Stimmung, type Ton } from '@/domain/ueben';
 import { audioSitzung, gespeichert, speichern, wachHalten } from './klang';
 
 // Ein Stimmgerät für die ganze App: große Ansicht und schwebendes Widget
 // teilen sich Mikrofon, Messung und Einstellungen — wie beim Metronom.
+//
+// Zwei Kontexte: Die Messung (ton/frisch) ändert sich ~20-mal pro Sekunde —
+// wer nur die Bedienung braucht (z. B. die Zentrale für stopp), soll davon
+// nicht mitgerendert werden.
 
-interface StimmWert {
+interface StimmApi {
   an: boolean; start: () => Promise<void>; stopp: () => void; fehler: string;
-  ton: Ton | null; frisch: boolean;
   kammerton: number; setKammerton: (n: number) => void;
   stimmung: Stimmung; setStimmung: (s: Stimmung) => void;
   refTon: number | null; refOktave: number; refOktaveWechseln: (o: number) => void;
   referenzSpielen: (halbton: number) => void; referenzAus: () => void;
 }
+interface StimmMessung { ton: Ton | null; frisch: boolean }
 
-const Kontext = createContext<StimmWert | null>(null);
-export function useStimmgeraet(): StimmWert {
-  const w = useContext(Kontext);
-  if (!w) throw new Error('useStimmgeraet außerhalb von StimmgeraetAnbieter');
+const KontextApi = createContext<StimmApi | null>(null);
+const KontextMessung = createContext<StimmMessung | null>(null);
+
+export function useStimmgeraetApi(): StimmApi {
+  const w = useContext(KontextApi);
+  if (!w) throw new Error('useStimmgeraetApi außerhalb von StimmgeraetAnbieter');
   return w;
+}
+export function useStimmgeraetMessung(): StimmMessung {
+  const w = useContext(KontextMessung);
+  if (!w) throw new Error('useStimmgeraetMessung außerhalb von StimmgeraetAnbieter');
+  return w;
+}
+// Bequem für Ansichten, die ohnehin mit jeder Messung leben (große Ansicht, Widget).
+export function useStimmgeraet(): StimmApi & StimmMessung {
+  return { ...useStimmgeraetApi(), ...useStimmgeraetMessung() };
 }
 
 export function StimmgeraetAnbieter({ children }: { children: React.ReactNode }) {
@@ -37,6 +52,9 @@ export function StimmgeraetAnbieter({ children }: { children: React.ReactNode })
 
   const mikro = useRef<{ stream: MediaStream; ctx: AudioContext; raf: number; freigeben: (() => void) | null } | null>(null);
   const referenz = useRef<{ ctx: AudioContext; osc: OscillatorNode; gain: GainNode } | null>(null);
+  // Zählt Start/Stopp-Generationen: ein stopp() macht jeden noch laufenden
+  // start()-Anlauf ungültig (getUserMedia/wachHalten sind asynchron).
+  const generation = useRef(0);
 
   const referenzAus = useCallback(() => {
     const r = referenz.current;
@@ -45,6 +63,8 @@ export function StimmgeraetAnbieter({ children }: { children: React.ReactNode })
   }, []);
 
   const stopp = useCallback(() => {
+    generation.current++;
+    referenzAus();
     const m = mikro.current;
     if (!m) return;
     cancelAnimationFrame(m.raf);
@@ -53,15 +73,17 @@ export function StimmgeraetAnbieter({ children }: { children: React.ReactNode })
     m.freigeben?.();
     mikro.current = null;
     setAn(false); setTon(null); setFrisch(false);
-  }, []);
+  }, [referenzAus]);
 
   const start = useCallback(async () => {
     if (mikro.current) return;
     setFehler('');
     referenzAus();
+    const gen = ++generation.current;
     try {
       audioSitzung('play-and-record');
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+      if (gen !== generation.current) { stream.getTracks().forEach((t) => t.stop()); return; }
       const ctx = new AudioContext();
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 4096;
@@ -70,6 +92,8 @@ export function StimmgeraetAnbieter({ children }: { children: React.ReactNode })
       const verlauf: number[] = [];
       let zuletzt = 0, zuletztGehoert = 0;
       const schleife = (t: number) => {
+        const m = mikro.current;
+        if (!m) return;
         if (t - zuletzt > 50) {
           zuletzt = t;
           analyser.getFloatTimeDomainData(puffer);
@@ -87,12 +111,16 @@ export function StimmgeraetAnbieter({ children }: { children: React.ReactNode })
             verlauf.length = 0;
           }
         }
-        mikro.current!.raf = requestAnimationFrame(schleife);
+        m.raf = requestAnimationFrame(schleife);
       };
       mikro.current = { stream, ctx, raf: requestAnimationFrame(schleife), freigeben: null };
       setAn(true);
-      mikro.current.freigeben = await wachHalten();
+      const freigeben = await wachHalten();
+      const m = mikro.current;
+      if (gen !== generation.current || !m) { freigeben?.(); return; }
+      m.freigeben = freigeben;
     } catch (e) {
+      if (gen !== generation.current) return;
       setFehler((e as Error).name === 'NotAllowedError'
         ? 'Das Mikrofon ist nicht erlaubt. In den Einstellungen des Browsers für diese Seite erlauben.'
         : `Mikrofon nicht verfügbar (${(e as Error).name}).`);
@@ -135,13 +163,16 @@ export function StimmgeraetAnbieter({ children }: { children: React.ReactNode })
     void referenz.current?.ctx.close();
   }, []);
 
+  const api = useMemo<StimmApi>(() => ({
+    an, start, stopp, fehler,
+    kammerton, setKammerton, stimmung, setStimmung,
+    refTon, refOktave, refOktaveWechseln, referenzSpielen, referenzAus,
+  }), [an, start, stopp, fehler, kammerton, setKammerton, stimmung, setStimmung, refTon, refOktave, refOktaveWechseln, referenzSpielen, referenzAus]);
+  const messung = useMemo<StimmMessung>(() => ({ ton, frisch }), [ton, frisch]);
+
   return (
-    <Kontext.Provider value={{
-      an, start, stopp, fehler, ton, frisch,
-      kammerton, setKammerton, stimmung, setStimmung,
-      refTon, refOktave, refOktaveWechseln, referenzSpielen, referenzAus,
-    }}>
-      {children}
-    </Kontext.Provider>
+    <KontextApi.Provider value={api}>
+      <KontextMessung.Provider value={messung}>{children}</KontextMessung.Provider>
+    </KontextApi.Provider>
   );
 }

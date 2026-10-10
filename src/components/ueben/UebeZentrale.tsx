@@ -8,7 +8,7 @@ import { MetronomAnbieter } from './MetronomKontext';
 import { MetronomWidget } from './MetronomWidget';
 import { NotenPult } from './NotenPult';
 import { SpeicherHinweis } from './speicherfehler';
-import { StimmgeraetAnbieter, useStimmgeraet } from './StimmgeraetKontext';
+import { StimmgeraetAnbieter, useStimmgeraetApi } from './StimmgeraetKontext';
 import { StimmgeraetWidget } from './StimmgeraetWidget';
 import { UntereLeiste } from './UntereLeiste';
 
@@ -20,17 +20,29 @@ export function UebeZentrale() {
 }
 
 function Zentrale() {
-  const { stopp: stimmStopp } = useStimmgeraet();
+  const { stopp: stimmStopp } = useStimmgeraetApi();
   const [offen, setOffen] = useState<string | null>(() => gespeichert('ueben:offen', null));
+  // Fassung erzwingt einen Neuaufbau desselben Stücks (nach „aktualisieren"
+  // oder erneutem Antippen) — zusammen mit `offen` der key des NotenPults.
+  const [fassung, setFassung] = useState(0);
   const [bibliothek, setBibliothek] = useState(() => gespeichert<string | null>('ueben:offen', null) === null);
   const [einstellungen, setEinstellungen] = useState(false);
   const [metroAn, setMetroAn] = useState(() => gespeichert('ueben:metronom-an', false));
   const [stimmAn, setStimmAn] = useState(false); // Mikrofon nie von allein
+  // Die „alles"-Dialoge der Widgets liegen hier, damit tastenAktiv sie kennt.
+  const [metroVoll, setMetroVoll] = useState(false);
+  const [stimmVoll, setStimmVoll] = useState(false);
 
-  const oeffnen = (id: string) => { setOffen(id); speichern('ueben:offen', id); setBibliothek(false); };
+  const oeffnen = (id: string) => {
+    if (id === offen) setFassung((f) => f + 1);
+    else { setOffen(id); speichern('ueben:offen', id); }
+    setBibliothek(false);
+  };
   const offenWeg = () => { setOffen(null); speichern('ueben:offen', null); setBibliothek(true); };
-  const metroUmschalten = (an: boolean) => { setMetroAn(an); speichern('ueben:metronom-an', an); };
-  const stimmUmschalten = (an: boolean) => { setStimmAn(an); if (!an) stimmStopp(); };
+  // Nach „aktualisieren" in der Bibliothek: offenes Stück neu aufbauen.
+  const aktualisiert = (ids: string[]) => { if (offen && ids.includes(offen)) setFassung((f) => f + 1); };
+  const metroUmschalten = (an: boolean) => { setMetroAn(an); speichern('ueben:metronom-an', an); if (!an) setMetroVoll(false); };
+  const stimmUmschalten = (an: boolean) => { setStimmAn(an); if (!an) { stimmStopp(); setStimmVoll(false); } };
 
   const umschalten = (ziel: 'bibliothek' | 'metronom' | 'stimmgeraet') => {
     if (ziel === 'bibliothek') setBibliothek(!bibliothek);
@@ -38,12 +50,15 @@ function Zentrale() {
     if (ziel === 'stimmgeraet') stimmUmschalten(!stimmAn);
   };
 
+  const dialogOffen = einstellungen || metroVoll || stimmVoll;
+
   return (
     <div className="app-schale">
       <SpeicherHinweis />
       <main className="buehne">
         {offen ? (
-          <NotenPult notenId={offen} tastenAktiv={!bibliothek && !einstellungen} verschwunden={offenWeg} />
+          <NotenPult key={`${offen}:${fassung}`} notenId={offen}
+            tastenAktiv={!bibliothek && !dialogOffen} verschwunden={offenWeg} />
         ) : (
           <div className="leer">
             <p className="titel">CheatSheet</p>
@@ -54,13 +69,14 @@ function Zentrale() {
       </main>
 
       <div className="dock">
-        {stimmAn && <StimmgeraetWidget schliessen={() => stimmUmschalten(false)} />}
-        {metroAn && <MetronomWidget schliessen={() => metroUmschalten(false)} />}
+        {stimmAn && <StimmgeraetWidget schliessen={() => stimmUmschalten(false)} voll={stimmVoll} vollSetzen={setStimmVoll} />}
+        {metroAn && <MetronomWidget schliessen={() => metroUmschalten(false)} voll={metroVoll} vollSetzen={setMetroVoll} />}
       </div>
 
       {bibliothek && (
         <Bibliothek offen={offen} oeffnen={oeffnen} schliessen={() => setBibliothek(false)}
-          einstellungen={() => setEinstellungen(true)} offenEntfernt={offenWeg} />
+          einstellungen={() => setEinstellungen(true)} offenEntfernt={offenWeg}
+          aktualisiert={aktualisiert} escapeAktiv={!dialogOffen} />
       )}
       {einstellungen && <Einstellungen schliessen={() => setEinstellungen(false)} />}
 

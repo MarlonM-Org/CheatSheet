@@ -61,9 +61,26 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   const [markerfarbe, setMarkerfarbe] = useState(MARKERFARBEN[0]);
   const [fingerZeichnen, setFingerZeichnen] = useState(false);
   const [leiste, setLeiste] = useState(true);
+
+  // Vollbild als bewusster Knopf (der automatische Versuch beim Öffnen
+  // entfiel mit dem Portal). iPad-Safari kann kein Seiten-Vollbild — dann
+  // erscheint der Knopf gar nicht. (Rendert nur im Browser, ssr: false.)
+  const [kannVollbild] = useState(() => typeof document !== 'undefined' && !!document.fullscreenEnabled);
+  const [vollbild, setVollbild] = useState(() => typeof document !== 'undefined' && !!document.fullscreenElement);
+  useEffect(() => {
+    const auf = () => setVollbild(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', auf);
+    return () => document.removeEventListener('fullscreenchange', auf);
+  }, []);
+  const vollbildWechseln = () => {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    else document.documentElement.requestFullscreen().catch(() => {});
+  };
   const [anm, setAnm] = useState<Record<number, Anmerkung[]>>({});
   useEffect(() => {
-    anmerkungenVon(noten.id).then((l) => setAnm(Object.fromEntries(l.map((x) => [x.seite, x.objekte])))).catch(ladeFehler);
+    let weg = false;
+    anmerkungenVon(noten.id).then((l) => { if (!weg) setAnm(Object.fromEntries(l.map((x) => [x.seite, x.objekte]))); }).catch(ladeFehler);
+    return () => { weg = true; };
   }, [noten.id]);
 
   const sichtbareSeite = stelle ? stelle.seite : hauptseite(ansicht);
@@ -186,6 +203,8 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     if (!tastenAktiv) return;
     const taste = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).closest('input, textarea')) return;
+      // Leertaste auf einem Bedienelement aktiviert es, statt zu blättern.
+      if (e.key === ' ' && (e.target as HTMLElement).closest('button, a, select, summary, [role="dialog"]')) return;
       // Bluetooth-Blätterpedale senden meist Pfeil- oder Bild-Tasten.
       if (['ArrowRight', 'ArrowDown', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); weiter(); }
       if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) { e.preventDefault(); zurueck(); }
@@ -425,6 +444,10 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
               <button type="button" aria-pressed={modus === 'stellen'} disabled={!stellen.length}
                 onClick={() => { setModus('stellen'); setWerkzeug(null); setLinieEinstellen(false); }}>Stellen ({stellen.length})</button>
             </div>
+            {kannVollbild && (
+              <button type="button" className="b-knopf" aria-pressed={vollbild} onClick={vollbildWechseln}
+                aria-label={vollbild ? 'Vollbild verlassen' : 'Vollbild'} title={vollbild ? 'Vollbild verlassen' : 'Vollbild'}>⛶</button>
+            )}
           </div>
           <div className="betrachter-zeile">
             {modus === 'lesen' && (
