@@ -97,29 +97,8 @@ Migrationstest.
 
 ## B — UI-Neuaufbau: Noten im Zentrum
 
-*(in Arbeit: Claude, seit 2026-10-10, Branch `feature/ui-noten-im-zentrum` — B-05 zuerst, dann B-01…B-04)*
-
-### B-01 · Kopfzeile weg, drei große Knöpfe unten
-
-Die Kopfzeile („CheatSheet / METRONOM · STIMMGERÄT · NOTENPULT“ in
-`src/app/layout.tsx`) verschwindet ersatzlos. Stattdessen eine untere Leiste
-mit drei großen Knöpfen (Noten · Metronom · Stimmgerät). Start landet immer
-direkt auf den Noten, ohne Zwischenschritt.
-
-### B-02 · Noten immer vollflächig
-
-Heute: Liste → NotenPult → Betrachter öffnet als Portal/Dialog
-(`NotenBetrachter.tsx`, `position: fixed`). Ziel: Die Noten **sind** die
-Hauptansicht und füllen immer das ganze Fenster; es gibt kein
-„Öffnen-Popup“-Gefühl mehr. Liste/Bibliothek wird zum Overlay oder zur
-Einstiegsansicht, nicht umgekehrt.
-
-### B-03 · Metronom & Stimmgerät als Overlay-Widgets
-
-Über die untere Leiste zuschaltbar, schweben als kompakte Widgets über den
-Noten (das Mini-Metronom in `MiniMetronom.tsx` ist der Keim dafür). Metronom
-läuft beim Ein-/Ausblenden weiter (`MetronomKontext` kann das schon). Das
-Stimmgerät braucht eine kompakte Widget-Form.
+*(in Arbeit: Claude, seit 2026-10-10, Branch `feature/ui-noten-im-zentrum` —
+B-01…B-03 umgesetzt, B-04 teilweise, B-05 wartet auf Marlons Entscheidung)*
 
 ### B-04 · Einstellungen mit Licht/Dunkel und Themes
 
@@ -133,6 +112,14 @@ Es gibt heute keinen manuellen Modus-Umschalter (nur
 
 Technisch: `data-theme`-Attribut + Token-Sätze; Auswahl persistieren
 (siehe A-02, Einstellungs-Store). `themeColor`/Manifest mitziehen.
+
+**Teilweise erledigt (2026-10-10):** Mechanik steht — `data-thema` am
+`<html>` vor dem ersten Bild (Inline-Script), Auflösung
+Modus × helle/dunkle Farbwelt in `src/domain/thema.ts` (getestet),
+Einstellungsbereich mit Hell/Dunkel/System über die Bibliothek. **Offen:**
+die vier Farbwelten als Token-Sätze (Dunkelblau, Schwarz, Weiß, Sommer)
+samt Auswahl-UI und `themeColor` je Welt — auf Marlons Wunsch bewusst
+nachgezogen, das helle Standard-Design kam zuerst.
 
 ### B-05 · Design-Überarbeitung (vor M2 entscheiden)
 
@@ -357,6 +344,22 @@ G-02 getrennt — Rhythmus zuerst, Töne später.
 ## Erledigt
 
 *(Abgeschlossene Punkte hierher verschieben, mit Datum und Commit.)*
+
+- **B-01 · Kopfzeile weg, drei große Knöpfe unten** (2026-10-10, `9b36fcc`):
+  Kopf- und Fußzeile ersatzlos entfernt; untere Leiste mit Noten · Metronom ·
+  Stimmgerät (`UntereLeiste.tsx`); Start landet direkt auf den Noten
+  (zuletzt geöffnetes Stück, sonst Bibliothek).
+- **B-02 · Noten immer vollflächig** (2026-10-10, `9b36fcc`): Der Betrachter
+  ist die Hauptansicht (kein Portal/Dialog mehr) und folgt dem Thema; die
+  Bibliothek ist ein angedocktes Overlay (`Bibliothek.tsx`); Stück-Details
+  samt Stellen-Übersicht liegen im Stück-Blatt hinter dem Titel. Der
+  Umzugs-Deep-Link `?reiter=noten` entfiel mit der Reiter-Architektur.
+- **B-03 · Metronom & Stimmgerät als Overlay-Widgets** (2026-10-10,
+  `9b36fcc`): `MetronomWidget` (Start/Stopp, Tempo tippbar, −1/+1, ±10 %,
+  Taktpunkte; läuft beim Ausblenden weiter) und `StimmgeraetWidget` (Ton,
+  Skala, Abweichung „+2“; Ausblenden stoppt das Mikrofon) docken über der
+  Leiste; „alles“ öffnet jeweils die große Ansicht. Der MiniMetronom ging im
+  Widget auf; die Stimmgerät-Logik liegt im `StimmgeraetKontext`.
 
 - **A-04 · Anforderungsquelle geklärt** (2026-10-10): Diese ROADMAP.md ist
   die einzige Anforderungsliste; die Verweise auf
