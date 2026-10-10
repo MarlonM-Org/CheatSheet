@@ -7,30 +7,32 @@ import { mitRand } from '@/domain/ueben';
 import { NeueVersion } from '@/components/NeueVersion';
 import { notenAendern, notenHolen, stelleAendern, stelleLoeschen, stellenVon, tempoGeschafft, type LokaleNoten, type LokaleStelle as Stelle } from './lokal';
 import { useMetronom } from './MetronomKontext';
-import { MiniMetronom } from './MiniMetronom';
 import { NotenBetrachter } from './NotenBetrachter';
 import { NeueVersionFehler, pdfLaden, seiteZeichnen } from './pdf';
 import { ladeFehler, speicherFehler } from './speicherfehler';
 
 const RAND = 0.06;
 
-// Ein Stück: Noten groß öffnen, Stelle für Stelle üben, Übersicht der Stellen.
-export function NotenPult({ notenId }: { notenId: string }) {
+// Ein geöffnetes Stück (B-02): Die Noten füllen die Bühne sofort. Tipp auf
+// den Titel öffnet das Stück-Blatt mit Umbenennen und der Stellen-Übersicht.
+export function NotenPult({ notenId, tastenAktiv, verschwunden }: {
+  notenId: string; tastenAktiv: boolean; verschwunden: () => void;
+}) {
   const { bpm, setBpm } = useMetronom();
   const [noten, setNoten] = useState<LokaleNoten | null>(null);
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
   const [fehler, setFehler] = useState('');
   const [neueVersion, setNeueVersion] = useState(false);
   const [stellen, setStellen] = useState<Stelle[]>([]);
-  const [offen, setOffen] = useState<{ modus: 'lesen' | 'stellen'; stelle?: string } | null>(null);
-  const [umbenennen, setUmbenennen] = useState(false);
+  const [blatt, setBlatt] = useState(false);
+  const [sprung, setSprung] = useState<{ stelle: string; n: number } | null>(null);
   const neuLaden = useCallback(() => { stellenVon(notenId).then(setStellen).catch(ladeFehler); }, [notenId]);
 
   useEffect(() => {
     let weg = false;
     (async () => {
       const n = await notenHolen(notenId);
-      if (!n) throw new Error('nicht mehr auf diesem Gerät');
+      if (!n) { verschwunden(); return; }
       notenAendern(notenId, { zuletzt: Date.now() }).catch(speicherFehler);
       const [d, st] = await Promise.all([pdfLaden(n.datei), stellenVon(notenId)]);
       if (weg) return;
@@ -41,45 +43,62 @@ export function NotenPult({ notenId }: { notenId: string }) {
       else setFehler(`Noten lassen sich nicht öffnen: ${(e as Error).message}`);
     });
     return () => { weg = true; };
+    // verschwunden ändert sich nicht fachlich — nur die Noten-ID zählt.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notenId]);
 
-  if (neueVersion) return <NeueVersion />;
-  if (fehler) return <p className="karte warnung">{fehler}</p>;
-  if (!noten || !pdf) return <p className="gedaempft">Noten werden geladen …</p>;
+  if (neueVersion) return <div className="leer"><NeueVersion /></div>;
+  if (fehler) return <div className="leer"><p className="karte warnung">{fehler}</p></div>;
+  if (!noten || !pdf) return <div className="leer"><p className="gedaempft">Noten werden geladen …</p></div>;
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-baseline gap-x-3">
-        <h2 className="text-xl font-extrabold">{noten.titel}</h2>
-        {noten.stimme && <span className="gedaempft">{noten.stimme}</span>}
-        <button type="button" className="text-knopf gedaempft text-sm underline" onClick={() => setUmbenennen(!umbenennen)}>umbenennen</button>
-      </div>
-      {umbenennen && (
-        <form className="karte grid gap-2" onSubmit={async (e) => {
-          e.preventDefault();
-          const f = new FormData(e.currentTarget);
-          const neu = { titel: String(f.get('titel') || noten.titel), stimme: String(f.get('stimme') ?? '') };
-          try { await notenAendern(noten.id, neu); } catch (x) { speicherFehler(x); return; }
-          setNoten({ ...noten, ...neu }); setUmbenennen(false);
-        }}>
-          <input className="feld" name="titel" defaultValue={noten.titel} aria-label="Titel" />
-          <input className="feld" name="stimme" defaultValue={noten.stimme} placeholder="Stimme" aria-label="Stimme" />
-          <button className="knopf knopf-klein" type="submit">Speichern</button>
-        </form>
+    <>
+      <NotenBetrachter noten={noten} pdf={pdf} stellen={stellen} geaendert={neuLaden}
+        tastenAktiv={tastenAktiv && !blatt} sprung={sprung} titelTipp={() => setBlatt(true)} />
+      {blatt && (
+        <StueckBlatt noten={noten} pdf={pdf} stellen={stellen} bpm={bpm} tempoSetzen={setBpm} neuLaden={neuLaden}
+          umbenannt={(neu) => setNoten({ ...noten, ...neu })}
+          zeigen={(id) => { setSprung({ stelle: id, n: Date.now() }); setBlatt(false); }}
+          schliessen={() => setBlatt(false)} />
       )}
-      <div className="grid gap-2 sm:grid-cols-2">
-        <button type="button" className="knopf" onClick={() => setOffen({ modus: 'lesen' })}>Noten öffnen</button>
-        <button type="button" className="knopf knopf-leise" disabled={!stellen.length} onClick={() => setOffen({ modus: 'stellen' })}>
-          Stelle für Stelle üben ({stellen.length})
-        </button>
+    </>
+  );
+}
+
+// ── Stück-Blatt: Umbenennen und Stellen-Übersicht ───────────────────────
+
+function StueckBlatt({ noten, pdf, stellen, bpm, tempoSetzen, neuLaden, umbenannt, zeigen, schliessen }: {
+  noten: LokaleNoten; pdf: PDFDocumentProxy; stellen: Stelle[]; bpm: number; tempoSetzen: (n: number) => void;
+  neuLaden: () => void; umbenannt: (neu: { titel: string; stimme: string }) => void; zeigen: (id: string) => void; schliessen: () => void;
+}) {
+  const [umbenennen, setUmbenennen] = useState(false);
+
+  return (
+    <div className="blatt-hintergrund" onClick={schliessen}>
+      <div className="blatt space-y-4" role="dialog" aria-label={`Stück: ${noten.titel}`} onClick={(e) => e.stopPropagation()}>
+        <div className="flex flex-wrap items-baseline gap-x-3">
+          <h2 className="text-xl font-extrabold">{noten.titel}</h2>
+          {noten.stimme && <span className="gedaempft">{noten.stimme}</span>}
+          <button type="button" className="text-knopf gedaempft text-sm underline" onClick={() => setUmbenennen(!umbenennen)}>umbenennen</button>
+          <span className="flex-1" />
+          <button type="button" className="knopf knopf-leise knopf-klein" onClick={schliessen}>Fertig</button>
+        </div>
+        {umbenennen && (
+          <form className="karte grid gap-2" onSubmit={async (e) => {
+            e.preventDefault();
+            const f = new FormData(e.currentTarget);
+            const neu = { titel: String(f.get('titel') || noten.titel), stimme: String(f.get('stimme') ?? '') };
+            try { await notenAendern(noten.id, neu); } catch (x) { speicherFehler(x); return; }
+            umbenannt(neu); setUmbenennen(false);
+          }}>
+            <input className="feld" name="titel" defaultValue={noten.titel} aria-label="Titel" />
+            <input className="feld" name="stimme" defaultValue={noten.stimme} placeholder="Stimme" aria-label="Stimme" />
+            <button className="knopf knopf-klein" type="submit">Speichern</button>
+          </form>
+        )}
+        <h3 className="abschnitt-titel">Stellen</h3>
+        <UebeAnsicht pdf={pdf} stellen={stellen} bpm={bpm} neuLaden={neuLaden} tempoSetzen={tempoSetzen} zeigen={zeigen} />
       </div>
-      <div className="sticky top-2 z-10"><MiniMetronom /></div>
-      <h3 className="abschnitt-titel">Stellen</h3>
-      <UebeAnsicht pdf={pdf} stellen={stellen} bpm={bpm} neuLaden={neuLaden} tempoSetzen={setBpm} zeigen={(id) => setOffen({ modus: 'stellen', stelle: id })} />
-      {offen && (
-        <NotenBetrachter noten={noten} pdf={pdf} stellen={stellen} start={offen} geaendert={neuLaden}
-          schliessen={() => { setOffen(null); notenHolen(notenId).then((n) => n && setNoten(n)).catch(ladeFehler); }} />
-      )}
     </div>
   );
 }
@@ -114,7 +133,7 @@ function UebeAnsicht({ pdf, stellen, bpm, tempoSetzen, neuLaden, zeigen }: {
     return p;
   }, [pdf]);
 
-  if (stellen.length === 0) return <p className="karte">Noch keine Stellen markiert. „Noten öffnen“, dann das Werkzeug „▢ Stelle“ wählen und einen Rahmen um die Takte ziehen.</p>;
+  if (stellen.length === 0) return <p className="karte">Noch keine Stellen markiert. In den Noten das Werkzeug „▢ Stelle“ wählen und einen Rahmen um die Takte ziehen.</p>;
 
   return (
     <div ref={huelle} className="space-y-4">

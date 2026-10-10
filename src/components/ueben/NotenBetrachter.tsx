@@ -2,7 +2,6 @@
 
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { ansichten, ansichtVonSeite, getroffen, hauptseite, type Anmerkung, type Ansicht, type Blaettermodus } from '@/domain/notenpult';
 import { mitRand, rechteckAus, type Rechteck } from '@/domain/ueben';
 import {
@@ -10,7 +9,6 @@ import {
   type LokaleNoten, type LokaleStelle,
 } from './lokal';
 import { useMetronom } from './MetronomKontext';
-import { MiniMetronom } from './MiniMetronom';
 import { ladeFehler, speicherFehler } from './speicherfehler';
 import { anmerkungenZeichnen, strichZeichnen } from './zeichnen';
 
@@ -22,11 +20,15 @@ const MAX_PX = 2800;
 
 interface Props {
   noten: LokaleNoten; pdf: PDFDocumentProxy; stellen: LokaleStelle[];
-  start: { modus: 'lesen' | 'stellen'; stelle?: string };
-  schliessen: () => void; geaendert: () => void;
+  geaendert: () => void;
+  // Tasten blättern nur, wenn kein Overlay über den Noten liegt.
+  tastenAktiv: boolean;
+  // Sprung aus der Stellen-Übersicht: in den Stellen-Modus zu dieser Stelle.
+  sprung: { stelle: string; n: number } | null;
+  titelTipp: () => void;
 }
 
-export function NotenBetrachter({ noten, pdf, stellen, start, schliessen, geaendert }: Props) {
+export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, sprung, titelTipp }: Props) {
   const seiten = pdf.numPages;
   const { bpm, setBpm } = useMetronom();
 
@@ -43,8 +45,8 @@ export function NotenBetrachter({ noten, pdf, stellen, start, schliessen, geaend
   };
 
   // ── Modus: lesen oder Stelle für Stelle ──
-  const [modus, setModus] = useState<'lesen' | 'stellen'>(start.modus === 'stellen' && stellen.length ? 'stellen' : 'lesen');
-  const [stelleNr, setStelleNr] = useState(() => Math.max(0, stellen.findIndex((s) => s.id === start.stelle)));
+  const [modus, setModus] = useState<'lesen' | 'stellen'>('lesen');
+  const [stelleNr, setStelleNr] = useState(0);
   const stelle = modus === 'stellen' ? stellen[Math.min(stelleNr, stellen.length - 1)] : undefined;
   const [rand, setRand] = useState(true);
   const zumLesen = () => {
@@ -59,7 +61,6 @@ export function NotenBetrachter({ noten, pdf, stellen, start, schliessen, geaend
   const [markerfarbe, setMarkerfarbe] = useState(MARKERFARBEN[0]);
   const [fingerZeichnen, setFingerZeichnen] = useState(false);
   const [leiste, setLeiste] = useState(true);
-  const [metronomLeiste, setMetronomLeiste] = useState(true);
   const [anm, setAnm] = useState<Record<number, Anmerkung[]>>({});
   useEffect(() => {
     anmerkungenVon(noten.id).then((l) => setAnm(Object.fromEntries(l.map((x) => [x.seite, x.objekte])))).catch(ladeFehler);
@@ -182,28 +183,17 @@ export function NotenBetrachter({ noten, pdf, stellen, start, schliessen, geaend
   }, [modus]);
 
   useEffect(() => {
+    if (!tastenAktiv) return;
     const taste = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).closest('input, textarea')) return;
       // Bluetooth-Blätterpedale senden meist Pfeil- oder Bild-Tasten.
       if (['ArrowRight', 'ArrowDown', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); weiter(); }
       if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) { e.preventDefault(); zurueck(); }
-      if (e.key === 'Escape') { if (werkzeug) setWerkzeug(null); else schliessen(); }
+      if (e.key === 'Escape' && werkzeug) setWerkzeug(null);
     };
     window.addEventListener('keydown', taste);
     return () => window.removeEventListener('keydown', taste);
-  }, [weiter, zurueck, werkzeug, schliessen]);
-
-  // Vollbild versuchen (iPad: Safari kann es nicht für Seiten, dann bleibt die Überlagerung).
-  useEffect(() => {
-    const el = document.documentElement;
-    if (el.requestFullscreen && !document.fullscreenElement) el.requestFullscreen().catch(() => {});
-    const vorher = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = vorher;
-      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-    };
-  }, []);
+  }, [weiter, zurueck, werkzeug, tastenAktiv]);
 
   // ── Zeiger: zeichnen oder blättern ──
   const blatt = useRef<HTMLDivElement>(null);
@@ -240,6 +230,15 @@ export function NotenBetrachter({ noten, pdf, stellen, start, schliessen, geaend
   const [textEingabe, setTextEingabe] = useState<{ x: number; y: number; text: string; seit: number } | null>(null);
   const [linieZiehen, setLinieZiehen] = useState(false);
   const [linieEinstellen, setLinieEinstellen] = useState(false);
+
+  // Sprung aus der Stellen-Übersicht (Stück-Blatt): Zustand noch im Rendern
+  // anpassen (React-Muster), kein Effekt nötig.
+  const [letzterSprung, setLetzterSprung] = useState<typeof sprung>(null);
+  if (sprung !== letzterSprung) {
+    setLetzterSprung(sprung);
+    const i = sprung ? stellen.findIndex((s) => s.id === sprung.stelle) : -1;
+    if (i >= 0) { setStelleNr(i); setModus('stellen'); setWerkzeug(null); setLinieEinstellen(false); }
+  }
 
   const relativ = (e: { clientX: number; clientY: number }) => {
     const r = blatt.current!.getBoundingClientRect();
@@ -411,20 +410,14 @@ export function NotenBetrachter({ noten, pdf, stellen, start, schliessen, geaend
     : werkzeug === 'radierer' ? 'Über Anmerkungen wischen, um sie zu löschen.'
     : fingerZeichnen ? 'Zeichnen mit Stift oder Finger.' : 'Mit dem Stift zeichnen — der Finger blättert weiter.';
 
-  // Als eigenes Fenster über allem; der Rest der Seite ist solange nicht bedienbar.
-  useEffect(() => {
-    const main = document.querySelector('body > main, main');
-    main?.setAttribute('inert', '');
-    return () => main?.removeAttribute('inert');
-  }, []);
-
-  return createPortal(
-    <div className="betrachter" role="dialog" aria-modal="true" aria-label={`Noten: ${noten.titel}`}>
+  return (
+    <div className="betrachter" role="region" aria-label={`Noten: ${noten.titel}`}>
       {leiste && (
         <div className="betrachter-leiste">
           <div className="betrachter-zeile">
-            <button type="button" className="b-knopf" onClick={schliessen} aria-label="Schließen">✕</button>
-            <span className="b-titel">{noten.titel}{noten.stimme && <span className="b-leise"> · {noten.stimme}</span>}</span>
+            <button type="button" className="b-titel b-titel-knopf" onClick={titelTipp} title="Stück-Details und Stellen-Übersicht">
+              {noten.titel}{noten.stimme && <span className="b-leise"> · {noten.stimme}</span>}
+            </button>
             <span className="b-leise b-seite tabular-nums">{anzeige}</span>
             <span className="flex-1" />
             <div className="b-segment" role="group" aria-label="Modus">
@@ -432,7 +425,6 @@ export function NotenBetrachter({ noten, pdf, stellen, start, schliessen, geaend
               <button type="button" aria-pressed={modus === 'stellen'} disabled={!stellen.length}
                 onClick={() => { setModus('stellen'); setWerkzeug(null); setLinieEinstellen(false); }}>Stellen ({stellen.length})</button>
             </div>
-            <button type="button" className="b-knopf b-nur-breit" aria-pressed={metronomLeiste} onClick={() => setMetronomLeiste(!metronomLeiste)} aria-label="Metronom-Leiste ein/aus">♩</button>
           </div>
           <div className="betrachter-zeile">
             {modus === 'lesen' && (
@@ -565,11 +557,7 @@ export function NotenBetrachter({ noten, pdf, stellen, start, schliessen, geaend
         </div>
       )}
 
-      {metronomLeiste && (
-        <div className="b-metronom"><MiniMetronom dunkel /></div>
-      )}
-    </div>,
-    document.body,
+    </div>
   );
 }
 

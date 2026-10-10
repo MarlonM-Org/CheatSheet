@@ -22,31 +22,25 @@ export const metadata: Metadata = {
   description: 'Noten, schwierige Stellen, Metronom und Stimmgerät — alles auf deinem Gerät.',
   // Persönliches Werkzeug, nicht für Suchmaschinen.
   robots: { index: false, follow: false },
-  appleWebApp: { capable: true, title: 'CheatSheet', statusBarStyle: 'black' },
+  appleWebApp: { capable: true, title: 'CheatSheet', statusBarStyle: 'default' },
   icons: {
     icon: [{ url: '/icon.svg', type: 'image/svg+xml' }, { url: '/icon-192.png', sizes: '192x192', type: 'image/png' }],
     apple: { url: '/apple-touch-icon.png', sizes: '180x180' },
   },
 };
 
-export const viewport: Viewport = { width: 'device-width', initialScale: 1, themeColor: '#111111' };
+export const viewport: Viewport = { width: 'device-width', initialScale: 1, viewportFit: 'cover', themeColor: '#fcfcfb' };
 
+// Keine Kopf- und Fußzeile (B-01): Die Noten sind die App, die Navigation
+// ist die untere Leiste in der Übe-Zentrale. ThemaWaechter hält die
+// Farbwelt aktuell, das Inline-Script wendet sie vor dem ersten Bild an.
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="de">
       <body>
         <script dangerouslySetInnerHTML={{ __html: THEMA_SCRIPT }} />
         <ThemaWaechter />
-        <header className="kopf">
-          <div className="mx-auto max-w-3xl px-4 py-3">
-            <span className="block text-lg font-extrabold leading-tight">CheatSheet</span>
-            <span className="block text-xs tracking-wider opacity-70">METRONOM · STIMMGERÄT · NOTENPULT</span>
-          </div>
-        </header>
-        <main className="mx-auto max-w-3xl px-4 py-6">{children}</main>
-        <footer className="mx-auto max-w-3xl px-4 pb-8">
-          <p className="gedaempft text-sm">Alles bleibt auf diesem Gerät — keine Anmeldung, kein Konto, nichts auf einem Server.</p>
-        </footer>
+        {children}
         <Offline />
       </body>
     </html>
