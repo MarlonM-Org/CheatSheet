@@ -8,7 +8,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'CheatSheet',
     short_name: 'CheatSheet',
-    description: 'Noten, schwierige Stellen, Metronom und Stimmgerät — alles auf deinem Gerät.',
+    description: 'Noten, schwierige Stellen, Metronom und Stimmgerät. Alles auf deinem Gerät.',
     lang: 'de',
     start_url: '/',
     scope: '/',

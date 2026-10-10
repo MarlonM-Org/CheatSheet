@@ -58,9 +58,9 @@ export function Stimmgeraet() {
         </span>
       </div>
       <p className="text-center tabular-nums" style={{ color: farbe }}>
-        {!an ? 'Mikrofon starten und einen Ton spielen'
-          : !ton ? 'Spiel einen langen Ton …'
-          : <>{sauber ? 'sauber' : cent < 0 ? 'zu tief' : 'zu hoch'} · {cent > 0 ? '+' : ''}{cent} Cent · <span className="gedaempft">{ton.frequenz.toFixed(1)} Hz</span></>}
+        {!an ? 'Mikrofon starten'
+          : !ton ? 'Spiel einen Ton …'
+          : <>{sauber ? 'sauber' : cent < 0 ? 'zu tief' : 'zu hoch'} · {cent > 0 ? '+' : cent < 0 ? '−' : ''}{Math.abs(cent)} · <span className="gedaempft">{ton.frequenz.toFixed(1)} Hz</span></>}
       </p>
 
       <div className="flex justify-center">

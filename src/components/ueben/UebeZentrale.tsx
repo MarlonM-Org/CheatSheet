@@ -62,7 +62,7 @@ function Zentrale() {
         ) : (
           <div className="leer">
             <p className="titel">CheatSheet</p>
-            <p className="gedaempft max-w-xs">Noten, schwierige Stellen, Metronom und Stimmgerät — alles auf diesem Gerät.</p>
+            <p className="gedaempft max-w-xs">Noten, schwierige Stellen, Metronom und Stimmgerät. Alles auf diesem Gerät.</p>
             <button type="button" className="knopf" onClick={() => setBibliothek(true)}>Bibliothek öffnen</button>
           </div>
         )}

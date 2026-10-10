@@ -44,7 +44,8 @@ export function StimmgeraetAnbieter({ children }: { children: React.ReactNode })
   const [ton, setTon] = useState<Ton | null>(null);
   const [frisch, setFrisch] = useState(false);
   const [kammerton, setKammertonRoh] = useState(() => gespeichert('stimm:a', 442));
-  const [stimmung, setStimmungRoh] = useState<Stimmung>(() => gespeichert('stimm:st', 'C'));
+  // Standard B (deutsch, = internationales B♭) — gespeicherte Wahl hat Vorrang.
+  const [stimmung, setStimmungRoh] = useState<Stimmung>(() => gespeichert('stimm:st', 'B'));
   const [refTon, setRefTon] = useState<number | null>(null);
   const [refOktave, setRefOktave] = useState(4);
   const einst = useRef({ kammerton, stimmung });

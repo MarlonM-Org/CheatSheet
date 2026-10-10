@@ -1,6 +1,6 @@
 # CheatSheet
 
-Noten, schwierige Stellen, Metronom und Stimmgerät — alles auf deinem Gerät.
+Noten, schwierige Stellen, Metronom und Stimmgerät. Alles auf deinem Gerät.
 Eine eigene, statische Web-App unter https://cheat-sheet.ma-und-ma.de.
 Früher unter Admin → „Üben (Prototyp)“ in der Registerführer-App.
 

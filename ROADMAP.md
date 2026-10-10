@@ -35,7 +35,7 @@ nicht in der Breite, aber in der Sorgfalt.
 | M7 | **Komponieren** (Vision) | Noteneingabe, Rhythmus-/Melodie-Transkription | G-01…G-03 |
 
 **Quick Wins** (klein, unabhängig, jederzeit zwischenschieben — guter
-Einstieg): C-01, C-02, C-03, D-01.
+Einstieg): C-01, C-02, C-03, D-01 — *alle am 2026-10-10 erledigt.*
 
 M2 setzt Designvorschläge voraus (siehe B-05) — erst Richtung festlegen, dann
 umbauen.
@@ -104,26 +104,6 @@ Branch `feature/ui-noten-im-zentrum`, PR #1)*
 
 ## C — Stimmgerät
 
-### C-01 · Standard-Stimmung B ⚡
-
-`STIMMUNGEN` (`src/domain/ueben.ts`) kann schon C/B/Es/F — aber der Standard
-ist C. Neu: Standard **B** (deutsch, = internationales B♭). Gespeicherte
-Auswahl (`stimm:st`) hat weiter Vorrang; nur der Erststart ändert sich.
-
-### C-02 · Anzeige entschlacken: „+1 / −3“ statt „+3 Cent“ ⚡
-
-In `Stimmgeraet.tsx` (Abweichungszeile): nur noch Vorzeichen + Zahl
-(z. B. „+1“, „−3“), das Wort „Cent“ fällt weg. Insgesamt weniger Text in den
-Zustandsmeldungen („Mikrofon starten…“, „Spiel einen langen Ton…“ kürzen).
-
-### C-03 · Fußzeile straffen ⚡
-
-`src/app/layout.tsx`: „Alles bleibt auf diesem Gerät — keine Anmeldung, kein
-Konto, nichts auf einem Server.“ → kürzer und ohne Gedankenstrich, z. B.
-„Alles bleibt auf diesem Gerät. Kein Konto, kein Server.“ Die gleichen
-Em-Dash-Formulierungen in `layout.tsx` (Beschreibung), `manifest.ts` und
-README bei der Gelegenheit mitziehen.
-
 ### C-04 · Intonations-Trainer (Name gesucht)
 
 Das Bonus-Feature: sein Instrument kennenlernen. Ablauf:
@@ -160,13 +140,7 @@ funktionieren): *Tonkompass* · *Tonprofil* · *Stimmbild* · *Tonleiter-Check*.
 
 ## D — Metronom
 
-### D-01 · ±1-Knöpfe in der Schnellverstellung ⚡
-
-Heute: ±5 %/±10 % in `Metronom.tsx`, ±10 % im `MiniMetronom.tsx` (beides
-multiplikativ). Neu: zusätzlich **−1 / +1** als harte BPM-Schritte, auch im
-Mini-Metronom auf den Noten — fürs Feinjustieren aufs Zieltempo. ±10 % bleibt,
-der Schieberegler bleibt (große Sprünge). ±5 % kann zugunsten der ±1-Knöpfe
-weichen, wenn es sonst zu voll wird.
+*(derzeit keine offenen Punkte — D-01 erledigt, siehe unten)*
 
 ---
 
@@ -329,6 +303,22 @@ G-02 getrennt — Rhythmus zuerst, Töne später.
   `themeColor` je Welt, Manifest hell. Auswahl liegt in localStorage
   (`ueben:modus`, `ueben:thema-hell`, `ueben:thema-dunkel`) — Umzug in den
   Einstellungs-Store bleibt Thema von A-02.
+- **C-01 · Standard-Stimmung B** (2026-10-10): Erststart startet „in B“
+  (deutsch, = internationales B♭); gespeicherte Auswahl `stimm:st` hat
+  weiter Vorrang (`StimmgeraetKontext.tsx`).
+- **C-02 · Anzeige entschlackt** (2026-10-10): Abweichung nur noch als
+  „+1“/„−3“ ohne das Wort „Cent“ (Widget hatte das schon, jetzt auch die
+  große Ansicht); Meldungen gekürzt („Mikrofon starten“, „Spiel einen
+  Ton …“).
+- **C-03 · Formulierungen gestrafft** (2026-10-10): Die Fußzeile selbst
+  entfiel mit B-01; der Gedankenstrich-Satz in Beschreibung (`layout.tsx`),
+  `manifest.ts`, README und Leerzustand heißt jetzt „… Metronom und
+  Stimmgerät. Alles auf deinem Gerät.“ Der Datenschutz-Satz steht kurz im
+  Bibliotheks-Fuß und in den Einstellungen.
+- **D-01 · ±1-Knöpfe in der Schnellverstellung** (2026-10-10): Große
+  Metronom-Ansicht hat −1/+1 als harte BPM-Schritte (±5 % wich dafür,
+  ±10 % und Regler bleiben); das Metronom-Widget auf den Noten hatte
+  −1/+1, ±10 % und Regler schon seit B-03.
 - **B-05 · Design-Überarbeitung** (2026-10-10): **Entscheidung Marlon:
   Studio.** Drei helle Entwürfe (Blatt · Studio · Galerie, identischer
   Funktionsumfang) liegen als antippbare HTML-Mockups in `docs/design/` und

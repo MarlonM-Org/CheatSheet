@@ -19,7 +19,7 @@ document.documentElement.dataset.thema=t;
 export const metadata: Metadata = {
   metadataBase: new URL(ADRESSE),
   title: 'CheatSheet',
-  description: 'Noten, schwierige Stellen, Metronom und Stimmgerät — alles auf deinem Gerät.',
+  description: 'Noten, schwierige Stellen, Metronom und Stimmgerät. Alles auf deinem Gerät.',
   // Persönliches Werkzeug, nicht für Suchmaschinen.
   robots: { index: false, follow: false },
   appleWebApp: { capable: true, title: 'CheatSheet', statusBarStyle: 'default' },

@@ -61,7 +61,7 @@ export function Metronom() {
       <div className="flex items-center justify-center gap-4">
         <div className="flex flex-col gap-2">
           <button className="rund-knopf breit" type="button" onClick={() => setzen(bpm / 1.1)} aria-label="10 Prozent langsamer">−10 %</button>
-          <button className="rund-knopf breit" type="button" onClick={() => setzen(bpm / 1.05)} aria-label="5 Prozent langsamer">−5 %</button>
+          <button className="rund-knopf breit" type="button" onClick={() => setzen(bpm - 1)} aria-label="Ein Schlag langsamer">−1</button>
         </div>
         <button className={`start-knopf ${laeuft ? 'laeuft' : ''}`} type="button" onClick={laeuft ? stopp : start} aria-label={laeuft ? 'Stopp' : 'Start'}>
           {laeuft ? <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" /></svg>
@@ -69,7 +69,7 @@ export function Metronom() {
         </button>
         <div className="flex flex-col gap-2">
           <button className="rund-knopf breit" type="button" onClick={() => setzen(bpm * 1.1)} aria-label="10 Prozent schneller">+10 %</button>
-          <button className="rund-knopf breit" type="button" onClick={() => setzen(bpm * 1.05)} aria-label="5 Prozent schneller">+5 %</button>
+          <button className="rund-knopf breit" type="button" onClick={() => setzen(bpm + 1)} aria-label="Ein Schlag schneller">+1</button>
         </div>
       </div>
 
