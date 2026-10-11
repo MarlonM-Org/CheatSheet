@@ -1,15 +1,16 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { insBild, type Lage } from '@/domain/lage';
 import { gespeichert, speichern } from './klang';
 
 // Frei schiebbare Panels (B-03): Am Kopf anfassen und über den ganzen
 // Bildschirm ziehen, damit die Noten lesbar bleiben. Ohne gemerkte Lage
 // sitzt das Panel im Dock über der Leiste; Ablegen nahe der Leiste dockt
-// wieder an. Die Lage wird je Panel gemerkt und bleibt im Bild, wenn sich
-// die Fenstergröße ändert.
+// wieder an. Die Lage wird je Panel gemerkt und bleibt im Bild — beim
+// Erscheinen und wenn sich die Fenstergröße ändert.
 
-export interface Lage { x: number; y: number }
+export type { Lage };
 
 // Wer zuletzt angefasst wurde, liegt über dem anderen Panel.
 let stapel = 0;
@@ -20,13 +21,13 @@ export function useSchiebbar(schluessel: string) {
   const [ebene, setEbene] = useState(0);
   const zug = useRef<{ id: number; dx: number; dy: number; startX: number; startY: number; gezogen: boolean } | null>(null);
 
+  // Ins Bild heißt: über der unteren Leiste — dahinter wäre das Panel
+  // verdeckt und nicht antippbar.
   const klemmen = useCallback((x: number, y: number): Lage => {
     const el = panel.current;
-    const b = el?.offsetWidth ?? 320, h = el?.offsetHeight ?? 160;
-    return {
-      x: Math.max(4, Math.min(window.innerWidth - b - 4, x)),
-      y: Math.max(4, Math.min(window.innerHeight - h - 4, y)),
-    };
+    const leiste = document.querySelector('.leiste')?.getBoundingClientRect();
+    const unten = leiste && leiste.height > 0 ? Math.min(leiste.top, window.innerHeight) : window.innerHeight;
+    return insBild({ x, y }, { b: el?.offsetWidth ?? 320, h: el?.offsetHeight ?? 160 }, { b: window.innerWidth, h: unten });
   }, []);
 
   const anfassen = useCallback((e: React.PointerEvent) => {
@@ -69,6 +70,22 @@ export function useSchiebbar(schluessel: string) {
       speichern(schluessel, { x: Math.round(r.left), y: Math.round(r.top) });
     }
   }, [schluessel]);
+
+  // Beim Erscheinen und wenn das Panel wächst: Die gemerkte Lage kann aus
+  // einem anderen Format stammen (iPad, quer, gedreht, während das Panel zu
+  // war) und läge sonst außerhalb — das Panel wäre unsichtbar. Der Beobachter
+  // meldet sich gleich nach dem ersten Layout mit der echten Größe.
+  useEffect(() => {
+    const el = panel.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setLage((l) => {
+      if (!l) return l;
+      const k = klemmen(l.x, l.y);
+      return k.x === l.x && k.y === l.y ? l : k;
+    }));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [klemmen]);
 
   // Fenstergröße ändert sich (Drehen, Teilen): gemerkte Lage im Bild halten.
   useEffect(() => {

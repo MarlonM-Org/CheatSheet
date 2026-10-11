@@ -6,6 +6,7 @@ import {
 } from '@/domain/einspielen';
 import { nurLesbare } from '@/domain/lesbar';
 import { sicherungLesen, sicherungPacken, SicherungsFehler, type SicherungsInhalt } from '@/domain/sicherung';
+import { verbindungVerloren } from '@/domain/speicher';
 
 // Ablage nur auf diesem Gerät (IndexedDB): Noten-PDFs, markierte Stellen,
 // geschaffte Tempi, Anmerkungen. Keine Datenbank, kein Server. Safari kann die
@@ -38,9 +39,15 @@ type Speicher = 'noten' | 'stellen' | 'anmerkungen';
 let verbindung: Promise<IDBDatabase> | null = null;
 
 function oeffnen(): Promise<IDBDatabase> {
+  rueckkehrBeobachten();
   if (verbindung) return verbindung;
   const diese: Promise<IDBDatabase> = new Promise<IDBDatabase>((ok, fehler) => {
     let aufgegeben = false;
+    // Antwortet der Speicher gar nicht, nicht ewig „wird geladen“ zeigen.
+    const wecker = window.setTimeout(() => {
+      aufgegeben = true;
+      fehler(new Error('Der Gerätespeicher antwortet nicht. Bitte neu laden.'));
+    }, 8000);
     const r = indexedDB.open('ueben', 2);
     r.onupgradeneeded = (e) => {
       const db = r.result;
@@ -51,6 +58,7 @@ function oeffnen(): Promise<IDBDatabase> {
       if (e.oldVersion < 2) db.createObjectStore('anmerkungen', { keyPath: 'id' }).createIndex('notenId', 'notenId');
     };
     r.onsuccess = () => {
+      window.clearTimeout(wecker);
       const db = r.result;
       // Kam die Verbindung doch noch, nachdem wir aufgegeben haben: gleich wieder zu.
       if (aufgegeben) { db.close(); return; }
@@ -58,9 +66,10 @@ function oeffnen(): Promise<IDBDatabase> {
       db.onclose = () => vergessen(diese);
       ok(db);
     };
-    r.onerror = () => fehler(r.error);
+    r.onerror = () => { window.clearTimeout(wecker); fehler(r.error); };
     // Ein anderes Fenster hält noch eine ältere Version offen.
     r.onblocked = () => {
+      window.clearTimeout(wecker);
       aufgegeben = true;
       fehler(new Error('Der Gerätespeicher ist gerade blockiert. Bitte andere CheatSheet-Fenster und -Tabs schließen und neu laden.'));
     };
@@ -78,15 +87,33 @@ function vergessen(welche: Promise<IDBDatabase>) {
   if (verbindung === welche) verbindung = null;
 }
 
+// Zurück in der App: iOS kappt im Hintergrund mitunter die Verbindung, ohne
+// dass sie als geschlossen gilt — der nächste Zugriff scheitert dann oder
+// hängt. Deshalb nach jeder Rückkehr frisch öffnen (kostet Millisekunden).
+// Laufende Transaktionen laufen auf der alten Verbindung noch zu Ende.
+let beobachtet = false;
+function rueckkehrBeobachten() {
+  if (beobachtet || typeof document === 'undefined') return;
+  beobachtet = true;
+  document.addEventListener('visibilitychange', () => {
+    const alt = verbindung;
+    if (document.visibilityState !== 'visible' || !alt) return;
+    vergessen(alt);
+    alt.then((db) => db.close(), () => { /* war schon kaputt */ });
+  });
+}
+
 // Eine Transaktion über einen oder mehrere Speicher. Abgelehnt wird nur in
 // onabort: Jeder Fehler bricht die Transaktion ab, und erst dann steht der
 // Grund in t.error (in onerror ist er noch leer). Wirft die Arbeit selbst,
 // bricht sie mit genau diesem Grund ab. `arbeit` liefert optional, was nach
 // dem Abschluss herauskommt.
 //
-// Ist die Verbindung inzwischen zu (Safari schließt sie mitunter von selbst,
-// db.transaction wirft dann InvalidStateError), wird sie vergessen und die
-// Transaktion EINMAL mit einer frischen Verbindung versucht.
+// Ist die Verbindung inzwischen zu oder verloren (Safari kappt sie mitunter
+// von selbst: db.transaction wirft InvalidStateError, oder die Transaktion
+// bricht mit UnknownError ab), wird sie vergessen und die Transaktion EINMAL
+// mit einer frischen Verbindung versucht. Abgebrochen hat sie nichts
+// geschrieben, der neue Versuch ist sicher.
 async function transaktion<T>(
   speicher: Speicher | Speicher[],
   modus: IDBTransactionMode,
@@ -95,23 +122,22 @@ async function transaktion<T>(
 ): Promise<T> {
   const offen = oeffnen();
   const db = await offen;
-  let t: IDBTransaction;
   try {
-    t = db.transaction(speicher, modus);
+    const t = db.transaction(speicher, modus);
+    return await new Promise<T>((ok, fehler) => {
+      let grund: unknown = null;
+      let ergebnis: (() => T) | void = undefined;
+      const abbrechen = (x: unknown) => { grund ??= x; try { t.abort(); } catch { /* schon beendet */ } };
+      t.oncomplete = () => ok(ergebnis ? ergebnis() : (undefined as T));
+      t.onabort = () => fehler(grund ?? t.error ?? new Error('Der Gerätespeicher hat den Vorgang abgebrochen.'));
+      try { ergebnis = arbeit(t, abbrechen); } catch (x) { abbrechen(x); }
+    });
   } catch (x) {
-    if (!nochmal || !(x instanceof DOMException) || x.name !== 'InvalidStateError') throw x;
+    if (!nochmal || !verbindungVerloren(x)) throw x;
     vergessen(offen);
     try { db.close(); } catch { /* schon zu */ }
     return transaktion(speicher, modus, arbeit, false);
   }
-  return new Promise((ok, fehler) => {
-    let grund: unknown = null;
-    let ergebnis: (() => T) | void = undefined;
-    const abbrechen = (x: unknown) => { grund ??= x; try { t.abort(); } catch { /* schon beendet */ } };
-    t.oncomplete = () => ok(ergebnis ? ergebnis() : (undefined as T));
-    t.onabort = () => fehler(grund ?? t.error ?? new Error('Der Gerätespeicher hat den Vorgang abgebrochen.'));
-    try { ergebnis = arbeit(t, abbrechen); } catch (x) { abbrechen(x); }
-  });
 }
 
 const tx = <T>(speicher: Speicher, modus: IDBTransactionMode, arbeit: (s: IDBObjectStore) => IDBRequest<T> | void) =>
@@ -125,13 +151,27 @@ const ALLE: Speicher[] = ['noten', 'stellen', 'anmerkungen'];
 // ── Noten ──
 export const alleNoten = () => tx<LokaleNoten[]>('noten', 'readonly', (s) => s.getAll());
 export const notenHolen = (id: string) => tx<LokaleNoten | undefined>('noten', 'readonly', (s) => s.get(id));
+// Die gewählte Datei erst ganz in den Arbeitsspeicher holen: Safari kann
+// eine Datei direkt aus der Dateiauswahl mitunter nicht in den Gerätespeicher
+// übernehmen („Error preparing Blob/File data …“). Eine Kopie geht
+// zuverlässig — und eine nicht lesbare Datei fällt hier mit klarer Meldung auf.
+async function imSpeicher(datei: Blob): Promise<Blob> {
+  try {
+    return new Blob([await datei.arrayBuffer()], { type: datei.type || 'application/pdf' });
+  } catch (x) {
+    throw new Error(`Die Datei ließ sich nicht lesen (${(x as Error)?.name ?? x}). Liegt sie nur in iCloud? Erst in der Dateien-App öffnen, dann erneut wählen.`);
+  }
+}
+
 export async function notenAnlegen(n: { titel: string; stimme: string; datei: Blob; dateiname?: string; handle?: FileSystemFileHandle }): Promise<string> {
   const id = crypto.randomUUID();
-  await tx('noten', 'readwrite', (s) => s.put({ ...n, id, erstellt: Date.now() }));
+  const datei = await imSpeicher(n.datei);
+  await tx('noten', 'readwrite', (s) => s.put({ ...n, datei, id, erstellt: Date.now() }));
   dauerhaftAnfragen();
   return id;
 }
 export async function notenAendern(id: string, felder: Partial<LokaleNoten>) {
+  if (felder.datei) felder = { ...felder, datei: await imSpeicher(felder.datei) };
   const alt = await notenHolen(id);
   if (alt) await tx('noten', 'readwrite', (s) => s.put({ ...alt, ...felder, id }));
 }

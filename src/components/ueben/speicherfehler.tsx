@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
+import { speicherVoll, verbindungVerloren } from '@/domain/speicher';
 
 // Fehler beim Speichern auf dem Gerät sichtbar machen. Gespeichert wird meist
 // nebenbei (Striche, Blätterlinie, geschaffte Tempi); scheitert das still,
@@ -13,31 +14,32 @@ export function alsFehler(x: unknown): Error {
   return x instanceof Error ? x : new Error(String(x));
 }
 
-// Der Grund in Worten, mit Hinweis bei vollem Gerätespeicher.
+// Der Grund in Worten. „Voll“ heißt es nur, wenn der Speicher wirklich voll
+// ist — eine abgerissene Verbindung (oft nach einem App-Wechsel) ist etwas
+// anderes und mit „Neu laden“ behoben.
 export function fehlerGrund(x: unknown): string {
   const err = alsFehler(x);
-  return `${err.message}${err.name === 'QuotaExceededError' ? ' (Gerätespeicher voll)' : ''}`;
+  if (speicherVoll(err)) return `Der Gerätespeicher ist voll (${err.message}).`;
+  if (verbindungVerloren(err)) return `Die Verbindung zum Gerätespeicher war unterbrochen (${err.message}).`;
+  return err.message;
 }
-
-export const NICHT_GESPEICHERT = 'Nicht gespeichert — Gerätespeicher voll oder blockiert. Bitte neu laden.';
-export const NICHT_GELADEN = 'Nicht geladen — Gerätespeicher blockiert. Bitte neu laden.';
 
 // Ein Hinweis für die ganze Seite; der letzte Fehler gewinnt, ein Fehler beim
 // Speichern wird nicht von einem beim Lesen verdrängt.
-let hinweis: { titel: string; grund: string } | null = null;
+let hinweis: { titel: string; grund: string; speichern: boolean } | null = null;
 const zuhoerer = new Set<() => void>();
 const melden = () => { for (const z of zuhoerer) z(); };
 
 // Für jedes Speichern auf dem Gerät, etwa als .catch(speicherFehler).
 export function speicherFehler(x: unknown): void {
-  hinweis = { titel: NICHT_GESPEICHERT, grund: fehlerGrund(x) || 'unbekannter Fehler' };
+  hinweis = { titel: 'Nicht gespeichert — bitte neu laden.', grund: fehlerGrund(x) || 'unbekannter Fehler', speichern: true };
   melden();
 }
 
 // Für Lesen, das nebenbei passiert (Stellen, Anmerkungen nachladen).
 export function ladeFehler(x: unknown): void {
-  if (hinweis?.titel === NICHT_GESPEICHERT) return;
-  hinweis = { titel: NICHT_GELADEN, grund: fehlerGrund(x) || 'unbekannter Fehler' };
+  if (hinweis?.speichern) return;
+  hinweis = { titel: 'Nicht geladen — bitte neu laden.', grund: fehlerGrund(x) || 'unbekannter Fehler', speichern: false };
   melden();
 }
 

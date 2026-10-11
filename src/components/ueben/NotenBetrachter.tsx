@@ -139,10 +139,22 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
         return c;
       })();
       cache.current.set(key, p);
+      // Gescheitert (Speicherdruck, Stück schon verlassen): nicht als kaputt
+      // merken — der nächste Blick auf die Seite versucht es neu.
+      p.catch(() => { if (cache.current.get(key) === p) cache.current.delete(key); });
       if (cache.current.size > 14) cache.current.delete(cache.current.keys().next().value!);
     }
     return p;
   }, [pdf, px]);
+  // Stück verlassen: Seitenbilder sofort freigeben (Safari gibt Leinwand-
+  // Speicher sonst erst spät zurück, und er ist auf iPhone/iPad knapp).
+  useEffect(() => {
+    const bilder = cache.current;
+    return () => {
+      for (const p of bilder.values()) p.then((c) => { c.width = 0; c.height = 0; }, () => { /* nie fertig */ });
+      bilder.clear();
+    };
+  }, []);
 
   const leinwand = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -189,7 +201,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
         ctx.strokeRect(r.x * W, r.y * H, r.b * W, r.h * H);
       }
     };
-    void zeichnen();
+    zeichnen().catch((e) => { if (!weg) console.error('Seite ließ sich nicht zeichnen', e); });
     return () => { weg = true; };
   }, [ansicht, stelle, rand, anm, stellen, rahmen, px, format, seiteBild]);
 
@@ -267,7 +279,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   if (sprung !== letzterSprung) {
     setLetzterSprung(sprung);
     const i = sprung ? stellen.findIndex((s) => s.id === sprung.stelle) : -1;
-    if (i >= 0) { setStelleNr(i); setModus('stellen'); setWerkzeug(null); setLinieEinstellen(false); }
+    if (i >= 0) { setStelleNr(i); setModus('stellen'); setWerkzeug(null); setPaletteOffen(false); setLinieEinstellen(false); }
   }
 
   const relativ = (e: { clientX: number; clientY: number }) => {
@@ -476,7 +488,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
                 <span className="nav-schalter-label">Stellen</span>
                 <input type="checkbox" role="switch" className="ios-schalter" checked={modus === 'stellen'}
                   onChange={(e) => {
-                    if (e.target.checked) { setModus('stellen'); setWerkzeug(null); setLinieEinstellen(false); setAnsichtOffen(false); }
+                    if (e.target.checked) { setModus('stellen'); setWerkzeug(null); setPaletteOffen(false); setLinieEinstellen(false); setAnsichtOffen(false); }
                     else { zumLesen(); setAnsichtOffen(false); }
                   }} />
               </label>

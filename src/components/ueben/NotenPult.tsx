@@ -31,11 +31,13 @@ export function NotenPult({ notenId, tastenAktiv, verschwunden }: {
 
   useEffect(() => {
     let weg = false;
+    let dokument: Promise<PDFDocumentProxy> | null = null;
     (async () => {
       const n = await notenHolen(notenId);
       if (!n) { verschwunden(); return; }
       notenAendern(notenId, { zuletzt: Date.now() }).catch(speicherFehler);
-      const [d, st] = await Promise.all([pdfLaden(n.datei), stellenVon(notenId)]);
+      dokument = pdfLaden(n.datei);
+      const [d, st] = await Promise.all([dokument, stellenVon(notenId)]);
       if (weg) return;
       setNoten(n); setPdf(d); setStellen(st);
     })().catch((e) => {
@@ -43,7 +45,10 @@ export function NotenPult({ notenId, tastenAktiv, verschwunden }: {
       if (e instanceof NeueVersionFehler || istNachladeFehler(e)) setNeueVersion(true);
       else setFehler(`Noten lassen sich nicht öffnen: ${(e as Error).message}`);
     });
-    return () => { weg = true; };
+    // Stück verlassen (anderes Stück, neu aufbauen): PDF samt pdf.js-Worker
+    // freigeben — sonst bleibt jedes je geöffnete Stück im Speicher, bis
+    // iOS die App wegen Speichermangels hakeln lässt.
+    return () => { weg = true; dokument?.then((d) => d.loadingTask.destroy(), () => { /* nie geladen */ }); };
     // verschwunden ändert sich nicht fachlich — nur die Noten-ID zählt.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notenId]);

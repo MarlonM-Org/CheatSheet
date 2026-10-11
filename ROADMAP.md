@@ -333,6 +333,27 @@ G-02 getrennt — Rhythmus zuerst, Töne später.
   einen Schlag verstellen, ohne das Metronom zu öffnen. Auf dem iPhone
   stehen −1/+1 rechts neben dem Stellen-Titel, direkt über „geschafft“;
   auf breiten Bildschirmen in derselben Zeile.
+- **A-05 · Zuverlässig laden und speichern, auch nach App-Wechsel**
+  (2026-10-11): Auf dem iPhone kamen sporadisch „Gerätespeicher voll“-
+  Meldungen, die Stift-Palette erschien manchmal nicht, und nach dem
+  Zurückkehren in die App hakte es. Behoben:
+  - Gerätespeicher (`lokal.ts`): Nach jeder Rückkehr in die App wird die
+    Verbindung frisch geöffnet; bricht ein Vorgang wegen verlorener
+    Verbindung ab, folgt ein neuer Versuch (Regel getestet in
+    `src/domain/speicher.ts`); das Öffnen hat eine Zeitgrenze statt ewig
+    „wird geladen“. Neue Dateien werden vor dem Speichern in den
+    Arbeitsspeicher kopiert (Safari scheitert sonst mitunter an Dateien
+    direkt aus der Dateiauswahl).
+  - Meldung: „Gerätespeicher voll“ nur noch, wenn er wirklich voll ist;
+    sonst „Verbindung zum Gerätespeicher war unterbrochen“.
+  - Speicherleck: Beim Stückwechsel wird das PDF samt pdf.js-Worker
+    freigegeben, die Seitenbilder ebenso; eine gescheiterte Seite wird beim
+    nächsten Blick neu gezeichnet.
+  - Schwebende Panels (Stift-Palette, Widgets): Eine gemerkte Lage aus
+    einem anderen Format (iPad, quer) wird beim Erscheinen ins Bild geholt,
+    über die untere Leiste (Regel getestet in `src/domain/lage.ts`). Beim
+    Wechsel in den Stellen-Modus schließt die Palette, damit sie die
+    Stellen-Leiste nicht verdeckt.
 - **B-05 · Design-Überarbeitung** (2026-10-10): **Entscheidung Marlon:
   Studio.** Drei helle Entwürfe (Blatt · Studio · Galerie, identischer
   Funktionsumfang) liegen als antippbare HTML-Mockups in `docs/design/` und
