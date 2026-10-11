@@ -616,6 +616,10 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
           {ladeTempo && ladeTempo !== bpm && (
             <button type="button" className="mini-knopf" onClick={() => setBpm(ladeTempo)} title="Metronom auf das zuletzt geschaffte Tempo stellen">♩ {ladeTempo}<span className="b-lang"> laden</span></button>
           )}
+          <div className="gruppe b-schritte" role="group" aria-label="Tempo">
+            <button type="button" onClick={() => setBpm(bpm - 1)} aria-label="Ein Schlag langsamer">−1</button>
+            <button type="button" onClick={() => setBpm(bpm + 1)} aria-label="Ein Schlag schneller">+1</button>
+          </div>
           <button type="button" className="knopf b-geschafft" onClick={() => void geschafft(stelle.id)} title="Dieses Tempo als geschafft speichern">✓ {bpm} geschafft</button>
           <button type="button" className="b-knopf gross" onClick={weiter} disabled={stelleNr >= stellen.length - 1} aria-label="Nächste Stelle">›</button>
         </div>

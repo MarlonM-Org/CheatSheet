@@ -328,6 +328,11 @@ G-02 getrennt — Rhythmus zuerst, Töne später.
   Tipp legt einen frischen an (`verwerfen`, `useBeimVerlassen` in
   `klang.ts`). Folge: Auch am Rechner läuft das Metronom in einem
   Hintergrund-Tab nicht mehr weiter.
+- **D-03 · −1/+1 in der Stellen-Leiste** (2026-10-11): Beim Üben von
+  Stellen lässt sich das Metronom-Tempo direkt neben „✓ … geschafft“ um
+  einen Schlag verstellen, ohne das Metronom zu öffnen. Auf dem iPhone
+  stehen −1/+1 rechts neben dem Stellen-Titel, direkt über „geschafft“;
+  auf breiten Bildschirmen in derselben Zeile.
 - **B-05 · Design-Überarbeitung** (2026-10-10): **Entscheidung Marlon:
   Studio.** Drei helle Entwürfe (Blatt · Studio · Galerie, identischer
   Funktionsumfang) liegen als antippbare HTML-Mockups in `docs/design/` und

@@ -598,9 +598,14 @@ details[open] > summary::before { transform: rotate(90deg); }
   .b-segment button { padding: 0.3rem 0.5rem; }
 }
 .b-geschafft { min-height: 2.75rem; padding: 0 0.9rem; white-space: nowrap; }
+/* −1/+1 in der Stellen-Leiste: Tempo nachstellen, ohne das Metronom zu öffnen. */
+.b-schritte { flex: none; }
+.b-schritte button { width: 3rem; height: 2.75rem; font-size: 1rem; }
 @media (max-width: 520px) {
   .b-stellenleiste { flex-wrap: wrap; row-gap: 0.4rem; }
-  .b-stellenleiste .b-stelleninfo { order: -1; flex-basis: 100%; }
+  /* schmal: Titel und −1/+1 in der ersten Zeile, direkt über „geschafft“ */
+  .b-stellenleiste .b-stelleninfo { order: -1; flex-basis: calc(100% - 7rem); }
+  .b-stellenleiste .b-schritte { order: -1; }
   .b-stellenleiste .b-geschafft { flex: 1; }
 }
 .mini-knopf { min-width: 2.75rem; }
