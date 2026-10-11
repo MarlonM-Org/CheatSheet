@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ausDateiname, nachTitel, zeitpunkt, zuordnen } from '@/domain/notenpult';
 import { gespeichert, speichern } from './klang';
-import { alleNoten, notenAendern, notenAnlegen, notenLoeschen, type LokaleNoten } from './lokal';
+import { zuletztAus } from '@/domain/speicher';
+import { alleNoten, notenAendern, notenAnlegen, notenLoeschen, zuletztListe, type LokaleNoten } from './lokal';
 import { Sicherung, useSicherungLaden } from './Sicherung';
 import { fehlerGrund } from './speicherfehler';
 import { useEscape } from './tasten';
@@ -101,14 +102,18 @@ function NotenListe({ offen, oeffnen, anzahlMelden, offenEntfernt, aktualisiert 
   const [auswahl, setAuswahl] = useState<Set<string>>(new Set());
   const [sortierung, setSortierung] = useState<'zuletzt' | 'abc'>(() => gespeichert('ueben:sort', 'zuletzt'));
   const [laeuft, setLaeuft] = useState(false);
-  const laden = useCallback(() => { alleNoten().then(setNoten).catch((e) => setFehler(`Gerätespeicher nicht verfügbar: ${(e as Error).message}`)); }, []);
+  const [zuletzt, setZuletzt] = useState<Record<string, number>>(() => zuletztListe());
+  const laden = useCallback(() => {
+    alleNoten().then((l) => { setZuletzt(zuletztListe()); setNoten(l); })
+      .catch((e) => setFehler(`Gerätespeicher nicht verfügbar: ${(e as Error).message}`));
+  }, []);
   useEffect(laden, [laden]);
   useEffect(() => { if (noten) anzahlMelden(noten.length); }, [noten, anzahlMelden]);
   const sicherung = useSicherungLaden(laden);
 
   const sortiert = useMemo(() => [...(noten ?? [])].sort((a, b) => sortierung === 'abc'
     ? nachTitel(a, b)
-    : (b.zuletzt ?? b.erstellt) - (a.zuletzt ?? a.erstellt)), [noten, sortierung]);
+    : (zuletztAus(zuletzt, b) ?? b.erstellt) - (zuletztAus(zuletzt, a) ?? a.erstellt)), [noten, sortierung, zuletzt]);
   const alleGewaehlt = !!noten?.length && auswahl.size === noten.length;
 
   async function hinzufuegen() {
@@ -266,7 +271,7 @@ function NotenListe({ offen, oeffnen, anzahlMelden, offenEntfernt, aktualisiert 
             <button type="button" className="min-w-0 flex-1 text-left" onClick={() => oeffnen(n.id)}>
               <span className="block truncate font-bold">{n.titel}</span>
               <span className="gedaempft block truncate text-sm">
-                {[n.stimme, n.zuletzt ? `zuletzt ${zeitpunkt(n.zuletzt)}` : 'noch nicht geöffnet', n.aktualisiert ? `aktualisiert ${datum(n.aktualisiert)}` : ''].filter(Boolean).join(' · ')}
+                {[n.stimme, zuletztAus(zuletzt, n) ? `zuletzt ${zeitpunkt(zuletztAus(zuletzt, n)!)}` : 'noch nicht geöffnet', n.aktualisiert ? `aktualisiert ${datum(n.aktualisiert)}` : ''].filter(Boolean).join(' · ')}
               </span>
             </button>
             <span className="gedaempft" aria-hidden="true">›</span>

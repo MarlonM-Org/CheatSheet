@@ -5,8 +5,10 @@ import type { NextConfig } from 'next';
 // Name des pdf.js-Workers mit Version, wie ihn scripts/pdf-worker.mjs ablegt.
 const pdfjs = JSON.parse(readFileSync('node_modules/pdfjs-dist/package.json', 'utf8')) as { version: string };
 const PDF_WORKER = `/pdf.worker-${pdfjs.version}.min.mjs`;
-if (!existsSync(`public${PDF_WORKER}`)) {
-  throw new Error(`public${PDF_WORKER} fehlt — erst „node scripts/pdf-worker.mjs“ ausführen.`);
+// Ordner der Bild-Decoder (JBIG2, JPEG 2000), ebenfalls von dort abgelegt.
+const PDF_WASM = `/pdfjs-${pdfjs.version}/`;
+for (const pfad of [PDF_WORKER, `${PDF_WASM}openjpeg.wasm`]) {
+  if (!existsSync(`public${pfad}`)) throw new Error(`public${pfad} fehlt — erst „node scripts/pdf-worker.mjs“ ausführen.`);
 }
 
 // Kennung dieses Builds: Seite und Service Worker kennen beide dieselbe, so
@@ -34,7 +36,7 @@ const nextConfig: NextConfig = {
   images: { unoptimized: true },
   generateBuildId: () => BUILD_KENNUNG,
   // Wird beim Build fest in den Code geschrieben (process.env.…).
-  env: { PDF_WORKER },
+  env: { PDF_WORKER, PDF_WASM },
   // Namen mit __ nimmt `env` nicht an; define schreibt sie genauso fest ein
   // (der Wert ist der Text selbst, Next setzt die Anführungszeichen).
   compiler: { define: { [`process.env.${NAME}`]: BUILD_KENNUNG } },

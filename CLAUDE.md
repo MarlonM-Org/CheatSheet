@@ -21,7 +21,12 @@ anders ist, ist ein Fehler oder gehört dort nachgetragen.
 - Die Adresse steht nur in `src/adresse.ts`.
 - Offline: `public/sw.js` + `scripts/precache.mjs`. Neue statische Dateien
   landen automatisch im Vorab-Cache. Der pdf.js-Worker liegt versioniert in
-  `public/pdf.worker-<version>.min.mjs` (erzeugt, nicht eingecheckt).
+  `public/pdf.worker-<version>.min.mjs`, die Bild-Decoder (JBIG2, JPEG 2000;
+  ohne sie bleiben solche Scans leer) in `public/pdfjs-<version>/` — beides
+  erzeugt von `scripts/pdf-worker.mjs`, nicht eingecheckt.
+- Die PDF-Datei steckt im `noten`-Datensatz. Nie einen aus der Datenbank
+  gelesenen Blob zurückschreiben (Safari verliert ihn mitunter) — `lokal.ts`
+  schreibt immer eine frische Kopie; Öffnen schreibt gar nicht.
 - Vor jedem Push: `npm run typecheck && npm run lint && npm test && npm run build`.
 - Deutsch in Oberfläche, Code-Bezeichnern und Commits.
 

@@ -376,6 +376,19 @@ G-02 getrennt — Rhythmus zuerst, Töne später.
   zeigt Tag, Monat und Uhrzeit („11.10., 18:48“), aus einem anderen Jahr
   mit Jahreszahl. Regeln getestet in `src/domain/notenpult.ts`
   (`nachTitel`, `zeitpunkt`).
+- **A-06 · Scans als JBIG2/JPEG 2000, verlorene PDF-Dateien** (2026-10-11):
+  Manche Stücke zeigten nur die Markierungen, nicht die Noten: pdf.js 6
+  braucht für JBIG2 (typisch für Schwarz-Weiß-Scans) und JPEG 2000 eigene
+  Decoder (`wasmUrl`), die fehlten — der Scan blieb leer. Jetzt liegen sie
+  versioniert in `public/pdfjs-<version>/` (scripts/pdf-worker.mjs), auch
+  offline. Außerdem schrieb jedes Öffnen „zuletzt“ samt PDF-Datei in den
+  Datensatz zurück; Safari scheiterte daran mitunter („Error preparing
+  Blob/File data …“) und verlor die Datei („The object can not be found
+  here“). Jetzt schreibt Öffnen nichts mehr (zuletzt im localStorage
+  `ueben:zuletzt`), andere Änderungen schreiben eine frische Kopie der
+  Datei, und eine verlorene Datei bekommt eine klare Meldung mit dem Weg
+  zur Rettung („Auswahl aktualisieren“; Stellen und Anmerkungen bleiben).
+  Langfristig gehört die Datei in einen eigenen Store (A-02).
 - **B-05 · Design-Überarbeitung** (2026-10-10): **Entscheidung Marlon:
   Studio.** Drei helle Entwürfe (Blatt · Studio · Galerie, identischer
   Funktionsumfang) liegen als antippbare HTML-Mockups in `docs/design/` und

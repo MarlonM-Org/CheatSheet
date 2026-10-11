@@ -6,7 +6,7 @@ import { istNachladeFehler } from '@/domain/nachladen';
 import type { Anmerkung } from '@/domain/notenpult';
 import { mitRand } from '@/domain/ueben';
 import { NeueVersion } from '@/components/NeueVersion';
-import { anmerkungenVon, notenAendern, notenHolen, stelleAendern, stelleLoeschen, stellenVon, tempoGeschafft, type LokaleNoten, type LokaleStelle as Stelle } from './lokal';
+import { anmerkungenVon, notenAendern, notenHolen, stelleAendern, zuletztMerken, stelleLoeschen, stellenVon, tempoGeschafft, type LokaleNoten, type LokaleStelle as Stelle } from './lokal';
 import { useMetronom } from './MetronomKontext';
 import { NotenBetrachter } from './NotenBetrachter';
 import { NeueVersionFehler, pdfLaden, seiteMitEbene } from './pdf';
@@ -37,7 +37,7 @@ export function NotenPult({ notenId, tastenAktiv, verschwunden }: {
     (async () => {
       const n = await notenHolen(notenId);
       if (!n) { verschwunden(); return; }
-      notenAendern(notenId, { zuletzt: Date.now() }).catch(speicherFehler);
+      zuletztMerken(notenId);
       dokument = pdfLaden(n.datei);
       const [d, st] = await Promise.all([dokument, stellenVon(notenId)]);
       if (weg) return;

@@ -6,7 +6,7 @@ import {
 } from '@/domain/einspielen';
 import { nurLesbare } from '@/domain/lesbar';
 import { sicherungLesen, sicherungPacken, SicherungsFehler, type SicherungsInhalt } from '@/domain/sicherung';
-import { verbindungVerloren } from '@/domain/speicher';
+import { dateiVerloren, verbindungVerloren } from '@/domain/speicher';
 
 // Ablage nur auf diesem Gerät (IndexedDB): Noten-PDFs, markierte Stellen,
 // geschaffte Tempi, Anmerkungen. Keine Datenbank, kein Server. Safari kann die
@@ -151,29 +151,53 @@ const ALLE: Speicher[] = ['noten', 'stellen', 'anmerkungen'];
 // ── Noten ──
 export const alleNoten = () => tx<LokaleNoten[]>('noten', 'readonly', (s) => s.getAll());
 export const notenHolen = (id: string) => tx<LokaleNoten | undefined>('noten', 'readonly', (s) => s.get(id));
-// Die gewählte Datei erst ganz in den Arbeitsspeicher holen: Safari kann
-// eine Datei direkt aus der Dateiauswahl mitunter nicht in den Gerätespeicher
-// übernehmen („Error preparing Blob/File data …“). Eine Kopie geht
-// zuverlässig — und eine nicht lesbare Datei fällt hier mit klarer Meldung auf.
-async function imSpeicher(datei: Blob): Promise<Blob> {
+// Eine PDF-Datei immer als frische Kopie aus dem Arbeitsspeicher in die
+// Datenbank schreiben — nie die gewählte Datei direkt und nie eine aus der
+// Datenbank gelesene: An beidem scheitert Safari mitunter („Error preparing
+// Blob/File data …“), eine gelesene kann dabei sogar verloren gehen. Eine
+// nicht lesbare Datei fällt hier mit klarer Meldung auf.
+async function imSpeicher(datei: Blob, gewaehlt: boolean): Promise<Blob> {
   try {
     return new Blob([await datei.arrayBuffer()], { type: datei.type || 'application/pdf' });
   } catch (x) {
+    if (!gewaehlt && dateiVerloren(x)) throw new DateiVerloren();
     throw new Error(`Die Datei ließ sich nicht lesen (${(x as Error)?.name ?? x}). Liegt sie nur in iCloud? Erst in der Dateien-App öffnen, dann erneut wählen.`);
+  }
+}
+
+// Die gespeicherte PDF-Datei eines Stücks ist auf dem Gerät nicht mehr lesbar.
+export class DateiVerloren extends Error {
+  constructor() {
+    super('Die PDF-Datei dieses Stücks ist auf dem Gerät nicht mehr lesbar. In der Bibliothek das Stück auswählen, „Auswahl aktualisieren“ und die Datei neu wählen — Stellen und Anmerkungen bleiben erhalten.');
   }
 }
 
 export async function notenAnlegen(n: { titel: string; stimme: string; datei: Blob; dateiname?: string; handle?: FileSystemFileHandle }): Promise<string> {
   const id = crypto.randomUUID();
-  const datei = await imSpeicher(n.datei);
+  const datei = await imSpeicher(n.datei, true);
   await tx('noten', 'readwrite', (s) => s.put({ ...n, datei, id, erstellt: Date.now() }));
   dauerhaftAnfragen();
   return id;
 }
 export async function notenAendern(id: string, felder: Partial<LokaleNoten>) {
-  if (felder.datei) felder = { ...felder, datei: await imSpeicher(felder.datei) };
+  const neueDatei = felder.datei ? await imSpeicher(felder.datei, true) : null;
   const alt = await notenHolen(id);
-  if (alt) await tx('noten', 'readwrite', (s) => s.put({ ...alt, ...felder, id }));
+  if (!alt) return;
+  // Die PDF-Datei wird mitgeschrieben — auch die alte als frische Kopie.
+  const datei = neueDatei ?? await imSpeicher(alt.datei, false);
+  await tx('noten', 'readwrite', (s) => s.put({ ...alt, ...felder, datei, id }));
+}
+
+// „Zuletzt geöffnet“ liegt auf dem Gerät im localStorage, nicht im
+// Datensatz: Jedes Schreiben des Datensatzes schreibt die PDF-Datei mit —
+// Öffnen soll gar nicht in die Datenbank schreiben. Der ältere Stand im
+// Datensatz (n.zuletzt) gilt weiter (zuletztAus in @/domain/speicher).
+const ZULETZT = 'ueben:zuletzt';
+export function zuletztListe(): Record<string, number> {
+  try { return JSON.parse(localStorage.getItem(ZULETZT) ?? '{}') ?? {}; } catch { return {}; }
+}
+export function zuletztMerken(id: string) {
+  try { localStorage.setItem(ZULETZT, JSON.stringify({ ...zuletztListe(), [id]: Date.now() })); } catch { /* egal */ }
 }
 // Noten samt Stellen und Anmerkungen in EINER Transaktion: ganz oder gar nicht.
 export const notenLoeschen = (id: string) => transaktion<void>(ALLE, 'readwrite', (t, abbrechen) => {

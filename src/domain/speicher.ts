@@ -18,3 +18,18 @@ export function verbindungVerloren(x: unknown): boolean {
 export function speicherVoll(x: unknown): boolean {
   return name(x) === 'QuotaExceededError';
 }
+
+// Die Datei hinter einem gespeicherten Stück ist nicht mehr lesbar (Safari:
+// „The object can not be found here“). Retten lässt sie sich nur, indem man
+// sie neu wählt — Stellen und Anmerkungen hängen nicht an ihr.
+export function dateiVerloren(x: unknown): boolean {
+  const n = name(x);
+  return n === 'NotFoundError' || n === 'NotReadableError';
+}
+
+// „Zuletzt geöffnet“: der spätere Stand aus der Liste auf dem Gerät und dem
+// älteren Feld im Datensatz (bis 2026-10-11 dort gespeichert).
+export function zuletztAus(liste: Record<string, number>, n: { id: string; zuletzt?: number }): number | undefined {
+  const t = Math.max(liste[n.id] ?? 0, n.zuletzt ?? 0);
+  return t > 0 ? t : undefined;
+}

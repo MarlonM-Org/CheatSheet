@@ -3,6 +3,8 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { anmerkungsBefehle, hatMarkierungen } from '@/domain/ebene';
 import { istNachladeFehler } from '@/domain/nachladen';
+import { dateiVerloren } from '@/domain/speicher';
+import { DateiVerloren } from './lokal';
 
 // Eine neuere Version ist ausgeliefert, und Code dieser Seite fehlt: neu laden.
 export class NeueVersionFehler extends Error {
@@ -11,6 +13,9 @@ export class NeueVersionFehler extends Error {
 
 // Name des Workers mit pdf.js-Version, beim Build aus next.config.ts eingesetzt.
 const WORKER = process.env.PDF_WORKER as string;
+// Ordner der Bild-Decoder (JBIG2, JPEG 2000) — ohne sie bleiben so
+// gespeicherte Scans leer, nur Markierungen darüber wären zu sehen.
+const DECODER = process.env.PDF_WASM as string;
 
 // pdf.js erst im Browser laden (groß, braucht DOM). Worker liegt in public/.
 export async function pdfLaden(datei: Blob): Promise<PDFDocumentProxy> {
@@ -22,7 +27,9 @@ export async function pdfLaden(datei: Blob): Promise<PDFDocumentProxy> {
   }
   pdfjs.GlobalWorkerOptions.workerSrc = WORKER;
   try {
-    return await pdfjs.getDocument({ data: new Uint8Array(await datei.arrayBuffer()) }).promise;
+    let daten: ArrayBuffer;
+    try { daten = await datei.arrayBuffer(); } catch (x) { throw dateiVerloren(x) ? new DateiVerloren() : x; }
+    return await pdfjs.getDocument({ data: new Uint8Array(daten), wasmUrl: DECODER }).promise;
   } catch (e) {
     throw istNachladeFehler(e) ? new NeueVersionFehler() : e;
   }
