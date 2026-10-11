@@ -69,9 +69,10 @@ function alsApp(): boolean {
   } catch { return false; }
 }
 
-// Alle Noten, Stellen und Anmerkungen als eine .uebe-Datei speichern und wieder
-// laden — zum Umzug aus der Registerführer-App und als Schutz, falls der
-// Browser die Gerätedaten löscht. Meldungen zum Laden zeigt die Notenliste.
+// Daten übertragen (in den Einstellungen): alle Noten, Stellen und Anmerkungen
+// als eine .uebe-Datei speichern und wieder laden — um auf ein anderes Gerät
+// umzuziehen (auch aus der Registerführer-App) und als Schutz, falls der
+// Browser die Gerätedaten löscht. Meldungen zum Laden zeigt, wer `laden` hält.
 //
 // Speichern geht in zwei Schritten: Erst packen, dann tippt die Person selbst
 // auf einen echten Link bzw. „Teilen“. Safari auf iPad/iPhone lässt Download
@@ -140,16 +141,17 @@ export function Sicherung({ laden }: { laden: SicherungLaden }) {
   );
 
   return (
-    <section className="karte space-y-3" aria-label="Sicherung">
-      <h2 className="abschnitt-titel">Sicherung</h2>
+    <section className="space-y-2" aria-label="Daten übertragen">
+      <p className="text-sm font-semibold">Daten übertragen</p>
       <p className="gedaempft text-sm">
-        Eine Datei mit allen Noten, markierten Stellen, Tempi und Anmerkungen dieses Geräts. Laden ergänzt die Liste:
-        Was es schon gibt, wird nach Rückfrage zusammengeführt — Tempo-Verläufe und Striche bleiben, Titel, Notizen und
-        Rahmen kommen aus der Sicherung; was nur auf diesem Gerät ist, bleibt.
+        Eine Datei mit allen Noten dieses Geräts samt markierten Stellen, Tempi und Anmerkungen — zum Übertragen auf
+        ein anderes Gerät (dort hier „Sicherung laden“) oder als Schutz. Laden ergänzt: Was es schon gibt, wird nach
+        Rückfrage zusammengeführt; was nur auf dem Gerät ist, bleibt. Einstellungen wie Tempo oder Farbwelt reisen
+        nicht mit.
       </p>
       <div className="flex flex-wrap gap-2">
         <button type="button" className={`knopf ${fertig ? 'knopf-leise' : ''}`} onClick={() => void vorbereiten()} disabled={laeuft || laden.laeuft}>
-          {laeuft ? 'Sicherung wird gepackt …' : fertig ? 'Neu vorbereiten' : 'Sicherung vorbereiten'}
+          {laeuft ? 'Sicherung wird erstellt …' : fertig ? 'Neu erstellen' : 'Sicherung erstellen'}
         </button>
         <button type="button" className="knopf knopf-leise" onClick={laden.waehlen} disabled={laeuft || laden.laeuft}>
           {laden.laeuft ? 'Sicherung wird geladen …' : 'Sicherung laden'}

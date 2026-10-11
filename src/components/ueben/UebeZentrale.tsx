@@ -27,6 +27,9 @@ function Zentrale() {
   const [fassung, setFassung] = useState(0);
   const [bibliothek, setBibliothek] = useState(() => gespeichert<string | null>('ueben:offen', null) === null);
   const [einstellungen, setEinstellungen] = useState(false);
+  // Zählt hoch, wenn in den Einstellungen eine Sicherung geladen wurde —
+  // die Bibliothek liest ihre Liste dann neu.
+  const [bibStand, setBibStand] = useState(0);
   const [metroAn, setMetroAn] = useState(() => gespeichert('ueben:metronom-an', false));
   const [stimmAn, setStimmAn] = useState(false); // Mikrofon nie von allein
   // Die „alles"-Dialoge der Widgets liegen hier, damit tastenAktiv sie kennt.
@@ -76,9 +79,9 @@ function Zentrale() {
       {bibliothek && (
         <Bibliothek offen={offen} oeffnen={oeffnen} schliessen={() => setBibliothek(false)}
           einstellungen={() => setEinstellungen(true)} offenEntfernt={offenWeg}
-          aktualisiert={aktualisiert} escapeAktiv={!dialogOffen} />
+          aktualisiert={aktualisiert} escapeAktiv={!dialogOffen} stand={bibStand} />
       )}
-      {einstellungen && <Einstellungen schliessen={() => setEinstellungen(false)} />}
+      {einstellungen && <Einstellungen schliessen={() => setEinstellungen(false)} geaendert={() => setBibStand((n) => n + 1)} />}
 
       <UntereLeiste bibliothekOffen={bibliothek} metroAn={metroAn} stimmAn={stimmAn} umschalten={umschalten} />
     </div>

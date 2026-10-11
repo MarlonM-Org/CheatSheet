@@ -5,13 +5,13 @@ import { ausDateiname, nachTitel, zeitpunkt, zuordnen } from '@/domain/notenpult
 import { gespeichert, speichern } from './klang';
 import { zuletztAus } from '@/domain/speicher';
 import { alleNoten, notenAendern, notenAnlegen, notenLoeschen, zuletztListe, type LokaleNoten } from './lokal';
-import { Sicherung, useSicherungLaden } from './Sicherung';
+import { useSicherungLaden } from './Sicherung';
 import { fehlerGrund } from './speicherfehler';
 import { useEscape } from './tasten';
 
 // Bibliothek (B-02): Overlay über den Noten — Liste, Hinzufügen, Aktualisieren,
 // Löschen, Sicherung. Tipp auf ein Stück öffnet es vollflächig.
-export function Bibliothek({ offen, oeffnen, schliessen, einstellungen, offenEntfernt, aktualisiert, escapeAktiv }: {
+export function Bibliothek({ offen, oeffnen, schliessen, einstellungen, offenEntfernt, aktualisiert, escapeAktiv, stand }: {
   offen: string | null;
   oeffnen: (id: string) => void;
   schliessen: () => void;
@@ -19,6 +19,8 @@ export function Bibliothek({ offen, oeffnen, schliessen, einstellungen, offenEnt
   offenEntfernt: () => void;
   aktualisiert: (ids: string[]) => void;
   escapeAktiv: boolean;
+  // Ändert sich, wenn anderswo (Einstellungen) eine Sicherung geladen wurde.
+  stand: number;
 }) {
   const [anzahl, setAnzahl] = useState<number | null>(null);
   useEscape(schliessen, escapeAktiv);
@@ -29,9 +31,9 @@ export function Bibliothek({ offen, oeffnen, schliessen, einstellungen, offenEnt
         <h2>Bibliothek</h2>
         {anzahl !== null && <span className="bib-anzahl">{anzahl} {anzahl === 1 ? 'Stück' : 'Stücke'}</span>}
         <button type="button" className="panel-zu" onClick={einstellungen} aria-label="Einstellungen">
-          <svg viewBox="0 0 24 24" aria-hidden="true" style={{ width: 18, height: 18 }} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="3.2" />
-            <path d="M12 3.5v2.3M12 18.2v2.3M3.5 12h2.3M18.2 12h2.3M6 6l1.7 1.7M16.3 16.3 18 18M18 6l-1.7 1.7M7.7 16.3 6 18" />
+          <svg viewBox="0 0 24 24" aria-hidden="true" style={{ width: 19, height: 19 }} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
           </svg>
         </button>
         <button type="button" className="panel-zu" onClick={schliessen} aria-label="Bibliothek schließen">
@@ -39,7 +41,7 @@ export function Bibliothek({ offen, oeffnen, schliessen, einstellungen, offenEnt
         </button>
       </div>
       <div className="bib-inhalt">
-        <NotenListe offen={offen} oeffnen={oeffnen} anzahlMelden={setAnzahl} offenEntfernt={offenEntfernt} aktualisiert={aktualisiert} />
+        <NotenListe offen={offen} oeffnen={oeffnen} anzahlMelden={setAnzahl} offenEntfernt={offenEntfernt} aktualisiert={aktualisiert} stand={stand} />
       </div>
       <div className="bib-fuss">Alles bleibt auf diesem Gerät. Kein Konto, kein Server.</div>
     </section>
@@ -90,9 +92,9 @@ async function ausVerweis(n: LokaleNoten): Promise<File | null> {
   } catch { return null; }
 }
 
-function NotenListe({ offen, oeffnen, anzahlMelden, offenEntfernt, aktualisiert }: {
+function NotenListe({ offen, oeffnen, anzahlMelden, offenEntfernt, aktualisiert, stand }: {
   offen: string | null; oeffnen: (id: string) => void; anzahlMelden: (n: number) => void;
-  offenEntfernt: () => void; aktualisiert: (ids: string[]) => void;
+  offenEntfernt: () => void; aktualisiert: (ids: string[]) => void; stand: number;
 }) {
   const [noten, setNoten] = useState<LokaleNoten[] | null>(null);
   const [fehler, setFehler] = useState('');
@@ -107,7 +109,7 @@ function NotenListe({ offen, oeffnen, anzahlMelden, offenEntfernt, aktualisiert 
     alleNoten().then((l) => { setZuletzt(zuletztListe()); setNoten(l); })
       .catch((e) => setFehler(`Gerätespeicher nicht verfügbar: ${(e as Error).message}`));
   }, []);
-  useEffect(laden, [laden]);
+  useEffect(laden, [laden, stand]);
   useEffect(() => { if (noten) anzahlMelden(noten.length); }, [noten, anzahlMelden]);
   const sicherung = useSicherungLaden(laden);
 
@@ -253,9 +255,9 @@ function NotenListe({ offen, oeffnen, anzahlMelden, offenEntfernt, aktualisiert 
           <li className="karte space-y-3">
             <p>Noch keine Noten auf diesem Gerät. Mit „+ Noten hinzufügen“ eine oder mehrere PDF-Dateien wählen.</p>
             <p>
-              <strong>Umzug aus der Registerführer-App?</strong> Dort auf der Übe-Seite „Sicherung vorbereiten“ und
-              herunterladen, dann hier „Sicherung laden“. Auf jedem Gerät einzeln — Safari-Tab und Home-Bildschirm-App
-              haben getrennte Speicher. Metronom-Einstellungen bitte neu setzen.
+              <strong>Noten von einem anderen Gerät?</strong> Dort in den Einstellungen (Zahnrad) „Sicherung erstellen“
+              und die Datei speichern oder teilen, dann hier „Sicherung laden“. Das geht auch mit einer Sicherung aus der
+              Registerführer-App. Safari-Tab und Home-Bildschirm-App haben getrennte Speicher.
             </p>
             <div className="flex flex-wrap gap-2">
               <button type="button" className="knopf" onClick={sicherung.waehlen} disabled={sicherung.laeuft || laeuft}>
@@ -279,8 +281,7 @@ function NotenListe({ offen, oeffnen, anzahlMelden, offenEntfernt, aktualisiert 
         ))}
       </ul>
 
-      {/* Bei leerer Liste steht „Sicherung laden“ schon in der Hinweis-Karte, speichern gibt es nichts. */}
-      {!!noten?.length && <Sicherung laden={sicherung} />}
+      {/* Sichern und Laden mit Noten: in den Einstellungen. Bei leerer Liste steht „Sicherung laden“ in der Hinweis-Karte. */}
     </div>
   );
 }

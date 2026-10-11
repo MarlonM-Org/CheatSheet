@@ -361,13 +361,38 @@ export async function sicherungPruefen(datei: Blob): Promise<Einspielung> {
 // vereinigt und der Dateiverweis des Geräts bleibt. Was es nur auf dem Gerät
 // gibt, bleibt unberührt. Lesen und Schreiben in EINER readwrite-Transaktion:
 // Was nebenher geändert wird, kann nicht zwischen Lesen und Schreiben fallen.
-// Die PDF-Ausschnitte gehen direkt an put: IndexedDB legt ihren Inhalt selbst
-// ab und hängt danach nicht mehr an der gewählten Datei.
+//
+// Die PDFs gehen nie als Blob in die Datenbank (Safari verliert sie mitunter):
+// Erst liegen sie einzeln als Bytes vorläufig in „dateien“ (Schlüssel
+// „einspielen:<id>“) — so ist nie die ganze Sicherung zugleich im
+// Arbeitsspeicher —, dann zieht die eine Transaktion sie an ihren Platz. Die
+// Datei aus der Sicherung gewinnt. Reste eines abgebrochenen Laufs räumt der
+// nächste weg.
+const VORLAEUFIG = 'einspielen:';
 export async function sicherungSchreiben(e: Einspielung): Promise<{ neu: number; aktualisiert: number; stellen: number; anmerkungen: number; uebersprungen: number }> {
+  const vorlaeufig = () => IDBKeyRange.bound(VORLAEUFIG, `${VORLAEUFIG}\uffff`);
+  await tx('dateien', 'readwrite', (s) => { s.delete(vorlaeufig()); });
+  for (const n of e.noten) {
+    const daten = await bytesLesen(n.datei);
+    await tx('dateien', 'readwrite', (s) => s.put({ id: VORLAEUFIG + n.id, daten, typ: n.datei.type || 'application/pdf' } satisfies LokaleDatei));
+  }
+  const ids = [...new Set(e.noten.map((n) => n.id))];
   await transaktion<void>(ALLE_MIT_DATEIEN, 'readwrite', (t, abbrechen) => {
-    // Die Datei aus der Sicherung gewinnt: Bytes desselben Stücks in
-    // „dateien“ weichen, ihr Blob zieht beim ersten Öffnen dorthin um.
-    for (const n of e.noten) t.objectStore('dateien').delete(n.id);
+    const dateien = t.objectStore('dateien');
+    // Nacheinander, damit nicht alle Dateien zugleich gelesen im Speicher liegen.
+    const umziehen = (i: number) => {
+      if (i >= ids.length) return;
+      const r = dateien.get(VORLAEUFIG + ids[i]) as IDBRequest<LokaleDatei | undefined>;
+      r.onsuccess = () => {
+        try {
+          if (!r.result) throw new Error('Eine Datei aus der Sicherung fehlt beim Einspielen — bitte noch einmal laden.');
+          dateien.put({ ...r.result, id: ids[i] });
+          dateien.delete(VORLAEUFIG + ids[i]);
+          umziehen(i + 1);
+        } catch (x) { abbrechen(x); }
+      };
+    };
+    umziehen(0);
     const einspielen = <E extends { id: string }>(
       name: Speicher, eintraege: E[], zusammen: (geraet: Record<string, unknown> | undefined, neu: E) => E,
     ) => {
@@ -385,7 +410,8 @@ export async function sicherungSchreiben(e: Einspielung): Promise<{ neu: number;
         };
       }
     };
-    einspielen('noten', e.noten, notenZusammenfuehren);
+    // Datensätze ohne Blob — die Datei liegt jetzt in „dateien“.
+    einspielen('noten', e.noten, (g, n) => ohneDatei(notenZusammenfuehren(g, n)) as typeof n);
     einspielen('stellen', e.stellen, stelleZusammenfuehren);
     einspielen('anmerkungen', e.anmerkungen, seiteZusammenfuehren);
   });

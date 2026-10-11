@@ -2,6 +2,7 @@
 
 import { DUNKLE_THEMEN, HELLE_THEMEN, MODI, MODUS_NAME, THEMA_NAME, type Thema } from '@/domain/thema';
 import { useThema } from '@/components/thema';
+import { Sicherung, useSicherungLaden } from './Sicherung';
 import { useDialogFokus, useEscape } from './tasten';
 
 // Muster je Farbwelt: Grundton und Akzent — passend zu den Token-Sätzen
@@ -32,9 +33,12 @@ function WeltWahl({ titel, welten, wert, setzen, aktiv }: {
 }
 
 // Einstellungen (B-04): Erscheinungsbild Hell/Dunkel/System plus je eine
-// helle und dunkle Farbwelt. Der Punkt markiert die gerade aktive Welt.
-export function Einstellungen({ schliessen }: { schliessen: () => void }) {
+// helle und dunkle Farbwelt (der Punkt markiert die gerade aktive Welt);
+// darunter Daten übertragen — Sicherung erstellen und laden (B-06).
+// `geaendert` meldet eine geladene Sicherung, damit die Bibliothek neu liest.
+export function Einstellungen({ schliessen, geaendert }: { schliessen: () => void; geaendert: () => void }) {
   const { modus, setModus, hell, setHell, dunkel, setDunkel, aktiv } = useThema();
+  const laden = useSicherungLaden(geaendert);
   useEscape(schliessen);
   const fokus = useDialogFokus<HTMLDivElement>();
 
@@ -56,6 +60,11 @@ export function Einstellungen({ schliessen }: { schliessen: () => void }) {
         </div>
         <WeltWahl titel="Helle Farbwelt" welten={HELLE_THEMEN} wert={hell} setzen={setHell} aktiv={aktiv} />
         <WeltWahl titel="Dunkle Farbwelt" welten={DUNKLE_THEMEN} wert={dunkel} setzen={setDunkel} aktiv={aktiv} />
+        <hr className="trenner" />
+        <Sicherung laden={laden} />
+        {laden.meldung && <p className="karte" role="status">{laden.meldung}</p>}
+        {laden.fehler && <p className="karte warnung" role="alert">{laden.fehler}</p>}
+        {laden.eingabe}
         <p className="gedaempft text-sm">Alles bleibt auf diesem Gerät. Kein Konto, kein Server.</p>
       </div>
     </div>

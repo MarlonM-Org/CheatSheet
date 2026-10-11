@@ -143,9 +143,12 @@ Lokal prüfen: `npm run build`, dann `python3 -m http.server 3470 --directory ou
 
 ## Sicherung (.uebe)
 
-Unter **Noten → Sicherung**:
+Unter **Einstellungen (Zahnrad in der Bibliothek) → Daten übertragen** — um
+den Stand auf ein anderes Gerät zu bringen oder als Schutz. Auf einem neuen,
+leeren Gerät steht „Sicherung laden“ auch direkt in der Bibliothek.
+Einstellungen (Tempo, Farbwelt …) reisen nicht mit.
 
-- **Sicherung vorbereiten** packt eine Datei `Uebe-Sicherung JJJJ-MM-TT.uebe`:
+- **Sicherung erstellen** packt eine Datei `Uebe-Sicherung JJJJ-MM-TT.uebe`:
   alle Noten-PDFs, markierten Stellen mit Tempo-Verlauf und Anmerkungen
   dieses Geräts. Jede PDF wird dafür einmal komplett gelesen (als Strom, ohne
   den Inhalt zu behalten) und die Bytes werden gegen die gespeicherte Größe
@@ -165,11 +168,14 @@ Unter **Noten → Sicherung**:
   aber Tempo-Verläufe werden vereinigt (jeder Eintrag einmal, nach Zeit
   sortiert) und Striche/Texte einer Seite nach ihrer id (bei gleicher id gilt
   die Sicherung). Bei Noten kommt auch die Datei aus der Sicherung, der
-  Dateiverweis des Geräts bleibt. Gibt es schon etwas davon auf dem Gerät,
+  Dateiverweis des Geräts bleibt. Die PDFs gehen dabei nie als Blob in die
+  Datenbank (Safari verliert sie mitunter): erst einzeln als Bytes vorläufig
+  in `dateien`, dann zieht die eine Transaktion sie an ihren Platz. Gibt es schon etwas davon auf dem Gerät,
   fragt die App vorher („Die Sicherung vom … aktualisiert auf diesem Gerät N
   Noten, M Stellen und K Seiten mit Anmerkungen …“); bei „Abbrechen“ bleibt
   alles, wie es war. Gelesen und geschrieben wird in einer einzigen
-  readwrite-Transaktion — alles oder nichts, und nichts kann dazwischenfallen.
+  readwrite-Transaktion — alles oder nichts, und nichts kann dazwischenfallen
+  (vorläufige Reste eines abgebrochenen Laufs räumt der nächste weg).
   Zweimal laden verdoppelt nichts. Danach: „X Noten neu, Y aktualisiert; Z Stellen, K Seiten mit
   Anmerkungen“. Bei falscher Datei sagt die App, wo die .uebe-Datei liegt.
 - Ist der Gerätespeicher blockiert (ein anderes CheatSheet-Fenster hält noch

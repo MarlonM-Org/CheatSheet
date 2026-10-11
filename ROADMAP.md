@@ -26,7 +26,7 @@ nicht in der Breite, aber in der Sorgfalt.
 
 | # | Meilenstein | Inhalt | Backlog-Punkte |
 |---|---|---|---|
-| M1 | **Fundament aufräumen** | Sicherung raus, Datenmodell klären, Tests für die Speicherschicht | A-01…A-03 |
+| M1 | **Fundament aufräumen** | Datenmodell klären, Tests für die Speicherschicht (A-01 verworfen) | A-02, A-03 |
 | M2 | **Noten im Zentrum** | UI-Neuaufbau: Noten vollflächig, Werkzeuge als Overlays, drei Knöpfe unten | B-01…B-03 |
 | M3 | **Werkzeuge schärfen** | Stimmgerät- und Metronom-Verbesserungen, Stift-Ausbau | C-01…C-03, D-01, E-01…E-03 |
 | M4 | **Notenmanagement I** | Metadaten, Bookmarks, Flags, Kontextmenüs, Drag & Drop | F-01, F-03, F-04, F-08, F-09 |
@@ -44,28 +44,13 @@ umbauen.
 
 ## A — Fundament & Datenmodell
 
-### A-01 · Sicherung (.uebe) komplett entfernen
+### A-01 · ~~Sicherung (.uebe) komplett entfernen~~ — verworfen
 
-Das Sicherungs-/Lade-Feature war nur für den Umzug aus der Registerführer-App
-da; der Umzug ist abgeschlossen, es gab genau einen Nutzer. Es fliegt
-ersatzlos raus — damit entfällt auch der bisherige Format-Vertrag mit
-`registerfuehrer`.
-
-Entfernungsfläche (vollständig):
-
-- Ganze Dateien: `src/domain/sicherung.ts`, `src/domain/einspielen.ts`,
-  `src/domain/lesbar.ts`, `src/components/ueben/Sicherung.tsx`,
-  `tests/sicherung.test.ts`, `tests/einspielen.test.ts`, `tests/lesbar.test.ts`
-- `src/components/ueben/lokal.ts`: Abschnitt „Übe-Sicherung“ (ca. Z. 182–269)
-  samt Imports aus `@/domain/einspielen|lesbar|sicherung`. **Achtung:** `ALLE`
-  und `dauerhaftAnfragen()` werden auch von `notenAnlegen`/`notenLoeschen`
-  gebraucht — die bleiben.
-- `src/components/ueben/UebeZentrale.tsx`: Import und Hook
-  `useSicherungLaden`, Sicherungs-Karte, „Sicherung laden“-Knopf im
-  Leerzustand, Umzugs-Absätze. Die Deep-Link-Logik `?reiter=noten`/`#noten`
-  existierte nur für den Umzug und kann mit weg.
-- Doku: README-Abschnitt „Sicherung (.uebe)“, CLAUDE.md-Absatz zum
-  `.uebe`-Vertrag.
+**Entscheidung Marlon (2026-10-11):** Die Sicherung bleibt — als „Daten
+übertragen“ in den Einstellungen, um den aktuellen Stand auf ein anderes
+Gerät zu bringen (nicht nur aus der Registerführer-App) und als Schutz.
+Umgesetzt in B-06 (siehe Erledigt). Der `.uebe`-Vertrag mit `registerfuehrer`
+bleibt damit bestehen.
 
 ### A-02 · Datenbank & Relationsmodell aufräumen
 
@@ -259,7 +244,7 @@ G-02 getrennt — Rhythmus zuerst, Töne später.
 
 - **B-01 · Kopfzeile weg, drei große Knöpfe unten** (2026-10-10, `9b36fcc`):
   Kopf- und Fußzeile ersatzlos entfernt; untere Leiste mit Noten · Metronom ·
-  Stimmgerät (`UntereLeiste.tsx`); Start landet direkt auf den Noten
+  Stimmgerät (`UntereLeiste.tsx`; seit B-06 Stimmgerät · Noten · Metronom); Start landet direkt auf den Noten
   (zuletzt geöffnetes Stück, sonst Bibliothek).
 - **B-02 · Noten immer vollflächig** (2026-10-10, `9b36fcc`): Der Betrachter
   ist die Hauptansicht (kein Portal/Dialog mehr) und folgt dem Thema; die
@@ -394,6 +379,17 @@ G-02 getrennt — Rhythmus zuerst, Töne später.
   („Auswahl aktualisieren“; Stellen und Anmerkungen bleiben). Die
   Sicherung (.uebe) bleibt im Format gleich und holt die Dateien aus
   `dateien`.
+- **B-06 · Einstellungen: Zahnrad, Daten übertragen; Leiste neu sortiert**
+  (2026-10-11): Untere Leiste jetzt **Stimmgerät · Noten · Metronom** (Noten
+  in der Mitte). In der Bibliothek öffnet ein Zahnrad (statt der Sonne) die
+  Einstellungen; dort steht unter „Daten übertragen“ die Sicherung: alle
+  Noten samt Stellen, Tempi, Anmerkungen und Radier-Spuren als eine
+  `.uebe`-Datei erstellen (herunterladen oder teilen) und auf dem anderen
+  Gerät laden — in den Einstellungen oder direkt in der leeren Bibliothek.
+  Einstellungen (Tempo, Farbwelt …) reisen nicht mit. Beim Laden gehen die
+  PDFs nie als Blob in die Datenbank: erst einzeln als Bytes vorläufig in
+  `dateien`, dann zieht eine Transaktion sie an ihren Platz (alles oder
+  nichts). Ersetzt A-01.
 - **B-05 · Design-Überarbeitung** (2026-10-10): **Entscheidung Marlon:
   Studio.** Drei helle Entwürfe (Blatt · Studio · Galerie, identischer
   Funktionsumfang) liegen als antippbare HTML-Mockups in `docs/design/` und
