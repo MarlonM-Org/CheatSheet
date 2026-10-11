@@ -6,7 +6,7 @@ Punkt ein; wer etwas fertigstellt, hakt ab und verschiebt den Punkt nach
 „Erledigt“ (unten). Größere Richtungsentscheidungen bitte als kurzen Absatz
 hier dokumentieren, nicht nur im Chat.
 
-Stand: 2026-10-10.
+Stand: 2026-10-11.
 
 ## Leitbild
 
@@ -35,7 +35,7 @@ nicht in der Breite, aber in der Sorgfalt.
 | M7 | **Komponieren** (Vision) | Noteneingabe, Rhythmus-/Melodie-Transkription | G-01…G-03 |
 
 **Quick Wins** (klein, unabhängig, jederzeit zwischenschieben — guter
-Einstieg): C-01, C-02, C-03, D-01.
+Einstieg): C-01, C-02, C-03, D-01 — *alle am 2026-10-10 erledigt.*
 
 M2 setzt Designvorschläge voraus (siehe B-05) — erst Richtung festlegen, dann
 umbauen.
@@ -97,77 +97,12 @@ Migrationstest.
 
 ## B — UI-Neuaufbau: Noten im Zentrum
 
-*(in Arbeit: Claude, seit 2026-10-10, Branch `feature/ui-noten-im-zentrum` — B-05 zuerst, dann B-01…B-04)*
-
-### B-01 · Kopfzeile weg, drei große Knöpfe unten
-
-Die Kopfzeile („CheatSheet / METRONOM · STIMMGERÄT · NOTENPULT“ in
-`src/app/layout.tsx`) verschwindet ersatzlos. Stattdessen eine untere Leiste
-mit drei großen Knöpfen (Noten · Metronom · Stimmgerät). Start landet immer
-direkt auf den Noten, ohne Zwischenschritt.
-
-### B-02 · Noten immer vollflächig
-
-Heute: Liste → NotenPult → Betrachter öffnet als Portal/Dialog
-(`NotenBetrachter.tsx`, `position: fixed`). Ziel: Die Noten **sind** die
-Hauptansicht und füllen immer das ganze Fenster; es gibt kein
-„Öffnen-Popup“-Gefühl mehr. Liste/Bibliothek wird zum Overlay oder zur
-Einstiegsansicht, nicht umgekehrt.
-
-### B-03 · Metronom & Stimmgerät als Overlay-Widgets
-
-Über die untere Leiste zuschaltbar, schweben als kompakte Widgets über den
-Noten (das Mini-Metronom in `MiniMetronom.tsx` ist der Keim dafür). Metronom
-läuft beim Ein-/Ausblenden weiter (`MetronomKontext` kann das schon). Das
-Stimmgerät braucht eine kompakte Widget-Form.
-
-### B-04 · Einstellungen mit Licht/Dunkel und Themes
-
-Es gibt heute keinen manuellen Modus-Umschalter (nur
-`prefers-color-scheme`). Ziel: Einstellungsbereich mit
-
-- Hell / Dunkel / System
-- Themes (Farbwelten auf Basis der bestehenden CSS-Tokens in `globals.css`):
-  **Dunkelblau**, **Schwarz** (echtes OLED-Schwarz), **Weiß** (hell,
-  neutral), **Sommer** (hell, fröhlich, Rosa-/Blumen-Akzente)
-
-Technisch: `data-theme`-Attribut + Token-Sätze; Auswahl persistieren
-(siehe A-02, Einstellungs-Store). `themeColor`/Manifest mitziehen.
-
-### B-05 · Design-Überarbeitung (vor M2 entscheiden)
-
-Das aktuelle UI wirkt generisch („generiert“): viele runde Ecken, Karten,
-wenig eigene Handschrift. Ziel ist ein cleanes, hochwertiges, inhaltsfokussiertes
-Design — Referenz sind die forScore-Screenshots: ruhige Flächen, dezentes
-Chrome, die Noten dominieren.
-
-Aufgabe: 2–3 ausgearbeitete Designvorschläge (HTML-Mockups) für
-Noten-Vollansicht + untere Leiste + Overlays + je ein Theme aus B-04,
-dann gemeinsam entscheiden. Erst danach B-01…B-03 umsetzen.
+*(komplett umgesetzt am 2026-10-10 — alle Punkte unter „Erledigt“;
+Branch `feature/ui-noten-im-zentrum`, PR #1)*
 
 ---
 
 ## C — Stimmgerät
-
-### C-01 · Standard-Stimmung B ⚡
-
-`STIMMUNGEN` (`src/domain/ueben.ts`) kann schon C/B/Es/F — aber der Standard
-ist C. Neu: Standard **B** (deutsch, = internationales B♭). Gespeicherte
-Auswahl (`stimm:st`) hat weiter Vorrang; nur der Erststart ändert sich.
-
-### C-02 · Anzeige entschlacken: „+1 / −3“ statt „+3 Cent“ ⚡
-
-In `Stimmgeraet.tsx` (Abweichungszeile): nur noch Vorzeichen + Zahl
-(z. B. „+1“, „−3“), das Wort „Cent“ fällt weg. Insgesamt weniger Text in den
-Zustandsmeldungen („Mikrofon starten…“, „Spiel einen langen Ton…“ kürzen).
-
-### C-03 · Fußzeile straffen ⚡
-
-`src/app/layout.tsx`: „Alles bleibt auf diesem Gerät — keine Anmeldung, kein
-Konto, nichts auf einem Server.“ → kürzer und ohne Gedankenstrich, z. B.
-„Alles bleibt auf diesem Gerät. Kein Konto, kein Server.“ Die gleichen
-Em-Dash-Formulierungen in `layout.tsx` (Beschreibung), `manifest.ts` und
-README bei der Gelegenheit mitziehen.
 
 ### C-04 · Intonations-Trainer (Name gesucht)
 
@@ -205,36 +140,11 @@ funktionieren): *Tonkompass* · *Tonprofil* · *Stimmbild* · *Tonleiter-Check*.
 
 ## D — Metronom
 
-### D-01 · ±1-Knöpfe in der Schnellverstellung ⚡
-
-Heute: ±5 %/±10 % in `Metronom.tsx`, ±10 % im `MiniMetronom.tsx` (beides
-multiplikativ). Neu: zusätzlich **−1 / +1** als harte BPM-Schritte, auch im
-Mini-Metronom auf den Noten — fürs Feinjustieren aufs Zieltempo. ±10 % bleibt,
-der Schieberegler bleibt (große Sprünge). ±5 % kann zugunsten der ±1-Knöpfe
-weichen, wenn es sonst zu voll wird.
+*(derzeit keine offenen Punkte — D-01 erledigt, siehe unten)*
 
 ---
 
 ## E — Stift & Anmerkungen
-
-### E-01 · Stiftdicke einstellbar
-
-Heute hart kodiert (`NotenBetrachter.tsx`: Stift 0.0025, Marker 0.014,
-relativ zur Seitenbreite — an **zwei** Stellen: Live-Vorschau und
-Speicherpfad). Neu: 3–4 Dickenstufen je Werkzeug, Auswahl wird gespeichert.
-Das `Anmerkung`-Datenmodell (`src/domain/notenpult.ts`) braucht dafür ein
-`breite`-Feld (alte Anmerkungen ohne Feld = bisherige Breite).
-
-### E-02 · Mehr Farben
-
-Heute je 3 feste Farben für Stift/Text und Marker. Neu: größere kuratierte
-Palette (8–12) + zuletzt benutzte Farben; Auswahl wird gespeichert.
-
-### E-03 · Stift-UI überarbeiten
-
-Das schwebende Werkzeugfeld ist funktional, aber unansehnlich. Zusammen mit
-B-05 neu gestalten. Zielbild forScore: speicherbare **Stift-Presets**
-(Werkzeug + Farbe + Dicke als ein Antipp-Preset). Redo zusätzlich zu Undo.
 
 ### E-04 · Anmerkungen, Ausbaustufe (forScore-Niveau)
 
@@ -345,6 +255,86 @@ G-02 getrennt — Rhythmus zuerst, Töne später.
 ## Erledigt
 
 *(Abgeschlossene Punkte hierher verschieben, mit Datum und Commit.)*
+
+- **B-01 · Kopfzeile weg, drei große Knöpfe unten** (2026-10-10, `9b36fcc`):
+  Kopf- und Fußzeile ersatzlos entfernt; untere Leiste mit Noten · Metronom ·
+  Stimmgerät (`UntereLeiste.tsx`); Start landet direkt auf den Noten
+  (zuletzt geöffnetes Stück, sonst Bibliothek).
+- **B-02 · Noten immer vollflächig** (2026-10-10, `9b36fcc`): Der Betrachter
+  ist die Hauptansicht (kein Portal/Dialog mehr) und folgt dem Thema; die
+  Bibliothek ist ein angedocktes Overlay (`Bibliothek.tsx`); Stück-Details
+  samt Stellen-Übersicht liegen im Stück-Blatt hinter dem Titel. Der
+  Umzugs-Deep-Link `?reiter=noten` entfiel mit der Reiter-Architektur.
+- **B-03 · Metronom & Stimmgerät als Overlay-Widgets** (2026-10-10,
+  `9b36fcc`): `MetronomWidget` (Start/Stopp, Tempo tippbar, −1/+1, ±10 %,
+  Regler, Taktpunkte; läuft beim Ausblenden weiter) und `StimmgeraetWidget`
+  (Ton, Skala, Abweichung „+2“; Ausblenden stoppt das Mikrofon) docken über
+  der Leiste; „alles“ öffnet jeweils die große Ansicht. Auf Marlons Wunsch
+  sind beide Widgets **frei über den ganzen Bildschirm schiebbar** (am Kopf
+  anfassen; Position wird gemerkt, Ablegen an der Leiste dockt wieder an),
+  damit die Noten lesbar bleiben. Der MiniMetronom ging im Widget auf; die
+  Stimmgerät-Logik liegt im `StimmgeraetKontext`.
+- **B-04 · Einstellungen mit Licht/Dunkel und Themes** (2026-10-10):
+  Einstellungsbereich (Zahnrad in der Bibliothek) mit Hell/Dunkel/System
+  und je einer hellen (**Weiß**, **Sommer**) und dunklen (**Dunkelblau**,
+  **Schwarz** als echtes OLED-Schwarz) Farbwelt; „System“ wechselt zwischen
+  den beiden gewählten. Technik: `data-thema` am `<html>` vor dem ersten
+  Bild (Inline-Script), Auflösung in `src/domain/thema.ts` (getestet),
+  Token-Sätze je Welt in `globals.css` (No-JS-Fallback nur ohne Attribut),
+  `themeColor` je Welt, Manifest hell. Auswahl liegt in localStorage
+  (`ueben:modus`, `ueben:thema-hell`, `ueben:thema-dunkel`) — Umzug in den
+  Einstellungs-Store bleibt Thema von A-02.
+- **E-01 · Stiftdicke einstellbar** (2026-10-10): 4 Stift- und 3
+  Marker-Dicken (`src/domain/stift.ts`, getestet), je Werkzeug gemerkt
+  (`ueben:stift|marker|text`); Live-Vorschau und Speicherpfad nutzen
+  dieselbe Einstellung. Das `breite`-Feld je Anmerkung gab es schon —
+  alte Anmerkungen bleiben unverändert.
+- **E-02 · Mehr Farben** (2026-10-10): Kuratierte Palette (9 Stift-/
+  Textfarben, 6 Markerfarben), die alten Standardfarben sind enthalten.
+  Statt einer „Zuletzt“-Reihe merkt sich jedes Werkzeug Farbe + Dicke —
+  das Muster von Apples Pencil-Palette, auf Marlons Wunsch iOS-orientiert.
+- **E-03 · Stift-UI überarbeitet** (2026-10-10): Neue schwebende, frei
+  verschiebbare Werkzeug-Palette nach dem Vorbild von Apples
+  Pencil-Palette (Studio-Skin): Rückgängig **und neu Wiederholen**,
+  Werkzeuge mit angehobenem Aktiv-Zustand, Dicken-Punkte, Farb-Swatches,
+  Finger-Schalter; Einstieg über den Stift-Knopf in der Betrachter-Leiste.
+  **Doppeltipp auf die Werkzeug-Reihe wechselt Radierer ↔ voriges
+  Werkzeug** — der Hardware-Doppeltipp des Apple Pencil kommt in
+  Safari-Webinhalten nicht an (`UIPencilInteraction` ist nativen Apps
+  vorbehalten), deshalb als Bildschirm-Geste. Statt forScore-Presets gilt
+  das Pencil-Muster „jedes Werkzeug merkt sich seine Einstellung“.
+- **C-01 · Standard-Stimmung B** (2026-10-10): Erststart startet „in B“
+  (deutsch, = internationales B♭); gespeicherte Auswahl `stimm:st` hat
+  weiter Vorrang (`StimmgeraetKontext.tsx`).
+- **C-02 · Anzeige entschlackt** (2026-10-10): Abweichung nur noch als
+  „+1“/„−3“ ohne das Wort „Cent“ (Widget hatte das schon, jetzt auch die
+  große Ansicht); Meldungen gekürzt („Mikrofon starten“, „Spiel einen
+  Ton …“).
+- **C-03 · Formulierungen gestrafft** (2026-10-10): Die Fußzeile selbst
+  entfiel mit B-01; der Gedankenstrich-Satz in Beschreibung (`layout.tsx`),
+  `manifest.ts`, README und Leerzustand heißt jetzt „… Metronom und
+  Stimmgerät. Alles auf deinem Gerät.“ Der Datenschutz-Satz steht kurz im
+  Bibliotheks-Fuß und in den Einstellungen.
+- **D-01 · ±1-Knöpfe in der Schnellverstellung** (2026-10-10): Große
+  Metronom-Ansicht hat −1/+1 als harte BPM-Schritte (±5 % wich dafür,
+  ±10 % und Regler bleiben); das Metronom-Widget auf den Noten hatte
+  −1/+1, ±10 % und Regler schon seit B-03.
+- **D-02 · Ton nach App-Wechsel** (2026-10-11): Auf dem iPhone (vor allem
+  als Home-Bildschirm-App) blieb das Metronom stumm, wenn man die App kurz
+  verließ und zurückkam — iOS unterbricht dabei den AudioContext, und der
+  alte Kontext wurde weiterverwendet. Jetzt halten Metronom und Stimmgerät
+  (Mikrofon, Referenzton) beim Verlassen der App an und schließen ihren
+  Kontext; ein unterbrochener Kontext wird nie weiterverwendet, der nächste
+  Tipp legt einen frischen an (`verwerfen`, `useBeimVerlassen` in
+  `klang.ts`). Folge: Auch am Rechner läuft das Metronom in einem
+  Hintergrund-Tab nicht mehr weiter.
+- **B-05 · Design-Überarbeitung** (2026-10-10): **Entscheidung Marlon:
+  Studio.** Drei helle Entwürfe (Blatt · Studio · Galerie, identischer
+  Funktionsumfang) liegen als antippbare HTML-Mockups in `docs/design/` und
+  bleiben als Referenz. Studio — helles Studio-Weiß, warm abgestufte
+  Neutrale, Haarlinien statt Schatten, kleine Radien, Messing nur an
+  Aktivem — ist als Standard-Design umgesetzt (Tokens in `globals.css`,
+  `5be6bba` ff.). Farbwelten/Themes werden bewusst nachgezogen (B-04).
 
 - **A-04 · Anforderungsquelle geklärt** (2026-10-10): Diese ROADMAP.md ist
   die einzige Anforderungsliste; die Verweise auf

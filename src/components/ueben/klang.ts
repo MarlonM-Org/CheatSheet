@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect } from 'react';
+
 // Klänge für das Metronom, einmal synthetisiert und als Puffer abgelegt —
 // kurz, trocken und mit klarem Anschlag, damit man sie im Ensemble-Lärm hört.
 export type Klang = 'holz' | 'klick' | 'glocke';
@@ -44,6 +46,25 @@ type AudioSessionNavigator = Navigator & { audioSession?: { type: string } };
 export function audioSitzung(typ: 'playback' | 'play-and-record') {
   const nav = navigator as AudioSessionNavigator;
   try { if (nav.audioSession) nav.audioSession.type = typ; } catch { /* egal */ }
+}
+
+// iPhone/iPad, vor allem als Home-Bildschirm-App: Geht die App in den
+// Hintergrund, unterbricht iOS jeden AudioContext. Zurück im Vordergrund
+// bleibt er stumm, und resume() hilft nicht mehr (kehrt teils nie zurück).
+// Darum wird ein unterbrochener Kontext nie weiterverwendet, sondern
+// geschlossen — der nächste Tipp legt in seiner Geste einen frischen an.
+export function verwerfen(ctx: AudioContext | undefined) {
+  if (ctx && ctx.state !== 'closed') ctx.close().catch(() => { /* egal */ });
+}
+
+// Ruft `tun` auf, sobald die App verlassen wird: andere App, Home-Bildschirm,
+// Sperre, anderer Tab. `tun` sollte stabil sein (useCallback).
+export function useBeimVerlassen(tun: () => void) {
+  useEffect(() => {
+    const wechsel = () => { if (document.visibilityState === 'hidden') tun(); };
+    document.addEventListener('visibilitychange', wechsel);
+    return () => document.removeEventListener('visibilitychange', wechsel);
+  }, [tun]);
 }
 
 type WakeLockNavigator = Navigator & { wakeLock?: { request: (t: 'screen') => Promise<{ release: () => Promise<void> }> } };

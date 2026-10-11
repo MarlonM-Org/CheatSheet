@@ -2,12 +2,14 @@
 
 import { istNachladeFehler } from '@/domain/nachladen';
 
-// Fängt Fehler der Seite ab. Kopf und Fuß (Layout) bleiben stehen. Die Daten
-// liegen in IndexedDB und sind von so einem Fehler nicht betroffen.
+// Fängt Fehler der Seite ab. Die Daten liegen in IndexedDB und sind von so
+// einem Fehler nicht betroffen. Das Layout hat kein eigenes Polster mehr
+// (B-01), darum bringt die Karte ihren Rahmen selbst mit.
 export default function Fehler({ error }: { error: Error & { digest?: string }; reset: () => void }) {
   const neueVersion = istNachladeFehler(error);
   return (
-    <div className="karte space-y-3" role="alert">
+    <div className="mx-auto max-w-xl p-4" role="alert">
+      <div className="karte space-y-3">
       <h1 className="abschnitt-titel">{neueVersion ? 'Neue Version verfügbar' : 'CheatSheet hat gerade ein Problem'}</h1>
       <p>
         {neueVersion
@@ -16,6 +18,7 @@ export default function Fehler({ error }: { error: Error & { digest?: string }; 
       </p>
       <button className="knopf" type="button" onClick={() => location.reload()}>Neu laden</button>
       {error.digest && <p className="gedaempft text-xs">Fehlercode: {error.digest}</p>}
+      </div>
     </div>
   );
 }

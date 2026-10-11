@@ -8,13 +8,13 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'CheatSheet',
     short_name: 'CheatSheet',
-    description: 'Noten, schwierige Stellen, Metronom und Stimmgerät — alles auf deinem Gerät.',
+    description: 'Noten, schwierige Stellen, Metronom und Stimmgerät. Alles auf deinem Gerät.',
     lang: 'de',
     start_url: '/',
     scope: '/',
     display: 'standalone',
-    background_color: '#111111',
-    theme_color: '#111111',
+    background_color: '#fcfcfb',
+    theme_color: '#fcfcfb',
     icons: [
       { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
       { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },

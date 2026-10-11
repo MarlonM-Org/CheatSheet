@@ -1,0 +1,81 @@
+'use client';
+
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { gespeichert, speichern } from './klang';
+
+// Frei schiebbare Panels (B-03): Am Kopf anfassen und über den ganzen
+// Bildschirm ziehen, damit die Noten lesbar bleiben. Ohne gemerkte Lage
+// sitzt das Panel im Dock über der Leiste; Ablegen nahe der Leiste dockt
+// wieder an. Die Lage wird je Panel gemerkt und bleibt im Bild, wenn sich
+// die Fenstergröße ändert.
+
+export interface Lage { x: number; y: number }
+
+// Wer zuletzt angefasst wurde, liegt über dem anderen Panel.
+let stapel = 0;
+
+export function useSchiebbar(schluessel: string) {
+  const panel = useRef<HTMLElement | null>(null);
+  const [lage, setLage] = useState<Lage | null>(() => gespeichert<Lage | null>(schluessel, null));
+  const [ebene, setEbene] = useState(0);
+  const zug = useRef<{ id: number; dx: number; dy: number; startX: number; startY: number; gezogen: boolean } | null>(null);
+
+  const klemmen = useCallback((x: number, y: number): Lage => {
+    const el = panel.current;
+    const b = el?.offsetWidth ?? 320, h = el?.offsetHeight ?? 160;
+    return {
+      x: Math.max(4, Math.min(window.innerWidth - b - 4, x)),
+      y: Math.max(4, Math.min(window.innerHeight - h - 4, y)),
+    };
+  }, []);
+
+  const anfassen = useCallback((e: React.PointerEvent) => {
+    if ((e.target as HTMLElement).closest('button, input, a, select')) return;
+    const el = panel.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    zug.current = { id: e.pointerId, dx: e.clientX - r.left, dy: e.clientY - r.top, startX: e.clientX, startY: e.clientY, gezogen: false };
+    setEbene(++stapel);
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  }, []);
+
+  const bewegen = useCallback((e: React.PointerEvent) => {
+    const z = zug.current;
+    if (!z || e.pointerId !== z.id) return;
+    if (!z.gezogen) {
+      if (Math.hypot(e.clientX - z.startX, e.clientY - z.startY) < 5) return;
+      z.gezogen = true;
+      // Beim Lösen aus dem vollbreiten Dock wird das Panel schmaler —
+      // Griffpunkt in die Panel-Mitte legen, sonst springt es weg.
+      const schwebBreite = Math.min(380, window.innerWidth - 16);
+      if (z.dx > schwebBreite - 24) z.dx = schwebBreite / 2;
+    }
+    setLage(klemmen(e.clientX - z.dx, e.clientY - z.dy));
+  }, [klemmen]);
+
+  const loslassen = useCallback(() => {
+    const z = zug.current;
+    zug.current = null;
+    if (!z?.gezogen) return;
+    const el = panel.current;
+    if (!el) return;
+    const leisteOben = document.querySelector('.leiste')?.getBoundingClientRect().top ?? window.innerHeight;
+    if (el.getBoundingClientRect().bottom > leisteOben - 12) {
+      // Nahe der Leiste abgelegt: wieder andocken.
+      setLage(null);
+      speichern(schluessel, null);
+    } else {
+      const r = el.getBoundingClientRect();
+      speichern(schluessel, { x: Math.round(r.left), y: Math.round(r.top) });
+    }
+  }, [schluessel]);
+
+  // Fenstergröße ändert sich (Drehen, Teilen): gemerkte Lage im Bild halten.
+  useEffect(() => {
+    const auf = () => setLage((l) => (l ? klemmen(l.x, l.y) : l));
+    window.addEventListener('resize', auf);
+    return () => window.removeEventListener('resize', auf);
+  }, [klemmen]);
+
+  return { panel, lage, ebene, anfassen, bewegen, loslassen };
+}

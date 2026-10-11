@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { trainerTempo } from '@/domain/ueben';
-import { audioSitzung, gespeichert, klangPuffer, speichern, wachHalten, type Art, type Klang } from './klang';
+import { audioSitzung, gespeichert, klangPuffer, speichern, useBeimVerlassen, verwerfen, wachHalten, type Art, type Klang } from './klang';
 
 export type Akzent = 'betont' | 'normal' | 'stumm';
 export interface Trainer { an: boolean; schritt: number; takte: number; ziel: number }
@@ -96,31 +96,52 @@ export function MetronomAnbieter({ children }: { children: React.ReactNode }) {
   }
 
   async function start() {
+    if (lauf.current) return;
     audioSitzung('playback');
+    // Läuft der Kontext nicht, war er unterbrochen (App-Wechsel, Anruf) und
+    // bliebe auf iOS stumm: verwerfen, solange die Tipp-Geste noch gilt.
+    if (audio.current && audio.current.ctx.state !== 'running') {
+      verwerfen(audio.current.ctx);
+      audio.current = null;
+    }
     if (!audio.current) {
       const ctx = new AudioContext({ latencyHint: 'interactive' });
       const gain = ctx.createGain();
       gain.connect(ctx.destination);
       audio.current = { ctx, gain, puffer: new Map() };
     }
-    await audio.current.ctx.resume();
+    // Nicht auf resume() warten — es kehrt auf iOS teils nie zurück. Geplant
+    // wird auf der Audio-Uhr; die steht, bis der Kontext läuft.
+    audio.current.ctx.resume().catch(() => { /* egal */ });
     r.current.startBpm = r.current.bpm;
     lauf.current = { timer: 0, raf: 0, naechster: audio.current.ctx.currentTime + 0.08, schritt: 0, taktNr: 0, schlange: [], freigeben: null };
-    lauf.current.timer = window.setInterval(planen, 25);
-    lauf.current.raf = requestAnimationFrame(zeigen);
+    const l = lauf.current;
+    l.timer = window.setInterval(planen, 25);
+    l.raf = requestAnimationFrame(zeigen);
     planen();
     setLaeuft(true);
-    const l = lauf.current;
-    l.freigeben = await wachHalten();
+    const freigeben = await wachHalten();
+    // Inzwischen gestoppt? Dann die Bildschirmsperre gleich wieder lösen.
+    if (lauf.current === l) l.freigeben = freigeben; else freigeben?.();
   }
 
-  function stopp() {
+  const stopp = useCallback(() => {
     const l = lauf.current;
     if (l) { window.clearInterval(l.timer); cancelAnimationFrame(l.raf); l.freigeben?.(); }
     lauf.current = null;
     setLaeuft(false);
     setAktiv(null);
-  }
+  }, []);
+
+  // App verlassen: iOS unterbricht den Ton, und im Hintergrund plant der
+  // Taktgeber ohnehin nicht weiter. Anhalten und den Kontext verwerfen —
+  // zurück in der App startet ein Tipp das Metronom mit frischem Ton.
+  const verlassen = useCallback(() => {
+    stopp();
+    verwerfen(audio.current?.ctx);
+    audio.current = null;
+  }, [stopp]);
+  useBeimVerlassen(verlassen);
 
   useEffect(() => () => {
     const l = lauf.current;
