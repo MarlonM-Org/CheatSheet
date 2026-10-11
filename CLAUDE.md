@@ -10,10 +10,11 @@ anders ist, ist ein Fehler oder gehört dort nachgetragen.
 - Statische App (`output: 'export'`): kein Server-Code, keine API-Routen, keine
   Server Actions, kein Login, keine Datenbank. Wer etwas davon braucht, klärt
   das zuerst in den Anforderungen.
-- Alle Daten liegen nur auf dem Gerät (IndexedDB `ueben`, Version 2, Stores
-  `noten`/`stellen`/`anmerkungen` — Schema wie in der Registerführer-App).
-  Der Name `ueben` bleibt trotz Umbenennung (Vertrag). Schema nur per
-  Versionssprung ändern, nie Daten verwerfen.
+- Alle Daten liegen nur auf dem Gerät (IndexedDB `ueben`, Version 3, Stores
+  `noten`/`stellen`/`anmerkungen` wie in der Registerführer-App, dazu
+  `dateien`: die PDFs als reine Bytes, getrennt von den Noten). Der Name
+  `ueben` bleibt trotz Umbenennung (Vertrag). Schema nur per Versionssprung
+  ändern, nie Daten verwerfen.
 - Das Sicherungsformat `.uebe` (`src/domain/sicherung.ts`) ist der Vertrag mit
   `registerfuehrer`: Dateien von dort müssen hier ladbar bleiben. Nicht
   ändern; eine neue Version nur mit Lesen der alten.
@@ -24,9 +25,10 @@ anders ist, ist ein Fehler oder gehört dort nachgetragen.
   `public/pdf.worker-<version>.min.mjs`, die Bild-Decoder (JBIG2, JPEG 2000;
   ohne sie bleiben solche Scans leer) in `public/pdfjs-<version>/` — beides
   erzeugt von `scripts/pdf-worker.mjs`, nicht eingecheckt.
-- Die PDF-Datei steckt im `noten`-Datensatz. Nie einen aus der Datenbank
-  gelesenen Blob zurückschreiben (Safari verliert ihn mitunter) — `lokal.ts`
-  schreibt immer eine frische Kopie; Öffnen schreibt gar nicht.
+- PDF-Dateien nie als Blob in IndexedDB schreiben (Safari verliert sie
+  mitunter) — Bytes in `dateien`, Datensätze ohne Blob (`lokal.ts`). Ältere
+  Stücke tragen noch einen Blob in `noten` und ziehen beim Lesen um.
+  Öffnen schreibt nichts in die Datenbank.
 - Vor jedem Push: `npm run typecheck && npm run lint && npm test && npm run build`.
 - Deutsch in Oberfläche, Code-Bezeichnern und Commits.
 

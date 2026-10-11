@@ -6,16 +6,23 @@ import {
 } from '@/domain/einspielen';
 import { nurLesbare } from '@/domain/lesbar';
 import { sicherungLesen, sicherungPacken, SicherungsFehler, type SicherungsInhalt } from '@/domain/sicherung';
-import { dateiVerloren, verbindungVerloren } from '@/domain/speicher';
+import { dateiQuelle, dateiVerloren, ohneDatei, verbindungVerloren } from '@/domain/speicher';
 
 // Ablage nur auf diesem Gerät (IndexedDB): Noten-PDFs, markierte Stellen,
 // geschaffte Tempi, Anmerkungen. Keine Datenbank, kein Server. Safari kann die
 // Daten löschen, wenn die Seite lange nicht geöffnet wurde; als
 // Home-Bildschirm-App seltener — dagegen hilft die Übe-Sicherung.
-// Name und Schema der Datenbank wie in der Registerführer-App („ueben“, Version 2).
+// Name der Datenbank wie in der Registerführer-App („ueben“). Schema 3: die
+// drei Speicher von dort plus „dateien“ — die PDF-Dateien als reine Bytes,
+// getrennt von den Noten. Safari verliert Blobs in IndexedDB mitunter, und
+// jedes Schreiben eines Noten-Datensatzes schrieb die Datei mit. Ältere
+// Stücke tragen ihre Datei noch als Blob im Datensatz (datei); sie ziehen um,
+// sobald sie einmal gelesen werden (notenDatei).
 
 export interface LokaleNoten {
-  id: string; titel: string; stimme: string; erstellt: number; datei: Blob;
+  id: string; titel: string; stimme: string; erstellt: number;
+  // Nur ältere Stücke, bis zum Umzug in „dateien“.
+  datei?: Blob;
   dateiname?: string;
   zuletzt?: number;
   aktualisiert?: number;
@@ -28,8 +35,10 @@ export interface LokaleStelle {
   titel: string; notiz: string; zielTempo: number | null; tempi: { tempo: number; am: number }[];
 }
 export interface SeitenAnmerkungen { id: string; notenId: string; seite: number; objekte: Anmerkung[] }
+// Schlüssel ist die id der Noten.
+interface LokaleDatei { id: string; daten: ArrayBuffer; typ: string }
 
-type Speicher = 'noten' | 'stellen' | 'anmerkungen';
+type Speicher = 'noten' | 'stellen' | 'anmerkungen' | 'dateien';
 
 // Eine Verbindung für die ganze Seite, einmal geöffnet und wiederverwendet.
 // Will ein anderes Fenster (neuere Version) das Schema anheben, gibt diese
@@ -48,7 +57,7 @@ function oeffnen(): Promise<IDBDatabase> {
       aufgegeben = true;
       fehler(new Error('Der Gerätespeicher antwortet nicht. Bitte neu laden.'));
     }, 8000);
-    const r = indexedDB.open('ueben', 2);
+    const r = indexedDB.open('ueben', 3);
     r.onupgradeneeded = (e) => {
       const db = r.result;
       if (e.oldVersion < 1) {
@@ -56,6 +65,7 @@ function oeffnen(): Promise<IDBDatabase> {
         db.createObjectStore('stellen', { keyPath: 'id' }).createIndex('notenId', 'notenId');
       }
       if (e.oldVersion < 2) db.createObjectStore('anmerkungen', { keyPath: 'id' }).createIndex('notenId', 'notenId');
+      if (e.oldVersion < 3) db.createObjectStore('dateien', { keyPath: 'id' });
     };
     r.onsuccess = () => {
       window.clearTimeout(wecker);
@@ -147,20 +157,17 @@ const tx = <T>(speicher: Speicher, modus: IDBTransactionMode, arbeit: (s: IDBObj
   });
 
 const ALLE: Speicher[] = ['noten', 'stellen', 'anmerkungen'];
+const ALLE_MIT_DATEIEN: Speicher[] = [...ALLE, 'dateien'];
 
 // ── Noten ──
 export const alleNoten = () => tx<LokaleNoten[]>('noten', 'readonly', (s) => s.getAll());
 export const notenHolen = (id: string) => tx<LokaleNoten | undefined>('noten', 'readonly', (s) => s.get(id));
-// Eine PDF-Datei immer als frische Kopie aus dem Arbeitsspeicher in die
-// Datenbank schreiben — nie die gewählte Datei direkt und nie eine aus der
-// Datenbank gelesene: An beidem scheitert Safari mitunter („Error preparing
-// Blob/File data …“), eine gelesene kann dabei sogar verloren gehen. Eine
-// nicht lesbare Datei fällt hier mit klarer Meldung auf.
-async function imSpeicher(datei: Blob, gewaehlt: boolean): Promise<Blob> {
+// Eine gewählte Datei ganz lesen. Eine nicht lesbare fällt hier mit klarer
+// Meldung auf (etwa noch nicht aus iCloud geladen).
+async function bytesLesen(datei: Blob): Promise<LokaleDatei['daten']> {
   try {
-    return new Blob([await datei.arrayBuffer()], { type: datei.type || 'application/pdf' });
+    return await datei.arrayBuffer();
   } catch (x) {
-    if (!gewaehlt && dateiVerloren(x)) throw new DateiVerloren();
     throw new Error(`Die Datei ließ sich nicht lesen (${(x as Error)?.name ?? x}). Liegt sie nur in iCloud? Erst in der Dateien-App öffnen, dann erneut wählen.`);
   }
 }
@@ -172,20 +179,56 @@ export class DateiVerloren extends Error {
   }
 }
 
+// Datensatz und Datei in EINER Transaktion: ganz oder gar nicht. Der Datensatz
+// geht immer ohne Blob in die Datenbank.
+const mitDatei = (n: LokaleNoten, daten: ArrayBuffer, typ: string) =>
+  transaktion<void>(['noten', 'dateien'], 'readwrite', (t) => {
+    t.objectStore('noten').put(ohneDatei(n));
+    t.objectStore('dateien').put({ id: n.id, daten, typ } satisfies LokaleDatei);
+  });
+
 export async function notenAnlegen(n: { titel: string; stimme: string; datei: Blob; dateiname?: string; handle?: FileSystemFileHandle }): Promise<string> {
   const id = crypto.randomUUID();
-  const datei = await imSpeicher(n.datei, true);
-  await tx('noten', 'readwrite', (s) => s.put({ ...n, datei, id, erstellt: Date.now() }));
+  const daten = await bytesLesen(n.datei);
+  await mitDatei({ ...ohneDatei(n), id, erstellt: Date.now() }, daten, n.datei.type || 'application/pdf');
   dauerhaftAnfragen();
   return id;
 }
+
+// Ändert Felder der Noten; mit `datei` wird die PDF-Datei ersetzt. Ein Stück,
+// das seine Datei noch im Datensatz trägt, zieht dabei um — der Blob wird nie
+// zurückgeschrieben. Ist die alte Datei verloren, bleibt alles, wie es ist
+// (DateiVerloren); retten lässt es sich mit einer neu gewählten Datei.
 export async function notenAendern(id: string, felder: Partial<LokaleNoten>) {
-  const neueDatei = felder.datei ? await imSpeicher(felder.datei, true) : null;
+  const neu = felder.datei ? { daten: await bytesLesen(felder.datei), typ: felder.datei.type || 'application/pdf' } : null;
   const alt = await notenHolen(id);
   if (!alt) return;
-  // Die PDF-Datei wird mitgeschrieben — auch die alte als frische Kopie.
-  const datei = neueDatei ?? await imSpeicher(alt.datei, false);
-  await tx('noten', 'readwrite', (s) => s.put({ ...alt, ...felder, datei, id }));
+  const n = { ...alt, ...ohneDatei(felder), id };
+  if (neu) return mitDatei(n, neu.daten, neu.typ);
+  if (alt.datei) {
+    const daten = await alteDateiLesen(alt.datei);
+    return mitDatei(n, daten, alt.datei.type || 'application/pdf');
+  }
+  await tx('noten', 'readwrite', (s) => s.put(ohneDatei(n)));
+}
+
+async function alteDateiLesen(datei: Blob): Promise<ArrayBuffer> {
+  try { return await datei.arrayBuffer(); } catch (x) { throw dateiVerloren(x) ? new DateiVerloren() : x; }
+}
+
+// Die PDF-Datei eines Stücks. Trägt es sie noch als Blob im Datensatz, zieht
+// sie dabei in „dateien“ um (Bytes gelesen, dann in einem Schritt Datei
+// abgelegt und Datensatz ohne Blob geschrieben). Scheitert nur der Umzug,
+// zählt die gelesene Datei trotzdem — er wird beim nächsten Öffnen versucht.
+export async function notenDatei(n: LokaleNoten): Promise<Blob> {
+  const eintrag = await tx<LokaleDatei | undefined>('dateien', 'readonly', (s) => s.get(n.id));
+  const quelle = dateiQuelle(eintrag, n);
+  if (quelle === 'dateien') return new Blob([eintrag!.daten], { type: eintrag!.typ || 'application/pdf' });
+  if (quelle === 'keine' || !n.datei) throw new DateiVerloren();
+  const daten = await alteDateiLesen(n.datei);
+  const typ = n.datei.type || 'application/pdf';
+  await mitDatei(n, daten, typ).catch((x) => console.error('Umzug der PDF-Datei verschoben', x));
+  return new Blob([daten], { type: typ });
 }
 
 // „Zuletzt geöffnet“ liegt auf dem Gerät im localStorage, nicht im
@@ -200,8 +243,9 @@ export function zuletztMerken(id: string) {
   try { localStorage.setItem(ZULETZT, JSON.stringify({ ...zuletztListe(), [id]: Date.now() })); } catch { /* egal */ }
 }
 // Noten samt Stellen und Anmerkungen in EINER Transaktion: ganz oder gar nicht.
-export const notenLoeschen = (id: string) => transaktion<void>(ALLE, 'readwrite', (t, abbrechen) => {
+export const notenLoeschen = (id: string) => transaktion<void>(ALLE_MIT_DATEIEN, 'readwrite', (t, abbrechen) => {
   t.objectStore('noten').delete(id);
+  t.objectStore('dateien').delete(id);
   for (const name of ['stellen', 'anmerkungen'] as const) {
     const s = t.objectStore(name);
     const r = s.index('notenId').getAllKeys(id);
@@ -244,16 +288,29 @@ function dauerhaftAnfragen() {
 }
 
 // ── Übe-Sicherung (.uebe, Format in @/domain/sicherung) ──
-type Bestand = SicherungsInhalt<LokaleNoten, LokaleStelle, SeitenAnmerkungen>;
+// In der Sicherung trägt jedes Stück seine Datei (fehlt sie, sortiert nurLesbare es aus).
+type SicherungsNoten = LokaleNoten & { datei: Blob | undefined };
+type Bestand = SicherungsInhalt<SicherungsNoten, LokaleStelle, SeitenAnmerkungen>;
 
 // Alle drei Speicher in EINER Transaktion: ein stimmiger Stand, auch wenn
 // nebenher etwas geändert wird. Die Verbindung bleibt offen — Safari kann die
 // PDF-Blobs sonst nicht mehr lesen.
-export const allesLesen = () => transaktion<Bestand>(ALLE, 'readonly', (t) => {
+// Die Datei jedes Stücks kommt als Blob dazu (Format der Sicherung), aus
+// „dateien“ oder — bei älteren — aus dem Datensatz.
+export const allesLesen = () => transaktion<Bestand>(ALLE_MIT_DATEIEN, 'readonly', (t) => {
   const noten = t.objectStore('noten').getAll() as IDBRequest<LokaleNoten[]>;
   const stellen = t.objectStore('stellen').getAll() as IDBRequest<LokaleStelle[]>;
   const anmerkungen = t.objectStore('anmerkungen').getAll() as IDBRequest<SeitenAnmerkungen[]>;
-  return () => ({ noten: noten.result, stellen: stellen.result, anmerkungen: anmerkungen.result });
+  const dateien = t.objectStore('dateien').getAll() as IDBRequest<LokaleDatei[]>;
+  return () => {
+    const bytes = new Map(dateien.result.map((d) => [d.id, d]));
+    const mit = noten.result.map((n) => {
+      const d = bytes.get(n.id);
+      const datei = dateiQuelle(d, n) === 'dateien' ? new Blob([d!.daten], { type: d!.typ || 'application/pdf' }) : n.datei;
+      return { ...n, datei };
+    });
+    return { noten: mit, stellen: stellen.result, anmerkungen: anmerkungen.result };
+  };
 });
 
 // Nicht lesbare Noten (kaputter, verlorener oder nicht ganz lesbarer
@@ -261,7 +318,8 @@ export const allesLesen = () => transaktion<Bestand>(ALLE, 'readonly', (t) => {
 // ihren Stellen und Anmerkungen nicht mit; `fehlen` nennt sie.
 export async function sicherungErstellen(): Promise<{ datei: Blob; noten: number; fehlen: LokaleNoten[] }> {
   const { bestand, fehlen } = await nurLesbare(await allesLesen());
-  const datei = await sicherungPacken(bestand, 'cheatsheet', Date.now());
+  // Nach nurLesbare trägt jedes verbliebene Stück eine lesbare Datei.
+  const datei = await sicherungPacken(bestand as SicherungsInhalt<LokaleNoten & { datei: Blob }, LokaleStelle, SeitenAnmerkungen>, 'cheatsheet', Date.now());
   return { datei, noten: bestand.noten.length, fehlen };
 }
 
@@ -306,7 +364,10 @@ export async function sicherungPruefen(datei: Blob): Promise<Einspielung> {
 // Die PDF-Ausschnitte gehen direkt an put: IndexedDB legt ihren Inhalt selbst
 // ab und hängt danach nicht mehr an der gewählten Datei.
 export async function sicherungSchreiben(e: Einspielung): Promise<{ neu: number; aktualisiert: number; stellen: number; anmerkungen: number; uebersprungen: number }> {
-  await transaktion<void>(ALLE, 'readwrite', (t, abbrechen) => {
+  await transaktion<void>(ALLE_MIT_DATEIEN, 'readwrite', (t, abbrechen) => {
+    // Die Datei aus der Sicherung gewinnt: Bytes desselben Stücks in
+    // „dateien“ weichen, ihr Blob zieht beim ersten Öffnen dorthin um.
+    for (const n of e.noten) t.objectStore('dateien').delete(n.id);
     const einspielen = <E extends { id: string }>(
       name: Speicher, eintraege: E[], zusammen: (geraet: Record<string, unknown> | undefined, neu: E) => E,
     ) => {

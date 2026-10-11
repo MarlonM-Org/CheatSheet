@@ -70,12 +70,13 @@ Entfernungsfläche (vollständig):
 ### A-02 · Datenbank & Relationsmodell aufräumen
 
 Ist-Zustand (alles in `src/components/ueben/lokal.ts`): IndexedDB `ueben`
-Version 2, Stores `noten` (keyPath `id`), `stellen` (`notenId`-Index),
+Version 3, Stores `noten` (keyPath `id`), `stellen` (`notenId`-Index),
 `anmerkungen` (ein Datensatz **pro Seite**, zusammengesetzter Schlüssel
-`${notenId}:${seite}`, `notenId`-Index). Einstellungen verstreut in
-localStorage (`ueben:*`, `metro:*`, `stimm:*`).
+`${notenId}:${seite}`, `notenId`-Index), `dateien` (PDF-Bytes, Schlüssel =
+Noten-id; seit A-06). Einstellungen verstreut in localStorage (`ueben:*`,
+`metro:*`, `stimm:*`, dazu `ueben:zuletzt`).
 
-Aufgabe: Schema für das kommende Notenmanagement entwerfen (Version 3) —
+Aufgabe: Schema für das kommende Notenmanagement entwerfen (Version 4) —
 Metadaten an Noten (F-01), Setlisten (F-02), Bookmarks (F-03), Flags (F-04)
 brauchen Platz. Dabei:
 
@@ -384,11 +385,15 @@ G-02 getrennt — Rhythmus zuerst, Töne später.
   offline. Außerdem schrieb jedes Öffnen „zuletzt“ samt PDF-Datei in den
   Datensatz zurück; Safari scheiterte daran mitunter („Error preparing
   Blob/File data …“) und verlor die Datei („The object can not be found
-  here“). Jetzt schreibt Öffnen nichts mehr (zuletzt im localStorage
-  `ueben:zuletzt`), andere Änderungen schreiben eine frische Kopie der
-  Datei, und eine verlorene Datei bekommt eine klare Meldung mit dem Weg
-  zur Rettung („Auswahl aktualisieren“; Stellen und Anmerkungen bleiben).
-  Langfristig gehört die Datei in einen eigenen Store (A-02).
+  here“). Jetzt: **Schema 3** mit eigenem Speicher `dateien` — die PDFs
+  als reine Bytes (ArrayBuffer), nie mehr als Blob; Noten-Datensätze ohne
+  Datei. Ältere Stücke ziehen beim ersten Öffnen um (Bytes gelesen, dann in
+  einem Schritt abgelegt und Datensatz ohne Blob geschrieben). Öffnen
+  schreibt sonst nichts (zuletzt im localStorage `ueben:zuletzt`), eine
+  verlorene Datei bekommt eine klare Meldung mit dem Weg zur Rettung
+  („Auswahl aktualisieren“; Stellen und Anmerkungen bleiben). Die
+  Sicherung (.uebe) bleibt im Format gleich und holt die Dateien aus
+  `dateien`.
 - **B-05 · Design-Überarbeitung** (2026-10-10): **Entscheidung Marlon:
   Studio.** Drei helle Entwürfe (Blatt · Studio · Galerie, identischer
   Funktionsumfang) liegen als antippbare HTML-Mockups in `docs/design/` und
