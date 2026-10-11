@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { frequenzZuTon, grundfrequenz, median, STIMMUNGEN, tonFrequenz, type Stimmung, type Ton } from '@/domain/ueben';
-import { audioSitzung, gespeichert, speichern, wachHalten } from './klang';
+import { audioSitzung, gespeichert, speichern, useBeimVerlassen, verwerfen, wachHalten } from './klang';
 
 // Ein Stimmgerät für die ganze App: große Ansicht und schwebendes Widget
 // teilen sich Mikrofon, Messung und Einstellungen — wie beim Metronom.
@@ -136,6 +136,8 @@ export function StimmgeraetAnbieter({ children }: { children: React.ReactNode })
     const notiertMidi = (refOktave + 1) * 12 + halbton;
     const frequenz = tonFrequenz(notiertMidi - STIMMUNGEN[einst.current.stimmung], einst.current.kammerton);
     let r = referenz.current;
+    // Unterbrochener Kontext (App-Wechsel, Anruf) bliebe auf iOS stumm.
+    if (r && r.ctx.state !== 'running') { verwerfen(r.ctx); r = referenz.current = null; }
     if (!r) {
       const ctx = new AudioContext();
       const osc = ctx.createOscillator();
@@ -153,6 +155,16 @@ export function StimmgeraetAnbieter({ children }: { children: React.ReactNode })
     r.gain.gain.setTargetAtTime(0.25, jetzt, 0.05);
     setRefTon(halbton);
   }, [refTon, refOktave, referenzAus, stopp]);
+
+  // App verlassen: iOS kappt Mikrofon und Ton, zurück in der App blieben beide
+  // stumm. Anhalten und den Referenz-Kontext verwerfen — der nächste Tipp legt
+  // alles frisch an.
+  const verlassen = useCallback(() => {
+    stopp();
+    verwerfen(referenz.current?.ctx);
+    referenz.current = null;
+  }, [stopp]);
+  useBeimVerlassen(verlassen);
 
   const refOktaveWechseln = useCallback((o: number) => { setRefOktave(o); referenzAus(); }, [referenzAus]);
   const setKammerton = useCallback((n: number) => setKammertonRoh(Math.max(430, Math.min(450, n))), []);
