@@ -111,3 +111,18 @@ export function radierZug(
   }
   return { objekte: geaendert ? neu : objekte, spur, geaendert };
 }
+
+// ── Bibliothek ──
+// A–Z wie im Finder: Zahlen als Zahlen („2 …“ vor „10 …“), Groß/klein egal;
+// bei gleichem Titel nach Stimme.
+const sammler = new Intl.Collator('de', { numeric: true, sensitivity: 'base' });
+export function nachTitel(a: { titel: string; stimme: string }, b: { titel: string; stimme: string }): number {
+  return sammler.compare(a.titel, b.titel) || sammler.compare(a.stimme, b.stimme);
+}
+
+// „11.10., 18:48“ — aus einem anderen Jahr „24.12.2025, 09:30“.
+export function zeitpunkt(t: number, jetzt = Date.now()): string {
+  const d = new Date(t), z = (x: number) => String(x).padStart(2, '0');
+  const jahr = d.getFullYear() === new Date(jetzt).getFullYear() ? '' : String(d.getFullYear());
+  return `${z(d.getDate())}.${z(d.getMonth() + 1)}.${jahr}, ${z(d.getHours())}:${z(d.getMinutes())}`;
+}

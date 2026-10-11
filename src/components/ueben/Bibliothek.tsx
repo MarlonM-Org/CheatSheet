@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ausDateiname, zuordnen } from '@/domain/notenpult';
+import { ausDateiname, nachTitel, zeitpunkt, zuordnen } from '@/domain/notenpult';
 import { gespeichert, speichern } from './klang';
 import { alleNoten, notenAendern, notenAnlegen, notenLoeschen, type LokaleNoten } from './lokal';
 import { Sicherung, useSicherungLaden } from './Sicherung';
@@ -107,7 +107,7 @@ function NotenListe({ offen, oeffnen, anzahlMelden, offenEntfernt, aktualisiert 
   const sicherung = useSicherungLaden(laden);
 
   const sortiert = useMemo(() => [...(noten ?? [])].sort((a, b) => sortierung === 'abc'
-    ? a.titel.localeCompare(b.titel, 'de') || a.stimme.localeCompare(b.stimme, 'de')
+    ? nachTitel(a, b)
     : (b.zuletzt ?? b.erstellt) - (a.zuletzt ?? a.erstellt)), [noten, sortierung]);
   const alleGewaehlt = !!noten?.length && auswahl.size === noten.length;
 
@@ -266,7 +266,7 @@ function NotenListe({ offen, oeffnen, anzahlMelden, offenEntfernt, aktualisiert 
             <button type="button" className="min-w-0 flex-1 text-left" onClick={() => oeffnen(n.id)}>
               <span className="block truncate font-bold">{n.titel}</span>
               <span className="gedaempft block truncate text-sm">
-                {[n.stimme, n.zuletzt ? `zuletzt ${datum(n.zuletzt)}` : 'noch nicht geöffnet', n.aktualisiert ? `aktualisiert ${datum(n.aktualisiert)}` : ''].filter(Boolean).join(' · ')}
+                {[n.stimme, n.zuletzt ? `zuletzt ${zeitpunkt(n.zuletzt)}` : 'noch nicht geöffnet', n.aktualisiert ? `aktualisiert ${datum(n.aktualisiert)}` : ''].filter(Boolean).join(' · ')}
               </span>
             </button>
             <span className="gedaempft" aria-hidden="true">›</span>

@@ -366,6 +366,12 @@ G-02 getrennt — Rhythmus zuerst, Töne später.
   Stellen-Ausschnitte im Stück-Blatt zeigen dasselbe (jetzt auch mit eigenen
   Anmerkungen). Einzelne Striche aus Apples PencilKit-Format zu lesen bleibt
   bewusst außen vor (undokumentiert, ändert sich mit iOS).
+- **F-10 · Bibliothek: A–Z mit Zahlen, Uhrzeit bei „zuletzt“**
+  (2026-10-11): A–Z sortiert Zahlen als Zahlen („2 …“ vor „10 …“, wie im
+  Finder; Groß/klein egal, bei gleichem Titel nach Stimme). „zuletzt“
+  zeigt Tag, Monat und Uhrzeit („11.10., 18:48“), aus einem anderen Jahr
+  mit Jahreszahl. Regeln getestet in `src/domain/notenpult.ts`
+  (`nachTitel`, `zeitpunkt`).
 - **B-05 · Design-Überarbeitung** (2026-10-10): **Entscheidung Marlon:
   Studio.** Drei helle Entwürfe (Blatt · Studio · Galerie, identischer
   Funktionsumfang) liegen als antippbare HTML-Mockups in `docs/design/` und
