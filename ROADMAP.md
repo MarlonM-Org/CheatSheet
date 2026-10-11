@@ -358,9 +358,13 @@ G-02 getrennt — Rhythmus zuerst, Töne später.
   die schon im PDF stecken (etwa mit Apples „Markieren“ in der Dateien-App
   gezeichnet — dort als ein Stempel je Seite mit Pixelbild), lassen sich mit
   dem Radierer wegwischen wie auf Papier; darunter erscheinen die sauberen
-  Noten. Technik (`src/domain/ebene.ts`, getestet): Die Seite wird ohne und
-  mit den PDF-Anmerkungen gezeichnet, der Unterschied ist die
-  Markierungs-Ebene. Sie entsteht beim Öffnen immer frisch aus dem PDF;
+  Noten. Technik (`src/domain/ebene.ts`, getestet): Die Seite wird ohne die
+  PDF-Anmerkungen gezeichnet, die Anmerkungen allein (pdf.js
+  `operationsFilter`) auf eine durchsichtige Markierungs-Ebene, die
+  multipliziert darübergelegt wird. (Erst per Vergleich zweier Durchgänge
+  gebaut — auf dem iPhone fehlte im zweiten der Scan, die Ebene deckte die
+  Noten weiß zu; behoben am selben Tag.) Sie entsteht beim Öffnen immer
+  frisch aus dem PDF;
   gespeichert werden nur Radier-Spuren (neue Anmerkungsart `radiert`), das
   PDF bleibt unverändert. Rückgängig/Wiederholen wie gewohnt je Wisch; die
   Stellen-Ausschnitte im Stück-Blatt zeigen dasselbe (jetzt auch mit eigenen

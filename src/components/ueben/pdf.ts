@@ -1,7 +1,7 @@
 'use client';
 
 import type { PDFDocumentProxy } from 'pdfjs-dist';
-import { ebeneAusDifferenz, hatMarkierungen } from '@/domain/ebene';
+import { anmerkungsBefehle, hatMarkierungen } from '@/domain/ebene';
 import { istNachladeFehler } from '@/domain/nachladen';
 
 // Eine neuere Version ist ausgeliefert, und Code dieser Seite fehlt: neu laden.
@@ -33,7 +33,7 @@ export async function pdfLaden(datei: Blob): Promise<PDFDocumentProxy> {
 // Darüberlegen (ebene.ts). So lassen sich die Markierungen radieren.
 export interface SeitenBild { seite: HTMLCanvasElement; ebene: HTMLCanvasElement | null }
 export async function seiteMitEbene(pdf: PDFDocumentProxy, nr: number, px: number): Promise<SeitenBild> {
-  const { AnnotationMode } = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const { AnnotationMode, OPS } = await import('pdfjs-dist/legacy/build/pdf.mjs');
   const page = await pdf.getPage(nr);
   const v1 = page.getViewport({ scale: 1 });
   const viewport = page.getViewport({ scale: px / v1.width });
@@ -45,15 +45,22 @@ export async function seiteMitEbene(pdf: PDFDocumentProxy, nr: number, px: numbe
   const seite = leinwand();
   await page.render({ canvas: seite, viewport, annotationMode: AnnotationMode.DISABLE }).promise;
   if (!hatMarkierungen(await page.getAnnotations({ intent: 'display' }))) return { seite, ebene: null };
-  const mitBild = leinwand();
-  await page.render({ canvas: mitBild, viewport, annotationMode: AnnotationMode.ENABLE_FORMS }).promise;
-  const mit = mitBild.getContext('2d')!.getImageData(0, 0, mitBild.width, mitBild.height);
-  const ohne = seite.getContext('2d')!.getImageData(0, 0, seite.width, seite.height);
-  mitBild.width = 0; mitBild.height = 0;
-  ebeneAusDifferenz(mit.data, ohne.data);
-  // pdf.js legt seine Leinwand ohne Alphakanal an (alpha: false) — die Ebene
-  // braucht einen, sonst deckt sie die Seite zu. Deshalb eine eigene.
-  const ebene = leinwand();
-  ebene.getContext('2d')!.putImageData(mit, 0, 0);
-  return { seite, ebene };
+  // Nur die Zeichenbefehle der Anmerkungen ausführen, auf eine eigene
+  // Leinwand mit Alphakanal (pdf.js legt seine ohne an) und ohne Hintergrund.
+  // Kein Vergleich zweier Durchgänge: Safari zeichnet die Seite beim zweiten
+  // Mal mitunter anders, dann deckte die Ebene die Noten weiß zu.
+  // Scheitert die Ebene, bleiben wenigstens die Noten (ohne Markierungen).
+  try {
+    const { fnArray } = await page.getOperatorList({ annotationMode: AnnotationMode.ENABLE_FORMS });
+    const drin = anmerkungsBefehle(fnArray, OPS.beginAnnotation, OPS.endAnnotation);
+    const ebene = leinwand();
+    await page.render({
+      canvas: ebene, canvasContext: ebene.getContext('2d')!, viewport, annotationMode: AnnotationMode.ENABLE_FORMS,
+      background: 'rgba(0,0,0,0)', operationsFilter: (i) => drin[i] === 1,
+    }).promise;
+    return { seite, ebene };
+  } catch (x) {
+    console.error('Markierungen aus dem PDF ließen sich nicht zeichnen', x);
+    return { seite, ebene: null };
+  }
 }

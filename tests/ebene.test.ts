@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { ebeneAusDifferenz, hatMarkierungen } from '@/domain/ebene';
+import { anmerkungsBefehle, hatMarkierungen } from '@/domain/ebene';
 import { radierZug, type Anmerkung } from '@/domain/notenpult';
-
-const px = (...werte: number[]) => new Uint8ClampedArray(werte);
 
 describe('Markierungs-Ebene aus dem PDF', () => {
   it('zählt Zeichnungen, Stempel, Textmarker — nicht Links, Notizfenster, Formularfelder', () => {
@@ -12,14 +10,14 @@ describe('Markierungs-Ebene aus dem PDF', () => {
     expect(hatMarkierungen([{ annotationType: 2 }, { annotationType: 16 }, { annotationType: 20 }])).toBe(false);
     expect(hatMarkierungen([])).toBe(false);
   });
-  it('was sich unterscheidet, kommt deckend aus „mit“; Gleiches wird durchsichtig', () => {
-    const mit = px(255, 255, 255, 255, 250, 220, 40, 255, 10, 10, 10, 255);
-    const ohne = px(255, 255, 255, 255, 255, 255, 255, 255, 10, 10, 10, 255);
-    expect([...ebeneAusDifferenz(mit, ohne)]).toEqual([255, 255, 255, 0, 250, 220, 40, 255, 10, 10, 10, 0]);
+  it('nimmt genau die Zeichenbefehle der Anmerkungen, samt Anfang und Ende', () => {
+    const A = 80, E = 81; // pdf.js OPS.beginAnnotation / endAnnotation
+    // Seite: 1, 2 · Anmerkung: 80, 3, 4, 81 · Seite: 5 · Anmerkung: 80, 6, 81
+    expect([...anmerkungsBefehle([1, 2, A, 3, 4, E, 5, A, 6, E], A, E)]).toEqual([0, 0, 1, 1, 1, 1, 0, 1, 1, 1]);
   });
-  it('winzige Abweichungen (Kantenglättung) zählen nicht', () => {
-    expect([...ebeneAusDifferenz(px(254, 253, 255, 255), px(255, 255, 255, 255))]).toEqual([254, 253, 255, 0]);
-    expect([...ebeneAusDifferenz(px(240, 255, 255, 255), px(255, 255, 255, 255))]).toEqual([240, 255, 255, 255]);
+  it('ohne Anmerkungen nichts, verschachtelte zählen mit', () => {
+    expect([...anmerkungsBefehle([1, 2, 3], 80, 81)]).toEqual([0, 0, 0]);
+    expect([...anmerkungsBefehle([80, 80, 1, 81, 2, 81, 3], 80, 81)]).toEqual([1, 1, 1, 1, 1, 1, 0]);
   });
 });
 

@@ -42,19 +42,26 @@ export function strichZeichnen(ctx: CanvasRenderingContext2D, p: number[], farbe
 
 // Übernommene Markierungen aus dem PDF (ebene) in ein Rechteck zeichnen, an
 // den Radier-Spuren ausgestanzt: erst auf die Hilfsleinwand, dort die Spuren
-// wegnehmen, dann darüberlegen. Ohne Spuren direkt.
+// wegnehmen, dann darüberlegen. Multipliziert wie Tinte und Textmarker auf
+// Papier — so bleiben Noten unter einer Hervorhebung schwarz.
 export function ebeneZeichnen(ctx: CanvasRenderingContext2D, ebene: HTMLCanvasElement, objekte: Anmerkung[],
   x0: number, y0: number, b: number, h: number, hilfe: HTMLCanvasElement) {
   const spuren = objekte.filter((a) => a.art === 'radiert');
-  if (!spuren.length) { ctx.drawImage(ebene, x0, y0, b, h); return; }
-  const w = Math.round(b), hh = Math.round(h);
-  if (hilfe.width !== w || hilfe.height !== hh) { hilfe.width = w; hilfe.height = hh; }
-  const hc = hilfe.getContext('2d')!;
-  hc.globalCompositeOperation = 'source-over';
-  hc.clearRect(0, 0, w, hh);
-  hc.drawImage(ebene, 0, 0, w, hh);
-  hc.globalCompositeOperation = 'destination-out';
-  for (const s of spuren) strichZeichnen(hc, s.punkte, '#000', s.breite * w, 0, 0, w, hh);
-  hc.globalCompositeOperation = 'source-over';
-  ctx.drawImage(hilfe, x0, y0, b, h);
+  let bild = ebene;
+  if (spuren.length) {
+    const w = Math.round(b), hh = Math.round(h);
+    if (hilfe.width !== w || hilfe.height !== hh) { hilfe.width = w; hilfe.height = hh; }
+    const hc = hilfe.getContext('2d')!;
+    hc.globalCompositeOperation = 'source-over';
+    hc.clearRect(0, 0, w, hh);
+    hc.drawImage(ebene, 0, 0, w, hh);
+    hc.globalCompositeOperation = 'destination-out';
+    for (const s of spuren) strichZeichnen(hc, s.punkte, '#000', s.breite * w, 0, 0, w, hh);
+    hc.globalCompositeOperation = 'source-over';
+    bild = hilfe;
+  }
+  ctx.save();
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.drawImage(bild, x0, y0, b, h);
+  ctx.restore();
 }
