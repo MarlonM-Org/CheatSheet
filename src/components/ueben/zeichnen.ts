@@ -5,6 +5,7 @@ import type { Anmerkung } from '@/domain/notenpult';
 // Zeichnet Anmerkungen einer Seite in ein Rechteck (x0, y0, b, h) der Leinwand.
 export function anmerkungenZeichnen(ctx: CanvasRenderingContext2D, objekte: Anmerkung[], x0: number, y0: number, b: number, h: number) {
   for (const a of objekte) {
+    if (a.art === 'radiert') continue; // wirkt nur auf die übernommene Ebene
     ctx.save();
     if (a.art === 'text') {
       ctx.fillStyle = a.farbe;
@@ -37,4 +38,23 @@ export function strichZeichnen(ctx: CanvasRenderingContext2D, p: number[], farbe
   }
   if (p.length >= 4) ctx.lineTo(X(p.length - 2), Y(p.length - 2));
   ctx.stroke();
+}
+
+// Übernommene Markierungen aus dem PDF (ebene) in ein Rechteck zeichnen, an
+// den Radier-Spuren ausgestanzt: erst auf die Hilfsleinwand, dort die Spuren
+// wegnehmen, dann darüberlegen. Ohne Spuren direkt.
+export function ebeneZeichnen(ctx: CanvasRenderingContext2D, ebene: HTMLCanvasElement, objekte: Anmerkung[],
+  x0: number, y0: number, b: number, h: number, hilfe: HTMLCanvasElement) {
+  const spuren = objekte.filter((a) => a.art === 'radiert');
+  if (!spuren.length) { ctx.drawImage(ebene, x0, y0, b, h); return; }
+  const w = Math.round(b), hh = Math.round(h);
+  if (hilfe.width !== w || hilfe.height !== hh) { hilfe.width = w; hilfe.height = hh; }
+  const hc = hilfe.getContext('2d')!;
+  hc.globalCompositeOperation = 'source-over';
+  hc.clearRect(0, 0, w, hh);
+  hc.drawImage(ebene, 0, 0, w, hh);
+  hc.globalCompositeOperation = 'destination-out';
+  for (const s of spuren) strichZeichnen(hc, s.punkte, '#000', s.breite * w, 0, 0, w, hh);
+  hc.globalCompositeOperation = 'source-over';
+  ctx.drawImage(hilfe, x0, y0, b, h);
 }

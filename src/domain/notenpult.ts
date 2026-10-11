@@ -64,9 +64,13 @@ export function zuordnen<N extends { id: string; dateiname?: string; titel: stri
 }
 
 // ── Anmerkungen (Stift, Marker, Text) ── Koordinaten relativ zur Seite (0..1).
+// „radiert“ ist eine Radier-Spur über den aus dem PDF übernommenen
+// Markierungen (siehe ebene.ts): Sie nimmt diese Ebene an den überstrichenen
+// Stellen weg und wird selbst nicht gezeichnet.
 export type Anmerkung =
   | { id: string; art: 'stift' | 'marker'; farbe: string; breite: number; punkte: number[] }
-  | { id: string; art: 'text'; farbe: string; groesse: number; x: number; y: number; text: string };
+  | { id: string; art: 'text'; farbe: string; groesse: number; x: number; y: number; text: string }
+  | { id: string; art: 'radiert'; breite: number; punkte: number[] };
 
 // Trifft der Radierer (Punkt, Radius relativ zur Seitenbreite) eine Anmerkung?
 export function getroffen(a: Anmerkung, x: number, y: number, radius: number, seitenformat = 1.414): boolean {
@@ -86,4 +90,24 @@ export function getroffen(a: Anmerkung, x: number, y: number, radius: number, se
     if (qx * qx + qy * qy <= (radius + a.breite / 2) ** 2) return true;
   }
   return false;
+}
+
+// Ein Punkt eines Radier-Wischs: Getroffene eigene Striche und Texte fallen
+// weg. Liegen übernommene Markierungen auf der Seite (ebene), wird zusätzlich
+// die Radier-Spur dieses Wischs verlängert — oder begonnen, wenn es noch
+// keine gibt (spur = ihre id). Radier-Spuren selbst werden nicht weg-radiert.
+// Ohne Änderung kommt dieselbe Liste zurück.
+export function radierZug(
+  objekte: Anmerkung[], x: number, y: number, radius: number, seitenformat: number,
+  spur: string | null, ebene: boolean, neueId: () => string,
+): { objekte: Anmerkung[]; spur: string | null; geaendert: boolean } {
+  let neu = objekte.filter((a) => a.art === 'radiert' || !getroffen(a, x, y, radius, seitenformat));
+  let geaendert = neu.length !== objekte.length;
+  if (ebene) {
+    const da = spur !== null && neu.some((a) => a.id === spur);
+    if (da) neu = neu.map((a) => (a.id === spur && a.art === 'radiert' ? { ...a, punkte: [...a.punkte, x, y] } : a));
+    else { spur = neueId(); neu = [...neu, { id: spur, art: 'radiert', breite: radius * 2, punkte: [x, y] }]; }
+    geaendert = true;
+  }
+  return { objekte: geaendert ? neu : objekte, spur, geaendert };
 }

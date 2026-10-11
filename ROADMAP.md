@@ -354,6 +354,18 @@ G-02 getrennt — Rhythmus zuerst, Töne später.
     über die untere Leiste (Regel getestet in `src/domain/lage.ts`). Beim
     Wechsel in den Stellen-Modus schließt die Palette, damit sie die
     Stellen-Leiste nicht verdeckt.
+- **E-05 · Markierungen aus dem PDF radieren** (2026-10-11): Markierungen,
+  die schon im PDF stecken (etwa mit Apples „Markieren“ in der Dateien-App
+  gezeichnet — dort als ein Stempel je Seite mit Pixelbild), lassen sich mit
+  dem Radierer wegwischen wie auf Papier; darunter erscheinen die sauberen
+  Noten. Technik (`src/domain/ebene.ts`, getestet): Die Seite wird ohne und
+  mit den PDF-Anmerkungen gezeichnet, der Unterschied ist die
+  Markierungs-Ebene. Sie entsteht beim Öffnen immer frisch aus dem PDF;
+  gespeichert werden nur Radier-Spuren (neue Anmerkungsart `radiert`), das
+  PDF bleibt unverändert. Rückgängig/Wiederholen wie gewohnt je Wisch; die
+  Stellen-Ausschnitte im Stück-Blatt zeigen dasselbe (jetzt auch mit eigenen
+  Anmerkungen). Einzelne Striche aus Apples PencilKit-Format zu lesen bleibt
+  bewusst außen vor (undokumentiert, ändert sich mit iOS).
 - **B-05 · Design-Überarbeitung** (2026-10-10): **Entscheidung Marlon:
   Studio.** Drei helle Entwürfe (Blatt · Studio · Galerie, identischer
   Funktionsumfang) liegen als antippbare HTML-Mockups in `docs/design/` und

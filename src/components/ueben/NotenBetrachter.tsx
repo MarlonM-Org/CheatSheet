@@ -2,7 +2,7 @@
 
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ansichten, ansichtVonSeite, getroffen, hauptseite, type Anmerkung, type Ansicht, type Blaettermodus } from '@/domain/notenpult';
+import { ansichten, ansichtVonSeite, hauptseite, radierZug, type Anmerkung, type Ansicht, type Blaettermodus } from '@/domain/notenpult';
 import { einstellungPruefen, TEXT_GROESSE, type StiftEinstellung, type ZeichenWerkzeug } from '@/domain/stift';
 import { mitRand, rechteckAus, type Rechteck } from '@/domain/ueben';
 import { gespeichert as gespeicherterWert, speichern } from './klang';
@@ -13,7 +13,8 @@ import {
 import { useMetronom } from './MetronomKontext';
 import { ladeFehler, speicherFehler } from './speicherfehler';
 import { StiftPalette, type Werkzeug } from './StiftPalette';
-import { anmerkungenZeichnen, strichZeichnen } from './zeichnen';
+import { seiteMitEbene, type SeitenBild } from './pdf';
+import { anmerkungenZeichnen, ebeneZeichnen, strichZeichnen } from './zeichnen';
 
 const RAND = 0.06;
 const MAX_PX = 2800;
@@ -124,20 +125,16 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     return Math.max(1, Math.min(3, Math.min(1 / r.b, 1 / r.h) * 0.95));
   }, [stelle, zoom, rand, rahmen]);
   const px = rahmen ? Math.min(MAX_PX, Math.round(rahmen.b * dpr * Math.min(zoomFaktor, 2))) : 0;
-  const cache = useRef(new Map<string, Promise<HTMLCanvasElement>>());
+  // Je Seite die nackte Seite und, stecken Markierungen im PDF, deren Ebene
+  // (seiteMitEbene). Welche Seiten eine Ebene haben, merkt sich mitEbene —
+  // nur dort hinterlässt der Radierer eine Radier-Spur.
+  const cache = useRef(new Map<string, Promise<SeitenBild>>());
+  const mitEbene = useRef(new Set<number>());
   const seiteBild = useCallback((s: number) => {
     const key = `${s}@${px}`;
     let p = cache.current.get(key);
     if (!p) {
-      p = (async () => {
-        const page = await pdf.getPage(s);
-        const v1 = page.getViewport({ scale: 1 });
-        const viewport = page.getViewport({ scale: px / v1.width });
-        const c = document.createElement('canvas');
-        c.width = Math.round(viewport.width); c.height = Math.round(viewport.height);
-        await page.render({ canvas: c, viewport }).promise;
-        return c;
-      })();
+      p = seiteMitEbene(pdf, s, px).then((b) => { if (b.ebene) mitEbene.current.add(s); return b; });
       cache.current.set(key, p);
       // Gescheitert (Speicherdruck, Stück schon verlassen): nicht als kaputt
       // merken — der nächste Blick auf die Seite versucht es neu.
@@ -151,12 +148,15 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   useEffect(() => {
     const bilder = cache.current;
     return () => {
-      for (const p of bilder.values()) p.then((c) => { c.width = 0; c.height = 0; }, () => { /* nie fertig */ });
+      const frei = (c: HTMLCanvasElement | null) => { if (c) { c.width = 0; c.height = 0; } };
+      for (const p of bilder.values()) p.then((b) => { frei(b.seite); frei(b.ebene); }, () => { /* nie fertig */ });
       bilder.clear();
     };
   }, []);
 
   const leinwand = useRef<HTMLCanvasElement>(null);
+  // Hilfsleinwand zum Ausstanzen der Radier-Spuren (ebeneZeichnen), einmal je Betrachter.
+  const hilfe = useRef<HTMLCanvasElement | null>(null);
   useEffect(() => {
     const c = leinwand.current;
     if (!c || !rahmen || !px) return;
@@ -176,7 +176,9 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       teile.forEach((t, i) => {
         ctx.save();
         ctx.beginPath(); ctx.rect(0, t.y0 * H, W, (t.y1 - t.y0) * H); ctx.clip();
-        ctx.drawImage(bilder[i], 0, 0, W, H);
+        ctx.drawImage(bilder[i].seite, 0, 0, W, H);
+        const ebene = bilder[i].ebene;
+        if (ebene) ebeneZeichnen(ctx, ebene, anm[t.seite] ?? [], 0, 0, W, H, hilfe.current ??= document.createElement('canvas'));
         anmerkungenZeichnen(ctx, anm[t.seite] ?? [], 0, 0, W, H);
         if (!stelle) for (const st of stellen.filter((x) => x.seite === t.seite)) {
           ctx.strokeStyle = 'rgba(168, 120, 31, 0.55)'; ctx.lineWidth = Math.max(1, W / 600);
@@ -317,7 +319,8 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     if (textEingabe) { textSpeichern(); return; } // Tippen daneben übernimmt den Text
     if (neueStelle) return;
     const p = relativ(e);
-    radierZug.current = false;
+    radierWisch.current = false;
+    radierSpur.current = null;
     if (darfZeichnen(e)) {
       e.preventDefault();
       e.currentTarget.setPointerCapture(e.pointerId);
@@ -352,9 +355,16 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       return;
     }
     const seite = zeichenSeite!;
-    // Radier-Wisch zu Ende: Verlaufszähler nachziehen (der Verlauf wird im
-    // setAnm-Updater geschrieben, der bis hierhin längst gelaufen ist).
-    if (werkzeug === 'radierer') staendeAktualisieren();
+    // Radier-Wisch zu Ende: einmal speichern — im Updater, der nach allen
+    // Updatern des Wischs läuft — und den Verlaufszähler nachziehen (der
+    // Verlauf wird in den Updatern geschrieben, die bis hierhin gelaufen sind).
+    if (werkzeug === 'radierer') {
+      setAnm((a) => {
+        if (radierWisch.current) anmerkungenSpeichern(noten.id, seite, a[seite] ?? []).catch(speicherFehler);
+        return a;
+      });
+      staendeAktualisieren();
+    }
     if (werkzeug === 'stift' || werkzeug === 'marker') {
       const neu: Anmerkung = werkzeug === 'stift'
         ? { id: crypto.randomUUID(), art: 'stift', farbe: einst.stift.farbe, breite: einst.stift.breite, punkte: z.punkte }
@@ -372,15 +382,20 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       if (r.b > 0.02 && r.h > 0.01) { setNeueStelle(r); setStelleTitel(''); }
     }
   }
+  // Ein Radier-Wisch nimmt getroffene eigene Striche weg und — auf Seiten mit
+  // Markierungen aus dem PDF — radiert diese Ebene entlang einer Radier-Spur.
+  // Gespeichert wird einmal am Ende des Wischs (hoch).
+  const radierSpur = useRef<string | null>(null);
   function radieren(x: number, y: number) {
     const seite = zeichenSeite!;
+    const ebene = mitEbene.current.has(seite);
     setAnm((alleAnm) => {
       const alt = alleAnm[seite] ?? [];
-      const neu = alt.filter((a) => !getroffen(a, x, y, 0.012, format));
-      if (neu.length === alt.length) return alleAnm;
-      if (!radierZug.current) { verlaufAnm.current = [...verlaufAnm.current.slice(-49), { seite, vorher: alt }]; wiederholenAnm.current = []; radierZug.current = true; }
-      anmerkungenSpeichern(noten.id, seite, neu).catch(speicherFehler);
-      return { ...alleAnm, [seite]: neu };
+      const r = radierZug(alt, x, y, 0.012, format, radierSpur.current, ebene, () => crypto.randomUUID());
+      radierSpur.current = r.spur;
+      if (!r.geaendert) return alleAnm;
+      if (!radierWisch.current) { verlaufAnm.current = [...verlaufAnm.current.slice(-49), { seite, vorher: alt }]; wiederholenAnm.current = []; radierWisch.current = true; }
+      return { ...alleAnm, [seite]: r.objekte };
     });
   }
   function rueckgaengig() {
@@ -396,7 +411,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     anmerkungenSetzen(naechster.seite, naechster.vorher, false);
   }
   // Ein Radierer-Wisch ist eine Aktion: nur der Stand vor dem ersten Treffer wird gemerkt.
-  const radierZug = useRef(false);
+  const radierWisch = useRef(false);
   async function stelleSpeichern() {
     if (!neueStelle || zeichenSeite === null) return;
     const r = neueStelle;

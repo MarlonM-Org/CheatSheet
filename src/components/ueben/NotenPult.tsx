@@ -3,14 +3,16 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { istNachladeFehler } from '@/domain/nachladen';
+import type { Anmerkung } from '@/domain/notenpult';
 import { mitRand } from '@/domain/ueben';
 import { NeueVersion } from '@/components/NeueVersion';
-import { notenAendern, notenHolen, stelleAendern, stelleLoeschen, stellenVon, tempoGeschafft, type LokaleNoten, type LokaleStelle as Stelle } from './lokal';
+import { anmerkungenVon, notenAendern, notenHolen, stelleAendern, stelleLoeschen, stellenVon, tempoGeschafft, type LokaleNoten, type LokaleStelle as Stelle } from './lokal';
 import { useMetronom } from './MetronomKontext';
 import { NotenBetrachter } from './NotenBetrachter';
-import { NeueVersionFehler, pdfLaden, seiteZeichnen } from './pdf';
+import { NeueVersionFehler, pdfLaden, seiteMitEbene } from './pdf';
 import { ladeFehler, speicherFehler } from './speicherfehler';
 import { useDialogFokus, useEscape } from './tasten';
+import { anmerkungenZeichnen, ebeneZeichnen } from './zeichnen';
 
 const RAND = 0.06;
 
@@ -105,7 +107,7 @@ function StueckBlatt({ noten, pdf, stellen, bpm, tempoSetzen, neuLaden, umbenann
           </form>
         )}
         <h3 className="abschnitt-titel">Stellen</h3>
-        <UebeAnsicht pdf={pdf} stellen={stellen} bpm={bpm} neuLaden={neuLaden} tempoSetzen={tempoSetzen} zeigen={zeigen} />
+        <UebeAnsicht pdf={pdf} notenId={noten.id} stellen={stellen} bpm={bpm} neuLaden={neuLaden} tempoSetzen={tempoSetzen} zeigen={zeigen} />
       </div>
     </div>
   );
@@ -113,8 +115,8 @@ function StueckBlatt({ noten, pdf, stellen, bpm, tempoSetzen, neuLaden, umbenann
 
 // ── Nur die markierten Stellen üben ─────────────────────────────────────
 
-function UebeAnsicht({ pdf, stellen, bpm, tempoSetzen, neuLaden, zeigen }: {
-  pdf: PDFDocumentProxy; stellen: Stelle[]; bpm: number; tempoSetzen: (n: number) => void; neuLaden: () => void; zeigen: (id: string) => void;
+function UebeAnsicht({ pdf, notenId, stellen, bpm, tempoSetzen, neuLaden, zeigen }: {
+  pdf: PDFDocumentProxy; notenId: string; stellen: Stelle[]; bpm: number; tempoSetzen: (n: number) => void; neuLaden: () => void; zeigen: (id: string) => void;
 }) {
   const [rand, setRand] = useState(true);
   const huelle = useRef<HTMLDivElement>(null);
@@ -130,16 +132,36 @@ function UebeAnsicht({ pdf, stellen, bpm, tempoSetzen, neuLaden, zeigen }: {
     return () => ro.disconnect();
   }, [leer]);
 
+  // Was der Betrachter zeigt, zeigen auch die Ausschnitte: Markierungen aus
+  // dem PDF (an den Radier-Spuren ausgestanzt) und eigene Anmerkungen.
+  const [anm, setAnm] = useState<Record<number, Anmerkung[]> | null>(null);
+  useEffect(() => {
+    let weg = false;
+    anmerkungenVon(notenId).then(
+      (l) => { if (!weg) setAnm(Object.fromEntries(l.map((x) => [x.seite, x.objekte]))); },
+      (x) => { ladeFehler(x); if (!weg) setAnm({}); },
+    );
+    return () => { weg = true; };
+  }, [notenId]);
+
   // Jede Seite einmal groß rendern, Ausschnitte daraus schneiden.
   const seiteHolen = useCallback((nr: number) => {
     let p = seiten.current.get(nr);
     if (!p) {
-      const c = document.createElement('canvas');
-      p = seiteZeichnen(pdf, nr, c, 1400).then(() => c);
+      const objekte = anm?.[nr] ?? [];
+      p = seiteMitEbene(pdf, nr, 1400).then(({ seite, ebene }) => {
+        const ctx = seite.getContext('2d')!;
+        if (ebene) {
+          ebeneZeichnen(ctx, ebene, objekte, 0, 0, seite.width, seite.height, document.createElement('canvas'));
+          ebene.width = 0; ebene.height = 0;
+        }
+        anmerkungenZeichnen(ctx, objekte, 0, 0, seite.width, seite.height);
+        return seite;
+      });
       seiten.current.set(nr, p);
     }
     return p;
-  }, [pdf]);
+  }, [pdf, anm]);
 
   if (stellen.length === 0) return <p className="karte">Noch keine Stellen markiert. In den Noten das Werkzeug „▢ Stelle“ wählen und einen Rahmen um die Takte ziehen.</p>;
 
@@ -148,7 +170,7 @@ function UebeAnsicht({ pdf, stellen, bpm, tempoSetzen, neuLaden, zeigen }: {
       <label className="schalter-zeile flex items-center gap-2 text-sm">
         <input type="checkbox" className="auswahl-box" checked={rand} onChange={(e) => setRand(e.target.checked)} /> etwas Rand davor und danach zeigen
       </label>
-      {breite > 0 && stellen.map((s) => (
+      {breite > 0 && anm && stellen.map((s) => (
         <UebeStelle key={s.id} stelle={s} breite={breite} rand={rand} seiteHolen={seiteHolen} bpm={bpm} tempoSetzen={tempoSetzen} neuLaden={neuLaden} zeigen={() => zeigen(s.id)} />
       ))}
     </div>
