@@ -35,7 +35,7 @@ ob das ins Leitbild passt (dann auch CLAUDE.md anpassen: „kein Login“).
 | M1 | **Fundament aufräumen** | Datenmodell klären, Tests für die Speicherschicht (A-01 verworfen) | A-02, A-03 |
 | M2 | **Noten im Zentrum** | UI-Neuaufbau: Noten vollflächig, Werkzeuge als Overlays, drei Knöpfe unten | B-01…B-03 |
 | M3 | **Werkzeuge schärfen** | Stimmgerät- und Metronom-Verbesserungen, Stift-Ausbau | C-01…C-03, D-01, E-01…E-03 |
-| M4 | **Notenmanagement I** | Sammlungen (als Erstes), Metadaten, Bookmarks, Flags, Kontextmenüs, Drag & Drop | F-13, F-01, F-03, F-04, F-08, F-09 |
+| M4 | **Notenmanagement I** | Metadaten, Bookmarks, Flags, Kontextmenüs, Drag & Drop (Sammlungen F-13 erledigt) | F-01, F-03, F-04, F-08, F-09 |
 | M5 | **Üben & Setlisten** | Setlisten, Wiederholungs-Links, Halbseiten-Blättern, Intonations-Trainer (Stellen-Mix F-11 schon erledigt) | F-02, F-05, F-06, C-04 |
 | M6 | **Design & Extras** | Themes, Stempel/Formen, Kamera-Scan | B-04, B-05, E-04, F-07 |
 | M7 | **Komponieren** (Vision) | Noteneingabe, Rhythmus-/Melodie-Transkription | G-01…G-03 |
@@ -208,34 +208,6 @@ soweit sinnvoll.)
 
 ---
 
-### F-13 · Sammlungen — und Stellen-Mix je Sammlung
-
-Wunsch Marlon (2026-10-12): Stücke einordnen — „Orchester A“, „Orchester
-B“, „Märsche“, „Jazz“ … — und dann gezielt **in einer Sammlung Stellen
-üben**: „Jetzt Märsche“ → Stellen-Mix nur über die Märsche. Ums Stellen-Üben
-geht es dabei vor allem.
-
-- **Sammlungen statt Ordner:** Ein Stück kann in mehreren Sammlungen
-  liegen (ein Marsch von Orchester A gehört in „Orchester A“ *und*
-  „Märsche“). Ordner zwingen zu einem Platz — dann fehlt der Marsch bei
-  Orchester A oder bei den Märschen. Wie Etiketten bzw. Wiedergabelisten.
-- **Bibliothek:** eine Zeile mit Sammlungen zum Filtern („Alle · Orchester
-  A · Märsche · …“); zuordnen im Auswahl-Modus („Auswählen → In Sammlung“)
-  und im Stück-Blatt. Sammlung anlegen, umbenennen, löschen (die Stücke
-  bleiben).
-- **Stellen-Mix je Sammlung:** Die Mix-Karte mischt, was gerade gefiltert
-  ist („Stellen-Mix · Märsche · 14 Stellen“); jede Sammlung hat ihre eigene
-  Runde. Dazu der Schalter **„nur offene Stellen“**: nur Stellen, die ihr
-  Ziel (mit Reserve, F-12) noch nicht erreicht haben — „die ich noch üben
-  muss“. Regeln zuerst als Test in `src/domain/stellen.ts`.
-- **Daten:** als Feld am Noten-Datensatz (`sammlungen: string[]`). Noten-
-  Datensätze tragen seit Schema 3 keine Datei mehr, Schreiben ist also
-  ungefährlich. Zusätzliche Felder reisen schon jetzt in der Sicherung mit
-  (`sicherungPacken` übernimmt alle Felder der Noten) — kein neues
-  `.uebe`-Format nötig; die Registerführer-App ignoriert sie. Ob für
-  Reihenfolge/Farbe ein eigener Speicher `sammlungen` (Schema 4) nötig ist,
-  mit A-02 entscheiden. F-13 ist der erste Teil von F-01 (Tags).
-
 ## G — Komponieren (Vision, langfristig)
 
 Langfristperspektive: CheatSheet nicht nur zum Lesen und Üben, sondern auch
@@ -298,11 +270,14 @@ Anmelden beim Anbieter, das regelmäßig erneuert werden muss.
 
 **Vorgeschlagene Stufen:**
 
-- **H-01 · Übertragen in einem Schritt (sofort möglich, ohne Login):**
-  „Sicherung in iCloud sichern“ über das Teilen-Menü in einen festen Ordner,
-  auf dem anderen Gerät „Sicherung laden“ — das Zusammenführen kann die App
-  schon (B-06: nichts doppelt, Tempi vereinigt). Ausbau: nur Änderungen
-  seit der letzten Sicherung, Hinweis „letzte Sicherung vor 5 Tagen“.
+- **H-01 · Übertragen per Sicherung (ohne Login)** — *erster Teil erledigt
+  (2026-10-12, siehe unten)*: Uhrzeit im Dateinamen, Erinnerung, neuerer
+  Stand gewinnt, Gelöschtes und Wegradiertes reisen mit. Offen: **Sicherung
+  ohne PDFs** — liegen die Noten ohnehin in einem iCloud-Ordner (auf beiden
+  Geräten per Ordner-Import übernommen), reicht eine kleine Datei mit
+  Stellen, Tempi und Anmerkungen; zugeordnet über Dateiname und Größe statt
+  über die id. Braucht eine neue Format-Version (die alte bleibt lesbar).
+  Danach: nur Änderungen seit der letzten Sicherung.
 - **H-02 · Ordner am Rechner** (Chrome/Edge): Noten-Ordner wählen, die App
   liest neue/geänderte PDFs und schreibt `cheatsheet-daten.json` daneben.
 - **H-03 · OneDrive** und **H-04 · Google Drive**: Anmelden, App-Ordner,
@@ -474,6 +449,56 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
   obwohl sich das Stück öffnen ließ („Nicht lesbar, nicht in der
   Sicherung“). Ist eine PDF wirklich verloren, nennt die Meldung den Weg
   zur Rettung. Ersetzt A-01.
+- **F-13 · Sammlungen — und Stellen-Mix je Sammlung** (2026-10-12): Wunsch
+  Marlon: Stücke einordnen („Orchester A“, „Märsche“, „Jazz“ …) und gezielt
+  in einer Sammlung Stellen üben. Regeln in `src/domain/sammlungen.ts`
+  (getestet).
+  - **Sammlungen statt Ordner:** Jedes Stück trägt eine Liste von Namen
+    (`sammlungen`), ein Stück kann in mehreren sein und liegt trotzdem nur
+    einmal auf dem Gerät. Eine Sammlung gibt es, solange ein Stück sie trägt.
+    Kein Schema-Sprung (Feld am Noten-Datensatz), reist in der Sicherung mit.
+  - **Bibliothek:** Filterzeile „Alle · Jazz 2 · Märsche 5 · … · + Sammlung“;
+    die gewählte Sammlung steht darunter („Sammlung „Märsche“ · 5 Stücke ·
+    bearbeiten“: umbenennen, auflösen — die Stücke bleiben). Einsortieren im
+    Auswahl-Modus („In Sammlung …“, Häkchen halb bei „manche“) und im
+    Stück-Blatt („Sammlungen: … ändern“).
+  - **Hinzufügen bei gewählter Sammlung — deutlich gekennzeichnet:** „+ Noten“
+    trägt dann ein Messing-Abzeichen, das Menü zeigt oben hervorgehoben „In
+    „Märsche“ einsortieren“ mit Schalter (bei jeder Filterwahl wieder an), die
+    Meldung danach sagt es noch einmal.
+  - **Ordner übernehmen** („+ Noten → Ordner wählen“, auch in der leeren
+    Bibliothek; auf dem iPhone ab iOS 18.4 laut Kompatibilitätstabelle, auf
+    dem Gerät noch zu prüfen): alle PDFs samt Unterordnern; Unterordner
+    werden Sammlungen, der gewählte Ordner nur, wenn die PDFs direkt darin
+    liegen. Einmal gelesen, kein dauerhafter Ordnerzugriff (kann Safari nicht).
+  - **Nichts doppelt:** Beim Hinzufügen (Dateien wie Ordner) wird eine Datei,
+    die schon in der Bibliothek liegt (gleicher Name und gleiche Größe — neu
+    gespeichert als `groesse`), nicht noch einmal angelegt, nur einsortiert;
+    dieselbe Datei in mehreren Unterordnern wird ein Stück in mehreren
+    Sammlungen; gleicher Name mit anderer Größe (etwa „Klarinette 1.pdf“ je
+    Stück-Ordner) bleiben verschiedene Stücke. Nicht lesbare Dateien (nur in
+    iCloud) werden übersprungen und genannt. Die PDF liegt auf dem iPhone
+    zwangsläufig einmal in der App und einmal in iCloud — Safari kann sich
+    keinen Verweis auf eine iCloud-Datei merken.
+  - **Stellen-Mix je Sammlung:** Die Mix-Karte mischt, was gefiltert ist
+    („Stellen-Mix · Märsche“, Kopf „Mix Märsche · 3 von 14“); jede Sammlung
+    hat ihre eigene Runde. Schalter **„Nur offene Stellen“**: nur Stellen ohne
+    Ziel oder mit Ziel + Reserve noch nicht geschafft; schon geübte und die
+    aktuelle bleiben in der laufenden Runde.
+- **H-01 (erster Teil) · Sicherung: Uhrzeit, Erinnerung, neuer gewinnt,
+  Gelöschtes reist mit** (2026-10-12): Dateiname `Uebe-Sicherung 2026-10-12
+  18.30.uebe`. Die Einstellungen zeigen „Letzte Sicherung: …“ (gemerkt beim
+  Herunterladen bzw. Teilen, `ueben:letzte-sicherung`); die Bibliothek
+  erinnert, wenn sie älter als 7 Tage ist und sich seitdem etwas geändert
+  hat. Beim Laden gilt bei gleicher id der **neuere Stand** (neues Feld
+  `geaendert` an Noten, Stellen und Seiten); Tempi werden weiter vereinigt;
+  die PDF kommt aus der Sicherung, wenn sie dort nicht älter ist.
+  **Wegradiertes bleibt weg** (Seiten merken `entfernt`), **Gelöschtes reist
+  mit** (Grabsteine in `ueben:geloescht`, im Sicherungskopf `geloescht`, ein
+  Jahr lang): dort gelöscht und hier unverändert → hier gelöscht (die
+  Rückfrage nennt es); hier gelöscht → eine ältere Sicherung legt es nicht
+  wieder an. Getestet in `src/domain/einspielen.ts`, dazu ein Durchlauf mit
+  zwei Geräten im Browser.
 - **F-12 · Zieltempo und Tempo-Verlauf je Stelle** (2026-10-12): Wunsch
   Marlon: jeder Stelle ein Endziel geben („120 auf Viertel“) und sehen, wie
   sich das Tempo entwickelt — „die letzten drei Wochen +20 %“ —, mit dem Ziel

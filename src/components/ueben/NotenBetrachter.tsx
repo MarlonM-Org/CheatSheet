@@ -489,7 +489,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     tempoFuer.current = id;
     if (zuletzt) setBpm(zuletzt);
   }, [stelle?.id, zuletzt, setBpm]);
-  const anzeige = mix ? `Mix · ${mix.nr} von ${mix.anzahl}`
+  const anzeige = mix ? `Mix${mix.titel ? ` ${mix.titel}` : ''} · ${mix.nr} von ${mix.anzahl}`
     : modus === 'stellen'
     ? `Stelle ${stelleNr + 1} von ${stellen.length}`
     : ansicht.art === 'ganz' ? `Seite ${ansicht.seite} von ${seiten}` : `Seite ${ansicht.unten} → ${ansicht.oben} von ${seiten}`;

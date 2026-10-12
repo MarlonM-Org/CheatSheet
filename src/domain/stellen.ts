@@ -139,6 +139,37 @@ export function mischen(stellen: MixStelle[], zufall: () => number = Math.random
   return reihe;
 }
 
+// Bereich eines Mix: alle Stellen oder die einer Sammlung (F-13), auf Wunsch
+// nur offene — die ihr Ziel samt Reserve noch nicht geschafft haben.
+export interface MixBereich { sammlung: string | null; offen: boolean }
+
+// Offen: noch kein Ziel gesetzt, oder Ziel + Reserve noch nicht geschafft.
+export function stelleOffen(s: { zielTempo: number | null; tempi: Tempo[] }): boolean {
+  if (!s.zielTempo) return true;
+  return (tempoStand(s.tempi).bestes ?? 0) < reserveVon(s.zielTempo);
+}
+
+// Die Stellen eines Bereichs. `behalten`: schon geübte und die aktuelle Stelle
+// der laufenden Runde — sie bleiben, auch wenn sie inzwischen geschafft sind,
+// damit Zählung und Platz in der Runde nicht springen.
+export function mixAuswahl<S extends MixStelle & { zielTempo: number | null; tempi: Tempo[] }>(
+  stellen: S[], imBereich: (notenId: string) => boolean, nurOffen: boolean, behalten: ReadonlySet<string> = new Set(),
+): S[] {
+  return stellen.filter((s) => imBereich(s.notenId) && (behalten.has(s.id) || !nurOffen || stelleOffen(s)));
+}
+
+// Speicherplatz der Runde je Bereich; „alle“ behält den bisherigen.
+export const mixSchluessel = (b: MixBereich) =>
+  !b.sammlung && !b.offen ? 'ueben:mix' : `ueben:mix:${b.offen ? 'offen:' : ''}${b.sammlung ?? '*'}`;
+
+// Gespeicherter Bereich des laufenden Mix (bis 2026-10-12 nur true/false).
+export function mixBereichLesen(roh: unknown): MixBereich | null {
+  if (roh === true) return { sammlung: null, offen: false };
+  if (!roh || typeof roh !== 'object') return null;
+  const { sammlung, offen } = roh as { sammlung?: unknown; offen?: unknown };
+  return { sammlung: typeof sammlung === 'string' && sammlung ? sammlung : null, offen: offen === true };
+}
+
 export const neueRunde = (stellen: MixStelle[], zufall: () => number = Math.random): Runde =>
   ({ reihe: mischen(stellen, zufall), pos: 0 });
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  mischen, neueRunde, reserveVon, rundeAbgleichen, rundeLesen, rundeStand, steigerung, tagesbeste, tempoAchse, tempoStand, zielAusText, zielStand, type MixStelle,
+  mischen, mixAuswahl, mixBereichLesen, mixSchluessel, neueRunde, reserveVon, rundeAbgleichen, rundeLesen, rundeStand, steigerung, stelleOffen,
+  tagesbeste, tempoAchse, tempoStand, zielAusText, zielStand, type MixStelle,
 } from '@/domain/stellen';
 
 // Wiederholbarer Zufall für die Tests.
@@ -192,5 +193,33 @@ describe('Achse der Tempo-Kurve', () => {
   });
   it('enge Spanne: feinere Striche', () => {
     expect(tempoAchse([84, 92])).toEqual({ min: 80, max: 95, striche: [80, 85, 90, 95] });
+  });
+});
+
+describe('Stellen-Mix: Bereich (Sammlung, nur offene)', () => {
+  const s = (id: string, notenId: string, zielTempo: number | null = null, tempi: { tempo: number; am: number }[] = []) => ({ id, notenId, zielTempo, tempi });
+  it('offen: ohne Ziel, oder Ziel samt Reserve noch nicht geschafft', () => {
+    expect(stelleOffen(s('a', 'n'))).toBe(true);
+    expect(stelleOffen(s('a', 'n', 120, [{ tempo: 125, am: 1 }]))).toBe(true);
+    expect(stelleOffen(s('a', 'n', 120, [{ tempo: 132, am: 1 }]))).toBe(false);
+  });
+  it('wählt die Stellen der Sammlung, auf Wunsch nur offene — Behaltenes bleibt drin', () => {
+    const alle = [s('a1', 'A'), s('a2', 'A', 100, [{ tempo: 110, am: 1 }]), s('b1', 'B'), s('c1', 'C', 100, [{ tempo: 111, am: 1 }])];
+    const inSammlung = (notenId: string) => notenId !== 'B';
+    expect(mixAuswahl(alle, inSammlung, false).map((x) => x.id)).toEqual(['a1', 'a2', 'c1']);
+    expect(mixAuswahl(alle, inSammlung, true).map((x) => x.id)).toEqual(['a1']);
+    // schon geübt bzw. gerade dran: bleibt in der Runde, auch wenn jetzt geschafft
+    expect(mixAuswahl(alle, inSammlung, true, new Set(['c1'])).map((x) => x.id)).toEqual(['a1', 'c1']);
+  });
+  it('jeder Bereich hat seine eigene Runde; „alle“ behält den bisherigen Speicherplatz', () => {
+    expect(mixSchluessel({ sammlung: null, offen: false })).toBe('ueben:mix');
+    expect(mixSchluessel({ sammlung: 'Märsche', offen: false })).toBe('ueben:mix:Märsche');
+    expect(mixSchluessel({ sammlung: null, offen: true })).toBe('ueben:mix:offen:*');
+  });
+  it('gespeicherter Bereich: alt „true“ heißt alle', () => {
+    expect(mixBereichLesen(true)).toEqual({ sammlung: null, offen: false });
+    expect(mixBereichLesen({ sammlung: 'Jazz', offen: true })).toEqual({ sammlung: 'Jazz', offen: true });
+    expect(mixBereichLesen(false)).toBeNull();
+    expect(mixBereichLesen({ sammlung: 3 })).toEqual({ sammlung: null, offen: false });
   });
 });

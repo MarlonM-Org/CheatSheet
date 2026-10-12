@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { rueckfrage, ueberschreibt } from '@/domain/einspielen';
 import { SicherungsFehler, sicherungsName } from '@/domain/sicherung';
-import { sicherungErstellen, sicherungPruefen, sicherungSchreiben } from './lokal';
+import { zeitpunkt as kurzZeit } from '@/domain/notenpult';
+import { letzteSicherung, sicherungErstellen, sicherungGespeichert, sicherungPruefen, sicherungSchreiben } from './lokal';
 import { fehlerGrund } from './speicherfehler';
 
 type TeilenNavigator = Navigator & { canShare?: (d: { files: File[] }) => boolean };
@@ -39,6 +40,8 @@ export function useSicherungLaden(geaendert: () => void): SicherungLaden {
       const n = await sicherungSchreiben(e);
       setMeldung(`Sicherung geladen: ${n.neu} Noten neu, ${n.aktualisiert} aktualisiert; `
         + `${anzahl(n.stellen, 'Stelle', 'Stellen', true)}, ${anzahl(n.anmerkungen, 'Seite', 'Seiten', true)} mit Anmerkungen.`
+        + (n.geloescht ? ` ${anzahl(n.geloescht, 'Eintrag', 'Einträge')} gelöscht, weil auf dem anderen Gerät gelöscht.` : '')
+        + (e.verworfen ? ` ${anzahl(e.verworfen, 'Eintrag', 'Einträge')} nicht wieder angelegt, weil hier gelöscht.` : '')
         + (n.uebersprungen ? ` ${anzahl(n.uebersprungen, 'Eintrag', 'Einträge')} ohne zugehörige Noten übersprungen.` : ''));
       geaendert();
     } catch (x) {
@@ -84,6 +87,9 @@ export function Sicherung({ laden }: { laden: SicherungLaden }) {
   const [fertig, setFertig] = useState<Vorbereitet | null>(null);
   const [teilbar, setTeilbar] = useState(false);
   const [app, setApp] = useState(false);
+  // Wann zuletzt gespeichert (Herunterladen angetippt bzw. geteilt).
+  const [letzte, setLetzte] = useState<number | null>(() => letzteSicherung());
+  const gemerkt = () => { sicherungGespeichert(); setLetzte(letzteSicherung()); };
   // Objekt-URL erst beim nächsten Vorbereiten oder beim Verlassen freigeben:
   // Ein Timer kann einen langsamen Download (großes PDF, iPad) abschneiden.
   const aktuelleUrl = useRef<string | null>(null);
@@ -124,6 +130,7 @@ export function Sicherung({ laden }: { laden: SicherungLaden }) {
       // Nur die Datei: Mit Titel oder Text legen manche Ziele (z. B. „In Dateien
       // sichern“) zusätzlich eine Textdatei an oder bieten sich gar nicht an.
       await navigator.share({ files: [fertig.datei] });
+      gemerkt();
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e));
       if (err.name !== 'AbortError') setFehler(`Teilen ging nicht: ${err.message}`);
@@ -131,7 +138,7 @@ export function Sicherung({ laden }: { laden: SicherungLaden }) {
   }
 
   const herunterladen = fertig && (
-    <a key="laden" className={`knopf ${app && teilbar ? 'knopf-leise' : ''}`} href={fertig.url} download={fertig.datei.name}>
+    <a key="laden" className={`knopf ${app && teilbar ? 'knopf-leise' : ''}`} href={fertig.url} download={fertig.datei.name} onClick={gemerkt}>
       Herunterladen ({groesse(fertig.datei.size)})
     </a>
   );
@@ -147,8 +154,11 @@ export function Sicherung({ laden }: { laden: SicherungLaden }) {
       <p className="gedaempft text-sm">
         Eine Datei mit allen Noten dieses Geräts samt markierten Stellen, Tempi und Anmerkungen — zum Übertragen auf
         ein anderes Gerät (dort hier „Sicherung laden“) oder als Schutz. Laden ergänzt: Was es schon gibt, wird nach
-        Rückfrage zusammengeführt; was nur auf dem Gerät ist, bleibt. Einstellungen wie Tempo oder Farbwelt reisen
-        nicht mit.
+        Rückfrage zusammengeführt (der neuere Stand gilt); was nur auf dem Gerät ist, bleibt; was auf einem Gerät
+        gelöscht wurde, wird auch auf dem anderen gelöscht. Einstellungen wie Tempo oder Farbwelt reisen nicht mit.
+      </p>
+      <p className="text-sm" role="status">
+        {letzte ? <>Letzte Sicherung: <strong>{kurzZeit(letzte)}</strong></> : <span className="gedaempft">Noch keine Sicherung gespeichert.</span>}
       </p>
       <div className="flex flex-wrap gap-2">
         <button type="button" className={`knopf ${fertig ? 'knopf-leise' : ''}`} onClick={() => void vorbereiten()} disabled={laeuft || laden.laeuft}>
@@ -164,7 +174,7 @@ export function Sicherung({ laden }: { laden: SicherungLaden }) {
           <div className="flex flex-wrap gap-2">{app ? [teilenKnopf, herunterladen] : [herunterladen, teilenKnopf]}</div>
           <p className="gedaempft text-sm">
             {teilbar
-              ? 'Auf iPad/iPhone: „Teilen“ → „In Dateien sichern“ legt sie in die Dateien-App; AirDrop und Mail gehen auch.'
+              ? 'Auf iPad/iPhone: „Teilen“ → „In Dateien sichern“ legt sie in die Dateien-App (z. B. iCloud Drive); AirDrop und Mail gehen auch. Jede Sicherung enthält alle PDFs — alte Sicherungen kannst du dort löschen.'
               : 'Die Datei landet bei den Downloads.'}
           </p>
         </div>

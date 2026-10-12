@@ -19,8 +19,12 @@ Früher unter Admin → „Üben (Prototyp)“ in der Registerführer-App.
   eigene Linie), mit Stift, Marker und Text anmerken, Stellen markieren und
   Stelle für Stelle mit Tempo-Verlauf üben — das Metronom springt dabei auf
   das zuletzt geschaffte Tempo der Stelle.
-- **Stellen-Mix:** markierte Stellen aus allen Stücken bunt gemischt üben,
-  Runde für Runde jede genau einmal.
+- **Sammlungen:** Stücke einsortieren („Orchester A“, „Märsche“ …), ein Stück
+  auch in mehreren; einen ganzen Ordner übernehmen (Unterordner werden
+  Sammlungen, nichts wird doppelt angelegt).
+- **Stellen-Mix:** markierte Stellen aus allen Stücken oder einer Sammlung
+  bunt gemischt üben, Runde für Runde jede genau einmal, auf Wunsch nur die
+  offenen.
 - **Ziel und Tempo-Verlauf je Stelle:** Zieltempo setzen; eine Kurve zeigt je
   Übetag das beste geschaffte Tempo, Ziel und Reserve (+10 %) und die
   Steigerung der letzten drei Wochen.
@@ -154,7 +158,7 @@ den Stand auf ein anderes Gerät zu bringen oder als Schutz. Auf einem neuen,
 leeren Gerät steht „Sicherung laden“ auch direkt in der Bibliothek.
 Einstellungen (Tempo, Farbwelt …) reisen nicht mit.
 
-- **Sicherung erstellen** packt eine Datei `Uebe-Sicherung JJJJ-MM-TT.uebe`:
+- **Sicherung erstellen** packt eine Datei `Uebe-Sicherung JJJJ-MM-TT HH.MM.uebe`:
   alle Noten-PDFs, markierten Stellen mit Tempo-Verlauf und Anmerkungen
   dieses Geräts. Jede PDF wird dafür einmal komplett gelesen (als Strom, ohne
   den Inhalt zu behalten) und die Bytes werden gegen die gespeicherte Größe
@@ -168,13 +172,19 @@ Einstellungen (Tempo, Farbwelt …) reisen nicht mit.
   Note mit Titel, Stimme und Datum; jede Stelle mit Seite ab 1, Rahmen und
   Tempo-Verlauf; jede Seite mit Anmerkungen mit Seite, Objekten und der id
   „notenId:seite“; alles einer Note zugeordnet — verwaiste werden übersprungen
-  und gezählt). Laden führt ohne Verlust zusammen
-  (`src/domain/einspielen.ts`): Was es nur auf dem Gerät gibt, bleibt. Bei
-  gleicher id kommen Titel, Notizen, Zieltempo und Rahmen aus der Sicherung,
-  aber Tempo-Verläufe werden vereinigt (jeder Eintrag einmal, nach Zeit
-  sortiert) und Striche/Texte einer Seite nach ihrer id (bei gleicher id gilt
-  die Sicherung). Bei Noten kommt auch die Datei aus der Sicherung, der
-  Dateiverweis des Geräts bleibt. Die PDFs gehen dabei nie als Blob in die
+  und gezählt). Laden führt zusammen (`src/domain/einspielen.ts`): Was es nur
+  auf dem Gerät gibt, bleibt. Bei gleicher id gilt der **neuere Stand** (Feld
+  `geaendert`; ältere Einträge: aktualisiert/erstellt bzw. letztes Tempo) für
+  Titel, Stimme, Sammlungen, Notizen, Zieltempo und Rahmen; Tempo-Verläufe
+  werden immer vereinigt (jeder Eintrag einmal, nach Zeit sortiert),
+  Striche/Texte einer Seite nach ihrer id — was auf einem der Geräte
+  wegradiert wurde (`entfernt`), bleibt weg. Die PDF kommt aus der
+  Sicherung, wenn sie dort nicht älter ist als hier; der Dateiverweis des
+  Geräts bleibt. **Gelöschtes reist mit:** Gelöschte Stücke und Stellen
+  hinterlassen einen Grabstein (localStorage `ueben:geloescht`, im Kopf der
+  Sicherung als `geloescht`). Was auf dem anderen Gerät gelöscht und hier
+  seitdem nicht geändert wurde, wird hier gelöscht (die Rückfrage nennt es);
+  was hier gelöscht wurde, legt eine ältere Sicherung nicht wieder an. Die PDFs gehen dabei nie als Blob in die
   Datenbank (Safari verliert sie mitunter): erst einzeln als Bytes vorläufig
   in `dateien`, dann zieht die eine Transaktion sie an ihren Platz. Gibt es schon etwas davon auf dem Gerät,
   fragt die App vorher („Die Sicherung vom … aktualisiert auf diesem Gerät N
@@ -184,6 +194,10 @@ Einstellungen (Tempo, Farbwelt …) reisen nicht mit.
   (vorläufige Reste eines abgebrochenen Laufs räumt der nächste weg).
   Zweimal laden verdoppelt nichts. Danach: „X Noten neu, Y aktualisiert; Z Stellen, K Seiten mit
   Anmerkungen“. Bei falscher Datei sagt die App, wo die .uebe-Datei liegt.
+- **Erinnerung:** Ist die letzte gespeicherte Sicherung (Herunterladen
+  angetippt bzw. geteilt) älter als 7 Tage und hat sich seitdem etwas
+  geändert, erinnert die Bibliothek daran. Jede Sicherung enthält alle PDFs —
+  alte in der Dateien-App löschen spart Platz.
 - Ist der Gerätespeicher blockiert (ein anderes CheatSheet-Fenster hält noch
   eine alte Version offen), sagt die App das, statt still zu hängen.
 - Scheitert irgendein Speichern (Striche, Blätterlinie, Stellen, Tempi,

@@ -46,7 +46,15 @@ describe('Übe-Sicherung', () => {
     await expect(sicherungLesen(gut.slice(0, 20))).rejects.toThrow(/Kopf/);
   });
 
-  it('benennt die Datei mit Datum', () => {
-    expect(sicherungsName(new Date(2026, 9, 9))).toBe('Uebe-Sicherung 2026-10-09.uebe');
+  it('trägt Grabsteine im Kopf mit — ohne sie bleibt der Kopf wie bisher', async () => {
+    const leer = { noten: [], stellen: [], anmerkungen: [] };
+    const mit = await sicherungLesen(await sicherungPacken(leer, 'test', 1, [{ art: 'noten', id: 'x', am: 5 }]));
+    expect(mit.kopf.geloescht).toEqual([{ art: 'noten', id: 'x', am: 5 }]);
+    const ohne = await sicherungLesen(await sicherungPacken(leer, 'test', 1));
+    expect('geloescht' in ohne.kopf).toBe(false);
+  });
+
+  it('benennt die Datei mit Datum und Uhrzeit', () => {
+    expect(sicherungsName(new Date(2026, 9, 9, 18, 5))).toBe('Uebe-Sicherung 2026-10-09 18.05.uebe');
   });
 });

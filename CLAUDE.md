@@ -17,7 +17,10 @@ anders ist, ist ein Fehler oder gehört dort nachgetragen.
   ändern, nie Daten verwerfen.
 - Das Sicherungsformat `.uebe` (`src/domain/sicherung.ts`) ist der Vertrag mit
   `registerfuehrer`: Dateien von dort müssen hier ladbar bleiben. Nicht
-  ändern; eine neue Version nur mit Lesen der alten.
+  ändern; eine neue Version nur mit Lesen der alten. Einzige Ergänzung (weiter
+  Version 1, wer es nicht kennt, überliest es): optionales Kopf-Feld
+  `geloescht` (Grabsteine). Zusätzliche Felder an Noten/Stellen/Seiten
+  (`sammlungen`, `geaendert`, `entfernt`, `groesse`) reisen ohnehin mit.
 - Fachlogik rein und getestet in `src/domain/` — neue Regeln dort zuerst als Test.
 - Die Adresse steht nur in `src/adresse.ts`.
 - Offline: `public/sw.js` + `scripts/precache.mjs`. Neue statische Dateien

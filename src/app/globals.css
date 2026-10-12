@@ -488,7 +488,7 @@ details[open] > summary::before { transform: rotate(90deg); }
 }
 .nav-titel-schnitt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nav-pfeil { width: 11px; height: 11px; flex: none; color: var(--leise); }
-.nav-untertitel { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.04em; color: var(--gedaempft); white-space: nowrap; }
+.nav-untertitel { max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.04em; color: var(--gedaempft); white-space: nowrap; }
 .nav-rund {
   flex: none; width: 34px; height: 34px; border-radius: 999px;
   display: grid; place-items: center; background: var(--flaeche); color: var(--gedaempft);
@@ -594,7 +594,13 @@ details[open] > summary::before { transform: rotate(90deg); }
 .bib-zeile .auswahl-feld { margin: 0 0 0 -0.6rem; }
 
 /* Stellen-Mix (F-11): Einstieg in der Bibliothek */
-.mix-karte { display: flex; align-items: stretch; border: 1px solid var(--linie-stark); border-radius: 6px; background: var(--karte); overflow: hidden; }
+.mix-karte { display: flex; flex-direction: column; border: 1px solid var(--linie-stark); border-radius: 6px; background: var(--karte); overflow: hidden; }
+.mix-zeile { display: flex; align-items: stretch; }
+.mix-offen {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 12px;
+  border-top: 1px solid var(--linie); font-size: 0.8rem; font-weight: 600; cursor: pointer;
+}
+.mix-offen small { display: block; font-size: 0.72rem; font-weight: 500; color: var(--gedaempft); }
 .mix-start { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 10px 12px; text-align: left; }
 .mix-start:active:not(:disabled) { background: var(--flaeche); }
 .mix-symbol {
@@ -729,3 +735,55 @@ details[open] > summary::before { transform: rotate(90deg); }
 .uebetage th { padding: 4px 8px 4px 0; text-align: left; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--leise); }
 .uebetage td { padding: 4px 8px 4px 0; border-top: 1px solid var(--linie); }
 .uebetage td:last-child { color: var(--gedaempft); }
+
+/* ── Sammlungen (F-13) ── */
+.sammlungen { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.sammlungen::-webkit-scrollbar { display: none; }
+.sammlung-chip {
+  flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 12px;
+  border: 1px solid var(--linie-stark); border-radius: 999px; background: var(--papier);
+  font-size: 0.85rem; font-weight: 600; color: var(--gedaempft); white-space: nowrap;
+}
+.sammlung-chip[aria-pressed="true"] { background: var(--messing); border-color: var(--messing); color: var(--messing-text); }
+.sammlung-zahl { font-size: 0.72rem; font-weight: 700; opacity: 0.75; font-variant-numeric: tabular-nums; }
+.sammlung-neu { border-style: dashed; color: var(--messing); }
+.sammlung-formular { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.sammlung-formular .feld { flex: 1 1 12rem; }
+.sammlung-kopf { padding: 2px 2px 0; }
+.sammlung-wahl { border: 1px solid var(--linie); border-radius: 6px; overflow: hidden; }
+.sammlung-wahl li + li { border-top: 1px solid var(--linie); }
+.sammlung-wahl label { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 0 12px; cursor: pointer; font-weight: 600; }
+@media (pointer: coarse) { .sammlung-chip { min-height: 2.5rem; } }
+
+/* „+ Noten“ mit Menü; die Zielsammlung steht unübersehbar oben. */
+/* Das Menü klappt im Fluss unter der Werkzeugzeile auf (eigene Zeile) — so
+   schneidet der Rand der Bibliothek nichts ab. */
+.bib-menue-huelle { display: contents; }
+.bib-menue-huelle > .knopf { position: relative; }
+.bib-menue {
+  position: relative; z-index: 2; order: 10; flex: 1 1 100%;
+  display: flex; flex-direction: column; gap: 4px; padding: 8px; border-radius: 10px;
+  background: var(--papier); border: 1px solid var(--linie-stark);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 10%);
+}
+.bib-menue-punkt {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 9px 10px; border-radius: 8px;
+  text-align: left; font-weight: 650;
+}
+.bib-menue-punkt span { font-size: 0.75rem; font-weight: 500; color: var(--gedaempft); }
+.bib-menue-punkt:active, .bib-menue-punkt:hover { background: var(--flaeche); }
+.bib-menue-ziel {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 10px; border-radius: 8px;
+  border: 1px dashed var(--linie-stark); cursor: pointer;
+}
+.bib-menue-ziel.an { border: 1.5px solid var(--messing); background: var(--messing-hell); }
+/* Abzeichen auf „+ Noten“: neue Stücke kommen in die gewählte Sammlung. */
+.ziel-punkt { position: absolute; top: -4px; right: -4px; width: 12px; height: 12px; border-radius: 50%; background: var(--messing); border: 2px solid var(--papier); }
+
+/* Erinnerung an die Sicherung (H-01) */
+.sicherung-erinnerung {
+  display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px;
+  border: 1px solid var(--messing); border-radius: 6px; background: var(--messing-hell);
+  font-size: 0.8rem; text-align: left; color: var(--tinte);
+}
+.sicherung-erinnerung strong { flex: none; color: var(--messing); }

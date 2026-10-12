@@ -4,10 +4,15 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { istNachladeFehler } from '@/domain/nachladen';
 import type { Anmerkung } from '@/domain/notenpult';
+import { sammlungenUebersicht, sammlungenVon } from '@/domain/sammlungen';
 import { tempoStand, zielAusText } from '@/domain/stellen';
 import { mitRand } from '@/domain/ueben';
 import { NeueVersion } from '@/components/NeueVersion';
-import { anmerkungenVon, notenAendern, notenDatei, notenHolen, stelleAendern, zuletztMerken, stelleLoeschen, stellenVon, tempoGeschafft, type LokaleNoten, type LokaleStelle as Stelle } from './lokal';
+import {
+  alleNoten, anmerkungenVon, notenAendern, notenDatei, notenHolen, sammlungenSetzen, stelleAendern, zuletztMerken, stelleLoeschen, stellenVon,
+  tempoGeschafft, type LokaleNoten, type LokaleStelle as Stelle,
+} from './lokal';
+import { SammlungWahl } from './Sammlungen';
 import { useMetronom } from './MetronomKontext';
 import { NotenBetrachter } from './NotenBetrachter';
 import { NeueVersionFehler, pdfLaden, seiteMitEbene } from './pdf';
@@ -96,10 +101,12 @@ export function NotenPult({ notenId, tastenAktiv, verschwunden, mix = null }: {
 
 function StueckBlatt({ noten, pdf, stellen, bpm, tempoSetzen, neuLaden, umbenannt, zeigen, schliessen }: {
   noten: LokaleNoten; pdf: PDFDocumentProxy; stellen: Stelle[]; bpm: number; tempoSetzen: (n: number) => void;
-  neuLaden: () => void; umbenannt: (neu: { titel: string; stimme: string }) => void; zeigen: (id: string) => void; schliessen: () => void;
+  neuLaden: () => void; umbenannt: (neu: Partial<LokaleNoten>) => void; zeigen: (id: string) => void; schliessen: () => void;
 }) {
   const [umbenennen, setUmbenennen] = useState(false);
-  useEscape(schliessen);
+  // Sammlungen des Stücks ändern: alle vorhandenen zur Auswahl (F-13).
+  const [wahl, setWahl] = useState<{ name: string; anzahl: number }[] | null>(null);
+  useEscape(schliessen, !wahl);
   const fokus = useDialogFokus<HTMLDivElement>();
 
   return (
@@ -124,6 +131,19 @@ function StueckBlatt({ noten, pdf, stellen, bpm, tempoSetzen, neuLaden, umbenann
             <input className="feld" name="stimme" defaultValue={noten.stimme} placeholder="Stimme" aria-label="Stimme" />
             <button className="knopf knopf-klein" type="submit">Speichern</button>
           </form>
+        )}
+        <p className="text-sm">
+          <span className="gedaempft">Sammlungen: </span>{sammlungenVon(noten).join(', ') || <span className="gedaempft">keine</span>}
+          <button type="button" className="text-knopf gedaempft ml-2 text-sm underline"
+            onClick={() => { alleNoten().then((l) => setWahl(sammlungenUebersicht(l)), (x) => speicherFehler(x)); }}>ändern</button>
+        </p>
+        {wahl && (
+          <SammlungWahl noten={[noten]} uebersicht={wahl} schliessen={() => setWahl(null)}
+            speichern={(a) => {
+              setWahl(null);
+              if (!a.length) return;
+              sammlungenSetzen(a).then(() => umbenannt({ sammlungen: a[0].sammlungen }), speicherFehler);
+            }} />
         )}
         <h3 className="abschnitt-titel">Stellen</h3>
         <UebeAnsicht pdf={pdf} notenId={noten.id} stellen={stellen} bpm={bpm} neuLaden={neuLaden} tempoSetzen={tempoSetzen} zeigen={zeigen} />

@@ -2,7 +2,8 @@
 
 import type { Anmerkung, Blaettermodus } from '@/domain/notenpult';
 import {
-  einspielenPlanen, notenZusammenfuehren, seiteZusammenfuehren, stelleZusammenfuehren, type Einspielplan, type Vorhanden,
+  dateiStand, einspielenPlanen, grabsteineLesen, grabsteineVereinigen, notenZusammenfuehren, seiteZusammenfuehren, stand,
+  stelleZusammenfuehren, type Einspielplan, type Grabstein, type Staende, type Vorhanden,
 } from '@/domain/einspielen';
 import { nurLesbare } from '@/domain/lesbar';
 import { sicherungLesen, sicherungPacken, SicherungsFehler, type SicherungsInhalt } from '@/domain/sicherung';
@@ -29,12 +30,21 @@ export interface LokaleNoten {
   // Nur Chrome/Edge am Rechner: Verweis auf die Datei, um ohne Dateiauswahl neu zu laden.
   handle?: FileSystemFileHandle;
   blaettern?: { modus: Blaettermodus; linien: Record<number, number> };
+  // Sammlungen (F-13): Namen, ein Stück kann in mehreren sein.
+  sammlungen?: string[];
+  // Größe der PDF in Bytes (ab 2026-10-12; erkennt Doppelte beim Ordner-Import).
+  groesse?: number;
+  // Letzte Änderung (ab 2026-10-12): Beim Laden einer Sicherung gilt der neuere Stand.
+  geaendert?: number;
 }
 export interface LokaleStelle {
   id: string; notenId: string; seite: number; x: number; y: number; b: number; h: number;
   titel: string; notiz: string; zielTempo: number | null; tempi: { tempo: number; am: number }[];
+  geaendert?: number;
 }
-export interface SeitenAnmerkungen { id: string; notenId: string; seite: number; objekte: Anmerkung[] }
+// entfernt: ids weg-radierter Striche — damit sie beim Laden einer Sicherung
+// nicht zurückkehren (ab 2026-10-12).
+export interface SeitenAnmerkungen { id: string; notenId: string; seite: number; objekte: Anmerkung[]; entfernt?: string[]; geaendert?: number }
 // Schlüssel ist die id der Noten.
 interface LokaleDatei { id: string; daten: ArrayBuffer; typ: string }
 
@@ -162,13 +172,15 @@ const ALLE_MIT_DATEIEN: Speicher[] = [...ALLE, 'dateien'];
 // ── Noten ──
 export const alleNoten = () => tx<LokaleNoten[]>('noten', 'readonly', (s) => s.getAll());
 export const notenHolen = (id: string) => tx<LokaleNoten | undefined>('noten', 'readonly', (s) => s.get(id));
+// Eine gewählte Datei ist nicht lesbar (etwa noch nicht aus iCloud geladen).
+export class DateiNichtLesbar extends Error {}
 // Eine gewählte Datei ganz lesen. Eine nicht lesbare fällt hier mit klarer
-// Meldung auf (etwa noch nicht aus iCloud geladen).
+// Meldung auf.
 async function bytesLesen(datei: Blob): Promise<LokaleDatei['daten']> {
   try {
     return await datei.arrayBuffer();
   } catch (x) {
-    throw new Error(`Die Datei ließ sich nicht lesen (${(x as Error)?.name ?? x}). Liegt sie nur in iCloud? Erst in der Dateien-App öffnen, dann erneut wählen.`);
+    throw new DateiNichtLesbar(`Die Datei ließ sich nicht lesen (${(x as Error)?.name ?? x}). Liegt sie nur in iCloud? Erst in der Dateien-App öffnen, dann erneut wählen.`);
   }
 }
 
@@ -187,10 +199,11 @@ const mitDatei = (n: LokaleNoten, daten: ArrayBuffer, typ: string) =>
     t.objectStore('dateien').put({ id: n.id, daten, typ } satisfies LokaleDatei);
   });
 
-export async function notenAnlegen(n: { titel: string; stimme: string; datei: Blob; dateiname?: string; handle?: FileSystemFileHandle }): Promise<string> {
+export async function notenAnlegen(n: { titel: string; stimme: string; datei: Blob; dateiname?: string; handle?: FileSystemFileHandle; sammlungen?: string[] }): Promise<string> {
   const id = crypto.randomUUID();
   const daten = await bytesLesen(n.datei);
-  await mitDatei({ ...ohneDatei(n), id, erstellt: Date.now() }, daten, n.datei.type || 'application/pdf');
+  const jetzt = Date.now();
+  await mitDatei({ ...ohneDatei(n), id, erstellt: jetzt, geaendert: jetzt, groesse: daten.byteLength }, daten, n.datei.type || 'application/pdf');
   dauerhaftAnfragen();
   return id;
 }
@@ -203,7 +216,7 @@ export async function notenAendern(id: string, felder: Partial<LokaleNoten>) {
   const neu = felder.datei ? { daten: await bytesLesen(felder.datei), typ: felder.datei.type || 'application/pdf' } : null;
   const alt = await notenHolen(id);
   if (!alt) return;
-  const n = { ...alt, ...ohneDatei(felder), id };
+  const n = { ...alt, ...ohneDatei(felder), id, geaendert: Date.now(), ...(neu ? { groesse: neu.daten.byteLength } : {}) };
   if (neu) return mitDatei(n, neu.daten, neu.typ);
   if (alt.datei) {
     const daten = await alteDateiLesen(alt.datei);
@@ -281,8 +294,17 @@ export function zuletztListe(): Record<string, number> {
 export function zuletztMerken(id: string) {
   try { localStorage.setItem(ZULETZT, JSON.stringify({ ...zuletztListe(), [id]: Date.now() })); } catch { /* egal */ }
 }
-// Noten samt Stellen und Anmerkungen in EINER Transaktion: ganz oder gar nicht.
-export const notenLoeschen = (id: string) => transaktion<void>(ALLE_MIT_DATEIEN, 'readwrite', (t, abbrechen) => {
+// Wann zuletzt eine Sicherung gespeichert wurde (H-01: Erinnerung in der Bibliothek).
+const LETZTE_SICHERUNG = 'ueben:letzte-sicherung';
+export function letzteSicherung(): number | null {
+  try { const t = Number(localStorage.getItem(LETZTE_SICHERUNG)); return t > 0 ? t : null; } catch { return null; }
+}
+export function sicherungGespeichert() {
+  try { localStorage.setItem(LETZTE_SICHERUNG, String(Date.now())); } catch { /* egal */ }
+}
+
+// Noten samt Stellen und Anmerkungen löschen (innerhalb einer Transaktion).
+function notenEntfernen(t: IDBTransaction, id: string, abbrechen: (x: unknown) => void) {
   t.objectStore('noten').delete(id);
   t.objectStore('dateien').delete(id);
   for (const name of ['stellen', 'anmerkungen'] as const) {
@@ -292,7 +314,61 @@ export const notenLoeschen = (id: string) => transaktion<void>(ALLE_MIT_DATEIEN,
       try { for (const k of r.result) s.delete(k); } catch (x) { abbrechen(x); }
     };
   }
-});
+}
+// Noten samt Stellen und Anmerkungen in EINER Transaktion: ganz oder gar nicht.
+// Der Grabstein sorgt dafür, dass eine Sicherung sie nicht zurückbringt.
+export async function notenLoeschen(id: string) {
+  await transaktion<void>(ALLE_MIT_DATEIEN, 'readwrite', (t, abbrechen) => notenEntfernen(t, id, abbrechen));
+  begraben('noten', id);
+}
+
+// ── Grabsteine (gelöschte Noten und Stellen) ── auf dem Gerät im
+// localStorage; sie reisen mit der Sicherung (Regeln in @/domain/einspielen).
+const GRAB = 'ueben:geloescht';
+export function grabsteineHier(): Grabstein[] {
+  try { return grabsteineLesen(JSON.parse(localStorage.getItem(GRAB) ?? '[]')); } catch { return []; }
+}
+function grabsteineSetzen(g: Grabstein[]) {
+  try { localStorage.setItem(GRAB, JSON.stringify(grabsteineVereinigen(g, [], Date.now()))); } catch { /* egal */ }
+}
+function begraben(art: Grabstein['art'], id: string) {
+  grabsteineSetzen([...grabsteineHier(), { art, id, am: Date.now() }]);
+}
+
+// ── Sammlungen ── Mehrere Stücke in EINER Transaktion umsortieren. Ein
+// Datensatz, der seine PDF noch als alten Blob trägt, zieht dabei über
+// notenAendern um (der Blob wird nie zurückgeschrieben).
+export async function sammlungenSetzen(aenderungen: { id: string; sammlungen: string[] }[]) {
+  const mitBlob: typeof aenderungen = [];
+  const jetzt = Date.now();
+  await transaktion<void>('noten', 'readwrite', (t, abbrechen) => {
+    const s = t.objectStore('noten');
+    for (const a of aenderungen) {
+      const r = s.get(a.id) as IDBRequest<LokaleNoten | undefined>;
+      r.onsuccess = () => {
+        try {
+          if (!r.result) return;
+          if (r.result.datei) { mitBlob.push(a); return; }
+          s.put({ ...r.result, sammlungen: a.sammlungen, geaendert: jetzt });
+        } catch (x) { abbrechen(x); }
+      };
+    }
+  });
+  for (const a of mitBlob) await notenAendern(a.id, { sammlungen: a.sammlungen });
+}
+
+// Größe der PDF je Stück — für ältere Stücke ohne `groesse` aus „dateien“ gelesen
+// (einzeln, nur für die gefragten).
+export async function dateiGroessen(noten: LokaleNoten[]): Promise<Map<string, number>> {
+  const groessen = new Map<string, number>();
+  for (const n of noten) {
+    if (typeof n.groesse === 'number') { groessen.set(n.id, n.groesse); continue; }
+    const d = await tx<LokaleDatei | undefined>('dateien', 'readonly', (s) => s.get(n.id));
+    if (d?.daten instanceof ArrayBuffer) groessen.set(n.id, d.daten.byteLength);
+    else if (n.datei) groessen.set(n.id, n.datei.size);
+  }
+  return groessen;
+}
 
 // ── Stellen ──
 // Alle Stellen aller Stücke (Stellen-Mix, Zählen in der Bibliothek).
@@ -301,13 +377,16 @@ export const stellenVon = async (notenId: string) =>
   (await tx<LokaleStelle[]>('stellen', 'readonly', (s) => s.index('notenId').getAll(notenId)))
     .sort((a, b) => a.seite - b.seite || a.y - b.y);
 export async function stelleAnlegen(st: Omit<LokaleStelle, 'id' | 'tempi' | 'notiz' | 'zielTempo'>, zielTempo: number | null = null) {
-  await tx('stellen', 'readwrite', (s) => s.put({ ...st, id: crypto.randomUUID(), notiz: '', zielTempo, tempi: [] }));
+  await tx('stellen', 'readwrite', (s) => s.put({ ...st, id: crypto.randomUUID(), notiz: '', zielTempo, tempi: [], geaendert: Date.now() }));
 }
 export async function stelleAendern(id: string, felder: Partial<LokaleStelle>) {
   const alt = await tx<LokaleStelle | undefined>('stellen', 'readonly', (s) => s.get(id));
-  if (alt) await tx('stellen', 'readwrite', (s) => s.put({ ...alt, ...felder, id }));
+  if (alt) await tx('stellen', 'readwrite', (s) => s.put({ ...alt, ...felder, id, geaendert: Date.now() }));
 }
-export const stelleLoeschen = (id: string) => tx('stellen', 'readwrite', (s) => s.delete(id));
+export async function stelleLoeschen(id: string) {
+  await tx('stellen', 'readwrite', (s) => s.delete(id));
+  begraben('stelle', id);
+}
 export async function tempoGeschafft(id: string, tempo: number) {
   const alt = await tx<LokaleStelle | undefined>('stellen', 'readonly', (s) => s.get(id));
   if (alt) await stelleAendern(id, { tempi: [...alt.tempi, { tempo: Math.round(tempo), am: Date.now() }] });
@@ -316,8 +395,21 @@ export async function tempoGeschafft(id: string, tempo: number) {
 // ── Anmerkungen (je Seite ein Datensatz) ──
 export const anmerkungenVon = (notenId: string) =>
   tx<SeitenAnmerkungen[]>('anmerkungen', 'readonly', (s) => s.index('notenId').getAll(notenId));
+// Merkt sich, was seit dem letzten Speichern weg ist (wegradiert, rückgängig)
+// — und vergisst es wieder, wenn es zurückkommt (wiederholen).
 export const anmerkungenSpeichern = (notenId: string, seite: number, objekte: Anmerkung[]) =>
-  tx('anmerkungen', 'readwrite', (s) => s.put({ id: `${notenId}:${seite}`, notenId, seite, objekte }));
+  transaktion<void>('anmerkungen', 'readwrite', (t, abbrechen) => {
+    const s = t.objectStore('anmerkungen');
+    const id = `${notenId}:${seite}`;
+    const r = s.get(id) as IDBRequest<SeitenAnmerkungen | undefined>;
+    r.onsuccess = () => {
+      try {
+        const jetzt = new Set(objekte.map((o) => o.id));
+        const weg = new Set([...(r.result?.entfernt ?? []), ...(r.result?.objekte ?? []).map((o) => o.id)].filter((x) => !jetzt.has(x)));
+        s.put({ id, notenId, seite, objekte, entfernt: [...weg], geaendert: Date.now() } satisfies SeitenAnmerkungen);
+      } catch (x) { abbrechen(x); }
+    };
+  });
 
 // Bittet den Browser, die Daten nicht von selbst zu löschen. Still: Lehnt er
 // ab oder kann er das nicht, bleibt es beim Normalfall.
@@ -363,7 +455,7 @@ export async function sicherungErstellen(): Promise<{ datei: Blob; noten: number
   await alleUmziehen();
   const { bestand, fehlen } = await nurLesbare(await allesLesen());
   // Nach nurLesbare trägt jedes verbliebene Stück eine lesbare Datei.
-  const datei = await sicherungPacken(bestand as SicherungsInhalt<LokaleNoten & { datei: Blob }, LokaleStelle, SeitenAnmerkungen>, 'cheatsheet', Date.now());
+  const datei = await sicherungPacken(bestand as SicherungsInhalt<LokaleNoten & { datei: Blob }, LokaleStelle, SeitenAnmerkungen>, 'cheatsheet', Date.now(), grabsteineHier());
   return { datei, noten: bestand.noten.length, fehlen };
 }
 
@@ -372,6 +464,7 @@ export async function sicherungErstellen(): Promise<{ datei: Blob; noten: number
 // geschrieben —, dann alles in EINER Transaktion schreiben.
 export interface Einspielung extends Einspielplan<Record<string, unknown> & { id: string; datei: Blob }> {
   erstellt: number;
+  grabsteine: Grabstein[];
 }
 
 // Falsche Datei gewählt: Der Vertrag sagt nur, dass es keine Sicherung ist —
@@ -390,13 +483,23 @@ export async function sicherungPruefen(datei: Blob): Promise<Einspielung> {
     throw e instanceof SicherungsFehler ? e : new SicherungsFehler('Die Sicherung ist beschädigt.');
   }
   const { kopf, noten } = gelesen;
-  const vorhanden = await transaktion<Vorhanden>(ALLE, 'readonly', (t) => {
-    const [n, s, a] = ALLE.map((name) => t.objectStore(name).getAllKeys());
-    const ids = (r: IDBRequest<IDBValidKey[]>) => new Set(r.result.map(String));
-    return () => ({ noten: ids(n), stellen: ids(s), anmerkungen: ids(a) });
+  // Was es hier gibt und wie neu es ist (für „neuer gewinnt“ und Grabsteine).
+  const { vorhanden, staende } = await transaktion<{ vorhanden: Vorhanden; staende: Staende }>(ALLE, 'readonly', (t) => {
+    const n = t.objectStore('noten').getAll() as IDBRequest<LokaleNoten[]>;
+    const s = t.objectStore('stellen').getAll() as IDBRequest<LokaleStelle[]>;
+    const a = t.objectStore('anmerkungen').getAllKeys();
+    return () => ({
+      vorhanden: { noten: new Set(n.result.map((x) => x.id)), stellen: new Set(s.result.map((x) => x.id)), anmerkungen: new Set(a.result.map(String)) },
+      staende: {
+        noten: new Map(n.result.map((x) => [x.id, { stand: stand(ohneDatei(x) as Record<string, unknown>), datei: dateiStand(x as unknown as Record<string, unknown>) }])),
+        stellen: new Map(s.result.map((x) => [x.id, stand(x as unknown as Record<string, unknown>)])),
+      },
+    });
   });
-  const plan = einspielenPlanen({ noten, stellen: kopf.stellen, anmerkungen: kopf.anmerkungen }, vorhanden);
-  return { ...plan, erstellt: kopf.erstellt };
+  const grabsteine = grabsteineLesen(kopf.geloescht);
+  const plan = einspielenPlanen({ noten, stellen: kopf.stellen, anmerkungen: kopf.anmerkungen }, vorhanden,
+    { grabsteine, geraetGrabsteine: grabsteineHier(), staende });
+  return { ...plan, erstellt: kopf.erstellt, grabsteine };
 }
 
 // Schreibt eine geprüfte Sicherung: entweder kommt alles an oder nichts.
@@ -413,14 +516,17 @@ export async function sicherungPruefen(datei: Blob): Promise<Einspielung> {
 // Datei aus der Sicherung gewinnt. Reste eines abgebrochenen Laufs räumt der
 // nächste weg.
 const VORLAEUFIG = 'einspielen:';
-export async function sicherungSchreiben(e: Einspielung): Promise<{ neu: number; aktualisiert: number; stellen: number; anmerkungen: number; uebersprungen: number }> {
+export async function sicherungSchreiben(e: Einspielung): Promise<{ neu: number; aktualisiert: number; stellen: number; anmerkungen: number; uebersprungen: number; geloescht: number }> {
   const vorlaeufig = () => IDBKeyRange.bound(VORLAEUFIG, `${VORLAEUFIG}\uffff`);
   await tx('dateien', 'readwrite', (s) => { s.delete(vorlaeufig()); });
+  // Nur die PDFs, die aus der Sicherung kommen (dort nicht älter als hier).
+  const dateiNehmen = new Set(e.dateiAusSicherung);
   for (const n of e.noten) {
+    if (!dateiNehmen.has(n.id)) continue;
     const daten = await bytesLesen(n.datei);
     await tx('dateien', 'readwrite', (s) => s.put({ id: VORLAEUFIG + n.id, daten, typ: n.datei.type || 'application/pdf' } satisfies LokaleDatei));
   }
-  const ids = [...new Set(e.noten.map((n) => n.id))];
+  const ids = [...new Set(e.noten.filter((n) => dateiNehmen.has(n.id)).map((n) => n.id))];
   await transaktion<void>(ALLE_MIT_DATEIEN, 'readwrite', (t, abbrechen) => {
     const dateien = t.objectStore('dateien');
     // Nacheinander, damit nicht alle Dateien zugleich gelesen im Speicher liegen.
@@ -454,11 +560,24 @@ export async function sicherungSchreiben(e: Einspielung): Promise<{ neu: number;
         };
       }
     };
-    // Datensätze ohne Blob — die Datei liegt jetzt in „dateien“.
-    einspielen('noten', e.noten, (g, n) => ohneDatei(notenZusammenfuehren(g, n)) as typeof n);
+    // Datensätze ohne Blob — die Datei liegt jetzt in „dateien“. Kam sie aus
+    // der Sicherung, gelten deren Zeitpunkt und Größe der Datei.
+    einspielen('noten', e.noten, (g, n) => {
+      const z = ohneDatei(notenZusammenfuehren(g, n)) as typeof n;
+      if (!dateiNehmen.has(n.id)) return z;
+      return { ...z, groesse: n.datei.size, ...(typeof n.aktualisiert === 'number' ? { aktualisiert: n.aktualisiert } : {}) };
+    });
     einspielen('stellen', e.stellen, stelleZusammenfuehren);
     einspielen('anmerkungen', e.anmerkungen, seiteZusammenfuehren);
+    // Auf dem anderen Gerät gelöscht (und hier seitdem unverändert).
+    for (const id of e.loeschen.noten) notenEntfernen(t, id, abbrechen);
+    for (const id of e.loeschen.stellen) t.objectStore('stellen').delete(id);
   });
+  // Die Löschungen der Sicherung gelten jetzt auch hier — und reisen weiter.
+  grabsteineSetzen([...grabsteineHier(), ...e.grabsteine]);
   dauerhaftAnfragen();
-  return { neu: e.neu, aktualisiert: e.ueberschrieben.noten, stellen: e.stellen.length, anmerkungen: e.anmerkungen.length, uebersprungen: e.uebersprungen };
+  return {
+    neu: e.neu, aktualisiert: e.ueberschrieben.noten, stellen: e.stellen.length, anmerkungen: e.anmerkungen.length,
+    uebersprungen: e.uebersprungen, geloescht: e.loeschen.noten.length + e.loeschen.stellen.length,
+  };
 }
