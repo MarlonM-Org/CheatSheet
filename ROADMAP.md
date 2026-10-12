@@ -19,8 +19,14 @@ nicht in der Breite, aber in der Sorgfalt.
 **Bewusst außen vor** (nicht bauen, auch nicht „mal eben“):
 
 - MIDI, Audio-Begleitspuren, Soundbearbeitung
-- Kollaboration/Mehrbenutzer, Cloud-Sync (iCloud o. Ä.)
-- Server-Code, Konten, Datenbanken außerhalb des Geräts
+- Kollaboration/Mehrbenutzer
+- Server-Code, eigene Konten, Datenbanken außerhalb des Geräts
+
+*Cloud-Sync* stand hier ebenfalls. Seit 2026-10-12 ist er als **Vision H**
+aufgenommen — ausschließlich über die eigene Cloud der Nutzer (iCloud,
+OneDrive, Google Drive), ohne eigenen Server, ohne eigene Konten. Das heißt
+aber: Anmelden beim Cloud-Anbieter. Vor der Umsetzung entscheidet Marlon,
+ob das ins Leitbild passt (dann auch CLAUDE.md anpassen: „kein Login“).
 
 ## Meilensteine (Reihenfolge)
 
@@ -29,10 +35,11 @@ nicht in der Breite, aber in der Sorgfalt.
 | M1 | **Fundament aufräumen** | Datenmodell klären, Tests für die Speicherschicht (A-01 verworfen) | A-02, A-03 |
 | M2 | **Noten im Zentrum** | UI-Neuaufbau: Noten vollflächig, Werkzeuge als Overlays, drei Knöpfe unten | B-01…B-03 |
 | M3 | **Werkzeuge schärfen** | Stimmgerät- und Metronom-Verbesserungen, Stift-Ausbau | C-01…C-03, D-01, E-01…E-03 |
-| M4 | **Notenmanagement I** | Metadaten, Bookmarks, Flags, Kontextmenüs, Drag & Drop | F-01, F-03, F-04, F-08, F-09 |
+| M4 | **Notenmanagement I** | Sammlungen (als Erstes), Metadaten, Bookmarks, Flags, Kontextmenüs, Drag & Drop | F-13, F-01, F-03, F-04, F-08, F-09 |
 | M5 | **Üben & Setlisten** | Setlisten, Wiederholungs-Links, Halbseiten-Blättern, Intonations-Trainer (Stellen-Mix F-11 schon erledigt) | F-02, F-05, F-06, C-04 |
 | M6 | **Design & Extras** | Themes, Stempel/Formen, Kamera-Scan | B-04, B-05, E-04, F-07 |
 | M7 | **Komponieren** (Vision) | Noteneingabe, Rhythmus-/Melodie-Transkription | G-01…G-03 |
+| M8 | **Geräteübergreifend** (Vision, Entscheidung offen) | Noten und Übe-Daten über die eigene Cloud auf mehreren Geräten | H-01…H-05 |
 
 **Quick Wins** (klein, unabhängig, jederzeit zwischenschieben — guter
 Einstieg): C-01, C-02, C-03, D-01 — *alle am 2026-10-10 erledigt.*
@@ -201,6 +208,34 @@ soweit sinnvoll.)
 
 ---
 
+### F-13 · Sammlungen — und Stellen-Mix je Sammlung
+
+Wunsch Marlon (2026-10-12): Stücke einordnen — „Orchester A“, „Orchester
+B“, „Märsche“, „Jazz“ … — und dann gezielt **in einer Sammlung Stellen
+üben**: „Jetzt Märsche“ → Stellen-Mix nur über die Märsche. Ums Stellen-Üben
+geht es dabei vor allem.
+
+- **Sammlungen statt Ordner:** Ein Stück kann in mehreren Sammlungen
+  liegen (ein Marsch von Orchester A gehört in „Orchester A“ *und*
+  „Märsche“). Ordner zwingen zu einem Platz — dann fehlt der Marsch bei
+  Orchester A oder bei den Märschen. Wie Etiketten bzw. Wiedergabelisten.
+- **Bibliothek:** eine Zeile mit Sammlungen zum Filtern („Alle · Orchester
+  A · Märsche · …“); zuordnen im Auswahl-Modus („Auswählen → In Sammlung“)
+  und im Stück-Blatt. Sammlung anlegen, umbenennen, löschen (die Stücke
+  bleiben).
+- **Stellen-Mix je Sammlung:** Die Mix-Karte mischt, was gerade gefiltert
+  ist („Stellen-Mix · Märsche · 14 Stellen“); jede Sammlung hat ihre eigene
+  Runde. Dazu der Schalter **„nur offene Stellen“**: nur Stellen, die ihr
+  Ziel (mit Reserve, F-12) noch nicht erreicht haben — „die ich noch üben
+  muss“. Regeln zuerst als Test in `src/domain/stellen.ts`.
+- **Daten:** als Feld am Noten-Datensatz (`sammlungen: string[]`). Noten-
+  Datensätze tragen seit Schema 3 keine Datei mehr, Schreiben ist also
+  ungefährlich. Zusätzliche Felder reisen schon jetzt in der Sicherung mit
+  (`sicherungPacken` übernimmt alle Felder der Noten) — kein neues
+  `.uebe`-Format nötig; die Registerführer-App ignoriert sie. Ob für
+  Reihenfolge/Farbe ein eigener Speicher `sammlungen` (Schema 4) nötig ist,
+  mit A-02 entscheiden. F-13 ist der erste Teil von F-01 (Tags).
+
 ## G — Komponieren (Vision, langfristig)
 
 Langfristperspektive: CheatSheet nicht nur zum Lesen und Üben, sondern auch
@@ -237,6 +272,50 @@ Oktavfehler, Übergänge); Kandidat wäre ein On-Device-Modell im Browser
 G-02 getrennt — Rhythmus zuerst, Töne später.
 
 ---
+
+## H — Geräteübergreifend: Noten und Daten in der eigenen Cloud (Vision)
+
+Wunsch Marlon (2026-10-12): auf einem Gerät einmal einen Cloud-Ordner
+festlegen (iCloud, OneDrive, Google Drive), in dem die Noten liegen; die App
+merkt sich den Ordner, holt die Noten daraus und legt auch ihre Daten
+(Stellen, Tempi, Anmerkungen) dort ab. Ein zweites Gerät mit demselben
+Ordner hat denselben Stand. Die Daten bleiben bei den Nutzern — auf dem
+Gerät bzw. in *ihrer* Cloud —, nie bei uns.
+
+**Machbarkeit (Stand 2026-10-12, recherchiert):**
+
+| Weg | iPhone/iPad (Safari, Home-Bildschirm) | Rechner (Chrome/Edge) | Aufwand / Haken |
+|---|---|---|---|
+| Ordner direkt wählen (File System Access, `showDirectoryPicker`) | **nein** — Safari hat die Ordner-Auswahl nicht, nur den abgeschotteten App-Speicher (OPFS) | ja, mit dauerhafter Erlaubnis; geht mit dem iCloud-, OneDrive- oder Drive-Ordner auf dem Rechner | klein; hilft aber nicht auf dem iPhone |
+| **OneDrive** (Microsoft Graph, Anmeldung im Browser per MSAL, eigener App-Ordner `Apps/CheatSheet`) | ja | ja | kostenlose App-Registrierung bei Microsoft; im Browser läuft die Anmeldung nach höchstens 24 h ab → etwa täglich neu anmelden |
+| **Google Drive** (Google Identity Services, Scope `drive.file` + Google Picker) | ja | ja | Google-Cloud-Projekt und Zustimmungsseite; Zugriffs-Token kurzlebig (eine Stunde), danach erneute Bestätigung; mit `drive.file` sieht die App nur selbst angelegte oder im Picker gewählte Dateien |
+| **iCloud** per CloudKit JS | ja | ja | Apple Developer Program (kostenpflichtig, jährlich), Anmeldung mit Apple-ID in der Web-App; Daten liegen in der privaten iCloud-Datenbank der Nutzer, **nicht** als sichtbarer Ordner in der Dateien-App |
+| iCloud-Ordner wie in der Dateien-App | nur als **eigene App** (App Store, z. B. per Capacitor) | — | großer Schritt: Entwicklerkonto, Prüfung durch Apple |
+
+Fazit: Einen festen iCloud-Ordner merken kann eine Web-App auf dem iPhone
+nicht. OneDrive und Google Drive gehen ohne eigenen Server, aber mit
+Anmelden beim Anbieter, das regelmäßig erneuert werden muss.
+
+**Vorgeschlagene Stufen:**
+
+- **H-01 · Übertragen in einem Schritt (sofort möglich, ohne Login):**
+  „Sicherung in iCloud sichern“ über das Teilen-Menü in einen festen Ordner,
+  auf dem anderen Gerät „Sicherung laden“ — das Zusammenführen kann die App
+  schon (B-06: nichts doppelt, Tempi vereinigt). Ausbau: nur Änderungen
+  seit der letzten Sicherung, Hinweis „letzte Sicherung vor 5 Tagen“.
+- **H-02 · Ordner am Rechner** (Chrome/Edge): Noten-Ordner wählen, die App
+  liest neue/geänderte PDFs und schreibt `cheatsheet-daten.json` daneben.
+- **H-03 · OneDrive** und **H-04 · Google Drive**: Anmelden, App-Ordner,
+  dort PDFs und eine Daten-Datei; beim Start abgleichen.
+- **H-05 · iCloud** über CloudKit JS oder als eigene App — erst entscheiden,
+  ob Kosten und Apple-Anmeldung es wert sind.
+
+**Was für alle Stufen gilt:** Abgleich mit den Regeln aus
+`src/domain/einspielen.ts` (Tempi vereinigen, sonst gewinnt der neuere
+Stand; Löschen braucht Grabsteine, sonst kehrt Gelöschtes zurück). Ein
+Datenformat für die Cloud: PDFs als Dateien plus eine JSON-Datei, kein
+Eigenformat. Keine Secrets im Repo — Client-IDs sind öffentlich, Anmeldung
+per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
 
 ## Erledigt
 
