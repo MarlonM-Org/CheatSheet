@@ -9,6 +9,7 @@ import { nurLesbare } from '@/domain/lesbar';
 import { sicherungLesen, sicherungPacken, SicherungsFehler, type SicherungsInhalt } from '@/domain/sicherung';
 import { dateiQuelle, dateiVerloren, ohneDatei, verbindungVerloren } from '@/domain/speicher';
 import { tagsLesen, tagsVereinigen, type Tag, type TagFarbe } from '@/domain/tags';
+import { profileLesen, profileVereinigen, type Tonprofil } from '@/domain/tonprofil';
 
 // Ablage nur auf diesem Gerät (IndexedDB): Noten-PDFs, markierte Stellen,
 // geschaffte Tempi, Anmerkungen. Keine Datenbank, kein Server. Safari kann die
@@ -381,6 +382,25 @@ export function tagAnlegen(name: string, farbe: TagFarbe): Tag {
 export function tagAendern(id: string, felder: { name?: string; farbe?: TagFarbe }) {
   tagsSpeichern(tagsLaden().map((t) => (t.id === id ? { ...t, ...felder, geaendert: Date.now() } : t)));
 }
+// Tonprofile (C-04) auf dem Gerät, neueste zuerst; sie reisen im Kopf der Sicherung mit.
+const TONPROFILE = 'ueben:tonprofile';
+export function tonprofileLaden(): Tonprofil[] {
+  try { return profileLesen(JSON.parse(localStorage.getItem(TONPROFILE) ?? '[]')); } catch { return []; }
+}
+// Wirft, wenn der Speicher voll ist — eine Messung soll nicht still verloren gehen.
+function tonprofileSpeichern(p: Tonprofil[]) {
+  localStorage.setItem(TONPROFILE, JSON.stringify(p));
+}
+export function tonprofilAnlegen(p: Omit<Tonprofil, 'id'>): Tonprofil {
+  const neu = { ...p, id: crypto.randomUUID() };
+  tonprofileSpeichern([neu, ...tonprofileLaden()]);
+  return neu;
+}
+export function tonprofilLoeschen(id: string) {
+  tonprofileSpeichern(tonprofileLaden().filter((p) => p.id !== id));
+  begraben('tonprofil', id);
+}
+
 // Tag löschen: von allen Stücken nehmen, Grabstein für die anderen Geräte.
 export async function tagLoeschen(id: string) {
   const betroffen = (await alleNoten()).filter((n) => n.tags?.includes(id));
@@ -488,7 +508,7 @@ export async function sicherungErstellen(): Promise<{ datei: Blob; noten: number
   const { bestand, fehlen } = await nurLesbare(await allesLesen());
   // Nach nurLesbare trägt jedes verbliebene Stück eine lesbare Datei.
   const datei = await sicherungPacken(bestand as SicherungsInhalt<LokaleNoten & { datei: Blob }, LokaleStelle, SeitenAnmerkungen>, 'cheatsheet', Date.now(),
-    { geloescht: grabsteineHier(), tags: tagsLaden() });
+    { geloescht: grabsteineHier(), tags: tagsLaden(), tonprofile: tonprofileLaden() });
   return { datei, noten: bestand.noten.length, fehlen };
 }
 
@@ -499,6 +519,7 @@ export interface Einspielung extends Einspielplan<Record<string, unknown> & { id
   erstellt: number;
   grabsteine: Grabstein[];
   tags: Tag[];
+  tonprofile: Tonprofil[];
 }
 
 // Falsche Datei gewählt: Der Vertrag sagt nur, dass es keine Sicherung ist —
@@ -533,7 +554,7 @@ export async function sicherungPruefen(datei: Blob): Promise<Einspielung> {
   const grabsteine = grabsteineLesen(kopf.geloescht);
   const plan = einspielenPlanen({ noten, stellen: kopf.stellen, anmerkungen: kopf.anmerkungen }, vorhanden,
     { grabsteine, geraetGrabsteine: grabsteineHier(), staende });
-  return { ...plan, erstellt: kopf.erstellt, grabsteine, tags: tagsLesen(kopf.tags) };
+  return { ...plan, erstellt: kopf.erstellt, grabsteine, tags: tagsLesen(kopf.tags), tonprofile: profileLesen(kopf.tonprofile) };
 }
 
 // Schreibt eine geprüfte Sicherung: entweder kommt alles an oder nichts.
@@ -611,6 +632,7 @@ export async function sicherungSchreiben(e: Einspielung): Promise<{ neu: number;
   grabsteineSetzen([...grabsteineHier(), ...e.grabsteine]);
   // Tags: je Tag der neuere Stand, gelöschte bleiben weg.
   tagsSpeichern(tagsVereinigen(tagsLaden(), e.tags, grabsteineHier()));
+  tonprofileSpeichern(profileVereinigen(tonprofileLaden(), e.tonprofile, grabsteineHier()));
   dauerhaftAnfragen();
   return {
     neu: e.neu, aktualisiert: e.ueberschrieben.noten, stellen: e.stellen.length, anmerkungen: e.anmerkungen.length,

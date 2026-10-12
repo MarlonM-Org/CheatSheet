@@ -8,7 +8,8 @@ const NAMEN = ['C', 'Cis', 'D', 'Es', 'E', 'F', 'Fis', 'G', 'As', 'A', 'B', 'H']
 export const STIMMUNGEN = { C: 0, B: 2, Es: 9, F: 7 } as const;
 export type Stimmung = keyof typeof STIMMUNGEN;
 
-export interface Ton { name: string; oktave: number; cent: number; frequenz: number }
+// midi: der notierte Ton als Zahl (C4 = 60), für das Tonprofil.
+export interface Ton { name: string; oktave: number; cent: number; frequenz: number; midi: number }
 
 export function frequenzZuTon(frequenz: number, kammerton = 442, stimmung: Stimmung = 'C'): Ton | null {
   if (!(frequenz > 20 && frequenz < 5000)) return null;
@@ -16,7 +17,7 @@ export function frequenzZuTon(frequenz: number, kammerton = 442, stimmung: Stimm
   const gerundet = Math.round(halbtoene);
   const cent = Math.round((halbtoene - gerundet) * 100);
   const notiert = gerundet + STIMMUNGEN[stimmung];
-  return { name: NAMEN[((notiert % 12) + 12) % 12], oktave: Math.floor(notiert / 12) - 1, cent, frequenz };
+  return { name: NAMEN[((notiert % 12) + 12) % 12], oktave: Math.floor(notiert / 12) - 1, cent, frequenz, midi: notiert };
 }
 
 // Grundfrequenz nach dem YIN-Verfahren (de Cheveigné & Kawahara, 2002):

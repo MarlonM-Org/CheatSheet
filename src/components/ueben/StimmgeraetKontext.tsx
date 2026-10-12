@@ -17,6 +17,9 @@ interface StimmApi {
   stimmung: Stimmung; setStimmung: (s: Stimmung) => void;
   refTon: number | null; refOktave: number; refOktaveWechseln: (o: number) => void;
   referenzSpielen: (halbton: number) => void; referenzAus: () => void;
+  // Jede klare Ablesung (geglättet, ~20 pro Sekunde) an einen Zuhörer geben —
+  // fürs Tonprofil. Liefert die Abmeldung.
+  ablesungen: (zuhoerer: (ton: Ton) => void) => () => void;
 }
 interface StimmMessung { ton: Ton | null; frisch: boolean }
 
@@ -49,6 +52,11 @@ export function StimmgeraetAnbieter({ children }: { children: React.ReactNode })
   const [refTon, setRefTon] = useState<number | null>(null);
   const [refOktave, setRefOktave] = useState(4);
   const einst = useRef({ kammerton, stimmung });
+  const zuhoerer = useRef(new Set<(ton: Ton) => void>());
+  const ablesungen = useCallback((z: (ton: Ton) => void) => {
+    zuhoerer.current.add(z);
+    return () => { zuhoerer.current.delete(z); };
+  }, []);
   useEffect(() => { einst.current = { kammerton, stimmung }; speichern('stimm:a', kammerton); speichern('stimm:st', stimmung); }, [kammerton, stimmung]);
 
   const mikro = useRef<{ stream: MediaStream; ctx: AudioContext; raf: number; freigeben: (() => void) | null } | null>(null);
@@ -104,8 +112,10 @@ export function StimmgeraetAnbieter({ children }: { children: React.ReactNode })
             if (verlauf.length && Math.abs(12 * Math.log2(r.frequenz / median(verlauf))) > 0.6) verlauf.length = 0;
             verlauf.push(r.frequenz);
             if (verlauf.length > 7) verlauf.shift();
-            setTon(frequenzZuTon(median(verlauf), einst.current.kammerton, einst.current.stimmung));
+            const erkannt = frequenzZuTon(median(verlauf), einst.current.kammerton, einst.current.stimmung);
+            setTon(erkannt);
             setFrisch(true);
+            if (erkannt) for (const z of zuhoerer.current) z(erkannt);
             zuletztGehoert = t;
           } else if (t - zuletztGehoert > 450) {
             setFrisch(false); // letzten Ton gedimmt stehen lassen
@@ -179,8 +189,8 @@ export function StimmgeraetAnbieter({ children }: { children: React.ReactNode })
   const api = useMemo<StimmApi>(() => ({
     an, start, stopp, fehler,
     kammerton, setKammerton, stimmung, setStimmung,
-    refTon, refOktave, refOktaveWechseln, referenzSpielen, referenzAus,
-  }), [an, start, stopp, fehler, kammerton, setKammerton, stimmung, setStimmung, refTon, refOktave, refOktaveWechseln, referenzSpielen, referenzAus]);
+    refTon, refOktave, refOktaveWechseln, referenzSpielen, referenzAus, ablesungen,
+  }), [an, start, stopp, fehler, kammerton, setKammerton, stimmung, setStimmung, refTon, refOktave, refOktaveWechseln, referenzSpielen, referenzAus, ablesungen]);
   const messung = useMemo<StimmMessung>(() => ({ ton, frisch }), [ton, frisch]);
 
   return (

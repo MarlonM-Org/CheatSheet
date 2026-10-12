@@ -15,6 +15,9 @@ Früher unter Admin → „Üben (Prototyp)“ in der Registerführer-App.
 - **Metronom** mit Taktarten, Betonungen, Unterteilungen und Tempo-Trainer;
   eine Mini-Leiste läuft im Notenbetrachter weiter.
 - **Stimmgerät** (YIN-Tonerkennung über das Mikrofon) und Referenztöne.
+- **Tonprofil:** Ton für Ton messen, welche Töne auf dem eigenen Instrument zu
+  hoch oder zu tief liegen; Messungen datiert vergleichen, Hinweise für eine
+  sauber intonierte Tonleiter (Dur-Terz tiefer, Moll-Terz höher).
 - **Noten:** PDF-Dateien hinzufügen, im Vollbild lesen, blättern (ganz, halb,
   eigene Linie), mit Stift, Marker und Text anmerken, Stellen markieren und
   Stelle für Stelle mit Tempo-Verlauf üben — das Metronom springt dabei auf

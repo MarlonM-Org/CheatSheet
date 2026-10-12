@@ -19,8 +19,9 @@ anders ist, ist ein Fehler oder gehört dort nachgetragen.
   `registerfuehrer`: Dateien von dort müssen hier ladbar bleiben. Nicht
   ändern; eine neue Version nur mit Lesen der alten. Einzige Ergänzungen (weiter
   Version 1, wer sie nicht kennt, überliest sie): optionale Kopf-Felder
-  `geloescht` (Grabsteine) und `tags` (Tag-Definitionen, sonst im localStorage
-  `ueben:tags`). Zusätzliche Felder an Noten/Stellen/Seiten (`sammlungen`,
+  `geloescht` (Grabsteine), `tags` (Tag-Definitionen, sonst im localStorage
+  `ueben:tags`) und `tonprofile` (Tonprofil-Messungen, sonst
+  `ueben:tonprofile`). Zusätzliche Felder an Noten/Stellen/Seiten (`sammlungen`,
   `tags`, `geaendert`, `entfernt`, `groesse`) reisen ohnehin mit.
 - Fachlogik rein und getestet in `src/domain/` — neue Regeln dort zuerst als Test.
 - Die Adresse steht nur in `src/adresse.ts`.

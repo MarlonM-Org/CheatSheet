@@ -36,7 +36,7 @@ ob das ins Leitbild passt (dann auch CLAUDE.md anpassen: „kein Login“).
 | M2 | **Noten im Zentrum** | UI-Neuaufbau: Noten vollflächig, Werkzeuge als Overlays, drei Knöpfe unten | B-01…B-03 |
 | M3 | **Werkzeuge schärfen** | Stimmgerät- und Metronom-Verbesserungen, Stift-Ausbau | C-01…C-03, D-01, E-01…E-03 |
 | M4 | **Notenmanagement I** | Metadaten, Bookmarks, Flags, Kontextmenüs, Drag & Drop (Sammlungen F-13 erledigt) | F-01, F-03, F-04, F-08, F-09 |
-| M5 | **Üben & Setlisten** | Setlisten, Wiederholungs-Links, Halbseiten-Blättern, Intonations-Trainer (Stellen-Mix F-11 schon erledigt) | F-02, F-05, F-06, C-04 |
+| M5 | **Üben & Setlisten** | Setlisten, Wiederholungs-Links, Halbseiten-Blättern (Stellen-Mix F-11 und Tonprofil C-04 schon erledigt) | F-02, F-05, F-06 |
 | M6 | **Design & Extras** | Themes, Stempel/Formen, Kamera-Scan | B-04, B-05, E-04, F-07 |
 | M7 | **Komponieren** (Vision) | Noteneingabe, Rhythmus-/Melodie-Transkription | G-01…G-03 |
 | M8 | **Geräteübergreifend** (Vision, Entscheidung offen) | Noten und Übe-Daten über die eigene Cloud auf mehreren Geräten | H-01…H-05 |
@@ -97,37 +97,7 @@ Branch `feature/ui-noten-im-zentrum`, PR #1)*
 
 ## C — Stimmgerät
 
-### C-04 · Intonations-Trainer (Name gesucht)
-
-Das Bonus-Feature: sein Instrument kennenlernen. Ablauf:
-
-1. Man spielt jeden Ton seines Instruments an (geführt, z. B. chromatisch
-   oder als Tonleiter); die App misst je Ton die Abweichung (Median über die
-   Messdauer — `grundfrequenz`/`median` aus `src/domain/ueben.ts` können das).
-2. Ergebnis ist ein **Tonprofil**: welche Töne auf *meinem* Instrument zu
-   hoch/zu tief sind, als übersichtliche Grafik je Ton.
-3. Profile werden gespeichert und datiert — das macht man idealerweise
-   wöchentlich und sieht die Entwicklung.
-4. Darauf aufbauend: Hinweise, wie eine sauber intonierte Tonleiter gelingt
-   (welche Töne ziehen, welche stützen).
-
-**Fachliche Grundlage (recherchiert, reine Stimmung ggü. gleichstufig):**
-
-| Intervall | rein (Cent) | gleichstufig | Differenz |
-|---|---|---|---|
-| große Terz (5:4) | 386 | 400 | **−14 — tiefer spielen** |
-| kleine Terz (6:5) | 316 | 300 | **+16 — höher spielen** |
-| Quarte (4:3) | 498 | 500 | −2 — praktisch rein |
-| Quinte (3:2) | 702 | 700 | +2 — praktisch rein |
-
-Die Terz-Regeln (Dur-Terz tiefer, Moll-Terz höher) stimmen also; die
-Annahme „Quarte eher höher“ hat sich **nicht** bestätigt — Quarte und Quinte
-sind nahezu rein. Im UI nur die Terz-Regeln hervorheben. (Gilt fürs
-harmonische Spielen im Ensemble; der Trainer misst zuerst das Instrument
-selbst, die reinen Intervalle sind Zielwerte für den Akkord-Kontext.)
-
-**Namensvorschläge** (Entscheidung offen, muss als Knopf-Beschriftung
-funktionieren): *Tonkompass* · *Tonprofil* · *Stimmbild* · *Tonleiter-Check*.
+*(C-04 Tonprofil am 2026-10-12 erledigt, siehe unten.)*
 
 ---
 
@@ -449,6 +419,36 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
   obwohl sich das Stück öffnen ließ („Nicht lesbar, nicht in der
   Sicherung“). Ist eine PDF wirklich verloren, nennt die Meldung den Weg
   zur Rettung. Ersetzt A-01.
+- **C-04 · Tonprofil** (2026-10-12): Wunsch Marlon: die Töne des eigenen
+  Instruments kennenlernen — welche zu hoch, welche zu tief liegen. Name
+  entschieden: **Tonprofil** (aus den Vorschlägen; funktioniert als Knopf).
+  Regeln in `src/domain/tonprofil.ts` (getestet).
+  - **Einstieg:** Stimmgerät → „alles“ → „Tonprofil — Ton für Ton messen“.
+    Tiefster und höchster Ton wählbar (gemerkt), chromatisch oder ohne
+    Vorzeichen; notiert wie im Stimmgerät (Stimmung, Kammerton).
+  - **Messen, geführt:** Die App nennt den Ton, man hält ihn gut eine Sekunde;
+    nur dieser Ton zählt (Stille, andere Töne nicht), Ergebnis ist der Median
+    von 20 Ablesungen — Ansatz und Ausreißer fallen kaum ins Gewicht. Zurück,
+    Überspringen, vorzeitig fertig. Das Mikrofon geht von selbst an und, wenn
+    die App es selbst eingeschaltet hat, danach wieder aus.
+  - **Ergebnis:** Kennzahlen (Ø Abweichung, wie viele sauber ±5, am
+    stärksten daneben — je mit dem Wert der vorigen Messung), Diagramm mit
+    Balken je Ton nach oben (zu hoch) bzw. unten (zu tief) um ein
+    Sauber-Band, die vorige Messung als Ringe; antippen zeigt den Wert.
+    „Darauf achten“ listet die auffälligsten Töne mit Tipp (tiefer ansetzen /
+    höher ansetzen, gut stützen), dazu eine Tabelle aller Töne.
+  - **Entwicklung:** Jede Messung wird datiert gespeichert (ideal
+    wöchentlich); Vergleich mit einer frei wählbaren älteren („x von y Tönen
+    näher an sauber“). Einzelne Messungen lassen sich löschen.
+  - **Tonleiter sauber spielen:** Grundton + Dur/Moll → je Stufe die Neigung
+    des eigenen Instruments; die Terz mit der Regel aus der Recherche
+    verrechnet (rein: Dur-Terz 386 statt 400 Cent → etwa 14 tiefer,
+    Moll-Terz 316 statt 300 → etwa 16 höher; Quarte und Quinte praktisch
+    rein), z. B. „mit deinen −20 also etwa 6 höher ansetzen“.
+  - **Daten:** im localStorage `ueben:tonprofile` (`{id, am, stimmung,
+    kammerton, toene: [{midi, cent}]}`, Töne notiert als MIDI-Zahl); in der
+    Sicherung als optionales Kopf-Feld `tonprofile`, beim Laden vereinigt,
+    gelöschte reisen als Grabstein mit. Kein Schema-Sprung.
 - **F-14 · Tags** (2026-10-12): Wunsch Marlon: Stücke mit eigenen, farbigen
   Tags markieren — anders als Sammlungen: „Wichtig üben — kann noch wenig“
   (rot), „Mein Solo“ (blau), „Wenige Stellen“ (gelb), „Kann ich“ (grün).

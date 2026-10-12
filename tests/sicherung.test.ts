@@ -48,7 +48,9 @@ describe('Übe-Sicherung', () => {
 
   it('trägt Grabsteine und Tags im Kopf mit — ohne sie bleibt der Kopf wie bisher', async () => {
     const leer = { noten: [], stellen: [], anmerkungen: [] };
-    const mit = await sicherungLesen(await sicherungPacken(leer, 'test', 1, { geloescht: [{ art: 'noten', id: 'x', am: 5 }], tags: [{ id: 't', name: 'Solo', farbe: 'blau', geaendert: 1 }] }));
+    const profil = { id: 'p', am: 3, stimmung: 'B', kammerton: 442, toene: [{ midi: 60, cent: 4 }] };
+    const mit = await sicherungLesen(await sicherungPacken(leer, 'test', 1, { geloescht: [{ art: 'noten', id: 'x', am: 5 }], tags: [{ id: 't', name: 'Solo', farbe: 'blau', geaendert: 1 }], tonprofile: [profil] }));
+    expect(mit.kopf.tonprofile).toEqual([profil]);
     expect(mit.kopf.geloescht).toEqual([{ art: 'noten', id: 'x', am: 5 }]);
     expect(mit.kopf.tags).toEqual([{ id: 't', name: 'Solo', farbe: 'blau', geaendert: 1 }]);
     const ohne = await sicherungLesen(await sicherungPacken(leer, 'test', 1));

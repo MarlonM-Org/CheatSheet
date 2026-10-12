@@ -21,9 +21,10 @@ export interface Vorhanden {
   anmerkungen: ReadonlySet<string>;
 }
 
-// Ein gelöschtes Stück (samt Stellen und Anmerkungen), eine gelöschte Stelle
-// oder ein gelöschter Tag (F-14, siehe @/domain/tags).
-export interface Grabstein { art: 'noten' | 'stelle' | 'tag'; id: string; am: number }
+// Ein gelöschtes Stück (samt Stellen und Anmerkungen), eine gelöschte Stelle,
+// ein gelöschter Tag (F-14, @/domain/tags) oder ein gelöschtes Tonprofil
+// (C-04, @/domain/tonprofil).
+export interface Grabstein { art: 'noten' | 'stelle' | 'tag' | 'tonprofil'; id: string; am: number }
 
 // Stand eines Eintrags auf dem Gerät, für Grabsteine und „neuer gewinnt“.
 // datei: wann die PDF zuletzt gesetzt wurde.
@@ -53,7 +54,7 @@ export interface Einspielplan<N> {
 }
 
 const istGrabstein = (x: unknown): x is Grabstein => typeof x === 'object' && x !== null
-  && ['noten', 'stelle', 'tag'].includes((x as Grabstein).art)
+  && ['noten', 'stelle', 'tag', 'tonprofil'].includes((x as Grabstein).art)
   && typeof (x as Grabstein).id === 'string' && typeof (x as Grabstein).am === 'number' && Number.isFinite((x as Grabstein).am);
 
 export function grabsteineLesen(roh: unknown): Grabstein[] {

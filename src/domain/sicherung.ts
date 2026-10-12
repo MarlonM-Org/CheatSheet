@@ -20,10 +20,12 @@ export interface Sicherungskopf {
   anmerkungen: ({ id: string; notenId: string } & Record<string, unknown>)[];
   // Ergänzungen 2026-10-12, weiter Version 1 — fehlen in älteren Sicherungen
   // und in denen der Registerführer-App; wer sie nicht kennt, überliest sie:
-  // Grabsteine gelöschter Noten, Stellen und Tags (siehe @/domain/einspielen)
-  // und die Tag-Definitionen (siehe @/domain/tags).
+  // Grabsteine gelöschter Noten, Stellen, Tags und Tonprofile (siehe
+  // @/domain/einspielen), die Tag-Definitionen (@/domain/tags) und die
+  // Tonprofile (@/domain/tonprofil).
   geloescht?: unknown[];
   tags?: unknown[];
+  tonprofile?: unknown[];
 }
 
 export interface SicherungsInhalt<N, S, A> { noten: N[]; stellen: S[]; anmerkungen: A[] }
@@ -34,7 +36,7 @@ export async function sicherungPacken<
   N extends { id: string; datei: Blob },
   S extends { id: string; notenId: string },
   A extends { id: string; notenId: string },
->(inhalt: SicherungsInhalt<N, S, A>, quelle: string, erstellt: number, zusatz: { geloescht?: unknown[]; tags?: unknown[] } = {}): Promise<Blob> {
+>(inhalt: SicherungsInhalt<N, S, A>, quelle: string, erstellt: number, zusatz: { geloescht?: unknown[]; tags?: unknown[]; tonprofile?: unknown[] } = {}): Promise<Blob> {
   const kopf: Sicherungskopf = {
     version: VERSION,
     erstellt,
@@ -48,6 +50,7 @@ export async function sicherungPacken<
     anmerkungen: inhalt.anmerkungen.map((a) => ({ ...a })),
     ...(zusatz.geloescht?.length ? { geloescht: zusatz.geloescht } : {}),
     ...(zusatz.tags?.length ? { tags: zusatz.tags } : {}),
+    ...(zusatz.tonprofile?.length ? { tonprofile: zusatz.tonprofile } : {}),
   };
   const json = new TextEncoder().encode(JSON.stringify(kopf));
   const vorspann = new Uint8Array(9);
