@@ -101,7 +101,7 @@ export function Sicherung({ laden }: { laden: SicherungLaden }) {
         return;
       }
       if (fehlen) setFehler(`Nicht in der Sicherung, weil die PDF auf diesem Gerät nicht mehr lesbar ist: ${fehlen}. `
-        + 'Retten: in der Bibliothek auswählen, „Auswahl aktualisieren“ und die Datei neu wählen — Stellen und Anmerkungen bleiben. Dann die Sicherung neu erstellen.');
+        + 'Retten: in der Bibliothek „Auswählen“, das Stück antippen, „Aktualisieren“ und die Datei neu wählen — Stellen und Anmerkungen bleiben. Dann die Sicherung neu erstellen.');
       const datei = new File([s.datei], sicherungsName(new Date()), { type: 'application/octet-stream' });
       const url = URL.createObjectURL(datei);
       aktuelleUrl.current = url;

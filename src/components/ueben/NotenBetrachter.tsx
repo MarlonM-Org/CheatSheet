@@ -3,6 +3,7 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ansichten, ansichtVonSeite, hauptseite, radierZug, type Anmerkung, type Ansicht, type Blaettermodus } from '@/domain/notenpult';
+import { tempoStand } from '@/domain/stellen';
 import { einstellungPruefen, TEXT_GROESSE, type StiftEinstellung, type ZeichenWerkzeug } from '@/domain/stift';
 import { mitRand, rechteckAus, type Rechteck } from '@/domain/ueben';
 import { gespeichert as gespeicherterWert, speichern } from './klang';
@@ -14,6 +15,7 @@ import { useMetronom } from './MetronomKontext';
 import { ladeFehler, speicherFehler } from './speicherfehler';
 import { StiftPalette, type Werkzeug } from './StiftPalette';
 import { seiteMitEbene, type SeitenBild } from './pdf';
+import type { MixSteuerung } from './StellenMix';
 import { anmerkungenZeichnen, ebeneZeichnen, strichZeichnen } from './zeichnen';
 
 const RAND = 0.06;
@@ -27,9 +29,11 @@ interface Props {
   // Sprung aus der Stellen-Übersicht: in den Stellen-Modus zu dieser Stelle.
   sprung: { stelle: string; n: number } | null;
   titelTipp: () => void;
+  // Stellen-Mix (F-11): genau diese Stelle, ‹ › gehen durch die Runde.
+  mix: MixSteuerung | null;
 }
 
-export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, sprung, titelTipp }: Props) {
+export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, sprung, titelTipp, mix }: Props) {
   const seiten = pdf.numPages;
   const { bpm, setBpm } = useMetronom();
 
@@ -45,10 +49,12 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     notenAendern(noten.id, { blaettern: b }).catch(speicherFehler);
   };
 
-  // ── Modus: lesen oder Stelle für Stelle ──
-  const [modus, setModus] = useState<'lesen' | 'stellen'>('lesen');
+  // ── Modus: lesen oder Stelle für Stelle ── Im Mix immer die Stelle der Runde.
+  const [eigenerModus, setModus] = useState<'lesen' | 'stellen'>(mix ? 'stellen' : 'lesen');
+  const modus = mix ? 'stellen' : eigenerModus;
   const [stelleNr, setStelleNr] = useState(0);
-  const stelle = modus === 'stellen' ? stellen[Math.min(stelleNr, stellen.length - 1)] : undefined;
+  const stelle = mix ? stellen.find((s) => s.id === mix.stelle)
+    : modus === 'stellen' ? stellen[Math.min(stelleNr, stellen.length - 1)] : undefined;
   const [rand, setRand] = useState(true);
   const zumLesen = () => {
     if (stelle) setIndex(ansichtVonSeite(liste, stelle.seite));
@@ -216,13 +222,15 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
 
   // ── Navigation ──
   const weiter = useCallback(() => {
-    if (modus === 'stellen') setStelleNr((n) => Math.min(stellen.length - 1, n + 1));
+    if (mix) mix.weiter();
+    else if (modus === 'stellen') setStelleNr((n) => Math.min(stellen.length - 1, n + 1));
     else setIndex((i) => Math.min(liste.length - 1, i + 1));
-  }, [modus, stellen.length, liste.length]);
+  }, [mix, modus, stellen.length, liste.length]);
   const zurueck = useCallback(() => {
-    if (modus === 'stellen') setStelleNr((n) => Math.max(0, n - 1));
+    if (mix) { if (mix.nr > 1) mix.zurueck(); }
+    else if (modus === 'stellen') setStelleNr((n) => Math.max(0, n - 1));
     else setIndex((i) => Math.max(0, i - 1));
-  }, [modus]);
+  }, [mix, modus]);
 
   useEffect(() => {
     if (!tastenAktiv) return;
@@ -464,10 +472,19 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     return `translate(${tx}px, ${ty}px) scale(${zoomFaktor})`;
   }, [stelle, rahmen, zoomFaktor, rand]);
 
-  const verlauf = stelle ? [...stelle.tempi].sort((a, b) => a.am - b.am) : [];
-  const zuletzt = verlauf.at(-1)?.tempo ?? null;
-  const bestes = verlauf.reduce((m, t) => Math.max(m, t.tempo), 0) || null;
-  const anzeige = modus === 'stellen'
+  const { zuletzt, bestes } = tempoStand(stelle?.tempi ?? []);
+  // Metronom folgt der Stelle (D-04): Kommt eine Stelle dran — beim Blättern,
+  // im Mix, beim Einschalten —, steht es auf ihrem zuletzt geschafften Tempo.
+  // Nur beim Wechsel: −1/+1 und „geschafft“ bleiben, wie sie sind.
+  const tempoFuer = useRef<string | null>(null);
+  useEffect(() => {
+    const id = stelle?.id ?? null;
+    if (id === tempoFuer.current) return;
+    tempoFuer.current = id;
+    if (zuletzt) setBpm(zuletzt);
+  }, [stelle?.id, zuletzt, setBpm]);
+  const anzeige = mix ? `Mix · ${mix.nr} von ${mix.anzahl}`
+    : modus === 'stellen'
     ? `Stelle ${stelleNr + 1} von ${stellen.length}`
     : ansicht.art === 'ganz' ? `Seite ${ansicht.seite} von ${seiten}` : `Seite ${ansicht.unten} → ${ansicht.oben} von ${seiten}`;
   const ladeTempo = stelle ? (zuletzt ?? stelle.zielTempo) : null;
@@ -504,7 +521,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
                 <input type="checkbox" role="switch" className="ios-schalter" checked={modus === 'stellen'}
                   onChange={(e) => {
                     if (e.target.checked) { setModus('stellen'); setWerkzeug(null); setPaletteOffen(false); setLinieEinstellen(false); setAnsichtOffen(false); }
-                    else { zumLesen(); setAnsichtOffen(false); }
+                    else { zumLesen(); setAnsichtOffen(false); mix?.beenden(); }
                   }} />
               </label>
             )}
@@ -630,7 +647,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
 
       {stelle && !neueStelle && (
         <div className="b-unten b-stellenleiste">
-          <button type="button" className="b-knopf gross" onClick={zurueck} disabled={stelleNr === 0} aria-label="Vorige Stelle">‹</button>
+          <button type="button" className="b-knopf gross" onClick={zurueck} disabled={mix ? mix.nr <= 1 : stelleNr === 0} aria-label="Vorige Stelle">‹</button>
           <div className="b-stelleninfo min-w-0 flex-1">
             <p className="truncate font-bold">{stelle.titel || `Stelle auf Seite ${stelle.seite}`}</p>
             <p className="b-leise truncate text-xs tabular-nums">
@@ -648,7 +665,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
             <button type="button" onClick={() => setBpm(bpm + 1)} aria-label="Ein Schlag schneller">+1</button>
           </div>
           <button type="button" className="knopf b-geschafft" onClick={() => void geschafft(stelle.id)} title="Dieses Tempo als geschafft speichern">✓ {bpm} geschafft</button>
-          <button type="button" className="b-knopf gross" onClick={weiter} disabled={stelleNr >= stellen.length - 1} aria-label="Nächste Stelle">›</button>
+          <button type="button" className="b-knopf gross" onClick={weiter} disabled={!mix && stelleNr >= stellen.length - 1} aria-label="Nächste Stelle">›</button>
         </div>
       )}
 

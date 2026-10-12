@@ -17,7 +17,10 @@ Früher unter Admin → „Üben (Prototyp)“ in der Registerführer-App.
 - **Stimmgerät** (YIN-Tonerkennung über das Mikrofon) und Referenztöne.
 - **Noten:** PDF-Dateien hinzufügen, im Vollbild lesen, blättern (ganz, halb,
   eigene Linie), mit Stift, Marker und Text anmerken, Stellen markieren und
-  Stelle für Stelle mit Tempo-Verlauf üben.
+  Stelle für Stelle mit Tempo-Verlauf üben — das Metronom springt dabei auf
+  das zuletzt geschaffte Tempo der Stelle.
+- **Stellen-Mix:** markierte Stellen aus allen Stücken bunt gemischt üben,
+  Runde für Runde jede genau einmal.
 
 ## Entwickeln
 

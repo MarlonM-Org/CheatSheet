@@ -6,7 +6,7 @@ Punkt ein; wer etwas fertigstellt, hakt ab und verschiebt den Punkt nach
 „Erledigt“ (unten). Größere Richtungsentscheidungen bitte als kurzen Absatz
 hier dokumentieren, nicht nur im Chat.
 
-Stand: 2026-10-11.
+Stand: 2026-10-12.
 
 ## Leitbild
 
@@ -30,7 +30,7 @@ nicht in der Breite, aber in der Sorgfalt.
 | M2 | **Noten im Zentrum** | UI-Neuaufbau: Noten vollflächig, Werkzeuge als Overlays, drei Knöpfe unten | B-01…B-03 |
 | M3 | **Werkzeuge schärfen** | Stimmgerät- und Metronom-Verbesserungen, Stift-Ausbau | C-01…C-03, D-01, E-01…E-03 |
 | M4 | **Notenmanagement I** | Metadaten, Bookmarks, Flags, Kontextmenüs, Drag & Drop | F-01, F-03, F-04, F-08, F-09 |
-| M5 | **Üben & Setlisten** | Setlisten, Wiederholungs-Links, Halbseiten-Blättern, Intonations-Trainer | F-02, F-05, F-06, C-04 |
+| M5 | **Üben & Setlisten** | Setlisten, Wiederholungs-Links, Halbseiten-Blättern, Intonations-Trainer (Stellen-Mix F-11 schon erledigt) | F-02, F-05, F-06, C-04 |
 | M6 | **Design & Extras** | Themes, Stempel/Formen, Kamera-Scan | B-04, B-05, E-04, F-07 |
 | M7 | **Komponieren** (Vision) | Noteneingabe, Rhythmus-/Melodie-Transkription | G-01…G-03 |
 
@@ -126,7 +126,7 @@ funktionieren): *Tonkompass* · *Tonprofil* · *Stimmbild* · *Tonleiter-Check*.
 
 ## D — Metronom
 
-*(derzeit keine offenen Punkte — D-01 erledigt, siehe unten)*
+*(derzeit keine offenen Punkte — D-01…D-04 erledigt, siehe unten)*
 
 ---
 
@@ -395,6 +395,39 @@ G-02 getrennt — Rhythmus zuerst, Töne später.
   obwohl sich das Stück öffnen ließ („Nicht lesbar, nicht in der
   Sicherung“). Ist eine PDF wirklich verloren, nennt die Meldung den Weg
   zur Rettung. Ersetzt A-01.
+- **F-11 · Stellen-Mix** (2026-10-12): Wunsch Marlon: Stellen aus *allen*
+  Stücken üben, ohne erst ein Stück auszusuchen — mit Abwechslung, und so,
+  dass keine Stelle übersehen wird. Einstieg oben in der Bibliothek (Karte
+  „Stellen-Mix“, zeigt „6 Stellen aus 3 Stücken“ bzw. „Weiter bei 4 von 6“
+  und „Neu mischen“). Regeln (`src/domain/stellen.ts`, getestet):
+  - Eine **Runde** enthält jede markierte Stelle genau einmal, gemischt; nie
+    zwei Stellen desselben Stücks hintereinander, solange es anders geht
+    (gewichtet nach offenen Stellen je Stück, damit sich große Stücke über
+    die Runde verteilen).
+  - Neue Stellen kommen gemischt in den noch offenen Teil der Runde,
+    gelöschte fallen weg; Geübtes bleibt vorn. Nach der letzten Stelle:
+    „Runde geschafft“ → neue Runde.
+  - Geübt wird im gewohnten Stellen-Modus des Notenbetrachters (‹ › gehen
+    durch die Runde, über Stückgrenzen hinweg; Kopf „Mix · 4 von 27“).
+    Stellen-Schalter aus = Mix verlassen, das Stück bleibt zum Lesen offen.
+  - Die Runde liegt auf dem Gerät (localStorage `ueben:mix`, an/aus in
+    `ueben:mix-an`) — nach einem App-Wechsel oder Neustart geht es an
+    derselben Stelle weiter. Sie reist nicht mit der Sicherung.
+- **D-04 · Metronom folgt der Stelle** (2026-10-12): Kommt beim Üben eine
+  Stelle dran (Blättern, Stellen-Modus einschalten, Stellen-Mix), steht das
+  Metronom automatisch auf dem Tempo, bei dem sie **zuletzt geschafft** wurde.
+  Nur beim Wechsel — −1/+1 und „geschafft“ bleiben, wie sie sind. Ist noch
+  kein Tempo geschafft, bleibt das Metronom stehen; „♩ … laden“ (zuletzt
+  geschafft, sonst Zieltempo) bleibt als Knopf. Regel `tempoStand` in
+  `src/domain/stellen.ts`.
+- **B-07 · Bibliothek aufgeräumt** (2026-10-12): Statt großer, teils
+  zweizeiliger Knöpfe eine Werkzeugzeile **+ Noten · Zuletzt/A–Z ·
+  Auswählen**; die Stücke als ruhige Liste mit Haarlinien (Titel, Stimme,
+  zuletzt, Zahl der Stellen). Häkchen, Aktualisieren und Löschen erst im
+  Auswahl-Modus (wie „Auswählen“ in der Dateien-App; Tipp auf die Zeile
+  wählt aus, „Fertig“ beendet) — „Alle aktualisieren“ ist jetzt „Auswählen →
+  Alle → Aktualisieren“. Kopf „Bibliothek · 9 Stücke“ bzw. „· 2 gewählt“,
+  Zahnrad und Schließen rechts beisammen.
 - **B-05 · Design-Überarbeitung** (2026-10-10): **Entscheidung Marlon:
   Studio.** Drei helle Entwürfe (Blatt · Studio · Galerie, identischer
   Funktionsumfang) liegen als antippbare HTML-Mockups in `docs/design/` und

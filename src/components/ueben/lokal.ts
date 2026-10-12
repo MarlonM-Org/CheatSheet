@@ -175,7 +175,7 @@ async function bytesLesen(datei: Blob): Promise<LokaleDatei['daten']> {
 // Die gespeicherte PDF-Datei eines Stücks ist auf dem Gerät nicht mehr lesbar.
 export class DateiVerloren extends Error {
   constructor() {
-    super('Die PDF-Datei dieses Stücks ist auf dem Gerät nicht mehr lesbar. In der Bibliothek das Stück auswählen, „Auswahl aktualisieren“ und die Datei neu wählen — Stellen und Anmerkungen bleiben erhalten.');
+    super('Die PDF-Datei dieses Stücks ist auf dem Gerät nicht mehr lesbar. In der Bibliothek „Auswählen“, das Stück antippen, „Aktualisieren“ und die Datei neu wählen — Stellen und Anmerkungen bleiben erhalten.');
   }
 }
 
@@ -295,6 +295,8 @@ export const notenLoeschen = (id: string) => transaktion<void>(ALLE_MIT_DATEIEN,
 });
 
 // ── Stellen ──
+// Alle Stellen aller Stücke (Stellen-Mix, Zählen in der Bibliothek).
+export const alleStellen = () => tx<LokaleStelle[]>('stellen', 'readonly', (s) => s.getAll());
 export const stellenVon = async (notenId: string) =>
   (await tx<LokaleStelle[]>('stellen', 'readonly', (s) => s.index('notenId').getAll(notenId)))
     .sort((a, b) => a.seite - b.seite || a.y - b.y);

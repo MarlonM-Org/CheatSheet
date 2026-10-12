@@ -4,6 +4,7 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { istNachladeFehler } from '@/domain/nachladen';
 import type { Anmerkung } from '@/domain/notenpult';
+import { tempoStand } from '@/domain/stellen';
 import { mitRand } from '@/domain/ueben';
 import { NeueVersion } from '@/components/NeueVersion';
 import { anmerkungenVon, notenAendern, notenDatei, notenHolen, stelleAendern, zuletztMerken, stelleLoeschen, stellenVon, tempoGeschafft, type LokaleNoten, type LokaleStelle as Stelle } from './lokal';
@@ -11,6 +12,7 @@ import { useMetronom } from './MetronomKontext';
 import { NotenBetrachter } from './NotenBetrachter';
 import { NeueVersionFehler, pdfLaden, seiteMitEbene } from './pdf';
 import { ladeFehler, speicherFehler } from './speicherfehler';
+import type { MixSteuerung } from './StellenMix';
 import { useDialogFokus, useEscape } from './tasten';
 import { anmerkungenZeichnen, ebeneZeichnen } from './zeichnen';
 
@@ -18,8 +20,9 @@ const RAND = 0.06;
 
 // Ein geöffnetes Stück (B-02): Die Noten füllen die Bühne sofort. Tipp auf
 // den Titel öffnet das Stück-Blatt mit Umbenennen und der Stellen-Übersicht.
-export function NotenPult({ notenId, tastenAktiv, verschwunden }: {
-  notenId: string; tastenAktiv: boolean; verschwunden: () => void;
+// Im Stellen-Mix (mix) zeigt es eine Stelle der Runde.
+export function NotenPult({ notenId, tastenAktiv, verschwunden, mix = null }: {
+  notenId: string; tastenAktiv: boolean; verschwunden: () => void; mix?: MixSteuerung | null;
 }) {
   const { bpm, setBpm } = useMetronom();
   const [noten, setNoten] = useState<LokaleNoten | null>(null);
@@ -29,7 +32,12 @@ export function NotenPult({ notenId, tastenAktiv, verschwunden }: {
   const [stellen, setStellen] = useState<Stelle[]>([]);
   const [blatt, setBlatt] = useState(false);
   const [sprung, setSprung] = useState<{ stelle: string; n: number } | null>(null);
-  const neuLaden = useCallback(() => { stellenVon(notenId).then(setStellen).catch(ladeFehler); }, [notenId]);
+  const mixAbgleichen = mix?.abgleichen;
+  const neuLaden = useCallback(() => {
+    stellenVon(notenId).then(setStellen).catch(ladeFehler);
+    // Neue oder gelöschte Stellen gehören in die laufende Runde.
+    mixAbgleichen?.();
+  }, [notenId, mixAbgleichen]);
 
   useEffect(() => {
     let weg = false;
@@ -56,17 +64,27 @@ export function NotenPult({ notenId, tastenAktiv, verschwunden }: {
   }, [notenId]);
 
   if (neueVersion) return <div className="leer"><NeueVersion /></div>;
-  if (fehler) return <div className="leer"><p className="karte warnung">{fehler}</p></div>;
+  if (fehler) return (
+    <div className="leer">
+      <p className="karte warnung">{fehler}</p>
+      {mix && (
+        <div className="flex gap-2">
+          <button type="button" className="knopf knopf-klein" onClick={mix.weiter}>Nächste Stelle</button>
+          <button type="button" className="knopf knopf-leise knopf-klein" onClick={mix.beenden}>Mix beenden</button>
+        </div>
+      )}
+    </div>
+  );
   if (!noten || !pdf) return <div className="leer"><p className="gedaempft">Noten werden geladen …</p></div>;
 
   return (
     <>
-      <NotenBetrachter noten={noten} pdf={pdf} stellen={stellen} geaendert={neuLaden}
+      <NotenBetrachter noten={noten} pdf={pdf} stellen={stellen} geaendert={neuLaden} mix={mix}
         tastenAktiv={tastenAktiv && !blatt} sprung={sprung} titelTipp={() => setBlatt(true)} />
       {blatt && (
         <StueckBlatt noten={noten} pdf={pdf} stellen={stellen} bpm={bpm} tempoSetzen={setBpm} neuLaden={neuLaden}
           umbenannt={(neu) => setNoten({ ...noten, ...neu })}
-          zeigen={(id) => { setSprung({ stelle: id, n: Date.now() }); setBlatt(false); }}
+          zeigen={(id) => { mix?.beenden(); setSprung({ stelle: id, n: Date.now() }); setBlatt(false); }}
           schliessen={() => setBlatt(false)} />
       )}
     </>
@@ -184,8 +202,7 @@ function UebeStelle({ stelle, breite, rand, seiteHolen, bpm, tempoSetzen, neuLad
   const ziel = useRef<HTMLCanvasElement>(null);
   const [bearbeiten, setBearbeiten] = useState(false);
   const verlauf = [...stelle.tempi].sort((a, b) => a.am - b.am);
-  const zuletzt = verlauf.at(-1)?.tempo ?? null;
-  const bestes = verlauf.reduce((m, t) => Math.max(m, t.tempo), 0) || null;
+  const { zuletzt, bestes } = tempoStand(stelle.tempi);
 
   useEffect(() => {
     let weg = false;
