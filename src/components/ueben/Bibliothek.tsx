@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ausDateiname, nachTitel, zeitpunkt, zuordnen } from '@/domain/notenpult';
 import { gespeichert, speichern } from './klang';
 import { zuletztAus } from '@/domain/speicher';
-import { alleNoten, notenAendern, notenAnlegen, notenLoeschen, zuletztListe, type LokaleNoten } from './lokal';
+import { alleNoten, alleUmziehen, notenAendern, notenAnlegen, notenLoeschen, zuletztListe, type LokaleNoten } from './lokal';
 import { useSicherungLaden } from './Sicherung';
 import { fehlerGrund } from './speicherfehler';
 import { useEscape } from './tasten';
@@ -106,7 +106,7 @@ function NotenListe({ offen, oeffnen, anzahlMelden, offenEntfernt, aktualisiert,
   const [laeuft, setLaeuft] = useState(false);
   const [zuletzt, setZuletzt] = useState<Record<string, number>>(() => zuletztListe());
   const laden = useCallback(() => {
-    alleNoten().then((l) => { setZuletzt(zuletztListe()); setNoten(l); })
+    alleNoten().then((l) => { setZuletzt(zuletztListe()); setNoten(l); void alleUmziehen(); })
       .catch((e) => setFehler(`Gerätespeicher nicht verfügbar: ${(e as Error).message}`));
   }, []);
   useEffect(laden, [laden, stand]);

@@ -216,10 +216,26 @@ async function alteDateiLesen(datei: Blob): Promise<ArrayBuffer> {
   try { return await datei.arrayBuffer(); } catch (x) { throw dateiVerloren(x) ? new DateiVerloren() : x; }
 }
 
+// Umzug einer gelesenen alten Datei: Bytes in „dateien“, Datensatz ohne Blob
+// — in einem Schritt und auf dem Datensatz, wie er jetzt ist (nebenher
+// umbenannt bleibt umbenannt). Inzwischen gelöscht, ersetzt oder schon
+// umgezogen: nichts tun.
+const umzugSchreiben = (id: string, daten: ArrayBuffer, typ: string) =>
+  transaktion<void>(['noten', 'dateien'], 'readwrite', (t, abbrechen) => {
+    const noten = t.objectStore('noten');
+    const r = noten.get(id) as IDBRequest<LokaleNoten | undefined>;
+    r.onsuccess = () => {
+      try {
+        if (!r.result?.datei) return;
+        noten.put(ohneDatei(r.result));
+        t.objectStore('dateien').put({ id, daten, typ } satisfies LokaleDatei);
+      } catch (x) { abbrechen(x); }
+    };
+  });
+
 // Die PDF-Datei eines Stücks. Trägt es sie noch als Blob im Datensatz, zieht
-// sie dabei in „dateien“ um (Bytes gelesen, dann in einem Schritt Datei
-// abgelegt und Datensatz ohne Blob geschrieben). Scheitert nur der Umzug,
-// zählt die gelesene Datei trotzdem — er wird beim nächsten Öffnen versucht.
+// sie dabei in „dateien“ um. Scheitert nur der Umzug, zählt die gelesene Datei
+// trotzdem — er wird beim nächsten Mal versucht.
 export async function notenDatei(n: LokaleNoten): Promise<Blob> {
   const eintrag = await tx<LokaleDatei | undefined>('dateien', 'readonly', (s) => s.get(n.id));
   const quelle = dateiQuelle(eintrag, n);
@@ -227,8 +243,31 @@ export async function notenDatei(n: LokaleNoten): Promise<Blob> {
   if (quelle === 'keine' || !n.datei) throw new DateiVerloren();
   const daten = await alteDateiLesen(n.datei);
   const typ = n.datei.type || 'application/pdf';
-  await mitDatei(n, daten, typ).catch((x) => console.error('Umzug der PDF-Datei verschoben', x));
+  await umzugSchreiben(n.id, daten, typ).catch((x) => console.error('Umzug der PDF-Datei verschoben', x));
   return new Blob([daten], { type: typ });
+}
+
+// Alle Stücke, die ihre Datei noch als Blob tragen, nacheinander umziehen —
+// im Hintergrund nach dem Laden der Bibliothek und vor jeder Sicherung. Alte
+// Blobs liest Safari nur, solange die Verbindung offen ist, und verliert sie
+// mitunter; als Bytes sind sie sicher. Jeder Datensatz wird erst unmittelbar
+// vor dem Lesen geholt. Eine verlorene Datei bleibt, wie sie ist (die
+// Sicherung nennt das Stück). Läuft schon ein Umzug, wird er mitgenutzt.
+let umzug: Promise<void> | null = null;
+export function alleUmziehen(): Promise<void> {
+  umzug ??= (async () => {
+    const ids = (await alleNoten()).filter((n) => n.datei).map((n) => n.id);
+    for (const id of ids) {
+      try {
+        const n = await notenHolen(id);
+        if (!n?.datei) continue;
+        await umzugSchreiben(id, await n.datei.arrayBuffer(), n.datei.type || 'application/pdf');
+      } catch (x) {
+        console.warn('PDF-Datei nicht umgezogen', id, x);
+      }
+    }
+  })().finally(() => { umzug = null; });
+  return umzug;
 }
 
 // „Zuletzt geöffnet“ liegt auf dem Gerät im localStorage, nicht im
@@ -317,6 +356,9 @@ export const allesLesen = () => transaktion<Bestand>(ALLE_MIT_DATEIEN, 'readonly
 // PDF-Inhalt — jede Datei wird dafür einmal komplett gelesen) kommen samt
 // ihren Stellen und Anmerkungen nicht mit; `fehlen` nennt sie.
 export async function sicherungErstellen(): Promise<{ datei: Blob; noten: number; fehlen: LokaleNoten[] }> {
+  // Erst alles als Bytes ablegen: Alte Blobs liest Safari beim Prüfen
+  // mitunter nicht, obwohl das Stück sich öffnen lässt.
+  await alleUmziehen();
   const { bestand, fehlen } = await nurLesbare(await allesLesen());
   // Nach nurLesbare trägt jedes verbliebene Stück eine lesbare Datei.
   const datei = await sicherungPacken(bestand as SicherungsInhalt<LokaleNoten & { datei: Blob }, LokaleStelle, SeitenAnmerkungen>, 'cheatsheet', Date.now());

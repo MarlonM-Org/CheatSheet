@@ -389,7 +389,12 @@ G-02 getrennt — Rhythmus zuerst, Töne später.
   Einstellungen (Tempo, Farbwelt …) reisen nicht mit. Beim Laden gehen die
   PDFs nie als Blob in die Datenbank: erst einzeln als Bytes vorläufig in
   `dateien`, dann zieht eine Transaktion sie an ihren Platz (alles oder
-  nichts). Ersetzt A-01.
+  nichts). Vor jeder Sicherung — und still im Hintergrund nach dem Laden der
+  Bibliothek — ziehen alle Stücke, die ihre PDF noch als alten Blob tragen,
+  in `dateien` um: Safari las solche Blobs beim Prüfen mitunter nicht,
+  obwohl sich das Stück öffnen ließ („Nicht lesbar, nicht in der
+  Sicherung“). Ist eine PDF wirklich verloren, nennt die Meldung den Weg
+  zur Rettung. Ersetzt A-01.
 - **B-05 · Design-Überarbeitung** (2026-10-10): **Entscheidung Marlon:
   Studio.** Drei helle Entwürfe (Blatt · Studio · Galerie, identischer
   Funktionsumfang) liegen als antippbare HTML-Mockups in `docs/design/` und
