@@ -395,6 +395,32 @@ G-02 getrennt — Rhythmus zuerst, Töne später.
   obwohl sich das Stück öffnen ließ („Nicht lesbar, nicht in der
   Sicherung“). Ist eine PDF wirklich verloren, nennt die Meldung den Weg
   zur Rettung. Ersetzt A-01.
+- **F-12 · Zieltempo und Tempo-Verlauf je Stelle** (2026-10-12): Wunsch
+  Marlon: jeder Stelle ein Endziel geben („120 auf Viertel“) und sehen, wie
+  sich das Tempo entwickelt — „die letzten drei Wochen +20 %“ —, mit dem Ziel
+  als Deckel und einer Reserve darüber (Stellen 10 % schneller üben, als sie
+  müssen, falls der Dirigent im Konzert flotter wird).
+  - Tipp auf den Namen der Stelle in der Stellen-Leiste öffnet das
+    Stellen-Blatt: Zieltempo setzen (Schläge pro Minute wie im Metronom,
+    20–400), Kennzahlen **Bestes** · **Zum Ziel** (% und was fehlt, „✓ mit
+    Reserve“) · **3 Wochen** (Bestes heute gegenüber dem Besten bis vor drei
+    Wochen; ist alles jünger, seit dem ersten Übetag), die Kurve und eine
+    Tabelle aller Übetage. Beim Anlegen einer Stelle gibt es ein optionales
+    Feld „Ziel ♩“. „Geschafft“ meldet „Ziel erreicht!“ bzw. „Ziel mit
+    Reserve!“.
+  - Kurve (`TempoKurve.tsx`): je Übetag das Beste als Linie, alle geschafften
+    Tempi als leise Punkte — Aufwärmen bleibt sichtbar, zieht die Linie aber
+    nicht runter —, Ziel gestrichelt, Reserve (+10 %) als Band darüber.
+    Antippen zeigt den Tag in einer Ablesezeile darüber. Kurvenfarbe als
+    eigenes Token `--kurve` je Farbwelt (dunkel eine Stufe tiefer, geprüft).
+    Im Stück-Blatt hat jede geübte Stelle eine kleine Kurve (statt der
+    Textzeile „Verlauf: …“).
+  - Regeln getestet in `src/domain/stellen.ts` (`tagesbeste`, `steigerung`,
+    `zielStand`, `reserveVon`, `zielAusText`, `tempoAchse`). Daten: das
+    Feld `zielTempo` gab es schon — kein Schema-Sprung, die Sicherung trägt
+    Ziel und alle Tempi wie bisher.
+  - Offen, falls gewünscht: Notenwert des Ziels (etwa „𝅗𝅥 = 60“ bei Alla
+    breve) — derzeit gilt die Einheit des Metronoms; Reserve fest 10 %.
 - **F-11 · Stellen-Mix** (2026-10-12): Wunsch Marlon: Stellen aus *allen*
   Stücken üben, ohne erst ein Stück auszusuchen — mit Abwechslung, und so,
   dass keine Stelle übersehen wird. Einstieg oben in der Bibliothek (Karte

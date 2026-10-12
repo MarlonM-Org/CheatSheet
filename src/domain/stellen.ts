@@ -15,6 +15,77 @@ export function tempoStand(tempi: Tempo[]): { zuletzt: number | null; bestes: nu
   return { zuletzt: zuletzt?.tempo ?? null, bestes: bestes || null };
 }
 
+// ── Ziel und Tempo-Verlauf (F-12) ──
+
+const TAG = 86_400_000;
+const tagVon = (t: number) => new Date(t).setHours(0, 0, 0, 0);
+
+// Je Übetag das schnellste geschaffte Tempo, dazu alle des Tages in ihrer
+// Reihenfolge. Wer zum Aufwärmen langsamer einsteigt, zieht damit den Tag
+// nicht herunter — die Kurve zeigt, was an dem Tag ging.
+export function tagesbeste(tempi: Tempo[]): { tag: number; tempo: number; alle: number[] }[] {
+  const tage = new Map<number, number[]>();
+  for (const t of [...tempi].sort((a, b) => a.am - b.am)) {
+    const tag = tagVon(t.am);
+    const l = tage.get(tag);
+    if (l) l.push(t.tempo); else tage.set(tag, [t.tempo]);
+  }
+  return [...tage].map(([tag, alle]) => ({ tag, tempo: Math.max(...alle), alle }));
+}
+
+// Wie viel schneller als vor `tage` Tagen? Verglichen wird das Beste bis
+// heute mit dem Besten bis zur Grenze — Aufwärmen und schlechte Tage
+// verfälschen nichts. Ist alles jünger, zählt der erste Übetag als
+// Ausgangspunkt; bei nur einem Übetag gibt es nichts zu vergleichen.
+export function steigerung(tempi: Tempo[], jetzt: number, tage = 21):
+  { von: number; bis: number; prozent: number; seit: number; seitBeginn: boolean } | null {
+  if (!tempi.length) return null;
+  const bis = Math.max(...tempi.map((t) => t.tempo));
+  const grenze = jetzt - tage * TAG;
+  const frueher = tempi.filter((t) => t.am <= grenze);
+  let von: number, seit: number, seitBeginn: boolean;
+  if (frueher.length) {
+    von = Math.max(...frueher.map((t) => t.tempo)); seit = grenze; seitBeginn = false;
+  } else {
+    const tb = tagesbeste(tempi);
+    if (tb.length < 2) return null;
+    von = tb[0].tempo; seit = tb[0].tag; seitBeginn = true;
+  }
+  return { von, bis, prozent: Math.round((bis / von - 1) * 100), seit, seitBeginn };
+}
+
+// Reserve über dem Ziel: Wer eine Stelle sicher können will, übt sie etwas
+// schneller, als sie muss — falls es im Konzert flotter wird.
+export const RESERVE = 0.1;
+export const reserveVon = (ziel: number) => Math.round(ziel * (1 + RESERVE));
+
+// Wie weit ist das Beste vom Ziel? offen → ziel (erreicht) → reserve (mit Reserve).
+export function zielStand(bestes: number | null, ziel: number | null): { anteil: number; fehlt: number; stufe: 'offen' | 'ziel' | 'reserve' } | null {
+  if (!ziel) return null;
+  const b = bestes ?? 0;
+  return { anteil: b / ziel, fehlt: Math.max(0, ziel - b), stufe: b >= reserveVon(ziel) ? 'reserve' : b >= ziel ? 'ziel' : 'offen' };
+}
+
+// Zieltempo aus einer Eingabe („120“, „♩ = 120“): Schläge pro Minute 20–400, sonst keins.
+export function zielAusText(text: string): number | null {
+  const z = Number(text.replace(/\D/g, ''));
+  return z >= 20 && z <= 400 ? z : null;
+}
+
+// Senkrechte Achse der Tempo-Kurve: runde Striche (3–5), etwas Luft über dem
+// Höchsten — mit Ziel und Reserve hat die Kurve so ihren Deckel.
+export function tempoAchse(werte: number[]): { min: number; max: number; striche: number[] } {
+  const lo = Math.min(...werte), hi = Math.max(...werte);
+  const spanne = Math.max(hi - lo, 10);
+  const schritt = [5, 10, 20, 25, 50, 100].find((s) => spanne / s <= 4) ?? 100;
+  const luft = spanne * 0.05;
+  const min = Math.max(0, Math.floor((lo - luft) / schritt) * schritt);
+  const max = Math.ceil((hi + luft) / schritt) * schritt;
+  const striche: number[] = [];
+  for (let v = min; v <= max; v += schritt) striche.push(v);
+  return { min, max, striche };
+}
+
 // ── Stellen-Mix ──
 // Stellen aus allen Stücken in bunter Reihenfolge üben. Eine Runde enthält
 // jede Stelle genau einmal — so bleibt keine liegen —, gemischt, und nach

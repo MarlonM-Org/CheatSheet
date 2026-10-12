@@ -300,8 +300,8 @@ export const alleStellen = () => tx<LokaleStelle[]>('stellen', 'readonly', (s) =
 export const stellenVon = async (notenId: string) =>
   (await tx<LokaleStelle[]>('stellen', 'readonly', (s) => s.index('notenId').getAll(notenId)))
     .sort((a, b) => a.seite - b.seite || a.y - b.y);
-export async function stelleAnlegen(st: Omit<LokaleStelle, 'id' | 'tempi' | 'notiz' | 'zielTempo'>) {
-  await tx('stellen', 'readwrite', (s) => s.put({ ...st, id: crypto.randomUUID(), notiz: '', zielTempo: null, tempi: [] }));
+export async function stelleAnlegen(st: Omit<LokaleStelle, 'id' | 'tempi' | 'notiz' | 'zielTempo'>, zielTempo: number | null = null) {
+  await tx('stellen', 'readwrite', (s) => s.put({ ...st, id: crypto.randomUUID(), notiz: '', zielTempo, tempi: [] }));
 }
 export async function stelleAendern(id: string, felder: Partial<LokaleStelle>) {
   const alt = await tx<LokaleStelle | undefined>('stellen', 'readonly', (s) => s.get(id));

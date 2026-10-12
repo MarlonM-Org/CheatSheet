@@ -21,6 +21,9 @@ Früher unter Admin → „Üben (Prototyp)“ in der Registerführer-App.
   das zuletzt geschaffte Tempo der Stelle.
 - **Stellen-Mix:** markierte Stellen aus allen Stücken bunt gemischt üben,
   Runde für Runde jede genau einmal.
+- **Ziel und Tempo-Verlauf je Stelle:** Zieltempo setzen; eine Kurve zeigt je
+  Übetag das beste geschaffte Tempo, Ziel und Reserve (+10 %) und die
+  Steigerung der letzten drei Wochen.
 
 ## Entwickeln
 

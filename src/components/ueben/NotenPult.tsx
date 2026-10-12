@@ -4,7 +4,7 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { istNachladeFehler } from '@/domain/nachladen';
 import type { Anmerkung } from '@/domain/notenpult';
-import { tempoStand } from '@/domain/stellen';
+import { tempoStand, zielAusText } from '@/domain/stellen';
 import { mitRand } from '@/domain/ueben';
 import { NeueVersion } from '@/components/NeueVersion';
 import { anmerkungenVon, notenAendern, notenDatei, notenHolen, stelleAendern, zuletztMerken, stelleLoeschen, stellenVon, tempoGeschafft, type LokaleNoten, type LokaleStelle as Stelle } from './lokal';
@@ -13,6 +13,7 @@ import { NotenBetrachter } from './NotenBetrachter';
 import { NeueVersionFehler, pdfLaden, seiteMitEbene } from './pdf';
 import { ladeFehler, speicherFehler } from './speicherfehler';
 import type { MixSteuerung } from './StellenMix';
+import { TempoKurve } from './TempoKurve';
 import { useDialogFokus, useEscape } from './tasten';
 import { anmerkungenZeichnen, ebeneZeichnen } from './zeichnen';
 
@@ -201,7 +202,6 @@ function UebeStelle({ stelle, breite, rand, seiteHolen, bpm, tempoSetzen, neuLad
 }) {
   const ziel = useRef<HTMLCanvasElement>(null);
   const [bearbeiten, setBearbeiten] = useState(false);
-  const verlauf = [...stelle.tempi].sort((a, b) => a.am - b.am);
   const { zuletzt, bestes } = tempoStand(stelle.tempi);
 
   useEffect(() => {
@@ -231,9 +231,7 @@ function UebeStelle({ stelle, breite, rand, seiteHolen, bpm, tempoSetzen, neuLad
       </div>
       <div className="overflow-hidden rounded bg-white"><canvas ref={ziel} className="mx-auto block" /></div>
       {stelle.notiz && <p className="text-sm">{stelle.notiz}</p>}
-      {verlauf.length > 1 && (
-        <p className="gedaempft text-xs tabular-nums">Verlauf: {verlauf.slice(-8).map((t) => t.tempo).join(' → ')}</p>
-      )}
+      {stelle.tempi.length > 0 && <TempoKurve tempi={stelle.tempi} ziel={stelle.zielTempo} kompakt />}
       <div className="flex flex-wrap gap-2">
         <button className="knopf knopf-leise knopf-klein" type="button" onClick={() => tempoSetzen(zuletzt ?? stelle.zielTempo ?? 60)}>
           ♩ auf {zuletzt ?? stelle.zielTempo ?? 60}
@@ -248,9 +246,8 @@ function UebeStelle({ stelle, breite, rand, seiteHolen, bpm, tempoSetzen, neuLad
         <form className="grid gap-2" onSubmit={async (e) => {
           e.preventDefault();
           const f = new FormData(e.currentTarget);
-          const z = Number(String(f.get('ziel')).replace(/\D/g, ''));
           try {
-            await stelleAendern(stelle.id, { titel: String(f.get('titel') ?? ''), notiz: String(f.get('notiz') ?? ''), zielTempo: z >= 20 && z <= 400 ? z : null });
+            await stelleAendern(stelle.id, { titel: String(f.get('titel') ?? ''), notiz: String(f.get('notiz') ?? ''), zielTempo: zielAusText(String(f.get('ziel') ?? '')) });
           } catch (x) { speicherFehler(x); return; }
           setBearbeiten(false); neuLaden();
         }}>

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { mischen, neueRunde, rundeAbgleichen, rundeLesen, rundeStand, tempoStand, type MixStelle } from '@/domain/stellen';
+import {
+  mischen, neueRunde, reserveVon, rundeAbgleichen, rundeLesen, rundeStand, steigerung, tagesbeste, tempoAchse, tempoStand, zielAusText, zielStand, type MixStelle,
+} from '@/domain/stellen';
 
 // Wiederholbarer Zufall für die Tests.
 function zufall(saat = 1) {
@@ -118,5 +120,77 @@ describe('Stellen-Mix: gespeicherte Runde lesen', () => {
   });
   it('doppelte Einträge zählen einmal, pos bleibt im Rahmen', () => {
     expect(rundeLesen({ reihe: ['a', 'b', 'a'], pos: 9 })).toEqual({ reihe: ['a', 'b'], pos: 2 });
+  });
+});
+
+// ── Ziel und Tempo-Verlauf ──
+const am = (tag: number, stunde = 18, minute = 0) => new Date(2026, 9, tag, stunde, minute).getTime(); // Oktober 2026, Ortszeit
+
+describe('Tagesbestes: je Übetag das schnellste Tempo', () => {
+  it('Aufwärmen zieht den Tag nicht runter', () => {
+    const tempi = [{ tempo: 80, am: am(1, 18) }, { tempo: 92, am: am(1, 18, 20) }, { tempo: 88, am: am(1, 18, 30) }, { tempo: 84, am: am(3, 9) }, { tempo: 96, am: am(3, 9, 15) }];
+    expect(tagesbeste(tempi)).toEqual([
+      { tag: am(1, 0), tempo: 92, alle: [80, 92, 88] },
+      { tag: am(3, 0), tempo: 96, alle: [84, 96] },
+    ]);
+  });
+  it('kurz vor und nach Mitternacht sind zwei Tage; Reihenfolge nach Zeit', () => {
+    const tempi = [{ tempo: 100, am: am(2, 0, 5) }, { tempo: 90, am: am(1, 23, 55) }];
+    expect(tagesbeste(tempi).map((t) => t.tempo)).toEqual([90, 100]);
+  });
+  it('ohne Tempi leer', () => {
+    expect(tagesbeste([])).toEqual([]);
+  });
+});
+
+describe('Steigerung: bestes jetzt gegenüber dem besten vor drei Wochen', () => {
+  const jetzt = am(30, 20);
+  it('mit Übetagen vor der Grenze: deren Bestes ist der Ausgangspunkt', () => {
+    const tempi = [{ tempo: 80, am: am(2) }, { tempo: 92, am: am(8) }, { tempo: 100, am: am(20) }, { tempo: 110, am: am(29) }, { tempo: 96, am: am(30) }];
+    expect(steigerung(tempi, jetzt)).toEqual({ von: 92, bis: 110, prozent: 20, seit: jetzt - 21 * 86_400_000, seitBeginn: false });
+  });
+  it('alles jünger als drei Wochen: seit dem ersten Übetag', () => {
+    const tempi = [{ tempo: 70, am: am(20, 18) }, { tempo: 80, am: am(20, 19) }, { tempo: 100, am: am(28) }];
+    expect(steigerung(tempi, jetzt)).toEqual({ von: 80, bis: 100, prozent: 25, seit: am(20, 0), seitBeginn: true });
+  });
+  it('nur ein Übetag: noch nichts zu vergleichen', () => {
+    expect(steigerung([{ tempo: 70, am: am(29) }, { tempo: 90, am: am(29, 19) }], jetzt)).toBeNull();
+    expect(steigerung([], jetzt)).toBeNull();
+  });
+  it('drei Wochen nicht geübt: gehalten, 0 %', () => {
+    expect(steigerung([{ tempo: 90, am: am(1) }, { tempo: 100, am: am(3) }], jetzt)?.prozent).toBe(0);
+  });
+});
+
+describe('Ziel und Reserve', () => {
+  it('Reserve: 10 % über dem Ziel, gerundet', () => {
+    expect(reserveVon(120)).toBe(132);
+    expect(reserveVon(96)).toBe(106);
+  });
+  it('Stand zum Ziel: Anteil, was fehlt, Stufe', () => {
+    expect(zielStand(108, 120)).toEqual({ anteil: 0.9, fehlt: 12, stufe: 'offen' });
+    expect(zielStand(124, 120)).toEqual({ anteil: 124 / 120, fehlt: 0, stufe: 'ziel' });
+    expect(zielStand(132, 120)).toEqual({ anteil: 1.1, fehlt: 0, stufe: 'reserve' });
+    expect(zielStand(null, 120)).toEqual({ anteil: 0, fehlt: 120, stufe: 'offen' });
+    expect(zielStand(100, null)).toBeNull();
+  });
+  it('Ziel aus der Eingabe: Schläge pro Minute 20–400, sonst keins', () => {
+    expect(zielAusText('120')).toBe(120);
+    expect(zielAusText(' ♩ = 96 ')).toBe(96);
+    expect(zielAusText('')).toBeNull();
+    expect(zielAusText('5')).toBeNull();
+    expect(zielAusText('999')).toBeNull();
+  });
+});
+
+describe('Achse der Tempo-Kurve', () => {
+  it('runde Striche, Platz über dem Höchsten (Deckel) und unter dem Tiefsten', () => {
+    expect(tempoAchse([72, 96, 120, 132])).toEqual({ min: 60, max: 140, striche: [60, 80, 100, 120, 140] });
+  });
+  it('ein einzelner Wert steht in der Mitte', () => {
+    expect(tempoAchse([100])).toEqual({ min: 95, max: 105, striche: [95, 100, 105] });
+  });
+  it('enge Spanne: feinere Striche', () => {
+    expect(tempoAchse([84, 92])).toEqual({ min: 80, max: 95, striche: [80, 85, 90, 95] });
   });
 });
