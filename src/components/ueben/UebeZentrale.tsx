@@ -6,6 +6,7 @@ import { Einstellungen } from './Einstellungen';
 import { gespeichert, speichern } from './klang';
 import { MetronomAnbieter } from './MetronomKontext';
 import { MetronomWidget } from './MetronomWidget';
+import { tagsLaden } from './lokal';
 import { NotenPult } from './NotenPult';
 import { ladeFehler, SpeicherHinweis } from './speicherfehler';
 import { mixBereichLesen, type MixBereich } from '@/domain/stellen';
@@ -56,6 +57,8 @@ function Zentrale() {
   const mixStarten = (neu: boolean, bereich: MixBereich) => {
     mixLaden(bereich, neu).then((m) => { setMix(m); setMixBereich(bereich); speichern('ueben:mix-an', bereich); setBibliothek(false); }, ladeFehler);
   };
+  // „Märsche · Wichtig üben“: Sammlung und Tag, aus denen gemischt wird.
+  const mixTitel = mix ? [mix.bereich.sammlung, tagsLaden().find((t) => t.id === mix.bereich.tag)?.name].filter(Boolean).join(' · ') || null : null;
   const mixSteuerung = useMemo<MixSteuerung | null>(() => {
     if (!mix || !mixStelle) return null;
     const gehen = (d: number) => {
@@ -64,13 +67,13 @@ function Zentrale() {
       setMix({ ...mix, runde });
     };
     return {
-      stelle: mixStelle, nr: mix.runde.pos + 1, anzahl: mix.runde.reihe.length, titel: mix.bereich.sammlung,
+      stelle: mixStelle, nr: mix.runde.pos + 1, anzahl: mix.runde.reihe.length, titel: mixTitel,
       weiter: () => gehen(1), zurueck: () => gehen(-1),
       // Das Stück der Stelle bleibt offen, zum Weiterlesen.
       beenden: () => { mixAus(); if (mixNoten) { setOffen(mixNoten); speichern('ueben:offen', mixNoten); } },
       abgleichen: mixAbgleichen,
     };
-  }, [mix, mixStelle, mixNoten, mixAus, mixAbgleichen]);
+  }, [mix, mixStelle, mixNoten, mixTitel, mixAus, mixAbgleichen]);
   // Was gerade auf der Bühne liegt.
   const angezeigt = mixAn ? (mixNoten ?? null) : offen;
 
@@ -107,7 +110,7 @@ function Zentrale() {
             <NotenPult key={`${mixNoten}:${fassung}`} notenId={mixNoten} mix={mixSteuerung}
               tastenAktiv={!bibliothek && !dialogOffen} verschwunden={mixAbgleichen} />
           ) : (
-            <MixFertig anzahl={mix.runde.reihe.length} titel={mix.bereich.sammlung} neu={() => mixStarten(true, mix.bereich)} beenden={mixAus}
+            <MixFertig anzahl={mix.runde.reihe.length} titel={mixTitel} neu={() => mixStarten(true, mix.bereich)} beenden={mixAus}
               zurueck={() => { const runde = { ...mix.runde, pos: Math.max(0, mix.runde.reihe.length - 1) }; rundeSpeichern(mix.bereich, runde); setMix({ ...mix, runde }); }} />
           )
         ) : offen ? (

@@ -1,6 +1,7 @@
 'use client';
 
 import { imFilter } from '@/domain/sammlungen';
+import { imTagFilter } from '@/domain/tags';
 import { mixAuswahl, mixSchluessel, neueRunde, rundeAbgleichen, rundeLesen, rundeStand, type MixBereich, type Runde } from '@/domain/stellen';
 import { gespeichert, speichern } from './klang';
 import { alleNoten, alleStellen, type LokaleNoten, type LokaleStelle } from './lokal';
@@ -19,7 +20,7 @@ export interface MixStand { bereich: MixBereich; runde: Runde; stueckVon: Record
 // Die Stellen eines Bereichs. Schon geübte und die aktuelle Stelle der Runde
 // bleiben drin, auch wenn sie inzwischen „geschafft“ sind.
 export function bereichsStellen(b: MixBereich, noten: LokaleNoten[], stellen: LokaleStelle[], runde: Runde | null = null) {
-  const drin = new Set(noten.filter((n) => imFilter(n, b.sammlung)).map((n) => n.id));
+  const drin = new Set(noten.filter((n) => imFilter(n, b.sammlung) && imTagFilter(n, b.tag)).map((n) => n.id));
   const behalten = new Set(runde ? runde.reihe.slice(0, runde.pos + 1) : []);
   return mixAuswahl(stellen, (notenId) => drin.has(notenId), b.offen, behalten);
 }
@@ -56,15 +57,16 @@ const MischSymbol = () => (
 
 // Einstieg in der Bibliothek: mischt, was gerade gefiltert ist (Sammlung),
 // auf Wunsch nur offene Stellen.
-export function MixKarte({ bereich, noten, stellen, starten, nurOffen }: {
-  bereich: MixBereich; noten: LokaleNoten[]; stellen: LokaleStelle[];
+export function MixKarte({ bereich, tagName, noten, stellen, starten, nurOffen }: {
+  bereich: MixBereich; tagName: string | null; noten: LokaleNoten[]; stellen: LokaleStelle[];
   starten: (neu: boolean, bereich: MixBereich) => void; nurOffen: (an: boolean) => void;
 }) {
   const runde = rundeLaden(bereich);
   const auswahl = bereichsStellen(bereich, noten, stellen, runde);
   const { anzahl, stuecke, geuebt, fertig } = rundeStand(runde, auswahl);
   const laeuft = geuebt > 0 && !fertig;
-  const wo = bereich.sammlung ? `in „${bereich.sammlung}“` : 'in den Noten';
+  const titel = [bereich.sammlung, tagName].filter(Boolean).join(' · ');
+  const wo = titel ? `in „${titel}“` : 'in den Noten';
   const text = !anzahl ? (bereich.offen ? `Keine offenen Stellen ${wo} — alles mit Reserve geschafft oder noch nichts markiert.` : `Markiere Stellen ${wo} — hier übst du sie dann bunt gemischt.`)
     : fertig ? 'Runde geschafft · neu mischen'
     : laeuft ? `Weiter bei ${geuebt + 1} von ${anzahl}`
@@ -75,7 +77,7 @@ export function MixKarte({ bereich, noten, stellen, starten, nurOffen }: {
         <button type="button" className="mix-start" disabled={!anzahl} onClick={() => starten(fertig, bereich)}>
           <span className="mix-symbol"><MischSymbol /></span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate font-bold">Stellen-Mix{bereich.sammlung ? ` · ${bereich.sammlung}` : ''}</span>
+            <span className="block truncate font-bold">Stellen-Mix{titel ? ` · ${titel}` : ''}</span>
             <span className="gedaempft block text-sm">{text}</span>
           </span>
           {!!anzahl && <span className="gedaempft" aria-hidden="true">›</span>}

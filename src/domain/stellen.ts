@@ -139,9 +139,10 @@ export function mischen(stellen: MixStelle[], zufall: () => number = Math.random
   return reihe;
 }
 
-// Bereich eines Mix: alle Stellen oder die einer Sammlung (F-13), auf Wunsch
-// nur offene — die ihr Ziel samt Reserve noch nicht geschafft haben.
-export interface MixBereich { sammlung: string | null; offen: boolean }
+// Bereich eines Mix: alle Stellen oder die einer Sammlung (F-13) bzw. eines
+// Tags (F-14), auf Wunsch nur offene — die ihr Ziel samt Reserve noch nicht
+// geschafft haben.
+export interface MixBereich { sammlung: string | null; tag: string | null; offen: boolean }
 
 // Offen: noch kein Ziel gesetzt, oder Ziel + Reserve noch nicht geschafft.
 export function stelleOffen(s: { zielTempo: number | null; tempi: Tempo[] }): boolean {
@@ -160,14 +161,15 @@ export function mixAuswahl<S extends MixStelle & { zielTempo: number | null; tem
 
 // Speicherplatz der Runde je Bereich; „alle“ behält den bisherigen.
 export const mixSchluessel = (b: MixBereich) =>
-  !b.sammlung && !b.offen ? 'ueben:mix' : `ueben:mix:${b.offen ? 'offen:' : ''}${b.sammlung ?? '*'}`;
+  !b.sammlung && !b.tag && !b.offen ? 'ueben:mix' : `ueben:mix:${b.offen ? 'offen:' : ''}${b.sammlung ?? '*'}${b.tag ? `#${b.tag}` : ''}`;
 
 // Gespeicherter Bereich des laufenden Mix (bis 2026-10-12 nur true/false).
 export function mixBereichLesen(roh: unknown): MixBereich | null {
-  if (roh === true) return { sammlung: null, offen: false };
+  if (roh === true) return { sammlung: null, tag: null, offen: false };
   if (!roh || typeof roh !== 'object') return null;
-  const { sammlung, offen } = roh as { sammlung?: unknown; offen?: unknown };
-  return { sammlung: typeof sammlung === 'string' && sammlung ? sammlung : null, offen: offen === true };
+  const { sammlung, tag, offen } = roh as { sammlung?: unknown; tag?: unknown; offen?: unknown };
+  const text = (x: unknown) => (typeof x === 'string' && x ? x : null);
+  return { sammlung: text(sammlung), tag: text(tag), offen: offen === true };
 }
 
 export const neueRunde = (stellen: MixStelle[], zufall: () => number = Math.random): Runde =>

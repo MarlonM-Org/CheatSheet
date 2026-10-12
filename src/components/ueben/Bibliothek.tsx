@@ -8,15 +8,17 @@ import {
   sammlungUmbenennen, sicherungFaellig,
 } from '@/domain/sammlungen';
 import type { MixBereich } from '@/domain/stellen';
+import { imTagFilter, mitTag, tagsVon, tagUebersicht, type Tag } from '@/domain/tags';
 import { gespeichert, speichern } from './klang';
 import { zuletztAus } from '@/domain/speicher';
 import {
   alleNoten, alleStellen, alleUmziehen, dateiGroessen, DateiNichtLesbar, letzteSicherung, notenAendern, notenAnlegen, notenLoeschen, sammlungenSetzen,
-  zuletztListe, type LokaleNoten, type LokaleStelle,
+  tagsLaden, tagsSetzen, zuletztListe, type LokaleNoten, type LokaleStelle,
 } from './lokal';
 import { HinzufuegenMenue, SammlungenLeiste, SammlungKopf, SammlungWahl } from './Sammlungen';
 import { useSicherungLaden } from './Sicherung';
 import { MixKarte } from './StellenMix';
+import { TagEtikett, TagFilter, TagWahl } from './Tags';
 import { fehlerGrund } from './speicherfehler';
 import { useEscape } from './tasten';
 
@@ -151,12 +153,18 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
   const [einsortieren, setEinsortieren] = useState(true);
   const [sammlungBlatt, setSammlungBlatt] = useState<string[] | null>(null);
   const [nurOffen, setNurOffen] = useState(() => gespeichert('ueben:mix-offen', false));
+  // Tags (F-14): Definitionen, gewählter Tag-Filter (gemerkt), ob neue
+  // Stücke damit markiert werden, Markier-Blatt.
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [tagFilter, setTagFilter] = useState<string | null>(() => gespeichert<string | null>('ueben:tag', null));
+  const [markieren, setMarkieren] = useState(true);
+  const [tagBlatt, setTagBlatt] = useState<string[] | null>(null);
   const [fortschritt, setFortschritt] = useState('');
   // Erinnerung an die Sicherung (H-01)
   const [erinnerung, setErinnerung] = useState<{ faellig: boolean; tage: number | null } | null>(null);
   const laden = useCallback(() => {
     Promise.all([alleNoten(), alleStellen()]).then(([l, st]) => {
-      setZuletzt(zuletztListe()); setNoten(l); setStellen(st); void alleUmziehen();
+      setZuletzt(zuletztListe()); setNoten(l); setStellen(st); setTags(tagsLaden()); void alleUmziehen();
       const aenderung = Math.max(0, ...l.map((n) => stand(n as unknown as Record<string, unknown>)), ...st.map((x) => stand(x as unknown as Record<string, unknown>)));
       const erste = l.length ? Math.min(...l.map((n) => n.erstellt)) : null;
       setErinnerung(sicherungFaellig(letzteSicherung(), aenderung, erste, Date.now()));
@@ -177,7 +185,11 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
     setSammlung(name); speichern('ueben:sammlung', name); setEinsortieren(true);
     if (name && !uebersicht.some((x) => gleicheSammlung(x.name, name))) setSammlungNeu(name);
   };
-  const gefiltert = useMemo(() => sortiert.filter((n) => imFilter(n, aktiv)), [sortiert, aktiv]);
+  const aktivTag = tagFilter !== null && tags.some((t) => t.id === tagFilter) ? tagFilter : null;
+  const zielTag = tags.find((t) => t.id === aktivTag) ?? null;
+  const tagWaehlen = (id: string | null) => { setTagFilter(id); speichern('ueben:tag', id); setMarkieren(true); };
+  const tagUeber = useMemo(() => tagUebersicht(tags, noten ?? []), [tags, noten]);
+  const gefiltert = useMemo(() => sortiert.filter((n) => imFilter(n, aktiv) && imTagFilter(n, aktivTag)), [sortiert, aktiv, aktivTag]);
   const alleGewaehlt = gefiltert.length > 0 && gefiltert.every((n) => auswahl.has(n.id));
   const stellenJe = useMemo(() => {
     const je: Record<string, number> = {};
@@ -196,6 +208,7 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
       : await dateienWaehlen();
     if (!gewaehlt.length) return;
     const ziel = aktiv && einsortieren ? aktiv : null;
+    const tagZiel = zielTag && markieren ? zielTag : null;
     setLaeuft(true); setMeldung(''); setWarnung('');
     let fertig = 0;
     try {
@@ -213,7 +226,7 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
         setFortschritt(`${fertig + nichtLesbar.length + 1} von ${plan.neu.length} …`);
         const { titel, stimme } = ausDateiname(datei.name);
         try {
-          await notenAnlegen({ titel, stimme, datei, dateiname: datei.name, handle, ...(p.sammlungen.length ? { sammlungen: p.sammlungen } : {}) });
+          await notenAnlegen({ titel, stimme, datei, dateiname: datei.name, handle, ...(p.sammlungen.length ? { sammlungen: p.sammlungen } : {}), ...(tagZiel ? { tags: [tagZiel.id] } : {}) });
           fertig++;
         } catch (x) {
           if (!(x instanceof DateiNichtLesbar)) throw x;
@@ -225,6 +238,10 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
         return { id: b.notenId, sammlungen: b.sammlungen.reduce(mitSammlung, sammlungenVon(n)), vorher: sammlungenVon(n) };
       }).filter((a) => a.sammlungen.length !== a.vorher.length);
       if (einsortiert.length) await sammlungenSetzen(einsortiert);
+      // Schon vorhandene auch markieren, wenn ein Tag gewählt ist.
+      if (tagZiel && plan.bekannt.length) {
+        await tagsSetzen(plan.bekannt.map((b) => ({ id: b.notenId, tags: mitTag(tagsVon(liste.find((x) => x.id === b.notenId)!), tagZiel.id) })));
+      }
       const neueSammlungen = [...new Set(plan.neu.concat(plan.bekannt.map((b) => ({ index: -1, name: '', sammlungen: b.sammlungen }))).flatMap((p) => p.sammlungen))]
         .filter((x) => !ziel || !gleicheSammlung(x, ziel));
       const stueck = (z: number) => `${z} ${z === 1 ? 'Stück' : 'Stücke'}`;
@@ -232,6 +249,7 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
         fertig ? `${stueck(fertig)} hinzugefügt (Titel und Stimme aus dem Dateinamen).` : 'Nichts Neues hinzugefügt.',
         plan.bekannt.length ? `${stueck(plan.bekannt.length)} lag${plan.bekannt.length === 1 ? '' : 'en'} schon in der Bibliothek — nicht doppelt angelegt${ziel || neueSammlungen.length ? ', nur einsortiert' : ''}.` : '',
         ziel ? `Alles in die Sammlung „${ziel}“ einsortiert.` : '',
+        tagZiel ? `Alles mit „${tagZiel.name}“ markiert.` : '',
         neueSammlungen.length ? `Sammlungen aus den Ordnern: ${neueSammlungen.join(', ')}.` : '',
         plan.doppelt ? `${plan.doppelt} ${plan.doppelt === 1 ? 'Datei lag' : 'Dateien lagen'} mehrfach im Ordner — einmal übernommen.` : '',
         plan.ohnePdf ? `${plan.ohnePdf} ${plan.ohnePdf === 1 ? 'andere Datei' : 'andere Dateien'} (keine PDF) übersprungen.` : '',
@@ -354,8 +372,10 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
           }} />
       )}
 
+      {!!noten?.length && tags.length > 0 && <TagFilter uebersicht={tagUeber} aktiv={aktivTag} waehlen={tagWaehlen} />}
+
       {!!noten?.length && (
-        <MixKarte bereich={{ sammlung: aktiv, offen: nurOffen }} noten={noten} stellen={stellen} starten={mixStarten}
+        <MixKarte bereich={{ sammlung: aktiv, tag: aktivTag, offen: nurOffen }} tagName={zielTag?.name ?? null} noten={noten} stellen={stellen} starten={mixStarten}
           nurOffen={(an) => { setNurOffen(an); speichern('ueben:mix-offen', an); }} />
       )}
 
@@ -369,18 +389,20 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
               Alle
             </label>
             <span className="flex-1" />
+            <button type="button" className="text-knopf bib-fertig" disabled={!auswahl.size || laeuft} onClick={() => void aktualisieren(gewaehlteNoten)}
+              title="Die PDF-Dateien neu einlesen; Stellen und Anmerkungen bleiben">Aktualisieren</button>
             <button type="button" className="text-knopf bib-loeschen" disabled={!auswahl.size || laeuft} onClick={() => void loeschen()}>Löschen</button>
             <button type="button" className="text-knopf bib-fertig" onClick={auswahlEnde}>Fertig</button>
           </div>
           <div className="bib-werkzeuge">
             <button type="button" className="knopf knopf-leise knopf-klein" disabled={!auswahl.size || laeuft} onClick={() => setSammlungBlatt([...auswahl])}>In Sammlung …</button>
-            <button type="button" className="knopf knopf-leise knopf-klein" disabled={!auswahl.size || laeuft} onClick={() => void aktualisieren(gewaehlteNoten)}
-              title="Die PDF-Dateien neu einlesen; Stellen und Anmerkungen bleiben">Aktualisieren</button>
+            <button type="button" className="knopf knopf-leise knopf-klein" disabled={!auswahl.size || laeuft} onClick={() => setTagBlatt([...auswahl])}>Tags …</button>
           </div>
         </div>
       ) : (
         <div className="bib-werkzeuge">
           <HinzufuegenMenue ziel={aktiv} einsortieren={einsortieren} setEinsortieren={setEinsortieren} gesperrt={laeuft}
+            tagZiel={zielTag} markieren={markieren} setMarkieren={setMarkieren}
             dateien={() => void hinzufuegen('dateien')} ordner={() => void hinzufuegen('ordner')} />
           <span className="flex-1" />
           <div className="segment !mx-0" role="group" aria-label="Sortieren">
@@ -410,11 +432,27 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
         </div>
       )}
 
-      {!!noten?.length && aktiv && !gefiltert.length && (
+      {!!noten?.length && aktiv && !aktivTag && !gefiltert.length && (
         <p className="karte text-sm">
           Noch keine Stücke in „{aktiv}“. Über „+ Noten“ hinzufügen — sie kommen dann direkt hierher —, oder unter „Alle“
           Stücke auswählen und „In Sammlung …“ wählen.
         </p>
+      )}
+      {!!noten?.length && aktivTag && !gefiltert.length && (
+        <p className="karte text-sm">
+          Kein Stück{aktiv ? ` in „${aktiv}“` : ''} trägt „{zielTag?.name}“. Stücke auswählen und „Tags …“ wählen — oder den Tag-Filter
+          noch einmal antippen, um ihn aufzuheben.
+        </p>
+      )}
+
+      {tagBlatt && noten && (
+        <TagWahl noten={noten.filter((n) => tagBlatt.includes(n.id))} tags={tags}
+          schliessen={() => { setTagBlatt(null); setTags(tagsLaden()); }}
+          speichern={(aenderungen) => {
+            setTagBlatt(null);
+            tagsSetzen(aenderungen).then(() => { setMeldung(aenderungen.length ? `${aenderungen.length} ${aenderungen.length === 1 ? 'Stück' : 'Stücke'} markiert.` : ''); auswahlEnde(); },
+              (x) => setWarnung(`Markieren ging nicht: ${fehlerGrund(x)}`)).finally(laden);
+          }} />
       )}
 
       {sammlungBlatt && noten && (
@@ -446,6 +484,9 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
                       !aktiv ? sammlungenVon(n).join(', ') : '',
                       n.aktualisiert ? `aktualisiert ${datum(n.aktualisiert)}` : ''].filter(Boolean).join(' · ')}
                   </span>
+                  {tagsVon(n, tags).length > 0 && (
+                    <span className="bib-tags">{tagsVon(n, tags).map((id) => <TagEtikett key={id} tag={tags.find((t) => t.id === id)!} />)}</span>
+                  )}
                 </button>
                 {!auswaehlen && <span className="bib-pfeil" aria-hidden="true">›</span>}
               </li>

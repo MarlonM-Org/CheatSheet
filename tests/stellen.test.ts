@@ -212,14 +212,16 @@ describe('Stellen-Mix: Bereich (Sammlung, nur offene)', () => {
     expect(mixAuswahl(alle, inSammlung, true, new Set(['c1'])).map((x) => x.id)).toEqual(['a1', 'c1']);
   });
   it('jeder Bereich hat seine eigene Runde; „alle“ behält den bisherigen Speicherplatz', () => {
-    expect(mixSchluessel({ sammlung: null, offen: false })).toBe('ueben:mix');
-    expect(mixSchluessel({ sammlung: 'Märsche', offen: false })).toBe('ueben:mix:Märsche');
-    expect(mixSchluessel({ sammlung: null, offen: true })).toBe('ueben:mix:offen:*');
+    expect(mixSchluessel({ sammlung: null, tag: null, offen: false })).toBe('ueben:mix');
+    expect(mixSchluessel({ sammlung: 'Märsche', tag: null, offen: false })).toBe('ueben:mix:Märsche');
+    expect(mixSchluessel({ sammlung: null, tag: null, offen: true })).toBe('ueben:mix:offen:*');
+    expect(mixSchluessel({ sammlung: 'Märsche', tag: 't1', offen: false })).toBe('ueben:mix:Märsche#t1');
   });
-  it('gespeicherter Bereich: alt „true“ heißt alle', () => {
-    expect(mixBereichLesen(true)).toEqual({ sammlung: null, offen: false });
-    expect(mixBereichLesen({ sammlung: 'Jazz', offen: true })).toEqual({ sammlung: 'Jazz', offen: true });
+  it('gespeicherter Bereich: alt „true“ heißt alle, ohne Tag heißt kein Tag', () => {
+    expect(mixBereichLesen(true)).toEqual({ sammlung: null, tag: null, offen: false });
+    expect(mixBereichLesen({ sammlung: 'Jazz', offen: true })).toEqual({ sammlung: 'Jazz', tag: null, offen: true });
+    expect(mixBereichLesen({ sammlung: null, tag: 't1', offen: false })).toEqual({ sammlung: null, tag: 't1', offen: false });
     expect(mixBereichLesen(false)).toBeNull();
-    expect(mixBereichLesen({ sammlung: 3 })).toEqual({ sammlung: null, offen: false });
+    expect(mixBereichLesen({ sammlung: 3 })).toEqual({ sammlung: null, tag: null, offen: false });
   });
 });

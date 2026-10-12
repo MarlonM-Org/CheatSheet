@@ -5,14 +5,16 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { istNachladeFehler } from '@/domain/nachladen';
 import type { Anmerkung } from '@/domain/notenpult';
 import { sammlungenUebersicht, sammlungenVon } from '@/domain/sammlungen';
+import { tagsVon, type Tag } from '@/domain/tags';
 import { tempoStand, zielAusText } from '@/domain/stellen';
 import { mitRand } from '@/domain/ueben';
 import { NeueVersion } from '@/components/NeueVersion';
 import {
   alleNoten, anmerkungenVon, notenAendern, notenDatei, notenHolen, sammlungenSetzen, stelleAendern, zuletztMerken, stelleLoeschen, stellenVon,
-  tempoGeschafft, type LokaleNoten, type LokaleStelle as Stelle,
+  tagsLaden, tagsSetzen, tempoGeschafft, type LokaleNoten, type LokaleStelle as Stelle,
 } from './lokal';
 import { SammlungWahl } from './Sammlungen';
+import { TagEtikett, TagWahl } from './Tags';
 import { useMetronom } from './MetronomKontext';
 import { NotenBetrachter } from './NotenBetrachter';
 import { NeueVersionFehler, pdfLaden, seiteMitEbene } from './pdf';
@@ -106,7 +108,10 @@ function StueckBlatt({ noten, pdf, stellen, bpm, tempoSetzen, neuLaden, umbenann
   const [umbenennen, setUmbenennen] = useState(false);
   // Sammlungen des Stücks ändern: alle vorhandenen zur Auswahl (F-13).
   const [wahl, setWahl] = useState<{ name: string; anzahl: number }[] | null>(null);
-  useEscape(schliessen, !wahl);
+  // Tags des Stücks (F-14)
+  const [tags, setTags] = useState<Tag[]>(() => tagsLaden());
+  const [tagWahl, setTagWahl] = useState(false);
+  useEscape(schliessen, !wahl && !tagWahl);
   const fokus = useDialogFokus<HTMLDivElement>();
 
   return (
@@ -137,6 +142,19 @@ function StueckBlatt({ noten, pdf, stellen, bpm, tempoSetzen, neuLaden, umbenann
           <button type="button" className="text-knopf gedaempft ml-2 text-sm underline"
             onClick={() => { alleNoten().then((l) => setWahl(sammlungenUebersicht(l)), (x) => speicherFehler(x)); }}>ändern</button>
         </p>
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+          <span className="gedaempft">Tags:</span>
+          {tagsVon(noten, tags).length ? tagsVon(noten, tags).map((id) => <TagEtikett key={id} tag={tags.find((t) => t.id === id)!} />) : <span className="gedaempft">keine</span>}
+          <button type="button" className="text-knopf gedaempft text-sm underline" onClick={() => setTagWahl(true)}>ändern</button>
+        </p>
+        {tagWahl && (
+          <TagWahl noten={[noten]} tags={tags} schliessen={() => { setTagWahl(false); setTags(tagsLaden()); }}
+            speichern={(a) => {
+              setTagWahl(false); setTags(tagsLaden());
+              if (!a.length) return;
+              tagsSetzen(a).then(() => umbenannt({ tags: a[0].tags }), speicherFehler);
+            }} />
+        )}
         {wahl && (
           <SammlungWahl noten={[noten]} uebersicht={wahl} schliessen={() => setWahl(null)}
             speichern={(a) => {

@@ -46,12 +46,13 @@ describe('Übe-Sicherung', () => {
     await expect(sicherungLesen(gut.slice(0, 20))).rejects.toThrow(/Kopf/);
   });
 
-  it('trägt Grabsteine im Kopf mit — ohne sie bleibt der Kopf wie bisher', async () => {
+  it('trägt Grabsteine und Tags im Kopf mit — ohne sie bleibt der Kopf wie bisher', async () => {
     const leer = { noten: [], stellen: [], anmerkungen: [] };
-    const mit = await sicherungLesen(await sicherungPacken(leer, 'test', 1, [{ art: 'noten', id: 'x', am: 5 }]));
+    const mit = await sicherungLesen(await sicherungPacken(leer, 'test', 1, { geloescht: [{ art: 'noten', id: 'x', am: 5 }], tags: [{ id: 't', name: 'Solo', farbe: 'blau', geaendert: 1 }] }));
     expect(mit.kopf.geloescht).toEqual([{ art: 'noten', id: 'x', am: 5 }]);
+    expect(mit.kopf.tags).toEqual([{ id: 't', name: 'Solo', farbe: 'blau', geaendert: 1 }]);
     const ohne = await sicherungLesen(await sicherungPacken(leer, 'test', 1));
-    expect('geloescht' in ohne.kopf).toBe(false);
+    expect('geloescht' in ohne.kopf || 'tags' in ohne.kopf).toBe(false);
   });
 
   it('benennt die Datei mit Datum und Uhrzeit', () => {

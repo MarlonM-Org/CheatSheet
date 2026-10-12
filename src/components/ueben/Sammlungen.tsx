@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { gleicheSammlung, imFilter, mitSammlung, ohneSammlung, sammlungenVon, sammlungName } from '@/domain/sammlungen';
+import type { Tag } from '@/domain/tags';
 import type { LokaleNoten } from './lokal';
+import { TagPunkt } from './Tags';
 import { useDialogFokus, useEscape } from './tasten';
 
 // Sammlungen (F-13) in der Bibliothek: Filterzeile, Einsortieren, Hinzufügen
@@ -83,8 +85,10 @@ export function SammlungKopf({ name, anzahl, umbenennen, aufloesen }: {
 // „+ Noten“ mit kleinem Menü: PDF-Dateien oder einen ganzen Ordner wählen.
 // Ist eine Sammlung gewählt, steht oben unübersehbar, dass neue Stücke dort
 // einsortiert werden — mit Schalter zum Abwählen.
-export function HinzufuegenMenue({ ziel, einsortieren, setEinsortieren, dateien, ordner, gesperrt }: {
+export function HinzufuegenMenue({ ziel, einsortieren, setEinsortieren, tagZiel, markieren, setMarkieren, dateien, ordner, gesperrt }: {
   ziel: string | null; einsortieren: boolean; setEinsortieren: (an: boolean) => void;
+  // Gewählter Tag (F-14): neue Stücke damit markieren — genauso sichtbar.
+  tagZiel: Tag | null; markieren: boolean; setMarkieren: (an: boolean) => void;
   dateien: () => void; ordner: () => void; gesperrt: boolean;
 }) {
   const [offen, setOffen] = useState(false);
@@ -95,8 +99,8 @@ export function HinzufuegenMenue({ ziel, einsortieren, setEinsortieren, dateien,
   return (
     <div className="bib-menue-huelle">
       <button type="button" className="knopf knopf-klein" aria-expanded={offen} aria-haspopup="menu" onClick={() => setOffen(!offen)} disabled={gesperrt}
-        title={ziel && einsortieren ? `Neue Stücke kommen in „${ziel}“` : undefined}>
-        + Noten{ziel && einsortieren && <span className="ziel-punkt" aria-hidden="true" />}
+        title={[ziel && einsortieren ? `Neue Stücke kommen in „${ziel}“` : '', tagZiel && markieren ? `Neue Stücke werden mit „${tagZiel.name}“ markiert` : ''].filter(Boolean).join(' · ') || undefined}>
+        + Noten{((ziel && einsortieren) || (tagZiel && markieren)) && <span className="ziel-punkt" aria-hidden="true" />}
       </button>
       {offen && (
         <>
@@ -109,6 +113,15 @@ export function HinzufuegenMenue({ ziel, einsortieren, setEinsortieren, dateien,
                   <span className="block text-xs gedaempft">{einsortieren ? 'Neue Stücke kommen in diese Sammlung.' : 'Neue Stücke kommen in keine Sammlung.'}</span>
                 </span>
                 <input type="checkbox" role="switch" className="ios-schalter" checked={einsortieren} onChange={(e) => setEinsortieren(e.target.checked)} />
+              </label>
+            )}
+            {tagZiel && (
+              <label className={`bib-menue-ziel ${markieren ? 'an' : ''}`}>
+                <span>
+                  <strong className="inline-flex items-center gap-1.5">Mit <TagPunkt farbe={tagZiel.farbe} />„{tagZiel.name}“ markieren</strong>
+                  <span className="block text-xs gedaempft">{markieren ? 'Neue Stücke bekommen diesen Tag.' : 'Neue Stücke bleiben ohne Tag.'}</span>
+                </span>
+                <input type="checkbox" role="switch" className="ios-schalter" checked={markieren} onChange={(e) => setMarkieren(e.target.checked)} />
               </label>
             )}
             <button type="button" role="menuitem" className="bib-menue-punkt" onClick={() => waehlen(dateien)}>

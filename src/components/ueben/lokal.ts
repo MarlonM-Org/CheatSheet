@@ -8,6 +8,7 @@ import {
 import { nurLesbare } from '@/domain/lesbar';
 import { sicherungLesen, sicherungPacken, SicherungsFehler, type SicherungsInhalt } from '@/domain/sicherung';
 import { dateiQuelle, dateiVerloren, ohneDatei, verbindungVerloren } from '@/domain/speicher';
+import { tagsLesen, tagsVereinigen, type Tag, type TagFarbe } from '@/domain/tags';
 
 // Ablage nur auf diesem Gerät (IndexedDB): Noten-PDFs, markierte Stellen,
 // geschaffte Tempi, Anmerkungen. Keine Datenbank, kein Server. Safari kann die
@@ -32,6 +33,8 @@ export interface LokaleNoten {
   blaettern?: { modus: Blaettermodus; linien: Record<number, number> };
   // Sammlungen (F-13): Namen, ein Stück kann in mehreren sein.
   sammlungen?: string[];
+  // Tags (F-14): ids der Tag-Definitionen (tagsLaden).
+  tags?: string[];
   // Größe der PDF in Bytes (ab 2026-10-12; erkennt Doppelte beim Ordner-Import).
   groesse?: number;
   // Letzte Änderung (ab 2026-10-12): Beim Laden einer Sicherung gilt der neuere Stand.
@@ -199,7 +202,7 @@ const mitDatei = (n: LokaleNoten, daten: ArrayBuffer, typ: string) =>
     t.objectStore('dateien').put({ id: n.id, daten, typ } satisfies LokaleDatei);
   });
 
-export async function notenAnlegen(n: { titel: string; stimme: string; datei: Blob; dateiname?: string; handle?: FileSystemFileHandle; sammlungen?: string[] }): Promise<string> {
+export async function notenAnlegen(n: { titel: string; stimme: string; datei: Blob; dateiname?: string; handle?: FileSystemFileHandle; sammlungen?: string[]; tags?: string[] }): Promise<string> {
   const id = crypto.randomUUID();
   const daten = await bytesLesen(n.datei);
   const jetzt = Date.now();
@@ -335,10 +338,11 @@ function begraben(art: Grabstein['art'], id: string) {
   grabsteineSetzen([...grabsteineHier(), { art, id, am: Date.now() }]);
 }
 
-// ── Sammlungen ── Mehrere Stücke in EINER Transaktion umsortieren. Ein
-// Datensatz, der seine PDF noch als alten Blob trägt, zieht dabei über
-// notenAendern um (der Blob wird nie zurückgeschrieben).
-export async function sammlungenSetzen(aenderungen: { id: string; sammlungen: string[] }[]) {
+// ── Sammlungen und Tags ── Mehrere Stücke in EINER Transaktion umsortieren
+// bzw. markieren. Ein Datensatz, der seine PDF noch als alten Blob trägt,
+// zieht dabei über notenAendern um (der Blob wird nie zurückgeschrieben).
+type Einordnung = Pick<LokaleNoten, 'sammlungen' | 'tags'>;
+async function einordnen(aenderungen: { id: string; felder: Einordnung }[]) {
   const mitBlob: typeof aenderungen = [];
   const jetzt = Date.now();
   await transaktion<void>('noten', 'readwrite', (t, abbrechen) => {
@@ -349,12 +353,40 @@ export async function sammlungenSetzen(aenderungen: { id: string; sammlungen: st
         try {
           if (!r.result) return;
           if (r.result.datei) { mitBlob.push(a); return; }
-          s.put({ ...r.result, sammlungen: a.sammlungen, geaendert: jetzt });
+          s.put({ ...r.result, ...a.felder, geaendert: jetzt });
         } catch (x) { abbrechen(x); }
       };
     }
   });
-  for (const a of mitBlob) await notenAendern(a.id, { sammlungen: a.sammlungen });
+  for (const a of mitBlob) await notenAendern(a.id, a.felder);
+}
+export const sammlungenSetzen = (aenderungen: { id: string; sammlungen: string[] }[]) =>
+  einordnen(aenderungen.map(({ id, sammlungen }) => ({ id, felder: { sammlungen } })));
+export const tagsSetzen = (aenderungen: { id: string; tags: string[] }[]) =>
+  einordnen(aenderungen.map(({ id, tags }) => ({ id, felder: { tags } })));
+
+// Tag-Definitionen (F-14) auf dem Gerät; sie reisen im Kopf der Sicherung mit.
+const TAGS = 'ueben:tags';
+export function tagsLaden(): Tag[] {
+  try { return tagsLesen(JSON.parse(localStorage.getItem(TAGS) ?? '[]')); } catch { return []; }
+}
+function tagsSpeichern(tags: Tag[]) {
+  try { localStorage.setItem(TAGS, JSON.stringify(tags)); } catch { /* egal */ }
+}
+export function tagAnlegen(name: string, farbe: TagFarbe): Tag {
+  const tag = { id: crypto.randomUUID(), name, farbe, geaendert: Date.now() };
+  tagsSpeichern([...tagsLaden(), tag]);
+  return tag;
+}
+export function tagAendern(id: string, felder: { name?: string; farbe?: TagFarbe }) {
+  tagsSpeichern(tagsLaden().map((t) => (t.id === id ? { ...t, ...felder, geaendert: Date.now() } : t)));
+}
+// Tag löschen: von allen Stücken nehmen, Grabstein für die anderen Geräte.
+export async function tagLoeschen(id: string) {
+  const betroffen = (await alleNoten()).filter((n) => n.tags?.includes(id));
+  await tagsSetzen(betroffen.map((n) => ({ id: n.id, tags: (n.tags ?? []).filter((x) => x !== id) })));
+  tagsSpeichern(tagsLaden().filter((t) => t.id !== id));
+  begraben('tag', id);
 }
 
 // Größe der PDF je Stück — für ältere Stücke ohne `groesse` aus „dateien“ gelesen
@@ -455,7 +487,8 @@ export async function sicherungErstellen(): Promise<{ datei: Blob; noten: number
   await alleUmziehen();
   const { bestand, fehlen } = await nurLesbare(await allesLesen());
   // Nach nurLesbare trägt jedes verbliebene Stück eine lesbare Datei.
-  const datei = await sicherungPacken(bestand as SicherungsInhalt<LokaleNoten & { datei: Blob }, LokaleStelle, SeitenAnmerkungen>, 'cheatsheet', Date.now(), grabsteineHier());
+  const datei = await sicherungPacken(bestand as SicherungsInhalt<LokaleNoten & { datei: Blob }, LokaleStelle, SeitenAnmerkungen>, 'cheatsheet', Date.now(),
+    { geloescht: grabsteineHier(), tags: tagsLaden() });
   return { datei, noten: bestand.noten.length, fehlen };
 }
 
@@ -465,6 +498,7 @@ export async function sicherungErstellen(): Promise<{ datei: Blob; noten: number
 export interface Einspielung extends Einspielplan<Record<string, unknown> & { id: string; datei: Blob }> {
   erstellt: number;
   grabsteine: Grabstein[];
+  tags: Tag[];
 }
 
 // Falsche Datei gewählt: Der Vertrag sagt nur, dass es keine Sicherung ist —
@@ -499,7 +533,7 @@ export async function sicherungPruefen(datei: Blob): Promise<Einspielung> {
   const grabsteine = grabsteineLesen(kopf.geloescht);
   const plan = einspielenPlanen({ noten, stellen: kopf.stellen, anmerkungen: kopf.anmerkungen }, vorhanden,
     { grabsteine, geraetGrabsteine: grabsteineHier(), staende });
-  return { ...plan, erstellt: kopf.erstellt, grabsteine };
+  return { ...plan, erstellt: kopf.erstellt, grabsteine, tags: tagsLesen(kopf.tags) };
 }
 
 // Schreibt eine geprüfte Sicherung: entweder kommt alles an oder nichts.
@@ -575,6 +609,8 @@ export async function sicherungSchreiben(e: Einspielung): Promise<{ neu: number;
   });
   // Die Löschungen der Sicherung gelten jetzt auch hier — und reisen weiter.
   grabsteineSetzen([...grabsteineHier(), ...e.grabsteine]);
+  // Tags: je Tag der neuere Stand, gelöschte bleiben weg.
+  tagsSpeichern(tagsVereinigen(tagsLaden(), e.tags, grabsteineHier()));
   dauerhaftAnfragen();
   return {
     neu: e.neu, aktualisiert: e.ueberschrieben.noten, stellen: e.stellen.length, anmerkungen: e.anmerkungen.length,

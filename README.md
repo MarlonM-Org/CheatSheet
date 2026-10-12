@@ -22,9 +22,11 @@ Früher unter Admin → „Üben (Prototyp)“ in der Registerführer-App.
 - **Sammlungen:** Stücke einsortieren („Orchester A“, „Märsche“ …), ein Stück
   auch in mehreren; einen ganzen Ordner übernehmen (Unterordner werden
   Sammlungen, nichts wird doppelt angelegt).
-- **Stellen-Mix:** markierte Stellen aus allen Stücken oder einer Sammlung
-  bunt gemischt üben, Runde für Runde jede genau einmal, auf Wunsch nur die
-  offenen.
+- **Tags:** eigene farbige Markierungen für Stücke („Wichtig üben“ rot, „Mein
+  Solo“ blau …), mehrere je Stück; nach Tag filtern und mischen.
+- **Stellen-Mix:** markierte Stellen aus allen Stücken, einer Sammlung oder
+  einem Tag bunt gemischt üben, Runde für Runde jede genau einmal, auf Wunsch
+  nur die offenen.
 - **Ziel und Tempo-Verlauf je Stelle:** Zieltempo setzen; eine Kurve zeigt je
   Übetag das beste geschaffte Tempo, Ziel und Reserve (+10 %) und die
   Steigerung der letzten drei Wochen.

@@ -21,8 +21,9 @@ export interface Vorhanden {
   anmerkungen: ReadonlySet<string>;
 }
 
-// Ein gelöschtes Stück (samt Stellen und Anmerkungen) oder eine gelöschte Stelle.
-export interface Grabstein { art: 'noten' | 'stelle'; id: string; am: number }
+// Ein gelöschtes Stück (samt Stellen und Anmerkungen), eine gelöschte Stelle
+// oder ein gelöschter Tag (F-14, siehe @/domain/tags).
+export interface Grabstein { art: 'noten' | 'stelle' | 'tag'; id: string; am: number }
 
 // Stand eines Eintrags auf dem Gerät, für Grabsteine und „neuer gewinnt“.
 // datei: wann die PDF zuletzt gesetzt wurde.
@@ -52,7 +53,7 @@ export interface Einspielplan<N> {
 }
 
 const istGrabstein = (x: unknown): x is Grabstein => typeof x === 'object' && x !== null
-  && ((x as Grabstein).art === 'noten' || (x as Grabstein).art === 'stelle')
+  && ['noten', 'stelle', 'tag'].includes((x as Grabstein).art)
   && typeof (x as Grabstein).id === 'string' && typeof (x as Grabstein).am === 'number' && Number.isFinite((x as Grabstein).am);
 
 export function grabsteineLesen(roh: unknown): Grabstein[] {
@@ -120,7 +121,7 @@ export function einspielenPlanen<N extends { id: string }>(
 
   // Hier gelöscht und in der Sicherung seitdem nicht geändert: nicht wieder anlegen.
   const hierGeloescht = new Map((extra.geraetGrabsteine ?? []).map((g) => [`${g.art}:${g.id}`, g.am]));
-  const tot = (art: Grabstein['art'], e: { id: string }) => (hierGeloescht.get(`${art}:${e.id}`) ?? -1) >= stand(e as Record<string, unknown>);
+  const tot = (art: 'noten' | 'stelle', e: { id: string }) => (hierGeloescht.get(`${art}:${e.id}`) ?? -1) >= stand(e as Record<string, unknown>);
   const notenTot = new Set(inhalt.noten.filter((n) => tot('noten', n)).map((n) => n.id));
   const notenListe = inhalt.noten.filter((n) => !notenTot.has(n.id));
 
@@ -128,7 +129,7 @@ export function einspielenPlanen<N extends { id: string }>(
   const bekannt = (e: Zugeordnet) => inSicherung.has(e.notenId) || vorhanden.noten.has(e.notenId);
   let verworfen = notenTot.size;
   let uebersprungen = 0;
-  const sortieren = <E extends Zugeordnet & Record<string, unknown>>(alle: E[], art?: Grabstein['art']) => alle.filter((e) => {
+  const sortieren = <E extends Zugeordnet & Record<string, unknown>>(alle: E[], art?: 'noten' | 'stelle') => alle.filter((e) => {
     if (notenTot.has(e.notenId) && !vorhanden.noten.has(e.notenId)) { verworfen++; return false; }
     if (art && tot(art, e)) { verworfen++; return false; }
     if (!bekannt(e)) { uebersprungen++; return false; }

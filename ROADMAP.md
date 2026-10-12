@@ -449,6 +449,33 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
   obwohl sich das Stück öffnen ließ („Nicht lesbar, nicht in der
   Sicherung“). Ist eine PDF wirklich verloren, nennt die Meldung den Weg
   zur Rettung. Ersetzt A-01.
+- **F-14 · Tags** (2026-10-12): Wunsch Marlon: Stücke mit eigenen, farbigen
+  Tags markieren — anders als Sammlungen: „Wichtig üben — kann noch wenig“
+  (rot), „Mein Solo“ (blau), „Wenige Stellen“ (gelb), „Kann ich“ (grün).
+  Regeln in `src/domain/tags.ts` (getestet).
+  - **Tags anlegen** in den Einstellungen (Name + eine von 9 Farben;
+    umbenennen, umfärben, löschen — die Stücke bleiben). Ohne Tags bietet die
+    App Marlons vier als Vorschlag an („Diese vier anlegen“). Neue Tags auch
+    direkt beim Markieren.
+  - **Markieren** im Auswahl-Modus („Tags …“, mehrere Stücke auf einmal, Häkchen
+    halb bei „manche“) und im Stück-Blatt („Tags: … ändern“). Ein Stück kann
+    mehrere Tags tragen.
+  - **Anzeige:** Jede Zeile der Bibliothek zeigt ihre Tags als Punkt + Name
+    (nie Farbe allein); eigene Filterzeile unter den Sammlungen (ein Tag oder
+    keiner, mit Sammlung kombinierbar).
+  - **Stellen-Mix je Tag** (auch mit Sammlung: „Mix Märsche · Wichtig üben“),
+    eigene Runde je Bereich.
+  - **Hinzufügen bei gewähltem Tag** genauso deutlich wie bei Sammlungen:
+    Abzeichen auf „+ Noten“, im Menü hervorgehoben „Mit ● „Wichtig üben“
+    markieren“ mit Schalter, Meldung danach.
+  - **Daten:** Definitionen `{id, name, farbe, geaendert}` im localStorage
+    `ueben:tags` (ein Tag gibt es auch, solange kein Stück ihn trägt), an den
+    Stücken nur die ids (`tags`). In der Sicherung als optionales Kopf-Feld
+    `tags`; beim Laden je Tag der neuere Stand, gelöschte Tags reisen als
+    Grabstein mit. Kein Schema-Sprung.
+  - **Farben:** aus der geprüften Diagramm-Palette (Farbsehschwäche,
+    Kontrast); für dunkle Welten eigene Stufen (Gelb dunkler, damit es sich
+    von Rot abhebt).
 - **F-13 · Sammlungen — und Stellen-Mix je Sammlung** (2026-10-12): Wunsch
   Marlon: Stücke einordnen („Orchester A“, „Märsche“, „Jazz“ …) und gezielt
   in einer Sammlung Stellen üben. Regeln in `src/domain/sammlungen.ts`

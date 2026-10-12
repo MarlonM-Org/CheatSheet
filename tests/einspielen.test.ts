@@ -224,7 +224,8 @@ describe('Gelöschtes übertragen (Grabsteine)', () => {
   const g = (art: 'noten' | 'stelle', id: string, am: number) => ({ art, id, am });
 
   it('liest nur stimmige Grabsteine', () => {
-    expect(grabsteineLesen([g('noten', 'a', 5), { art: 'x', id: 'b', am: 1 }, { art: 'stelle', id: 3, am: 1 }, null])).toEqual([g('noten', 'a', 5)]);
+    expect(grabsteineLesen([g('noten', 'a', 5), { art: 'x', id: 'b', am: 1 }, { art: 'stelle', id: 3, am: 1 }, null, { art: 'tag', id: 't', am: 2 }]))
+      .toEqual([g('noten', 'a', 5), { art: 'tag', id: 't', am: 2 }]);
     expect(grabsteineLesen(undefined)).toEqual([]);
   });
   it('vereinigt: je Eintrag der späteste, sehr alte fallen weg', () => {
