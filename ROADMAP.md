@@ -72,12 +72,32 @@ brauchen Platz. Dabei:
 - Entscheiden, ob Einstellungen in einem `einstellungen`-Store statt
   localStorage liegen sollen (spätestens für Themes, B-04, sinnvoll).
 
+**Stand 2026-10-12 (in Arbeit, Branch `feature/speicher-tests`):** Entwurf
+in `docs/datenmodell.md`: neue Datenbank `cheatsheet` mit eigenem Schema
+statt Umbau von `ueben`; die Daten kommen über die Sicherung (.uebe) herüber,
+`ueben` bleibt unangetastet liegen. Ändert zwei Regeln in CLAUDE.md.
+**Entschieden (Leon):** Datenbank `cheatsheet`, „Stück“ als Grundbegriff;
+virtuelle Stücke teilen Stellen/Anmerkungen mit der Quelle und fallen mit
+ihr weg; gelöschte Stücke verschwinden aus Setlisten (Dialog nennt sie);
+Hinweis auf `ueben` in der leeren Bibliothek; die Sicherung trägt
+zusätzlich Lesezeichen, Merker, Setlisten und virtuelle Stücke (optionale
+Listen im Kopf, Version bleibt 1). Entwurf damit vollständig, nächster
+Schritt: bauen, zuerst als Tests.
+
 ### A-03 · Tests für die Speicherschicht
 
 `lokal.ts` ist komplett ungetestet (Upgrade-Pfad, Kaskadenlöschung über drei
 Stores, Transaktions-Wiederholung). Vor dem Schema-Sprung aus A-02 mit
 `fake-indexeddb` absichern. Danach gilt: Schema-Änderungen nur mit
 Migrationstest.
+
+**Stand 2026-10-12:** Ist-Zustand abgesichert (`tests/lokal.test.ts`, Hilfen
+in `tests/hilfen/geraet.ts` mit den eingefrorenen Schemata v1–v3): Upgrade
+v1/v2 → v3, blockiertes Upgrade, Noten samt Umzug alter Blob-Stücke,
+verlorene Datei, Alles-oder-nichts, Kaskadenlöschung, Stellen, Anmerkungen,
+Rückkehr in die App, ein neuer Versuch bei verlorener Verbindung, Sicherung
+von Gerät zu Gerät. Gegen absichtlich eingebaute Fehler geprüft. Offen: Tests
+für die neue Datenbank und das Laden der Sicherung (kommen mit A-02).
 
 ---
 
