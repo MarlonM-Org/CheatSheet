@@ -5,6 +5,14 @@
 // Aufbau (binär, ohne Base64, damit große PDFs klein bleiben):
 //   "UEBE" (4 Byte) · Version (1 Byte) · Kopflänge (4 Byte, big endian)
 //   · Kopf (JSON, UTF-8) · die PDF-Dateien direkt hintereinander.
+//
+// Der Kopf trägt `noten`, `stellen` und `anmerkungen` im Zuschnitt der
+// Registerführer-App (`notenId`) — das ist der Vertrag. Seit der Datenbank
+// „cheatsheet“ kommen vier optionale Listen dazu, so wie sie im
+// Gerätespeicher liegen (`stueckId`): `virtuelle` (Stücke ohne eigene PDF,
+// tragen nichts zum Datenteil bei), `lesezeichen`, `merker`, `setlisten`. Die
+// Version bleibt 1: Fehlt eine Liste, gilt sie als leer; ältere Leser
+// übergehen sie.
 
 export const SICHERUNG_ENDUNG = '.uebe';
 const MAGIE = [0x55, 0x45, 0x42, 0x45]; // "UEBE"
@@ -18,9 +26,18 @@ export interface Sicherungskopf {
   noten: ({ id: string; groesse: number; typ: string } & Record<string, unknown>)[];
   stellen: ({ id: string; notenId: string } & Record<string, unknown>)[];
   anmerkungen: ({ id: string; notenId: string } & Record<string, unknown>)[];
+  virtuelle?: Eintrag[];
+  lesezeichen?: Eintrag[];
+  merker?: Eintrag[];
+  setlisten?: Eintrag[];
 }
 
 export interface SicherungsInhalt<N, S, A> { noten: N[]; stellen: S[]; anmerkungen: A[] }
+
+type Eintrag = { id: string } & Record<string, unknown>;
+export const ZUSATZ = ['virtuelle', 'lesezeichen', 'merker', 'setlisten'] as const;
+export type Zusatz = Record<(typeof ZUSATZ)[number], Eintrag[]>;
+export const keinZusatz = (): Zusatz => ({ virtuelle: [], lesezeichen: [], merker: [], setlisten: [] });
 
 // Packt alles in eine Datei. Dateiverweise (handle) lassen sich nicht
 // übertragen und werden weggelassen.
@@ -28,7 +45,7 @@ export async function sicherungPacken<
   N extends { id: string; datei: Blob },
   S extends { id: string; notenId: string },
   A extends { id: string; notenId: string },
->(inhalt: SicherungsInhalt<N, S, A>, quelle: string, erstellt: number): Promise<Blob> {
+>(inhalt: SicherungsInhalt<N, S, A>, quelle: string, erstellt: number, zusatz?: Zusatz): Promise<Blob> {
   const kopf: Sicherungskopf = {
     version: VERSION,
     erstellt,
@@ -40,6 +57,12 @@ export async function sicherungPacken<
     }),
     stellen: inhalt.stellen.map((s) => ({ ...s })),
     anmerkungen: inhalt.anmerkungen.map((a) => ({ ...a })),
+    ...(zusatz && {
+      virtuelle: zusatz.virtuelle.map(({ handle: _handle, ...rest }) => { void _handle; return rest as Eintrag; }),
+      lesezeichen: zusatz.lesezeichen.map((e) => ({ ...e })),
+      merker: zusatz.merker.map((e) => ({ ...e })),
+      setlisten: zusatz.setlisten.map((e) => ({ ...e })),
+    }),
   };
   const json = new TextEncoder().encode(JSON.stringify(kopf));
   const vorspann = new Uint8Array(9);
@@ -70,6 +93,9 @@ export async function sicherungLesen(datei: Blob): Promise<{
     throw new SicherungsFehler('Die Sicherung ist beschädigt (Kopf nicht lesbar).');
   }
   if (!Array.isArray(kopf.noten) || !Array.isArray(kopf.stellen) || !Array.isArray(kopf.anmerkungen)) {
+    throw new SicherungsFehler('Die Sicherung ist beschädigt (Inhalt fehlt).');
+  }
+  if (ZUSATZ.some((k) => kopf[k] !== undefined && !Array.isArray(kopf[k]))) {
     throw new SicherungsFehler('Die Sicherung ist beschädigt (Inhalt fehlt).');
   }
 

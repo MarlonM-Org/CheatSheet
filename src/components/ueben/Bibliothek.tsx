@@ -4,7 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ausDateiname, nachTitel, zeitpunkt, zuordnen } from '@/domain/notenpult';
 import { gespeichert, speichern } from './klang';
 import { zuletztAus } from '@/domain/speicher';
-import { alleNoten, notenAendern, notenAnlegen, notenLoeschen, zuletztListe, type LokaleNoten } from './lokal';
+import { loeschHinweis } from '@/domain/bestand';
+import {
+  alleStuecke, loeschVorschau, stueckAendern, stueckAnlegen, stueckeLoeschen, vorgaengerDa, zuletztListe, type Stueck,
+} from './lokal';
 import { useSicherungLaden } from './Sicherung';
 import { fehlerGrund } from './speicherfehler';
 import { useEscape } from './tasten';
@@ -82,7 +85,7 @@ async function dateienWaehlen(): Promise<{ datei: File; handle?: FileSystemFileH
   });
 }
 
-async function ausVerweis(n: LokaleNoten): Promise<File | null> {
+async function ausVerweis(n: Stueck): Promise<File | null> {
   const h = n.handle as Recht | undefined;
   if (!h) return null;
   try {
@@ -96,7 +99,7 @@ function NotenListe({ offen, oeffnen, anzahlMelden, offenEntfernt, aktualisiert,
   offen: string | null; oeffnen: (id: string) => void; anzahlMelden: (n: number) => void;
   offenEntfernt: () => void; aktualisiert: (ids: string[]) => void; stand: number;
 }) {
-  const [noten, setNoten] = useState<LokaleNoten[] | null>(null);
+  const [noten, setNoten] = useState<Stueck[] | null>(null);
   const [fehler, setFehler] = useState('');
   const [meldung, setMeldung] = useState('');
   // Teilweise gescheitert (Gerätespeicher): was geklappt hat und was nicht.
@@ -106,12 +109,17 @@ function NotenListe({ offen, oeffnen, anzahlMelden, offenEntfernt, aktualisiert,
   const [laeuft, setLaeuft] = useState(false);
   const [zuletzt, setZuletzt] = useState<Record<string, number>>(() => zuletztListe());
   const laden = useCallback(() => {
-    alleNoten().then((l) => { setZuletzt(zuletztListe()); setNoten(l); })
+    alleStuecke().then((l) => { setZuletzt(zuletztListe()); setNoten(l); })
       .catch((e) => setFehler(`Gerätespeicher nicht verfügbar: ${(e as Error).message}`));
   }, []);
   useEffect(laden, [laden, stand]);
   useEffect(() => { if (noten) anzahlMelden(noten.length); }, [noten, anzahlMelden]);
   const sicherung = useSicherungLaden(laden);
+  // Leere Bibliothek, aber die Datenbank der Vorgängerversion liegt noch auf
+  // dem Gerät: Hinweis auf die Sicherung (docs/datenmodell.md, Umstieg).
+  const [vorgaenger, setVorgaenger] = useState(false);
+  const leer = noten?.length === 0;
+  useEffect(() => { if (leer) vorgaengerDa().then(setVorgaenger); }, [leer]);
 
   const sortiert = useMemo(() => [...(noten ?? [])].sort((a, b) => sortierung === 'abc'
     ? nachTitel(a, b)
@@ -126,7 +134,7 @@ function NotenListe({ offen, oeffnen, anzahlMelden, offenEntfernt, aktualisiert,
     try {
       for (const { datei, handle } of gewaehlt) {
         const { titel, stimme } = ausDateiname(datei.name);
-        await notenAnlegen({ titel, stimme, datei, dateiname: datei.name, handle });
+        await stueckAnlegen({ titel, stimme, datei, dateiname: datei.name, handle });
         fertig++;
       }
       setMeldung(`${gewaehlt.length} ${gewaehlt.length === 1 ? 'Datei' : 'Dateien'} hinzugefügt. Titel und Stimme stammen aus dem Dateinamen.`);
@@ -139,21 +147,23 @@ function NotenListe({ offen, oeffnen, anzahlMelden, offenEntfernt, aktualisiert,
   }
 
   // Dieselben Dateien neu einlesen; markierte Stellen und Anmerkungen bleiben.
-  async function aktualisieren(ziel: LokaleNoten[]) {
+  // Virtuelle Stücke haben keine eigene Datei — sie zeigen die ihrer Quelle.
+  async function aktualisieren(alle: Stueck[]) {
+    const ziel = alle.filter((n) => !n.quelle);
     if (!ziel.length) return;
     setMeldung(''); setWarnung(''); setLaeuft(true);
     let fertig = 0;
     const geaendert: string[] = [];
     try {
-      const offenOhne: LokaleNoten[] = [];
+      const offenOhne: Stueck[] = [];
       if (kannVerweise()) {
         for (const n of ziel) {
           const datei = await ausVerweis(n);
-          if (datei) { await notenAendern(n.id, { datei, aktualisiert: Date.now() }); fertig++; geaendert.push(n.id); } else offenOhne.push(n);
+          if (datei) { await stueckAendern(n.id, { datei, aktualisiert: Date.now() }); fertig++; geaendert.push(n.id); } else offenOhne.push(n);
         }
       } else offenOhne.push(...ziel);
 
-      let fehlen: LokaleNoten[] = [];
+      let fehlen: Stueck[] = [];
       let uebrig = 0;
       if (offenOhne.length) {
         // Ohne Dateiverweis (iPad/iPhone): einmal die Dateien wählen, Zuordnung über den Namen.
@@ -162,7 +172,7 @@ function NotenListe({ offen, oeffnen, anzahlMelden, offenEntfernt, aktualisiert,
         const r = zuordnen(offenOhne, gewaehlt.map((g) => g.datei.name));
         for (const p of r.paare) {
           const g = gewaehlt[p.datei];
-          await notenAendern(p.notenId, { datei: g.datei, dateiname: g.datei.name, aktualisiert: Date.now(), ...(g.handle ? { handle: g.handle } : {}) });
+          await stueckAendern(p.notenId, { datei: g.datei, dateiname: g.datei.name, aktualisiert: Date.now(), ...(g.handle ? { handle: g.handle } : {}) });
           fertig++;
           geaendert.push(p.notenId);
         }
@@ -185,23 +195,24 @@ function NotenListe({ offen, oeffnen, anzahlMelden, offenEntfernt, aktualisiert,
     }
   }
 
-  // Einzeln nacheinander (jede Note samt Stellen und Anmerkungen in einer
-  // Transaktion). Scheitert eine, sagt die Meldung, wie weit es kam.
+  // Alles in einem Schritt: die Stücke samt allem, was an ihnen hängt —
+  // auch virtuelle Stücke aus ihnen und ihre Einträge in Setlisten (Regeln in
+  // @/domain/bestand). Die Rückfrage nennt vorher, was mit wegfällt.
   async function loeschen() {
     const ids = [...auswahl];
-    if (!confirm(`${ids.length} Noten mit allen Stellen und Anmerkungen von diesem Gerät löschen?`)) return;
-    setMeldung(''); setWarnung(''); setLaeuft(true);
-    const geloescht = new Set<string>();
+    setMeldung(''); setWarnung('');
     try {
-      for (const id of ids) { await notenLoeschen(id); geloescht.add(id); }
+      const hinweis = loeschHinweis(await loeschVorschau(ids));
+      if (!confirm(`${ids.length} Noten mit allen Stellen und Anmerkungen von diesem Gerät löschen?${hinweis ? ` ${hinweis}` : ''}`)) return;
+      setLaeuft(true);
+      const { stuecke } = await stueckeLoeschen(ids);
       setAuswahl(new Set());
+      if (offen && stuecke.includes(offen)) offenEntfernt();
     } catch (x) {
-      setWarnung(`${geloescht.size} von ${ids.length} gelöscht, der Rest ist noch da und weiter ausgewählt: ${fehlerGrund(x)}`);
-      setAuswahl(new Set(ids.filter((id) => !geloescht.has(id))));
+      setWarnung(`Nichts gelöscht, die Auswahl ist noch da: ${fehlerGrund(x)}`);
     } finally {
       setLaeuft(false);
       laden();
-      if (offen && geloescht.has(offen)) offenEntfernt();
     }
   }
 
@@ -251,8 +262,15 @@ function NotenListe({ offen, oeffnen, anzahlMelden, offenEntfernt, aktualisiert,
       {laeuft && <p className="gedaempft text-sm">Einen Moment …</p>}
 
       <ul className="space-y-2">
-        {noten?.length === 0 && (
+        {leer && (
           <li className="karte space-y-3">
+            {vorgaenger && (
+              <p>
+                <strong>Deine Noten aus der Vorgängerversion</strong> liegen noch auf diesem Gerät, aber in einem älteren
+                Speicher. Sie kommen über die Sicherung herüber, die du vor dem Update erstellt hast: „Sicherung laden“
+                und die .uebe-Datei wählen. Der alte Speicher bleibt dabei unangetastet.
+              </p>
+            )}
             <p>Noch keine Noten auf diesem Gerät. Mit „+ Noten hinzufügen“ eine oder mehrere PDF-Dateien wählen.</p>
             <p>
               <strong>Noten von einem anderen Gerät?</strong> Dort in den Einstellungen (Zahnrad) „Sicherung erstellen“

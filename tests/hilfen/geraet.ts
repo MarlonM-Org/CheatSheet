@@ -45,14 +45,19 @@ const anfrage = <T>(r: IDBRequest<T>) => new Promise<T>((ok, fehler) => {
   r.onerror = () => fehler(r.error);
 });
 
-// Öffnet „ueben“ in der vorhandenen Version, ohne etwas anzulegen.
-export async function rohOeffnen(): Promise<IDBDatabase> {
-  return anfrage(indexedDB.open('ueben'));
+// Die Datenbank der App; „ueben“ ist ihre Vorgängerin.
+export const DATENBANK = 'cheatsheet';
+export const VORGAENGER = 'ueben';
+
+// Öffnet eine Datenbank in der vorhandenen Version. Achtung: Gibt es sie
+// nicht, legt das eine leere an.
+export async function rohOeffnen(name = DATENBANK): Promise<IDBDatabase> {
+  return anfrage(indexedDB.open(name));
 }
 
 // Alles aus einem Speicher, so wie es wirklich auf dem Gerät liegt.
-export async function roh<T = Record<string, unknown>>(speicher: string): Promise<T[]> {
-  const db = await rohOeffnen();
+export async function roh<T = Record<string, unknown>>(speicher: string, name = DATENBANK): Promise<T[]> {
+  const db = await rohOeffnen(name);
   try {
     return await anfrage(db.transaction(speicher).objectStore(speicher).getAll() as IDBRequest<T[]>);
   } finally {
@@ -60,8 +65,8 @@ export async function roh<T = Record<string, unknown>>(speicher: string): Promis
   }
 }
 
-export async function rohSchreiben(speicher: string, eintraege: unknown[]): Promise<void> {
-  const db = await rohOeffnen();
+export async function rohSchreiben(speicher: string, eintraege: unknown[], name = DATENBANK): Promise<void> {
+  const db = await rohOeffnen(name);
   try {
     await new Promise<void>((ok, fehler) => {
       const t = db.transaction(speicher, 'readwrite');
@@ -74,7 +79,25 @@ export async function rohSchreiben(speicher: string, eintraege: unknown[]): Prom
   }
 }
 
-// Aufbau des Schemas, wie es in jeder Version ausgeliefert wurde. Eingefroren:
+// Alle Datenbanken auf dem Gerät, ohne eine zu öffnen.
+export async function datenbanken(): Promise<string[]> {
+  return (await indexedDB.databases()).map((d) => d.name!).sort();
+}
+
+// Alles aus allen Speichern einer Datenbank — zum Vergleich vorher/nachher.
+export async function abzug(name: string): Promise<Record<string, unknown[]>> {
+  const db = await rohOeffnen(name);
+  try {
+    const namen = [...db.objectStoreNames];
+    const t = db.transaction(namen);
+    const inhalt = await Promise.all(namen.map((n) => anfrage(t.objectStore(n).getAll())));
+    return Object.fromEntries(namen.map((n, i) => [n, inhalt[i]]));
+  } finally {
+    db.close();
+  }
+}
+
+// Aufbau des Schemas von „ueben“, wie es in jeder Version ausgeliefert wurde. Eingefroren:
 // Diese Stände liegen auf echten Geräten und dürfen sich hier nie ändern,
 // auch wenn lokal.ts längst weiter ist.
 export const SCHEMA_STAENDE = [1, 2, 3] as const;
@@ -89,12 +112,12 @@ function schemaAufbauen(db: IDBDatabase, alt: number, neu: SchemaStand) {
   if (alt < 3 && neu >= 3) db.createObjectStore('dateien', { keyPath: 'id' });
 }
 
-// Ein Gerät, auf dem eine ältere Fassung der App Daten hinterlassen hat.
+// Ein Gerät, auf dem eine ältere Fassung der App Daten in „ueben“ hinterlassen hat.
 export async function altesGeraetAnlegen(
   stand: SchemaStand,
   inhalt: Partial<Record<'noten' | 'stellen' | 'anmerkungen' | 'dateien', unknown[]>>,
 ): Promise<void> {
-  const r = indexedDB.open('ueben', stand);
+  const r = indexedDB.open(VORGAENGER, stand);
   r.onupgradeneeded = (e) => schemaAufbauen(r.result, e.oldVersion, stand);
   const db = await anfrage(r);
   const speicher = Object.keys(inhalt).filter((s) => (inhalt as Record<string, unknown[]>)[s].length);
@@ -110,8 +133,8 @@ export async function altesGeraetAnlegen(
 }
 
 // Stores und Indizes, wie sie auf dem Gerät angelegt sind.
-export async function schemaVon(): Promise<{ version: number; speicher: Record<string, { schluessel: unknown; indizes: string[] }> }> {
-  const db = await rohOeffnen();
+export async function schemaVon(name = DATENBANK): Promise<{ version: number; speicher: Record<string, { schluessel: unknown; indizes: string[] }> }> {
+  const db = await rohOeffnen(name);
   try {
     const speicher: Record<string, { schluessel: unknown; indizes: string[] }> = {};
     const namen = [...db.objectStoreNames];

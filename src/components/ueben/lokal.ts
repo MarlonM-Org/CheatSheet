@@ -1,44 +1,42 @@
 'use client';
 
-import type { Anmerkung, Blaettermodus } from '@/domain/notenpult';
+import {
+  dateiVon, loeschFolgen, quelleFehler, seitenId, setlistenOhne,
+  type Lesezeichen, type Loeschfolgen, type Merker, type SeitenAnmerkungen, type Setliste, type Stelle, type Stueck,
+} from '@/domain/bestand';
 import {
   einspielenPlanen, notenZusammenfuehren, seiteZusammenfuehren, stelleZusammenfuehren, type Einspielplan, type Vorhanden,
 } from '@/domain/einspielen';
 import { nurLesbare } from '@/domain/lesbar';
-import { sicherungLesen, sicherungPacken, SicherungsFehler, type SicherungsInhalt } from '@/domain/sicherung';
-import { dateiQuelle, dateiVerloren, ohneDatei, verbindungVerloren } from '@/domain/speicher';
+import type { Anmerkung } from '@/domain/notenpult';
+import { sicherungLesen, sicherungPacken, SicherungsFehler, type Zusatz } from '@/domain/sicherung';
+import { verbindungVerloren } from '@/domain/speicher';
+import { ohneFehlende, vonSicherung, zurSicherung } from '@/domain/uebersetzen';
 
-// Ablage nur auf diesem Gerät (IndexedDB): Noten-PDFs, markierte Stellen,
-// geschaffte Tempi, Anmerkungen. Keine Datenbank, kein Server. Safari kann die
-// Daten löschen, wenn die Seite lange nicht geöffnet wurde; als
-// Home-Bildschirm-App seltener — dagegen hilft die Übe-Sicherung.
-// Name der Datenbank wie in der Registerführer-App („ueben“). Schema 3: die
-// drei Speicher von dort plus „dateien“ — die PDF-Dateien als reine Bytes,
-// getrennt von den Noten. Safari verliert Blobs in IndexedDB mitunter, und
-// jedes Schreiben eines Noten-Datensatzes schrieb die Datei mit. Ältere
-// Stücke tragen ihre Datei noch als Blob im Datensatz (datei); sie ziehen um,
-// sobald sie einmal gelesen werden (notenDatei).
+export type { Lesezeichen, Merker, SeitenAnmerkungen, Setliste, Stelle, Stueck } from '@/domain/bestand';
 
-export interface LokaleNoten {
-  id: string; titel: string; stimme: string; erstellt: number;
-  // Nur ältere Stücke, bis zum Umzug in „dateien“.
-  datei?: Blob;
-  dateiname?: string;
-  zuletzt?: number;
-  aktualisiert?: number;
-  // Nur Chrome/Edge am Rechner: Verweis auf die Datei, um ohne Dateiauswahl neu zu laden.
-  handle?: FileSystemFileHandle;
-  blaettern?: { modus: Blaettermodus; linien: Record<number, number> };
-}
-export interface LokaleStelle {
-  id: string; notenId: string; seite: number; x: number; y: number; b: number; h: number;
-  titel: string; notiz: string; zielTempo: number | null; tempi: { tempo: number; am: number }[];
-}
-export interface SeitenAnmerkungen { id: string; notenId: string; seite: number; objekte: Anmerkung[] }
-// Schlüssel ist die id der Noten.
-interface LokaleDatei { id: string; daten: ArrayBuffer; typ: string }
+// Ablage nur auf diesem Gerät (IndexedDB „cheatsheet“): Stücke mit ihrer
+// PDF, markierte Stellen, geschaffte Tempi, Anmerkungen, Lesezeichen, Merker,
+// Setlisten. Keine Datenbank, kein Server. Safari kann die Daten löschen,
+// wenn die Seite lange nicht geöffnet wurde; als Home-Bildschirm-App
+// seltener — dagegen hilft die Sicherung. Schema und Beziehungen:
+// docs/datenmodell.md, Typen und Regeln: @/domain/bestand.
+//
+// Die Vorgängerin „ueben“ (bis Schema 3, Registerführer-Zuschnitt) wird hier
+// nie geöffnet — nur ihr Dasein erfragt (vorgaengerDa). Ihre Daten kommen
+// über die Sicherung herüber.
+const DATENBANK = 'cheatsheet';
+const VERSION = 1;
+const VORGAENGER = 'ueben';
 
-type Speicher = 'noten' | 'stellen' | 'anmerkungen' | 'dateien';
+// Die PDF als reine Bytes, Schlüssel ist die id des Stücks. Nie ein Blob:
+// Safari verliert Blobs in IndexedDB mitunter.
+interface Datei { id: string; daten: ArrayBuffer; typ: string }
+
+type Speicher = 'stuecke' | 'dateien' | 'stellen' | 'anmerkungen' | 'lesezeichen' | 'merker' | 'setlisten';
+const ALLE: Speicher[] = ['stuecke', 'dateien', 'stellen', 'anmerkungen', 'lesezeichen', 'merker', 'setlisten'];
+// Was per stueckId an einem Stück hängt.
+const AM_STUECK = ['stellen', 'anmerkungen', 'lesezeichen', 'merker'] as const;
 
 // Eine Verbindung für die ganze Seite, einmal geöffnet und wiederverwendet.
 // Will ein anderes Fenster (neuere Version) das Schema anheben, gibt diese
@@ -57,15 +55,17 @@ function oeffnen(): Promise<IDBDatabase> {
       aufgegeben = true;
       fehler(new Error('Der Gerätespeicher antwortet nicht. Bitte neu laden.'));
     }, 8000);
-    const r = indexedDB.open('ueben', 3);
+    const r = indexedDB.open(DATENBANK, VERSION);
+    // Neue Versionen bekommen hier ihren eigenen Schritt (if e.oldVersion < 2 …)
+    // und einen Migrationstest — nie Daten verwerfen.
     r.onupgradeneeded = (e) => {
       const db = r.result;
       if (e.oldVersion < 1) {
-        db.createObjectStore('noten', { keyPath: 'id' });
-        db.createObjectStore('stellen', { keyPath: 'id' }).createIndex('notenId', 'notenId');
+        db.createObjectStore('stuecke', { keyPath: 'id' });
+        db.createObjectStore('dateien', { keyPath: 'id' });
+        for (const name of AM_STUECK) db.createObjectStore(name, { keyPath: 'id' }).createIndex('stueckId', 'stueckId');
+        db.createObjectStore('setlisten', { keyPath: 'id' });
       }
-      if (e.oldVersion < 2) db.createObjectStore('anmerkungen', { keyPath: 'id' }).createIndex('notenId', 'notenId');
-      if (e.oldVersion < 3) db.createObjectStore('dateien', { keyPath: 'id' });
     };
     r.onsuccess = () => {
       window.clearTimeout(wecker);
@@ -156,15 +156,24 @@ const tx = <T>(speicher: Speicher, modus: IDBTransactionMode, arbeit: (s: IDBObj
     return req ? () => req.result : undefined;
   });
 
-const ALLE: Speicher[] = ['noten', 'stellen', 'anmerkungen'];
-const ALLE_MIT_DATEIEN: Speicher[] = [...ALLE, 'dateien'];
+// Ein Datensatz lesen, ändern, schreiben — in EINER Transaktion, damit nichts
+// dazwischenfällt. Gibt es ihn nicht, bleibt alles, wie es ist.
+const aendern = <T extends { id: string }>(speicher: Speicher, id: string, neu: (alt: T) => T) =>
+  transaktion<void>(speicher, 'readwrite', (t, abbrechen) => {
+    const s = t.objectStore(speicher);
+    const r = s.get(id) as IDBRequest<T | undefined>;
+    r.onsuccess = () => {
+      try { if (r.result) s.put({ ...neu(r.result), id }); } catch (x) { abbrechen(x); }
+    };
+  });
 
-// ── Noten ──
-export const alleNoten = () => tx<LokaleNoten[]>('noten', 'readonly', (s) => s.getAll());
-export const notenHolen = (id: string) => tx<LokaleNoten | undefined>('noten', 'readonly', (s) => s.get(id));
+// ── Stücke ──
+export const alleStuecke = () => tx<Stueck[]>('stuecke', 'readonly', (s) => s.getAll());
+export const stueckHolen = (id: string) => tx<Stueck | undefined>('stuecke', 'readonly', (s) => s.get(id));
+
 // Eine gewählte Datei ganz lesen. Eine nicht lesbare fällt hier mit klarer
 // Meldung auf (etwa noch nicht aus iCloud geladen).
-async function bytesLesen(datei: Blob): Promise<LokaleDatei['daten']> {
+async function bytesLesen(datei: Blob): Promise<ArrayBuffer> {
   try {
     return await datei.arrayBuffer();
   } catch (x) {
@@ -179,62 +188,62 @@ export class DateiVerloren extends Error {
   }
 }
 
-// Datensatz und Datei in EINER Transaktion: ganz oder gar nicht. Der Datensatz
-// geht immer ohne Blob in die Datenbank.
-const mitDatei = (n: LokaleNoten, daten: ArrayBuffer, typ: string) =>
-  transaktion<void>(['noten', 'dateien'], 'readwrite', (t) => {
-    t.objectStore('noten').put(ohneDatei(n));
-    t.objectStore('dateien').put({ id: n.id, daten, typ } satisfies LokaleDatei);
+// Datensatz und Datei in EINER Transaktion: ganz oder gar nicht.
+const mitDatei = (s: Stueck, daten: ArrayBuffer, typ: string) =>
+  transaktion<void>(['stuecke', 'dateien'], 'readwrite', (t) => {
+    t.objectStore('stuecke').put(s);
+    t.objectStore('dateien').put({ id: s.id, daten, typ } satisfies Datei);
   });
 
-export async function notenAnlegen(n: { titel: string; stimme: string; datei: Blob; dateiname?: string; handle?: FileSystemFileHandle }): Promise<string> {
+const typVon = (datei: Blob) => datei.type || 'application/pdf';
+
+export async function stueckAnlegen(n: { titel: string; stimme: string; datei: Blob; dateiname?: string; handle?: FileSystemFileHandle }): Promise<string> {
   const id = crypto.randomUUID();
-  const daten = await bytesLesen(n.datei);
-  await mitDatei({ ...ohneDatei(n), id, erstellt: Date.now() }, daten, n.datei.type || 'application/pdf');
+  const { datei, ...felder } = n;
+  const daten = await bytesLesen(datei);
+  await mitDatei({ ...felder, id, erstellt: Date.now() }, daten, typVon(datei));
   dauerhaftAnfragen();
   return id;
 }
 
-// Ändert Felder der Noten; mit `datei` wird die PDF-Datei ersetzt. Ein Stück,
-// das seine Datei noch im Datensatz trägt, zieht dabei um — der Blob wird nie
-// zurückgeschrieben. Ist die alte Datei verloren, bleibt alles, wie es ist
-// (DateiVerloren); retten lässt es sich mit einer neu gewählten Datei.
-export async function notenAendern(id: string, felder: Partial<LokaleNoten>) {
-  const neu = felder.datei ? { daten: await bytesLesen(felder.datei), typ: felder.datei.type || 'application/pdf' } : null;
-  const alt = await notenHolen(id);
+// Ändert Felder des Stücks; mit `datei` wird die PDF-Datei ersetzt (nur bei
+// einem Stück mit eigener PDF).
+export async function stueckAendern(id: string, felder: Partial<Omit<Stueck, 'id'>> & { datei?: Blob }) {
+  const { datei, ...rest } = felder;
+  if (!datei) return aendern<Stueck>('stuecke', id, (alt) => ({ ...alt, ...rest }));
+  const daten = await bytesLesen(datei);
+  const alt = await stueckHolen(id);
   if (!alt) return;
-  const n = { ...alt, ...ohneDatei(felder), id };
-  if (neu) return mitDatei(n, neu.daten, neu.typ);
-  if (alt.datei) {
-    const daten = await alteDateiLesen(alt.datei);
-    return mitDatei(n, daten, alt.datei.type || 'application/pdf');
-  }
-  await tx('noten', 'readwrite', (s) => s.put(ohneDatei(n)));
+  if (alt.quelle) throw new Error('Dieses Stück zeigt Seiten aus einem anderen — seine PDF lässt sich nicht ersetzen.');
+  await mitDatei({ ...alt, ...rest, id }, daten, typVon(datei));
 }
 
-async function alteDateiLesen(datei: Blob): Promise<ArrayBuffer> {
-  try { return await datei.arrayBuffer(); } catch (x) { throw dateiVerloren(x) ? new DateiVerloren() : x; }
+// Ein virtuelles Stück: die Seiten von–bis aus der PDF eines echten Stücks
+// (F-03). Die Quelle wird in derselben Transaktion geprüft.
+export async function virtuellesAnlegen(n: Omit<Stueck, 'id' | 'erstellt' | 'quelle'> & { quelle: NonNullable<Stueck['quelle']> }): Promise<string> {
+  const id = crypto.randomUUID();
+  await transaktion<void>('stuecke', 'readwrite', (t, abbrechen) => {
+    const s = t.objectStore('stuecke');
+    const r = s.get(n.quelle.stueckId) as IDBRequest<Stueck | undefined>;
+    r.onsuccess = () => {
+      const fehler = quelleFehler(n.quelle, r.result);
+      if (fehler) abbrechen(new Error(fehler));
+      else s.put({ ...n, id, erstellt: Date.now() } satisfies Stueck);
+    };
+  });
+  return id;
 }
 
-// Die PDF-Datei eines Stücks. Trägt es sie noch als Blob im Datensatz, zieht
-// sie dabei in „dateien“ um (Bytes gelesen, dann in einem Schritt Datei
-// abgelegt und Datensatz ohne Blob geschrieben). Scheitert nur der Umzug,
-// zählt die gelesene Datei trotzdem — er wird beim nächsten Öffnen versucht.
-export async function notenDatei(n: LokaleNoten): Promise<Blob> {
-  const eintrag = await tx<LokaleDatei | undefined>('dateien', 'readonly', (s) => s.get(n.id));
-  const quelle = dateiQuelle(eintrag, n);
-  if (quelle === 'dateien') return new Blob([eintrag!.daten], { type: eintrag!.typ || 'application/pdf' });
-  if (quelle === 'keine' || !n.datei) throw new DateiVerloren();
-  const daten = await alteDateiLesen(n.datei);
-  const typ = n.datei.type || 'application/pdf';
-  await mitDatei(n, daten, typ).catch((x) => console.error('Umzug der PDF-Datei verschoben', x));
-  return new Blob([daten], { type: typ });
+// Die PDF-Datei eines Stücks — bei einem virtuellen die seiner Quelle.
+export async function stueckDatei(s: Pick<Stueck, 'id' | 'quelle'>): Promise<Blob> {
+  const eintrag = await tx<Datei | undefined>('dateien', 'readonly', (d) => d.get(dateiVon(s)));
+  if (!(eintrag?.daten instanceof ArrayBuffer)) throw new DateiVerloren();
+  return new Blob([eintrag.daten], { type: eintrag.typ || 'application/pdf' });
 }
 
 // „Zuletzt geöffnet“ liegt auf dem Gerät im localStorage, nicht im
-// Datensatz: Jedes Schreiben des Datensatzes schreibt die PDF-Datei mit —
-// Öffnen soll gar nicht in die Datenbank schreiben. Der ältere Stand im
-// Datensatz (n.zuletzt) gilt weiter (zuletztAus in @/domain/speicher).
+// Datensatz: Öffnen soll gar nicht in die Datenbank schreiben. Der ältere
+// Stand im Datensatz (s.zuletzt) gilt weiter (zuletztAus in @/domain/speicher).
 const ZULETZT = 'ueben:zuletzt';
 export function zuletztListe(): Record<string, number> {
   try { return JSON.parse(localStorage.getItem(ZULETZT) ?? '{}') ?? {}; } catch { return {}; }
@@ -242,41 +251,116 @@ export function zuletztListe(): Record<string, number> {
 export function zuletztMerken(id: string) {
   try { localStorage.setItem(ZULETZT, JSON.stringify({ ...zuletztListe(), [id]: Date.now() })); } catch { /* egal */ }
 }
-// Noten samt Stellen und Anmerkungen in EINER Transaktion: ganz oder gar nicht.
-export const notenLoeschen = (id: string) => transaktion<void>(ALLE_MIT_DATEIEN, 'readwrite', (t, abbrechen) => {
-  t.objectStore('noten').delete(id);
-  t.objectStore('dateien').delete(id);
-  for (const name of ['stellen', 'anmerkungen'] as const) {
-    const s = t.objectStore(name);
-    const r = s.index('notenId').getAllKeys(id);
-    r.onsuccess = () => {
-      try { for (const k of r.result) s.delete(k); } catch (x) { abbrechen(x); }
-    };
-  }
+
+// Was alles an den Stücken hängt, die gelöscht werden sollen — für die
+// Rückfrage, bevor etwas passiert (Regeln in @/domain/bestand).
+const LOESCHBESTAND: Speicher[] = ['stuecke', 'lesezeichen', 'merker', 'setlisten'];
+function loeschbestandLesen(t: IDBTransaction) {
+  const [stuecke, lesezeichen, merker, setlisten] = LOESCHBESTAND.map((n) => t.objectStore(n).getAll());
+  return () => ({
+    stuecke: stuecke.result as Stueck[], lesezeichen: lesezeichen.result as Lesezeichen[],
+    merker: merker.result as Merker[], setlisten: setlisten.result as Setliste[],
+  });
+}
+export const loeschVorschau = (ids: string[]) =>
+  transaktion<Loeschfolgen>(LOESCHBESTAND, 'readonly', (t) => {
+    const bestand = loeschbestandLesen(t);
+    return () => loeschFolgen(ids, bestand(), Date.now());
+  });
+
+// Stücke samt allem, was an ihnen hängt, in EINER Transaktion: ganz oder gar
+// nicht. Virtuelle Stücke aus einer gelöschten Quelle fallen mit weg,
+// Setlisten verlieren die Einträge darauf. Die geteilten Stellen und
+// Anmerkungen eines virtuellen Stücks liegen bei der Quelle und bleiben,
+// solange es die Quelle gibt.
+export const stueckeLoeschen = (ids: string[]) => transaktion<Loeschfolgen>(ALLE, 'readwrite', (t, abbrechen) => {
+  let folgen: Loeschfolgen | null = null;
+  const bestand = loeschbestandLesen(t);
+  // Der letzte der vier Lesezugriffe meldet, wann alles da ist.
+  const letzter = t.objectStore('setlisten').count();
+  letzter.onsuccess = () => {
+    try {
+      const f = loeschFolgen(ids, bestand(), Date.now());
+      folgen = f;
+      for (const id of f.stuecke) {
+        t.objectStore('stuecke').delete(id);
+        t.objectStore('dateien').delete(id);
+        for (const name of ['stellen', 'anmerkungen'] as const) {
+          const s = t.objectStore(name);
+          const r = s.index('stueckId').getAllKeys(id);
+          r.onsuccess = () => {
+            try { for (const k of r.result) s.delete(k); } catch (x) { abbrechen(x); }
+          };
+        }
+      }
+      for (const id of f.lesezeichen) t.objectStore('lesezeichen').delete(id);
+      for (const id of f.merker) t.objectStore('merker').delete(id);
+      for (const s of f.setlisten) t.objectStore('setlisten').put(s);
+    } catch (x) { abbrechen(x); }
+  };
+  return () => folgen!;
 });
 
 // ── Stellen ──
-export const stellenVon = async (notenId: string) =>
-  (await tx<LokaleStelle[]>('stellen', 'readonly', (s) => s.index('notenId').getAll(notenId)))
+export const stellenVon = async (stueckId: string) =>
+  (await tx<Stelle[]>('stellen', 'readonly', (s) => s.index('stueckId').getAll(stueckId)))
     .sort((a, b) => a.seite - b.seite || a.y - b.y);
-export async function stelleAnlegen(st: Omit<LokaleStelle, 'id' | 'tempi' | 'notiz' | 'zielTempo'>) {
-  await tx('stellen', 'readwrite', (s) => s.put({ ...st, id: crypto.randomUUID(), notiz: '', zielTempo: null, tempi: [] }));
+export async function stelleAnlegen(st: Omit<Stelle, 'id' | 'tempi' | 'notiz' | 'zielTempo'>) {
+  await tx('stellen', 'readwrite', (s) => s.put({ ...st, id: crypto.randomUUID(), notiz: '', zielTempo: null, tempi: [] } satisfies Stelle));
 }
-export async function stelleAendern(id: string, felder: Partial<LokaleStelle>) {
-  const alt = await tx<LokaleStelle | undefined>('stellen', 'readonly', (s) => s.get(id));
-  if (alt) await tx('stellen', 'readwrite', (s) => s.put({ ...alt, ...felder, id }));
-}
+export const stelleAendern = (id: string, felder: Partial<Omit<Stelle, 'id'>>) =>
+  aendern<Stelle>('stellen', id, (alt) => ({ ...alt, ...felder }));
 export const stelleLoeschen = (id: string) => tx('stellen', 'readwrite', (s) => s.delete(id));
-export async function tempoGeschafft(id: string, tempo: number) {
-  const alt = await tx<LokaleStelle | undefined>('stellen', 'readonly', (s) => s.get(id));
-  if (alt) await stelleAendern(id, { tempi: [...alt.tempi, { tempo: Math.round(tempo), am: Date.now() }] });
-}
+export const tempoGeschafft = (id: string, tempo: number) =>
+  aendern<Stelle>('stellen', id, (alt) => ({ ...alt, tempi: [...alt.tempi, { tempo: Math.round(tempo), am: Date.now() }] }));
 
 // ── Anmerkungen (je Seite ein Datensatz) ──
-export const anmerkungenVon = (notenId: string) =>
-  tx<SeitenAnmerkungen[]>('anmerkungen', 'readonly', (s) => s.index('notenId').getAll(notenId));
-export const anmerkungenSpeichern = (notenId: string, seite: number, objekte: Anmerkung[]) =>
-  tx('anmerkungen', 'readwrite', (s) => s.put({ id: `${notenId}:${seite}`, notenId, seite, objekte }));
+export const anmerkungenVon = (stueckId: string) =>
+  tx<SeitenAnmerkungen[]>('anmerkungen', 'readonly', (s) => s.index('stueckId').getAll(stueckId));
+export const anmerkungenSpeichern = (stueckId: string, seite: number, objekte: Anmerkung[]) =>
+  tx('anmerkungen', 'readwrite', (s) => s.put({ id: seitenId(stueckId, seite), stueckId, seite, objekte } satisfies SeitenAnmerkungen));
+
+// ── Lesezeichen (F-03) ──
+export const lesezeichenVon = async (stueckId: string) =>
+  (await tx<Lesezeichen[]>('lesezeichen', 'readonly', (s) => s.index('stueckId').getAll(stueckId))).sort((a, b) => a.seite - b.seite);
+export async function lesezeichenAnlegen(l: Pick<Lesezeichen, 'stueckId' | 'seite' | 'titel'>): Promise<string> {
+  const id = crypto.randomUUID();
+  await tx('lesezeichen', 'readwrite', (s) => s.put({ ...l, id, erstellt: Date.now() } satisfies Lesezeichen));
+  return id;
+}
+export const lesezeichenAendern = (id: string, felder: Partial<Pick<Lesezeichen, 'seite' | 'titel'>>) =>
+  aendern<Lesezeichen>('lesezeichen', id, (alt) => ({ ...alt, ...felder }));
+// Samt den Einträgen in Setlisten, in EINER Transaktion.
+export const lesezeichenLoeschen = (id: string) => transaktion<void>(['lesezeichen', 'setlisten'], 'readwrite', (t, abbrechen) => {
+  t.objectStore('lesezeichen').delete(id);
+  const s = t.objectStore('setlisten');
+  const r = s.getAll() as IDBRequest<Setliste[]>;
+  r.onsuccess = () => {
+    try { for (const sl of setlistenOhne(r.result, new Set(), new Set([id]), Date.now())) s.put(sl); } catch (x) { abbrechen(x); }
+  };
+});
+
+// ── Merker (F-04): einer je Seite ──
+export const merkerVon = (stueckId: string) => tx<Merker[]>('merker', 'readonly', (s) => s.index('stueckId').getAll(stueckId));
+export const alleMerker = () => tx<Merker[]>('merker', 'readonly', (s) => s.getAll());
+export const merkerSetzen = (stueckId: string, seite: number, gesetzt: boolean) =>
+  tx('merker', 'readwrite', (s) => {
+    if (gesetzt) s.put({ id: seitenId(stueckId, seite), stueckId, seite, gesetzt: Date.now() } satisfies Merker);
+    else s.delete(seitenId(stueckId, seite));
+  });
+export const alleMerkerLoeschen = () => tx('merker', 'readwrite', (s) => s.clear());
+
+// ── Setlisten (F-02) ──
+export const alleSetlisten = () => tx<Setliste[]>('setlisten', 'readonly', (s) => s.getAll());
+export const setlisteHolen = (id: string) => tx<Setliste | undefined>('setlisten', 'readonly', (s) => s.get(id));
+export async function setlisteAnlegen(titel: string): Promise<string> {
+  const id = crypto.randomUUID();
+  await tx('setlisten', 'readwrite', (s) => s.put({ id, titel, erstellt: Date.now(), eintraege: [] } satisfies Setliste));
+  return id;
+}
+export const setlisteAendern = (id: string, felder: Partial<Pick<Setliste, 'titel' | 'eintraege'>>) =>
+  aendern<Setliste>('setlisten', id, (alt) => ({ ...alt, ...felder, aktualisiert: Date.now() }));
+export const setlisteLoeschen = (id: string) => tx('setlisten', 'readwrite', (s) => s.delete(id));
 
 // Bittet den Browser, die Daten nicht von selbst zu löschen. Still: Lehnt er
 // ab oder kann er das nicht, bleibt es beim Normalfall.
@@ -287,40 +371,57 @@ function dauerhaftAnfragen() {
   try { navigator.storage?.persist?.().catch(() => {}); } catch { /* egal */ }
 }
 
-// ── Übe-Sicherung (.uebe, Format in @/domain/sicherung) ──
-// In der Sicherung trägt jedes Stück seine Datei (fehlt sie, sortiert nurLesbare es aus).
-type SicherungsNoten = LokaleNoten & { datei: Blob | undefined };
-type Bestand = SicherungsInhalt<SicherungsNoten, LokaleStelle, SeitenAnmerkungen>;
+// Liegt auf dem Gerät noch die Datenbank der Vorgängerversion? Nur über die
+// Liste der Datenbanken: indexedDB.open würde eine leere anlegen, wo keine
+// war. Kennt der Browser die Liste nicht, heißt die Antwort nein.
+export async function vorgaengerDa(): Promise<boolean> {
+  try {
+    const liste = await indexedDB.databases?.();
+    return !!liste?.some((d) => d.name === VORGAENGER);
+  } catch {
+    return false;
+  }
+}
 
-// Alle drei Speicher in EINER Transaktion: ein stimmiger Stand, auch wenn
-// nebenher etwas geändert wird. Die Verbindung bleibt offen — Safari kann die
-// PDF-Blobs sonst nicht mehr lesen.
-// Die Datei jedes Stücks kommt als Blob dazu (Format der Sicherung), aus
-// „dateien“ oder — bei älteren — aus dem Datensatz.
-export const allesLesen = () => transaktion<Bestand>(ALLE_MIT_DATEIEN, 'readonly', (t) => {
-  const noten = t.objectStore('noten').getAll() as IDBRequest<LokaleNoten[]>;
-  const stellen = t.objectStore('stellen').getAll() as IDBRequest<LokaleStelle[]>;
-  const anmerkungen = t.objectStore('anmerkungen').getAll() as IDBRequest<SeitenAnmerkungen[]>;
-  const dateien = t.objectStore('dateien').getAll() as IDBRequest<LokaleDatei[]>;
+// ── Sicherung (.uebe, Format in @/domain/sicherung) ──
+
+// Alles in EINER Transaktion: ein stimmiger Stand, auch wenn nebenher etwas
+// geändert wird. Echte Stücke tragen ihre PDF als Blob (Format der
+// Sicherung), virtuelle reisen in einer eigenen Liste ohne PDF.
+const allesLesen = () => transaktion(ALLE, 'readonly', (t) => {
+  const r = Object.fromEntries(ALLE.map((n) => [n, t.objectStore(n).getAll()])) as Record<Speicher, IDBRequest<unknown[]>>;
   return () => {
-    const bytes = new Map(dateien.result.map((d) => [d.id, d]));
-    const mit = noten.result.map((n) => {
-      const d = bytes.get(n.id);
-      const datei = dateiQuelle(d, n) === 'dateien' ? new Blob([d!.daten], { type: d!.typ || 'application/pdf' }) : n.datei;
-      return { ...n, datei };
+    const stuecke = r.stuecke.result as Stueck[];
+    const bytes = new Map((r.dateien.result as Datei[]).map((d) => [d.id, d]));
+    const echte = stuecke.filter((s) => !s.quelle).map((s) => {
+      const d = bytes.get(s.id);
+      return { ...s, datei: d ? new Blob([d.daten], { type: d.typ || 'application/pdf' }) : undefined };
     });
-    return { noten: mit, stellen: stellen.result, anmerkungen: anmerkungen.result };
+    return {
+      echte,
+      stellen: (r.stellen.result as Stelle[]).map(zurSicherung),
+      anmerkungen: (r.anmerkungen.result as SeitenAnmerkungen[]).map(zurSicherung),
+      zusatz: {
+        virtuelle: stuecke.filter((s) => s.quelle),
+        lesezeichen: r.lesezeichen.result as Lesezeichen[],
+        merker: r.merker.result as Merker[],
+        setlisten: r.setlisten.result as Setliste[],
+      },
+    };
   };
 });
 
-// Nicht lesbare Noten (kaputter, verlorener oder nicht ganz lesbarer
+// Nicht lesbare Stücke (kaputter, verlorener oder nicht ganz lesbarer
 // PDF-Inhalt — jede Datei wird dafür einmal komplett gelesen) kommen samt
-// ihren Stellen und Anmerkungen nicht mit; `fehlen` nennt sie.
-export async function sicherungErstellen(): Promise<{ datei: Blob; noten: number; fehlen: LokaleNoten[] }> {
-  const { bestand, fehlen } = await nurLesbare(await allesLesen());
+// allem, was an ihnen hängt, nicht mit; `fehlen` nennt sie.
+export async function sicherungErstellen(): Promise<{ datei: Blob; noten: number; fehlen: Stueck[] }> {
+  const alles = await allesLesen();
+  const { bestand, fehlen } = await nurLesbare({ noten: alles.echte, stellen: alles.stellen, anmerkungen: alles.anmerkungen });
+  const { zusatz, fehlenVirtuelle } = ohneFehlende(alles.zusatz, new Set(fehlen.map((n) => n.id)));
   // Nach nurLesbare trägt jedes verbliebene Stück eine lesbare Datei.
-  const datei = await sicherungPacken(bestand as SicherungsInhalt<LokaleNoten & { datei: Blob }, LokaleStelle, SeitenAnmerkungen>, 'cheatsheet', Date.now());
-  return { datei, noten: bestand.noten.length, fehlen };
+  const noten = bestand.noten as (Stueck & { datei: Blob })[];
+  const datei = await sicherungPacken({ ...bestand, noten }, 'cheatsheet', Date.now(), zusatz as unknown as Zusatz);
+  return { datei, noten: noten.length + zusatz.virtuelle.length, fehlen: [...fehlen, ...fehlenVirtuelle] };
 }
 
 // Einspielen in zwei Schritten, damit die Oberfläche dazwischen nachfragen
@@ -346,21 +447,30 @@ export async function sicherungPruefen(datei: Blob): Promise<Einspielung> {
     throw e instanceof SicherungsFehler ? e : new SicherungsFehler('Die Sicherung ist beschädigt.');
   }
   const { kopf, noten } = gelesen;
-  const vorhanden = await transaktion<Vorhanden>(ALLE, 'readonly', (t) => {
-    const [n, s, a] = ALLE.map((name) => t.objectStore(name).getAllKeys());
+  const namen: Speicher[] = ['stuecke', 'stellen', 'anmerkungen', 'lesezeichen', 'merker', 'setlisten'];
+  const vorhanden = await transaktion<Vorhanden>(namen, 'readonly', (t) => {
+    const stuecke = t.objectStore('stuecke').getAll() as IDBRequest<Stueck[]>;
+    const [s, a, l, m, sl] = namen.slice(1).map((name) => t.objectStore(name).getAllKeys());
     const ids = (r: IDBRequest<IDBValidKey[]>) => new Set(r.result.map(String));
-    return () => ({ noten: ids(n), stellen: ids(s), anmerkungen: ids(a) });
+    return () => ({
+      noten: new Set(stuecke.result.map((x) => x.id)),
+      echte: new Set(stuecke.result.filter((x) => !x.quelle).map((x) => x.id)),
+      stellen: ids(s), anmerkungen: ids(a), lesezeichen: ids(l), merker: ids(m), setlisten: ids(sl),
+    });
   });
-  const plan = einspielenPlanen({ noten, stellen: kopf.stellen, anmerkungen: kopf.anmerkungen }, vorhanden);
+  const plan = einspielenPlanen({ ...kopf, noten }, vorhanden);
   return { ...plan, erstellt: kopf.erstellt };
 }
 
 // Schreibt eine geprüfte Sicherung: entweder kommt alles an oder nichts.
 // Zusammenführen ohne Verlust (Regeln in @/domain/einspielen): Bei gleicher id
 // gewinnen die Felder der Sicherung, aber Tempo-Verläufe und Striche werden
-// vereinigt und der Dateiverweis des Geräts bleibt. Was es nur auf dem Gerät
-// gibt, bleibt unberührt. Lesen und Schreiben in EINER readwrite-Transaktion:
-// Was nebenher geändert wird, kann nicht zwischen Lesen und Schreiben fallen.
+// vereinigt und der Dateiverweis des Geräts bleibt. Lesezeichen, Merker und
+// Setlisten kommen bei gleicher id ganz aus der Sicherung. Was es nur auf dem
+// Gerät gibt, bleibt unberührt. Lesen und Schreiben in EINER
+// readwrite-Transaktion: Was nebenher geändert wird, kann nicht zwischen
+// Lesen und Schreiben fallen. Stellen und Anmerkungen kommen im Zuschnitt der
+// Sicherung (notenId) und werden übersetzt.
 //
 // Die PDFs gehen nie als Blob in die Datenbank (Safari verliert sie mitunter):
 // Erst liegen sie einzeln als Bytes vorläufig in „dateien“ (Schlüssel
@@ -369,20 +479,23 @@ export async function sicherungPruefen(datei: Blob): Promise<Einspielung> {
 // Datei aus der Sicherung gewinnt. Reste eines abgebrochenen Laufs räumt der
 // nächste weg.
 const VORLAEUFIG = 'einspielen:';
-export async function sicherungSchreiben(e: Einspielung): Promise<{ neu: number; aktualisiert: number; stellen: number; anmerkungen: number; uebersprungen: number }> {
-  const vorlaeufig = () => IDBKeyRange.bound(VORLAEUFIG, `${VORLAEUFIG}\uffff`);
+export async function sicherungSchreiben(e: Einspielung): Promise<{
+  neu: number; aktualisiert: number; stellen: number; anmerkungen: number; uebersprungen: number;
+  lesezeichen: number; merker: number; setlisten: number;
+}> {
+  const vorlaeufig = () => IDBKeyRange.bound(VORLAEUFIG, `${VORLAEUFIG}￿`);
   await tx('dateien', 'readwrite', (s) => { s.delete(vorlaeufig()); });
   for (const n of e.noten) {
     const daten = await bytesLesen(n.datei);
-    await tx('dateien', 'readwrite', (s) => s.put({ id: VORLAEUFIG + n.id, daten, typ: n.datei.type || 'application/pdf' } satisfies LokaleDatei));
+    await tx('dateien', 'readwrite', (s) => s.put({ id: VORLAEUFIG + n.id, daten, typ: typVon(n.datei) } satisfies Datei));
   }
   const ids = [...new Set(e.noten.map((n) => n.id))];
-  await transaktion<void>(ALLE_MIT_DATEIEN, 'readwrite', (t, abbrechen) => {
+  await transaktion<void>(ALLE, 'readwrite', (t, abbrechen) => {
     const dateien = t.objectStore('dateien');
     // Nacheinander, damit nicht alle Dateien zugleich gelesen im Speicher liegen.
     const umziehen = (i: number) => {
       if (i >= ids.length) return;
-      const r = dateien.get(VORLAEUFIG + ids[i]) as IDBRequest<LokaleDatei | undefined>;
+      const r = dateien.get(VORLAEUFIG + ids[i]) as IDBRequest<Datei | undefined>;
       r.onsuccess = () => {
         try {
           if (!r.result) throw new Error('Eine Datei aus der Sicherung fehlt beim Einspielen — bitte noch einmal laden.');
@@ -411,10 +524,20 @@ export async function sicherungSchreiben(e: Einspielung): Promise<{ neu: number;
       }
     };
     // Datensätze ohne Blob — die Datei liegt jetzt in „dateien“.
-    einspielen('noten', e.noten, (g, n) => ohneDatei(notenZusammenfuehren(g, n)) as typeof n);
-    einspielen('stellen', e.stellen, stelleZusammenfuehren);
-    einspielen('anmerkungen', e.anmerkungen, seiteZusammenfuehren);
+    const ohneBlob = e.noten.map(({ datei: _datei, ...rest }) => { void _datei; return rest; });
+    einspielen('stuecke', ohneBlob, notenZusammenfuehren);
+    einspielen('stuecke', e.zusatz.virtuelle, notenZusammenfuehren);
+    einspielen('stellen', e.stellen.map(vonSicherung), stelleZusammenfuehren);
+    einspielen('anmerkungen', e.anmerkungen.map(vonSicherung), seiteZusammenfuehren);
+    const ersetzen = <E,>(_g: unknown, neu: E) => neu;
+    einspielen('lesezeichen', e.zusatz.lesezeichen, ersetzen);
+    einspielen('merker', e.zusatz.merker, ersetzen);
+    einspielen('setlisten', e.zusatz.setlisten, ersetzen);
   });
   dauerhaftAnfragen();
-  return { neu: e.neu, aktualisiert: e.ueberschrieben.noten, stellen: e.stellen.length, anmerkungen: e.anmerkungen.length, uebersprungen: e.uebersprungen };
+  return {
+    neu: e.neu, aktualisiert: e.ueberschrieben.noten, stellen: e.stellen.length, anmerkungen: e.anmerkungen.length,
+    uebersprungen: e.uebersprungen,
+    lesezeichen: e.zusatz.lesezeichen.length, merker: e.zusatz.merker.length, setlisten: e.zusatz.setlisten.length,
+  };
 }

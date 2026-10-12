@@ -57,9 +57,12 @@ geschützt und lassen sich so nicht prüfen.
 
 ## Datenhaltung
 
-Kein Login, kein Konto, kein Server: Noten-PDFs, markierte Stellen, Tempi und
-Anmerkungen liegen nur im Browser dieses Geräts (IndexedDB `ueben` — der
-Name bleibt aus der Übe-App, damit Sicherungen und Schema passen).
+Kein Login, kein Konto, kein Server: Noten-PDFs, markierte Stellen, Tempi,
+Anmerkungen, Lesezeichen, Merker und Setlisten liegen nur im Browser dieses
+Geräts (IndexedDB `cheatsheet`, Schema in `docs/datenmodell.md`). Die
+Datenbank der Vorgängerversion (`ueben`) bleibt unangetastet liegen; ihre
+Daten kommen über die Sicherung herüber, und solange die Bibliothek leer ist,
+weist sie darauf hin.
 Einstellungen wie Tempo und Reiter liegen im `localStorage`. Beides ist je
 Adresse getrennt — eine andere Adresse sieht diese Daten nicht.
 
@@ -150,11 +153,14 @@ Einstellungen (Tempo, Farbwelt …) reisen nicht mit.
 
 - **Sicherung erstellen** packt eine Datei `Uebe-Sicherung JJJJ-MM-TT.uebe`:
   alle Noten-PDFs, markierten Stellen mit Tempo-Verlauf und Anmerkungen
-  dieses Geräts. Jede PDF wird dafür einmal komplett gelesen (als Strom, ohne
+  dieses Geräts, dazu virtuelle Stücke, Lesezeichen, Merker und Setlisten
+  (optionale Listen im Kopf, Format bleibt Version 1). Jede PDF wird dafür einmal komplett gelesen (als Strom, ohne
   den Inhalt zu behalten) und die Bytes werden gegen die gespeicherte Größe
   gezählt. Noten, deren PDF sich nicht lesen lässt („%PDF-“ nicht in den
   ersten 1024 Bytes, Lesefehler oder zu wenige bzw. zu viele Bytes), bleiben
-  samt Stellen und Anmerkungen draußen und werden mit Titel gemeldet. Danach
+  samt Stellen und Anmerkungen draußen und werden mit Titel gemeldet — ebenso
+  virtuelle Stücke aus ihnen; ihre Lesezeichen und Merker fehlen, Setlisten
+  verlieren nur diese Einträge. Danach
   erscheinen ein echter Link „Herunterladen (x MB)“ und — wo der Browser
   Dateien teilen kann (iPhone/iPad) — „Teilen / In Dateien sichern“. Zweistufig, weil Safari Download und Teilen nur aus einer
   frischen Berührung zulässt; als Home-Bildschirm-App steht Teilen vorn.
@@ -168,7 +174,10 @@ Einstellungen (Tempo, Farbwelt …) reisen nicht mit.
   aber Tempo-Verläufe werden vereinigt (jeder Eintrag einmal, nach Zeit
   sortiert) und Striche/Texte einer Seite nach ihrer id (bei gleicher id gilt
   die Sicherung). Bei Noten kommt auch die Datei aus der Sicherung, der
-  Dateiverweis des Geräts bleibt. Die PDFs gehen dabei nie als Blob in die
+  Dateiverweis des Geräts bleibt. Lesezeichen, Merker und Setlisten kommen bei
+  gleicher id ganz aus der Sicherung (Setlisten samt Reihenfolge); virtuelle
+  Stücke ohne echte Quelle und Einträge auf fehlende Stücke werden
+  übersprungen und gezählt. Die PDFs gehen dabei nie als Blob in die
   Datenbank (Safari verliert sie mitunter): erst einzeln als Bytes vorläufig
   in `dateien`, dann zieht die eine Transaktion sie an ihren Platz. Gibt es schon etwas davon auf dem Gerät,
   fragt die App vorher („Die Sicherung vom … aktualisiert auf diesem Gerät N

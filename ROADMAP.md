@@ -6,7 +6,7 @@ Punkt ein; wer etwas fertigstellt, hakt ab und verschiebt den Punkt nach
 „Erledigt“ (unten). Größere Richtungsentscheidungen bitte als kurzen Absatz
 hier dokumentieren, nicht nur im Chat.
 
-Stand: 2026-10-11.
+Stand: 2026-10-12.
 
 ## Leitbild
 
@@ -26,7 +26,7 @@ nicht in der Breite, aber in der Sorgfalt.
 
 | # | Meilenstein | Inhalt | Backlog-Punkte |
 |---|---|---|---|
-| M1 | **Fundament aufräumen** | Datenmodell klären, Tests für die Speicherschicht (A-01 verworfen) | A-02, A-03 |
+| M1 | **Fundament aufräumen** | Datenmodell klären, Tests für die Speicherschicht (A-01 verworfen) — *erledigt 2026-10-12* | A-02, A-03 |
 | M2 | **Noten im Zentrum** | UI-Neuaufbau: Noten vollflächig, Werkzeuge als Overlays, drei Knöpfe unten | B-01…B-03 |
 | M3 | **Werkzeuge schärfen** | Stimmgerät- und Metronom-Verbesserungen, Stift-Ausbau | C-01…C-03, D-01, E-01…E-03 |
 | M4 | **Notenmanagement I** | Metadaten, Bookmarks, Flags, Kontextmenüs, Drag & Drop | F-01, F-03, F-04, F-08, F-09 |
@@ -52,52 +52,7 @@ Gerät zu bringen (nicht nur aus der Registerführer-App) und als Schutz.
 Umgesetzt in B-06 (siehe Erledigt). Der `.uebe`-Vertrag mit `registerfuehrer`
 bleibt damit bestehen.
 
-### A-02 · Datenbank & Relationsmodell aufräumen
-
-Ist-Zustand (alles in `src/components/ueben/lokal.ts`): IndexedDB `ueben`
-Version 3, Stores `noten` (keyPath `id`), `stellen` (`notenId`-Index),
-`anmerkungen` (ein Datensatz **pro Seite**, zusammengesetzter Schlüssel
-`${notenId}:${seite}`, `notenId`-Index), `dateien` (PDF-Bytes, Schlüssel =
-Noten-id; seit A-06). Einstellungen verstreut in localStorage (`ueben:*`,
-`metro:*`, `stimm:*`, dazu `ueben:zuletzt`).
-
-Aufgabe: Schema für das kommende Notenmanagement entwerfen (Version 4) —
-Metadaten an Noten (F-01), Setlisten (F-02), Bookmarks (F-03), Flags (F-04)
-brauchen Platz. Dabei:
-
-- Migration nur additiv bzw. verlustfrei (Grundregel aus CLAUDE.md: nie Daten
-  verwerfen, DB-Name `ueben` bleibt).
-- Relationen und Schlüsselkonventionen einmal sauber dokumentieren (gern als
-  Kommentarkopf in `lokal.ts` oder `docs/datenmodell.md`).
-- Entscheiden, ob Einstellungen in einem `einstellungen`-Store statt
-  localStorage liegen sollen (spätestens für Themes, B-04, sinnvoll).
-
-**Stand 2026-10-12 (in Arbeit, Branch `feature/speicher-tests`):** Entwurf
-in `docs/datenmodell.md`: neue Datenbank `cheatsheet` mit eigenem Schema
-statt Umbau von `ueben`; die Daten kommen über die Sicherung (.uebe) herüber,
-`ueben` bleibt unangetastet liegen. Ändert zwei Regeln in CLAUDE.md.
-**Entschieden (Leon):** Datenbank `cheatsheet`, „Stück“ als Grundbegriff;
-virtuelle Stücke teilen Stellen/Anmerkungen mit der Quelle und fallen mit
-ihr weg; gelöschte Stücke verschwinden aus Setlisten (Dialog nennt sie);
-Hinweis auf `ueben` in der leeren Bibliothek; die Sicherung trägt
-zusätzlich Lesezeichen, Merker, Setlisten und virtuelle Stücke (optionale
-Listen im Kopf, Version bleibt 1). Entwurf damit vollständig, nächster
-Schritt: bauen, zuerst als Tests.
-
-### A-03 · Tests für die Speicherschicht
-
-`lokal.ts` ist komplett ungetestet (Upgrade-Pfad, Kaskadenlöschung über drei
-Stores, Transaktions-Wiederholung). Vor dem Schema-Sprung aus A-02 mit
-`fake-indexeddb` absichern. Danach gilt: Schema-Änderungen nur mit
-Migrationstest.
-
-**Stand 2026-10-12:** Ist-Zustand abgesichert (`tests/lokal.test.ts`, Hilfen
-in `tests/hilfen/geraet.ts` mit den eingefrorenen Schemata v1–v3): Upgrade
-v1/v2 → v3, blockiertes Upgrade, Noten samt Umzug alter Blob-Stücke,
-verlorene Datei, Alles-oder-nichts, Kaskadenlöschung, Stellen, Anmerkungen,
-Rückkehr in die App, ein neuer Versuch bei verlorener Verbindung, Sicherung
-von Gerät zu Gerät. Gegen absichtlich eingebaute Fehler geprüft. Offen: Tests
-für die neue Datenbank und das Laden der Sicherung (kommen mit A-02).
+*(A-02 und A-03 erledigt am 2026-10-12 — siehe unten.)*
 
 ---
 
@@ -168,7 +123,9 @@ Jede Note bekommt Metadaten: Komponist, Genre, Tags, Tonart,
 Schwierigkeitsgrad, freie Kennung. Die Bibliothek wird darüber durchsuch-,
 sortier- und filterbar; Menüs sind dynamisch (zeigen nur, was es gibt).
 Mehrfachbearbeitung (mehrere Noten auswählen → Genre setzen). Beim
-PDF-Import Standard-Metadaten (Titel, Autor) übernehmen. Braucht A-02.
+PDF-Import Standard-Metadaten (Titel, Autor) übernehmen. Speicher steht
+(A-02): die Felder am `Stueck`, reisen mit der Sicherung. Suchen und Filtern
+rein in `src/domain/` (keine Indizes, siehe `docs/datenmodell.md`).
 
 ### F-02 · Setlisten
 
@@ -176,6 +133,8 @@ Eigene Reihenfolgen aus Noten/Bookmarks: anlegen, umsortieren, Stücke mehrfach
 erlaubt, Platzhalter („spiele ich auswendig“). Beim Durchspielen blättert man
 über Stückgrenzen hinweg. Sortieransichten: Original, alphabetisch, zuletzt
 gespielt, zufällig. Export als einfache Textliste (kein Sync, keine Freigabe).
+Speicher steht (A-02): `setlisten` mit `eintraege` in Reihenfolge; gelöschte
+Stücke verschwinden daraus, die Lösch-Rückfrage nennt die Setlisten.
 
 ### F-03 · Bookmarks
 
@@ -183,11 +142,17 @@ Seiten benennen und direkt anspringen. Ausbaustufe: Seitenbereich einer PDF
 als **virtuelles Stück** mit eigenen Metadaten (für Sammelbände) — erscheint
 in der Bibliothek wie eine eigene Note, kann in Setlisten. Wenn die PDF ein
 Inhaltsverzeichnis hat: Bookmarks automatisch daraus erzeugen.
+Speicher steht (A-02): `lesezeichen` und virtuelle Stücke (`quelle`), samt
+Kaskade und Sicherung. **Offen in der Oberfläche:** Der Betrachter zeigt ein
+virtuelles Stück noch als ganze PDF der Quelle — er muss die Seiten von–bis
+zeigen und Stellen/Anmerkungen über `ablage()` (`src/domain/bestand.ts`) bei
+der Quelle lesen und schreiben. Anlegen geht bisher nur über `lokal.ts`.
 
 ### F-04 · Flags
 
 Flüchtige Merker: Seite markieren, Liste aller Flags (je Stück und global),
 alle auf einmal löschen. Bewusst leichtgewichtiger als Bookmarks.
+Speicher steht (A-02): `merker`, einer je Seite.
 
 ### F-05 · Wiederholungs-Links
 
@@ -262,6 +227,27 @@ G-02 getrennt — Rhythmus zuerst, Töne später.
 
 *(Abgeschlossene Punkte hierher verschieben, mit Datum und Commit.)*
 
+- **A-03 · Tests für die Speicherschicht** (2026-10-12, Branch
+  `feature/speicher-tests`): `tests/lokal.test.ts` gegen einen echten
+  Gerätespeicher (`fake-indexeddb`), Hilfen in `tests/hilfen/geraet.ts` mit
+  den eingefrorenen Schemata v1–v3 von `ueben`. Erst den Ist-Zustand
+  (Schema 3) festgehalten, dann mit A-02 auf `cheatsheet` umgezogen. Alle
+  Tests gegen absichtlich eingebaute Fehler geprüft. Ein optionaler Test lädt
+  einen echten Export (`CHEATSHEET_EXPORT=data-export/….uebe npm test`; die
+  Datei nie ins Repo).
+- **A-02 · Datenbank & Relationsmodell neu** (2026-10-12, Branch
+  `feature/speicher-tests`): **Entscheidung Leon:** neue Datenbank
+  `cheatsheet` statt Umbau von `ueben`; Grundbegriff „Stück“ (`stuecke`,
+  `stueckId`); neu `lesezeichen`, `merker`, `setlisten` und virtuelle Stücke
+  (teilen Stellen/Anmerkungen mit der Quelle, fallen mit ihr weg); gelöschte
+  Stücke verschwinden aus Setlisten, die Rückfrage nennt sie; Einstellungen
+  bleiben im localStorage. Umstieg über die Sicherung — `ueben` bleibt
+  unangetastet liegen, die leere Bibliothek weist darauf hin. Die Sicherung
+  bleibt Version 1 und trägt vier optionale Listen. Alles in
+  `docs/datenmodell.md`; CLAUDE.md und README nachgezogen. **Vor dem Deploy:**
+  Marlon erstellt auf jedem Gerät mit Daten eine Sicherung (nach dem Update
+  gibt es die alte Fassung zum Sichern nicht mehr).
+
 - **B-01 · Kopfzeile weg, drei große Knöpfe unten** (2026-10-10, `9b36fcc`):
   Kopf- und Fußzeile ersatzlos entfernt; untere Leiste mit Noten · Metronom ·
   Stimmgerät (`UntereLeiste.tsx`; seit B-06 Stimmgerät · Noten · Metronom); Start landet direkt auf den Noten
@@ -288,8 +274,9 @@ G-02 getrennt — Rhythmus zuerst, Töne später.
   Bild (Inline-Script), Auflösung in `src/domain/thema.ts` (getestet),
   Token-Sätze je Welt in `globals.css` (No-JS-Fallback nur ohne Attribut),
   `themeColor` je Welt, Manifest hell. Auswahl liegt in localStorage
-  (`ueben:modus`, `ueben:thema-hell`, `ueben:thema-dunkel`) — Umzug in den
-  Einstellungs-Store bleibt Thema von A-02.
+  (`ueben:modus`, `ueben:thema-hell`, `ueben:thema-dunkel`) — A-02 hat
+  entschieden: Einstellungen bleiben im localStorage (das Thema muss vor dem
+  ersten Bild synchron lesbar sein).
 - **E-01 · Stiftdicke einstellbar** (2026-10-10): 4 Stift- und 3
   Marker-Dicken (`src/domain/stift.ts`, getestet), je Werkzeug gemerkt
   (`ueben:stift|marker|text`); Live-Vorschau und Speicherpfad nutzen

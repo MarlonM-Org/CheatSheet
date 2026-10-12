@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dateiQuelle, dateiVerloren, ohneDatei, speicherVoll, verbindungVerloren, zuletztAus } from '@/domain/speicher';
+import { dateiVerloren, speicherVoll, verbindungVerloren, zuletztAus } from '@/domain/speicher';
 
 const fehler = (name: string) => Object.assign(new Error('x'), { name });
 
@@ -39,20 +39,5 @@ describe('Zuletzt geöffnet', () => {
     expect(zuletztAus({ a: 50 }, { id: 'a', zuletzt: 100 })).toBe(100);
     expect(zuletztAus({}, { id: 'a' })).toBeUndefined();
     expect(zuletztAus({ b: 5 }, { id: 'a', zuletzt: 7 })).toBe(7);
-  });
-});
-
-describe('Wo die PDF-Datei eines Stücks liegt', () => {
-  const bytes = { id: 'a', daten: new ArrayBuffer(8), typ: 'application/pdf' };
-  it('erst im eigenen Speicher (Bytes), dann der alte Blob im Datensatz, sonst keine', () => {
-    expect(dateiQuelle(bytes, { datei: new Blob(['x']) })).toBe('dateien');
-    expect(dateiQuelle(undefined, { datei: new Blob(['x']) })).toBe('datensatz');
-    expect(dateiQuelle(undefined, {})).toBe('keine');
-    expect(dateiQuelle({ id: 'a' }, {})).toBe('keine'); // kaputter Eintrag ohne Bytes
-  });
-  it('Datensatz ohne Datei: alles andere bleibt', () => {
-    const n = { id: 'a', titel: 'T', stimme: '', erstellt: 1, datei: new Blob(['x']), zuletzt: 5 };
-    expect(ohneDatei(n)).toEqual({ id: 'a', titel: 'T', stimme: '', erstellt: 1, zuletzt: 5 });
-    expect('datei' in ohneDatei(n)).toBe(false);
   });
 });

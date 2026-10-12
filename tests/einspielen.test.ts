@@ -182,3 +182,95 @@ describe('Rückfrage beim Laden', () => {
     expect(rueckfrage(plan(0, 0, 0, 2), null)).toContain('aktualisiert auf diesem Gerät nichts. ');
   });
 });
+
+describe('Sicherung einspielen: optionale Listen', () => {
+  const virtuell = (id: string, quelle: string) => ({ id, titel: `V ${id}`, stimme: '', erstellt: 1, quelle: { stueckId: quelle, von: 2, bis: 3 } });
+  const lz = (id: string, stueckId: string) => ({ id, stueckId, seite: 2, titel: 'Marsch', erstellt: 1 });
+  const mk = (stueckId: string, seite: number) => ({ id: `${stueckId}:${seite}`, stueckId, seite, gesetzt: 1 });
+  const sl = (id: string, eintraege: object[]) => ({ id, titel: `Liste ${id}`, erstellt: 1, eintraege });
+  const leer = { stellen: [], anmerkungen: [] };
+
+  it('ohne die Listen wie bisher', () => {
+    const plan = einspielenPlanen({ noten: [note('a')], ...leer }, geraet());
+    expect(plan.zusatz).toEqual({ virtuelle: [], lesezeichen: [], merker: [], setlisten: [] });
+    expect(plan.ersetzt).toEqual({ lesezeichen: 0, merker: 0, setlisten: 0 });
+  });
+
+  it('nimmt virtuelle Stücke mit echter Quelle, aus der Sicherung oder vom Gerät', () => {
+    const plan = einspielenPlanen({
+      noten: [note('band')], ...leer,
+      virtuelle: [virtuell('v1', 'band'), virtuell('v2', 'geraet'), virtuell('v3', 'weg'), virtuell('v4', 'v-geraet')],
+    }, { ...geraet(['geraet', 'v-geraet', 'v1']), echte: new Set(['geraet']) });
+    // v3: Quelle gibt es nicht; v4: Quelle ist auf dem Gerät selbst virtuell.
+    expect(plan.zusatz.virtuelle.map((v) => v.id)).toEqual(['v1', 'v2']);
+    expect(plan.uebersprungen).toBe(2);
+    // virtuelle zählen als Noten: band und v2 neu, v1 gibt es schon.
+    expect(plan.neu).toBe(2);
+    expect(plan.ueberschrieben.noten).toBe(1);
+  });
+
+  it('ein Stück auf dem Gerät, das die Sicherung virtuell macht, taugt nicht mehr als Quelle', () => {
+    const plan = einspielenPlanen({ noten: [], ...leer, virtuelle: [virtuell('x', 'y'), virtuell('y', 'z')] },
+      { ...geraet(['x', 'y', 'z']), echte: new Set(['x', 'y', 'z']) });
+    expect(plan.zusatz.virtuelle.map((v) => v.id)).toEqual(['y']);
+  });
+
+  it('Lesezeichen, Merker und Stellen auch für virtuelle Stücke aus der Sicherung', () => {
+    const plan = einspielenPlanen({
+      noten: [note('band')], stellen: [stelle('s', 'v')], anmerkungen: [],
+      virtuelle: [virtuell('v', 'band')], lesezeichen: [lz('l1', 'v'), lz('l2', 'weg')], merker: [mk('band', 2), mk('weg', 1)],
+    }, geraet());
+    expect(plan.stellen.map((s) => s.id)).toEqual(['s']);
+    expect(plan.zusatz.lesezeichen.map((l) => l.id)).toEqual(['l1']);
+    expect(plan.zusatz.merker.map((m) => m.id)).toEqual(['band:2']);
+    expect(plan.uebersprungen).toBe(2);
+  });
+
+  it('Setlisten bleiben, verwaiste Einträge fallen heraus und werden gezählt', () => {
+    const plan = einspielenPlanen({
+      noten: [note('a')], ...leer, lesezeichen: [lz('l1', 'a')],
+      setlisten: [sl('s', [
+        { id: '1', art: 'stueck', stueckId: 'a' },
+        { id: '2', art: 'stueck', stueckId: 'weg' },
+        { id: '3', art: 'lesezeichen', lesezeichenId: 'l1' },
+        { id: '4', art: 'lesezeichen', lesezeichenId: 'l-geraet' },
+        { id: '5', art: 'lesezeichen', lesezeichenId: 'l-weg' },
+        { id: '6', art: 'platzhalter', titel: 'auswendig' },
+        { id: '7', art: 'stueck', stueckId: 'geraet' },
+      ]), sl('nur-weg', [{ id: '1', art: 'stueck', stueckId: 'weg' }])],
+    }, { ...geraet(['geraet']), lesezeichen: new Set(['l-geraet']) });
+    expect(plan.zusatz.setlisten.map((s) => [s.id, (s.eintraege as { id: string }[]).map((e) => e.id)])).toEqual([
+      ['s', ['1', '3', '4', '6', '7']],
+      ['nur-weg', []],
+    ]);
+    expect(plan.uebersprungen).toBe(3);
+  });
+
+  it('zählt, was auf dem Gerät ganz ersetzt wird, und fragt dann nach', () => {
+    const plan = einspielenPlanen({
+      noten: [note('a')], ...leer, lesezeichen: [lz('l1', 'a')], merker: [mk('a', 1)], setlisten: [sl('s', [])],
+    }, { ...geraet(), lesezeichen: new Set(['l1']), merker: new Set(['a:1']), setlisten: new Set(['s', 'andere']) });
+    expect(plan.ersetzt).toEqual({ lesezeichen: 1, merker: 1, setlisten: 1 });
+    expect(plan.ueberschrieben).toEqual({ noten: 0, stellen: 0, anmerkungen: 0 });
+    expect(ueberschreibt(plan)).toBe(true);
+    expect(rueckfrage(plan, null)).toContain('1 Lesezeichen, 1 Merker und 1 Setliste');
+    expect(rueckfrage(plan, null)).toContain('Setlisten kommen ganz aus der Sicherung');
+  });
+
+  it('weist kaputte Einträge ab', () => {
+    const n = { noten: [note('a')], ...leer };
+    const kaputt: [string, object][] = [
+      ['virtuelle', { ...virtuell('v', 'a'), quelle: { stueckId: 'a', von: 3, bis: 2 } }],
+      ['virtuelle', { ...virtuell('v', 'a'), quelle: undefined }],
+      ['virtuelle', { ...virtuell('v', 'a'), titel: 1 }],
+      ['lesezeichen', { ...lz('l', 'a'), seite: 0 }],
+      ['merker', { ...mk('a', 1), id: 'a:2' }],
+      ['setlisten', sl('s', [{ id: '1', art: 'unbekannt' }])],
+      ['setlisten', sl('s', [{ id: '1', art: 'stueck' }])],
+      ['setlisten', { ...sl('s', []), eintraege: 'x' }],
+    ];
+    for (const [liste, eintrag] of kaputt) {
+      expect(() => einspielenPlanen({ ...n, [liste]: [eintrag] }, geraet()), `${liste} ${JSON.stringify(eintrag)}`).toThrow(SicherungsFehler);
+    }
+  });
+});

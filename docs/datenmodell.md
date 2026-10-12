@@ -1,6 +1,6 @@
 # Datenmodell (Gerätespeicher)
 
-Stand 2026-10-12 · **Entwurf** für A-02. Entschieden (Leon, 2026-10-12):
+Stand 2026-10-12 · **Umgesetzt** (A-02). Entschieden (Leon, 2026-10-12):
 neue Datenbank `cheatsheet` mit dem Stück als Grundbegriff, virtuelle
 Stücke teilen Stellen und Anmerkungen mit der Quelle, Hinweis auf `ueben`
 in der leeren Bibliothek, die Sicherung trägt zusätzlich Lesezeichen,
@@ -171,6 +171,10 @@ Deshalb bekommt der Kopf vier **optionale** Listen. Die Version bleibt 1.
 Die PDFs hinter dem Kopf gehören weiter genau zu den Einträgen unter
 `noten`, in derselben Reihenfolge. `virtuelle` trägt nichts dazu bei.
 
+Die vier neuen Listen tragen die Einträge **so, wie sie im Gerätespeicher
+liegen** (`stueckId`). Übersetzt werden nur die drei alten Listen
+(`src/domain/uebersetzen.ts`), weil ihr Zuschnitt Vertrag ist.
+
 Verträglichkeit:
 
 - **Ältere Dateien** (aus `registerfuehrer`, Marlons Export) haben die
@@ -217,9 +221,12 @@ bestehenden):
 ### Hinweis in der leeren Bibliothek
 
 Ist die Bibliothek leer und liegt auf dem Gerät noch `ueben`, zeigt sie
-einen Satz neben „Sicherung laden“, etwa: „Deine Noten aus der
-Vorgängerversion: dort eine Sicherung erstellen und hier laden.“ Nur ein
-Hinweis, keine Übernahme. Sobald ein Stück da ist, verschwindet er.
+einen Absatz über „Sicherung laden“: Die Noten aus der Vorgängerversion
+liegen noch in einem älteren Speicher und kommen über die Sicherung herüber,
+die vor dem Update erstellt wurde; der alte Speicher bleibt unangetastet.
+Nur ein Hinweis, keine Übernahme. Sobald ein Stück da ist, verschwindet er.
+(Eine Vorgängerversion zum Sichern gibt es nach dem Update nicht mehr —
+deshalb Schritt 2 vor dem Update.)
 
 Erkennen nur über `indexedDB.databases()`, **nie** über
 `indexedDB.open('ueben')`: Das Öffnen würde eine leere `ueben` anlegen, wo

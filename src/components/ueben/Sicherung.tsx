@@ -37,8 +37,10 @@ export function useSicherungLaden(geaendert: () => void): SicherungLaden {
         return;
       }
       const n = await sicherungSchreiben(e);
+      const dazu = [anzahl(n.lesezeichen, 'Lesezeichen', 'Lesezeichen'), anzahl(n.merker, 'Merker', 'Merker'), anzahl(n.setlisten, 'Setliste', 'Setlisten')].filter(Boolean);
       setMeldung(`Sicherung geladen: ${n.neu} Noten neu, ${n.aktualisiert} aktualisiert; `
-        + `${anzahl(n.stellen, 'Stelle', 'Stellen', true)}, ${anzahl(n.anmerkungen, 'Seite', 'Seiten', true)} mit Anmerkungen.`
+        + `${anzahl(n.stellen, 'Stelle', 'Stellen', true)}, ${anzahl(n.anmerkungen, 'Seite', 'Seiten', true)} mit Anmerkungen`
+        + (dazu.length ? `, ${dazu.join(', ')}.` : '.')
         + (n.uebersprungen ? ` ${anzahl(n.uebersprungen, 'Eintrag', 'Einträge')} ohne zugehörige Noten übersprungen.` : ''));
       geaendert();
     } catch (x) {
@@ -144,7 +146,8 @@ export function Sicherung({ laden }: { laden: SicherungLaden }) {
     <section className="space-y-2" aria-label="Daten übertragen">
       <p className="text-sm font-semibold">Daten übertragen</p>
       <p className="gedaempft text-sm">
-        Eine Datei mit allen Noten dieses Geräts samt markierten Stellen, Tempi und Anmerkungen — zum Übertragen auf
+        Eine Datei mit allen Noten dieses Geräts samt markierten Stellen, Tempi, Anmerkungen, Lesezeichen, Merkern und
+        Setlisten — zum Übertragen auf
         ein anderes Gerät (dort hier „Sicherung laden“) oder als Schutz. Laden ergänzt: Was es schon gibt, wird nach
         Rückfrage zusammengeführt; was nur auf dem Gerät ist, bleibt. Einstellungen wie Tempo oder Farbwelt reisen
         nicht mit.

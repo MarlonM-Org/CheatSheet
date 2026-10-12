@@ -6,7 +6,7 @@ import { istNachladeFehler } from '@/domain/nachladen';
 import type { Anmerkung } from '@/domain/notenpult';
 import { mitRand } from '@/domain/ueben';
 import { NeueVersion } from '@/components/NeueVersion';
-import { anmerkungenVon, notenAendern, notenDatei, notenHolen, stelleAendern, zuletztMerken, stelleLoeschen, stellenVon, tempoGeschafft, type LokaleNoten, type LokaleStelle as Stelle } from './lokal';
+import { anmerkungenVon, stueckAendern, stueckDatei, stueckHolen, stelleAendern, zuletztMerken, stelleLoeschen, stellenVon, tempoGeschafft, type Stueck, type Stelle } from './lokal';
 import { useMetronom } from './MetronomKontext';
 import { NotenBetrachter } from './NotenBetrachter';
 import { NeueVersionFehler, pdfLaden, seiteMitEbene } from './pdf';
@@ -22,7 +22,7 @@ export function NotenPult({ notenId, tastenAktiv, verschwunden }: {
   notenId: string; tastenAktiv: boolean; verschwunden: () => void;
 }) {
   const { bpm, setBpm } = useMetronom();
-  const [noten, setNoten] = useState<LokaleNoten | null>(null);
+  const [noten, setNoten] = useState<Stueck | null>(null);
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
   const [fehler, setFehler] = useState('');
   const [neueVersion, setNeueVersion] = useState(false);
@@ -35,10 +35,10 @@ export function NotenPult({ notenId, tastenAktiv, verschwunden }: {
     let weg = false;
     let dokument: Promise<PDFDocumentProxy> | null = null;
     (async () => {
-      const n = await notenHolen(notenId);
+      const n = await stueckHolen(notenId);
       if (!n) { verschwunden(); return; }
       zuletztMerken(notenId);
-      dokument = notenDatei(n).then(pdfLaden);
+      dokument = stueckDatei(n).then(pdfLaden);
       const [d, st] = await Promise.all([dokument, stellenVon(notenId)]);
       if (weg) return;
       setNoten(n); setPdf(d); setStellen(st);
@@ -76,7 +76,7 @@ export function NotenPult({ notenId, tastenAktiv, verschwunden }: {
 // ── Stück-Blatt: Umbenennen und Stellen-Übersicht ───────────────────────
 
 function StueckBlatt({ noten, pdf, stellen, bpm, tempoSetzen, neuLaden, umbenannt, zeigen, schliessen }: {
-  noten: LokaleNoten; pdf: PDFDocumentProxy; stellen: Stelle[]; bpm: number; tempoSetzen: (n: number) => void;
+  noten: Stueck; pdf: PDFDocumentProxy; stellen: Stelle[]; bpm: number; tempoSetzen: (n: number) => void;
   neuLaden: () => void; umbenannt: (neu: { titel: string; stimme: string }) => void; zeigen: (id: string) => void; schliessen: () => void;
 }) {
   const [umbenennen, setUmbenennen] = useState(false);
@@ -98,7 +98,7 @@ function StueckBlatt({ noten, pdf, stellen, bpm, tempoSetzen, neuLaden, umbenann
             e.preventDefault();
             const f = new FormData(e.currentTarget);
             const neu = { titel: String(f.get('titel') || noten.titel), stimme: String(f.get('stimme') ?? '') };
-            try { await notenAendern(noten.id, neu); } catch (x) { speicherFehler(x); return; }
+            try { await stueckAendern(noten.id, neu); } catch (x) { speicherFehler(x); return; }
             umbenannt(neu); setUmbenennen(false);
           }}>
             <input className="feld" name="titel" defaultValue={noten.titel} aria-label="Titel" />

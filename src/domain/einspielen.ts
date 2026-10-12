@@ -7,15 +7,26 @@
 // nur auf dem Gerät gibt, bleibt. Bei gleicher id kommen Titel, Notizen und
 // Rahmen aus der Sicherung, aber Tempo-Verläufe und Striche werden vereinigt
 // (siehe stelleZusammenfuehren, seiteZusammenfuehren, notenZusammenfuehren).
-import { SicherungsFehler } from './sicherung';
+//
+// Die vier optionalen Listen (virtuelle Stücke, Lesezeichen, Merker,
+// Setlisten) liegen schon im Zuschnitt des Geräts (`stueckId`). Bei gleicher
+// id gewinnt die Sicherung ganz — eine Setliste samt Reihenfolge, Einträge
+// werden nicht gemischt. Was auf ein Stück zeigt, das es danach nicht gibt,
+// wird übersprungen und gezählt; eine Setliste bleibt, notfalls leer.
+import { SicherungsFehler, type Zusatz } from './sicherung';
 
 export interface Zugeordnet { id: string; notenId: string }
 
-// Die ids, die schon auf dem Gerät liegen, je Speicher.
+// Die ids, die schon auf dem Gerät liegen, je Speicher. `noten` sind alle
+// Stücke, `echte` die mit eigener PDF (fehlt es: alle).
 export interface Vorhanden {
   noten: ReadonlySet<string>;
   stellen: ReadonlySet<string>;
   anmerkungen: ReadonlySet<string>;
+  echte?: ReadonlySet<string>;
+  lesezeichen?: ReadonlySet<string>;
+  merker?: ReadonlySet<string>;
+  setlisten?: ReadonlySet<string>;
 }
 
 export interface Einspielplan<N> {
@@ -27,9 +38,15 @@ export interface Einspielplan<N> {
   // Was es auf dem Gerät schon gibt (gleiche id) und zusammengeführt wird —
   // Anlass der Rückfrage. ueberschrieben.noten sind die aktualisierten Noten.
   ueberschrieben: { noten: number; stellen: number; anmerkungen: number };
-  // Stellen und Anmerkungen ohne zugehörige Noten (weder in der Sicherung noch
-  // auf dem Gerät) — nicht übernommen, nur gezählt.
+  // Was auf Noten zeigt, die es weder in der Sicherung noch auf dem Gerät
+  // gibt (Stellen, Anmerkungen, virtuelle Stücke ohne Quelle, Lesezeichen,
+  // Merker, Setlisten-Einträge) — nicht übernommen, nur gezählt.
   uebersprungen: number;
+  // Die optionalen Listen, bereinigt. virtuelle zählen bei neu bzw.
+  // ueberschrieben.noten mit.
+  zusatz: Zusatz;
+  // Was davon auf dem Gerät schon liegt und ganz ersetzt wird.
+  ersetzt: { lesezeichen: number; merker: number; setlisten: number };
 }
 
 const istObjekt = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x);
@@ -58,37 +75,105 @@ function istSeite(e: unknown): boolean {
   return istZugeordnet(e) && istZahl(e.seite) && Array.isArray(e.objekte) && e.id === `${e.notenId}:${e.seite}`;
 }
 
+const ganzAb1 = (x: unknown) => Number.isInteger(x) && (x as number) >= 1;
+const text = (x: unknown) => typeof x === 'string';
+
+// Virtuelles Stück: wie Noten, dazu ein gültiger Seitenbereich.
+function istVirtuell(n: unknown): boolean {
+  if (!istNote(n)) return false;
+  const q = (n as Record<string, unknown>).quelle;
+  return istObjekt(q) && text(q.stueckId) && ganzAb1(q.von) && ganzAb1(q.bis) && (q.bis as number) >= (q.von as number);
+}
+
+const istLesezeichen = (e: unknown) => istObjekt(e) && text(e.id) && text(e.stueckId) && ganzAb1(e.seite)
+  && text(e.titel) && istZahl(e.erstellt);
+
+// Ein Merker je Seite, id „stueckId:seite“ wie bei den Anmerkungen.
+const istMerker = (e: unknown) => istObjekt(e) && text(e.id) && text(e.stueckId) && ganzAb1(e.seite)
+  && istZahl(e.gesetzt) && e.id === `${e.stueckId}:${e.seite}`;
+
+function istEintrag(e: unknown): boolean {
+  if (!istObjekt(e) || !text(e.id)) return false;
+  if (e.art === 'stueck') return text(e.stueckId);
+  if (e.art === 'lesezeichen') return text(e.lesezeichenId);
+  return e.art === 'platzhalter' && text(e.titel);
+}
+
+const istSetliste = (e: unknown) => istObjekt(e) && text(e.id) && text(e.titel) && istZahl(e.erstellt)
+  && Array.isArray(e.eintraege) && e.eintraege.every(istEintrag);
+
+type Roh = { id: string } & Record<string, unknown>;
+
 export function einspielenPlanen<N extends { id: string }>(
-  inhalt: { noten: N[]; stellen: unknown[]; anmerkungen: unknown[] },
+  inhalt: { noten: N[]; stellen: unknown[]; anmerkungen: unknown[] } & Partial<Record<keyof Zusatz, unknown[]>>,
   vorhanden: Vorhanden,
 ): Einspielplan<N> {
   if (!inhalt.noten.every(istNote)) throw new SicherungsFehler('Die Sicherung ist beschädigt (Noteneintrag ungültig).');
   if (!inhalt.stellen.every(istStelle)) throw new SicherungsFehler('Die Sicherung ist beschädigt (Stelle ungültig).');
   if (!inhalt.anmerkungen.every(istSeite)) throw new SicherungsFehler('Die Sicherung ist beschädigt (Anmerkung ungültig).');
+  const roh = {
+    virtuelle: inhalt.virtuelle ?? [], lesezeichen: inhalt.lesezeichen ?? [],
+    merker: inhalt.merker ?? [], setlisten: inhalt.setlisten ?? [],
+  };
+  if (!roh.virtuelle.every(istVirtuell)) throw new SicherungsFehler('Die Sicherung ist beschädigt (Stück ungültig).');
+  if (!roh.lesezeichen.every(istLesezeichen)) throw new SicherungsFehler('Die Sicherung ist beschädigt (Lesezeichen ungültig).');
+  if (!roh.merker.every(istMerker)) throw new SicherungsFehler('Die Sicherung ist beschädigt (Merker ungültig).');
+  if (!roh.setlisten.every(istSetliste)) throw new SicherungsFehler('Die Sicherung ist beschädigt (Setliste ungültig).');
 
   const inSicherung = new Set(inhalt.noten.map((n) => n.id));
-  const bekannt = (e: Zugeordnet) => inSicherung.has(e.notenId) || vorhanden.noten.has(e.notenId);
+  // Virtuelle Stücke brauchen eine echte Quelle — in der Sicherung oder auf
+  // dem Gerät (dort nicht von der Sicherung zum virtuellen gemacht).
+  const virtuelleIds = new Set((roh.virtuelle as Roh[]).map((v) => v.id));
+  const echteAufGeraet = vorhanden.echte ?? vorhanden.noten;
+  const echt = (id: string) => inSicherung.has(id) || (echteAufGeraet.has(id) && !virtuelleIds.has(id));
+  const virtuelle = (roh.virtuelle as Roh[]).filter((v) => !inSicherung.has(v.id) && echt((v.quelle as { stueckId: string }).stueckId));
+  const stueckIds = new Set([...inSicherung, ...virtuelle.map((v) => v.id)]);
+  const stueck = (id: string) => stueckIds.has(id) || vorhanden.noten.has(id);
+
+  const bekannt = (e: Zugeordnet) => stueck(e.notenId);
   const stellen = (inhalt.stellen as (Zugeordnet & Record<string, unknown>)[]).filter(bekannt);
   const anmerkungen = (inhalt.anmerkungen as (Zugeordnet & Record<string, unknown>)[]).filter(bekannt);
-  const zaehlen = (ids: Iterable<string>, da: ReadonlySet<string>) => [...ids].filter((id) => da.has(id)).length;
-  const noten = zaehlen(inSicherung, vorhanden.noten);
+  const lesezeichen = (roh.lesezeichen as Roh[]).filter((l) => stueck(l.stueckId as string));
+  const merker = (roh.merker as Roh[]).filter((m) => stueck(m.stueckId as string));
+  const lzIds = new Set([...lesezeichen.map((l) => l.id), ...(vorhanden.lesezeichen ?? [])]);
+  let eintraegeWeg = 0;
+  const setlisten = (roh.setlisten as Roh[]).map((sl) => {
+    const alle = sl.eintraege as Roh[];
+    const bleiben = alle.filter((e) => (e.art === 'stueck' ? stueck(e.stueckId as string)
+      : e.art === 'lesezeichen' ? lzIds.has(e.lesezeichenId as string) : true));
+    eintraegeWeg += alle.length - bleiben.length;
+    return bleiben.length === alle.length ? sl : { ...sl, eintraege: bleiben };
+  });
+
+  const zaehlen = (ids: Iterable<string>, da: ReadonlySet<string> = new Set()) => [...ids].filter((id) => da.has(id)).length;
+  const ids = (l: Roh[]) => new Set(l.map((e) => e.id));
+  const noten = zaehlen(stueckIds, vorhanden.noten);
   return {
     noten: inhalt.noten,
     stellen,
     anmerkungen,
-    neu: inSicherung.size - noten,
+    neu: stueckIds.size - noten,
     ueberschrieben: {
       noten,
-      stellen: zaehlen(new Set(stellen.map((s) => s.id)), vorhanden.stellen),
-      anmerkungen: zaehlen(new Set(anmerkungen.map((a) => a.id)), vorhanden.anmerkungen),
+      stellen: zaehlen(ids(stellen), vorhanden.stellen),
+      anmerkungen: zaehlen(ids(anmerkungen), vorhanden.anmerkungen),
     },
-    uebersprungen: inhalt.stellen.length - stellen.length + inhalt.anmerkungen.length - anmerkungen.length,
+    uebersprungen: inhalt.stellen.length - stellen.length + inhalt.anmerkungen.length - anmerkungen.length
+      + roh.virtuelle.length - virtuelle.length + roh.lesezeichen.length - lesezeichen.length
+      + roh.merker.length - merker.length + eintraegeWeg,
+    zusatz: { virtuelle, lesezeichen, merker, setlisten },
+    ersetzt: {
+      lesezeichen: zaehlen(ids(lesezeichen), vorhanden.lesezeichen),
+      merker: zaehlen(ids(merker), vorhanden.merker),
+      setlisten: zaehlen(ids(setlisten), vorhanden.setlisten),
+    },
   };
 }
 
 // Ob das Einspielen etwas auf dem Gerät überschreibt und deshalb nachfragt.
-export const ueberschreibt = (p: Pick<Einspielplan<unknown>, 'ueberschrieben'>) =>
-  p.ueberschrieben.noten + p.ueberschrieben.stellen + p.ueberschrieben.anmerkungen > 0;
+export const ueberschreibt = (p: Pick<Einspielplan<unknown>, 'ueberschrieben'> & Partial<Pick<Einspielplan<unknown>, 'ersetzt'>>) =>
+  p.ueberschrieben.noten + p.ueberschrieben.stellen + p.ueberschrieben.anmerkungen
+  + (p.ersetzt ? p.ersetzt.lesezeichen + p.ersetzt.merker + p.ersetzt.setlisten : 0) > 0;
 
 // ── Zusammenführen bei gleicher id ──
 // Die Felder der Sicherung gewinnen; was nur auf dem Gerät steht, bleibt.
@@ -154,18 +239,26 @@ export function notenZusammenfuehren<N extends Record<string, unknown>>(geraet: 
 }
 
 // Text der Rückfrage. `datum` ist der lesbare Zeitpunkt der Sicherung oder null.
-export function rueckfrage(p: Pick<Einspielplan<unknown>, 'ueberschrieben' | 'uebersprungen'>, datum: string | null): string {
+export function rueckfrage(
+  p: Pick<Einspielplan<unknown>, 'ueberschrieben' | 'uebersprungen'> & Partial<Pick<Einspielplan<unknown>, 'ersetzt'>>,
+  datum: string | null,
+): string {
   const u = p.ueberschrieben;
+  const e = p.ersetzt ?? { lesezeichen: 0, merker: 0, setlisten: 0 };
   const n = (z: number, eins: string, mehr: string) => `${z} ${z === 1 ? eins : mehr}`;
   const teile = [
     u.noten ? n(u.noten, 'Noten', 'Noten') : '',
     u.stellen ? n(u.stellen, 'Stelle', 'Stellen') : '',
     u.anmerkungen ? `${n(u.anmerkungen, 'Seite', 'Seiten')} mit Anmerkungen` : '',
+    e.lesezeichen ? n(e.lesezeichen, 'Lesezeichen', 'Lesezeichen') : '',
+    e.merker ? n(e.merker, 'Merker', 'Merker') : '',
+    e.setlisten ? n(e.setlisten, 'Setliste', 'Setlisten') : '',
   ].filter(Boolean);
   const was = teile.length ? teile.slice(0, -1).join(', ') + (teile.length > 1 ? ' und ' : '') + teile[teile.length - 1] : 'nichts';
   return `${datum ? `Die Sicherung vom ${datum}` : 'Die Sicherung (Datum unbekannt)'} aktualisiert auf diesem Gerät ${was}. `
     + 'Titel, Notizen, Rahmen, PDF-Dateien und Blättermodus kommen aus der Sicherung. '
     + 'Tempo-Verläufe und Striche werden zusammengeführt; Striche, die hier seit der Sicherung wegradiert wurden, erscheinen wieder.'
+    + (e.setlisten ? ' Setlisten kommen ganz aus der Sicherung, samt Reihenfolge.' : '')
     + (p.uebersprungen ? ` ${n(p.uebersprungen, 'Eintrag', 'Einträge')} ohne zugehörige Noten ${p.uebersprungen === 1 ? 'wird' : 'werden'} übersprungen.` : '')
     + ' Laden?';
 }
