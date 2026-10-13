@@ -863,3 +863,15 @@ details[open] > summary::before { transform: rotate(90deg); }
 .tonleiter li + li { border-top: 1px solid var(--linie); }
 .tonleiter-stufe { flex: none; width: 1.4rem; height: 1.4rem; border-radius: 50%; display: grid; place-items: center; font-size: 0.72rem; font-weight: 700; background: var(--flaeche2); color: var(--gedaempft); }
 .tonleiter-ton { flex: none; width: 3rem; font-variant-numeric: tabular-nums; }
+
+/* Blättern mit Scroll-Ring oder Pedal (B-08): Feld zum Ausprobieren */
+.wisch-test {
+  display: grid; place-items: center; min-height: 8.5rem; padding: 1rem; text-align: center;
+  border: 1.5px dashed var(--linie-stark); border-radius: 14px; background: var(--flaeche);
+  touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.wisch-test:focus-visible { outline: 2px solid var(--messing); outline-offset: 2px; }
+.wisch-test-gross { font-size: 1.6rem; font-weight: 800; line-height: 1.2; }
+.wisch-test-blink { animation: wisch-blink 450ms ease-out; }
+@keyframes wisch-blink { from { transform: scale(1.06); opacity: 0.5; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .wisch-test-blink { animation: none; } }

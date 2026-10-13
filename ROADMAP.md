@@ -419,6 +419,27 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
   obwohl sich das Stück öffnen ließ („Nicht lesbar, nicht in der
   Sicherung“). Ist eine PDF wirklich verloren, nennt die Meldung den Weg
   zur Rettung. Ersetzt A-01.
+- **B-08 · Blättern mit Scroll-Ring** (2026-10-13): Wunsch Marlon: mit einem
+  Bluetooth-Scroll-Ring („TikTok-Ring“, z. B. ZL-03) die Noten blättern, ohne
+  die Hände vom Instrument zu nehmen. Am iPhone läuft so ein Ring über
+  AssistiveTouch und wischt wie ein Finger — je nach Modus hoch/runter
+  (Video) oder links/rechts (Lesen). Regeln in `src/domain/geste.ts`
+  (getestet).
+  - **Auf den Noten:** Wischen nach oben oder links blättert weiter, nach
+    unten oder rechts zurück (ab 40 px; vorher nur waagrecht ab 60 px). Ein
+    Wisch, der als Maus-Zeiger über den Rand der Noten hinausläuft, zählt
+    trotzdem. Mausrad und Trackpad: eine Bewegung blättert genau eine Seite
+    (Nachlauf zählt nicht). Pedale wie bisher (Pfeil-, Bild-Tasten,
+    Leertaste). Im Stellen-Modus und im Mix geht es Stelle für Stelle.
+    Tippen bleibt: Rand blättert, Mitte blendet die Leiste aus und ein.
+  - **Einstellungen → „Blättern mit Scroll-Ring oder Pedal“:** Schalter
+    „Hoch und runter tauschen“ (localStorage `ueben:wisch-umkehren`),
+    Anleitung fürs iPhone (AssistiveTouch, Zeiger-Punkt mitten auf die
+    Noten) und ein Feld zum Ausprobieren, das zeigt, was ankommt (Richtung,
+    Weg in px, als Berührung oder Zeiger, Taste, Mausrad) und bei zu kurzen
+    Wischen rät, die Zeiger-Geschwindigkeit am iPhone höher zu stellen.
+  - Ring-Modi, die nur Lautstärke- oder Kamera-Tasten senden, kommen bei
+    einer Web-App nicht an.
 - **C-04 · Tonprofil** (2026-10-12): Wunsch Marlon: die Töne des eigenen
   Instruments kennenlernen — welche zu hoch, welche zu tief liegen. Name
   entschieden: **Tonprofil** (aus den Vorschlägen; funktioniert als Knopf).

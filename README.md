@@ -22,6 +22,9 @@ Früher unter Admin → „Üben (Prototyp)“ in der Registerführer-App.
   eigene Linie), mit Stift, Marker und Text anmerken, Stellen markieren und
   Stelle für Stelle mit Tempo-Verlauf üben — das Metronom springt dabei auf
   das zuletzt geschaffte Tempo der Stelle.
+- **Blättern ohne Hände:** Wischen (auch mit einem Bluetooth-Scroll-Ring am
+  iPhone), Blätterpedal oder Mausrad; in den Einstellungen ein Feld zum
+  Ausprobieren.
 - **Sammlungen:** Stücke einsortieren („Orchester A“, „Märsche“ …), ein Stück
   auch in mehreren; einen ganzen Ordner übernehmen (Unterordner werden
   Sammlungen, nichts wird doppelt angelegt).

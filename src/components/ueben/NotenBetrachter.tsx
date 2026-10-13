@@ -2,6 +2,7 @@
 
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { RAD_ANFANG, radGeste, radWeg, tastenAktion, WISCH_UMKEHREN, zeigerGeste, type Blaetter } from '@/domain/geste';
 import { ansichten, ansichtVonSeite, hauptseite, radierZug, type Anmerkung, type Ansicht, type Blaettermodus } from '@/domain/notenpult';
 import { tempoStand, zielAusText, zielStand } from '@/domain/stellen';
 import { einstellungPruefen, TEXT_GROESSE, type StiftEinstellung, type ZeichenWerkzeug } from '@/domain/stift';
@@ -233,6 +234,19 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     else setIndex((i) => Math.max(0, i - 1));
   }, [mix, modus]);
 
+  const blaetternNach = useCallback((a: Blaetter) => { if (a === 'weiter') weiter(); else zurueck(); }, [weiter, zurueck]);
+  // Wischrichtung (Einstellungen): beim Wischen frisch gelesen, ändert sich selten.
+  const umkehren = () => gespeicherterWert(WISCH_UMKEHREN, false);
+  // Mausrad / Trackpad: eine Bewegung blättert einmal.
+  const rad = useRef(RAD_ANFANG);
+  function radDrehen(e: React.WheelEvent) {
+    if (e.ctrlKey || neueStelle || textEingabe) return; // Strg+Rad = Zoomen
+    const f = (d: number) => radWeg(d, e.deltaMode, window.innerHeight);
+    const r = radGeste(rad.current, f(e.deltaX), f(e.deltaY), e.timeStamp, umkehren());
+    rad.current = r.z;
+    if (r.aktion) blaetternNach(r.aktion);
+  }
+
   // Stellen-Blatt (Ziel, Verlauf) der aktuellen Stelle
   const [stelleBlatt, setStelleBlatt] = useState(false);
 
@@ -243,13 +257,13 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       // Leertaste auf einem Bedienelement aktiviert es, statt zu blättern.
       if (e.key === ' ' && (e.target as HTMLElement).closest('button, a, select, summary, [role="dialog"]')) return;
       // Bluetooth-Blätterpedale senden meist Pfeil- oder Bild-Tasten.
-      if (['ArrowRight', 'ArrowDown', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); weiter(); }
-      if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) { e.preventDefault(); zurueck(); }
+      const a = tastenAktion(e.key);
+      if (a) { e.preventDefault(); blaetternNach(a); }
       if (e.key === 'Escape' && werkzeug) setWerkzeug(null);
     };
     window.addEventListener('keydown', taste);
     return () => window.removeEventListener('keydown', taste);
-  }, [weiter, zurueck, werkzeug, tastenAktiv, stelleBlatt]);
+  }, [blaetternNach, werkzeug, tastenAktiv, stelleBlatt]);
 
   // ── Zeiger: zeichnen oder blättern ──
   const blatt = useRef<HTMLDivElement>(null);
@@ -341,6 +355,9 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       zug.current = { art: 'zeichnen', punkte: [p.x, p.y], x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId };
       if (werkzeug === 'radierer') radieren(p.x, p.y);
     } else {
+      // Festhalten: Auch ein Wisch als Maus-Zeiger (Scroll-Ring über
+      // AssistiveTouch), der über den Rand hinausläuft, endet hier.
+      e.currentTarget.setPointerCapture(e.pointerId);
       zug.current = { art: 'tippen', punkte: [], x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId };
     }
   }
@@ -361,9 +378,10 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     zug.current = null;
     if (!z) return;
     if (z.art === 'tippen') {
-      const dx = e.clientX - z.x, dy = e.clientY - z.y;
-      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) { if (dx < 0) weiter(); else zurueck(); return; }
-      if (Math.hypot(dx, dy) > 12 || e.timeStamp - z.t > 600) return;
+      // Wischen (Finger oder Scroll-Ring): nach oben/links weiter, nach unten/rechts zurück.
+      const g = zeigerGeste(e.clientX - z.x, e.clientY - z.y, e.timeStamp - z.t, umkehren());
+      if (g.art === 'wisch') { blaetternNach(g.aktion); return; }
+      if (g.art !== 'tippen') return;
       const b = window.innerWidth, x = e.clientX;
       if (x < b * 0.3) zurueck(); else if (x > b * 0.7) weiter(); else setLeiste((l) => !l);
       return;
@@ -587,7 +605,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       {/* Zeiger auf der ganzen Fläche: auch Tippen neben das Blatt blättert. */}
       <div ref={flaeche} className="betrachter-flaeche"
         onPointerDown={runter} onPointerMove={(e) => { bewegen(e); linieBewegen(e); }} onPointerUp={(e) => { hoch(e); linieLoslassen(); }}
-        onPointerCancel={() => { zug.current = null; setRechteckEntwurf(null); }}
+        onPointerCancel={() => { zug.current = null; setRechteckEntwurf(null); }} onWheel={radDrehen}
         onMouseDown={(e) => { if (werkzeug) e.preventDefault(); }}>
         {rahmen && (
           <div className="betrachter-rahmen" style={{ width: rahmen.b, height: rahmen.h }}>
