@@ -540,9 +540,11 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   const linieHinweis = linieEinstellen && modus === 'lesen'
     ? (linienSeite ? `Goldene Linie auf Seite ${linienSeite} ziehen: bis hierhin lesen, dann zeigt Weiterblättern oben schon die nächste Seite.` : 'Auf der letzten Seite gibt es keine Blätterlinie — eine Seite zurückblättern.')
     : null;
+  // Werkzeug-Hinweise bleiben stehen, solange sie gelten (B-11): beim Benennen
+  // der Stelle bzw. Schreiben des Texts sind sie erledigt.
   const werkzeugHinweis = !werkzeug || zeichenSeite === null ? null
-    : werkzeug === 'stelle' ? 'Rahmen um die Takte ziehen.'
-    : werkzeug === 'text' ? 'Auf die Stelle tippen, an der der Text stehen soll.'
+    : werkzeug === 'stelle' ? (neueStelle ? null : 'Rahmen um die Takte ziehen.')
+    : werkzeug === 'text' ? (textEingabe ? null : 'Auf die Stelle tippen, an der der Text stehen soll.')
     : null;
   // Höhe der oberen Leiste: Hinweise schweben darunter, solange sie zu sehen ist.
   const oben = useRef<HTMLDivElement>(null);
@@ -683,7 +685,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
             ) : (
               <>
                 {(linieHinweis || werkzeugHinweis) && (
-                  <span key={linieHinweis ?? werkzeugHinweis} className="b-hinweis b-verblassen">{linieHinweis ?? werkzeugHinweis}</span>
+                  <span key={linieHinweis ?? werkzeugHinweis} className={`b-hinweis ${linieHinweis ? 'b-verblassen' : ''}`}>{linieHinweis ?? werkzeugHinweis}</span>
                 )}
                 {linieEinstellen && (
                   <button type="button" className="b-knopf b-greifbar" onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()}
