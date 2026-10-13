@@ -6,6 +6,10 @@ import {
   dateiStand, einspielenPlanen, grabsteineLesen, grabsteineVereinigen, notenZusammenfuehren, seiteZusammenfuehren, stand,
   stelleZusammenfuehren, type Einspielplan, type Grabstein, type Staende, type Vorhanden,
 } from '@/domain/einspielen';
+import {
+  EINSTELLUNGEN_GELADEN, EINSTELLUNGEN_STAND, einstellungenFuerSicherung, einstellungenLesen, einstellungenSammeln, standHier, uebernehmen,
+  type EinstellungsStand,
+} from '@/domain/einstellungen';
 import { nurLesbare } from '@/domain/lesbar';
 import { sicherungLesen, sicherungPacken, SicherungsFehler, type SicherungsInhalt } from '@/domain/sicherung';
 import { dateiQuelle, dateiVerloren, ohneDatei, verbindungVerloren } from '@/domain/speicher';
@@ -501,6 +505,25 @@ export const allesLesen = () => transaktion<Bestand>(ALLE_MIT_DATEIEN, 'readonly
   };
 });
 
+// Persönliche Einstellungen (Stimmung, Metronom, Stiftfarben …) im
+// localStorage; sie reisen im Kopf der Sicherung mit, der neuere Stand
+// gewinnt als Ganzes (Regeln in @/domain/einstellungen).
+const merkzettel = (k: string) => { try { return localStorage.getItem(k); } catch { return null; } };
+
+// Setzt die Einstellungen einer Sicherung, wenn sie neuer sind als die hier;
+// was der Datei fehlt, bleibt. Danach lesen Metronom, Stimmgerät & Co. neu.
+function einstellungenUebernehmen(dort: EinstellungsStand | null): boolean {
+  if (!uebernehmen(standHier(merkzettel(EINSTELLUNGEN_STAND), einstellungenSammeln(merkzettel)), dort)) return false;
+  let gesetzt = true;
+  try {
+    for (const [k, v] of Object.entries(dort.werte)) localStorage.setItem(k, JSON.stringify(v));
+    localStorage.setItem(EINSTELLUNGEN_STAND, String(dort.stand));
+  } catch { gesetzt = false; }
+  // Auch wenn nur ein Teil ankam: Was jetzt gespeichert ist, gilt überall.
+  window.dispatchEvent(new Event(EINSTELLUNGEN_GELADEN));
+  return gesetzt;
+}
+
 // Nicht lesbare Noten (kaputter, verlorener oder nicht ganz lesbarer
 // PDF-Inhalt — jede Datei wird dafür einmal komplett gelesen) kommen samt
 // ihren Stellen und Anmerkungen nicht mit; `fehlen` nennt sie.
@@ -511,7 +534,7 @@ export async function sicherungErstellen(): Promise<{ datei: Blob; noten: number
   const { bestand, fehlen } = await nurLesbare(await allesLesen());
   // Nach nurLesbare trägt jedes verbliebene Stück eine lesbare Datei.
   const datei = await sicherungPacken(bestand as SicherungsInhalt<LokaleNoten & { datei: Blob }, LokaleStelle, SeitenAnmerkungen>, 'cheatsheet', Date.now(),
-    { geloescht: grabsteineHier(), tags: tagsLaden(), tonprofile: tonprofileLaden() });
+    { geloescht: grabsteineHier(), tags: tagsLaden(), tonprofile: tonprofileLaden(), einstellungen: einstellungenFuerSicherung(merkzettel) });
   return { datei, noten: bestand.noten.length, fehlen };
 }
 
@@ -523,6 +546,7 @@ export interface Einspielung extends Einspielplan<Record<string, unknown> & { id
   grabsteine: Grabstein[];
   tags: Tag[];
   tonprofile: Tonprofil[];
+  einstellungen: EinstellungsStand | null;
 }
 
 // Falsche Datei gewählt: Der Vertrag sagt nur, dass es keine Sicherung ist —
@@ -557,7 +581,8 @@ export async function sicherungPruefen(datei: Blob): Promise<Einspielung> {
   const grabsteine = grabsteineLesen(kopf.geloescht);
   const plan = einspielenPlanen({ noten, stellen: kopf.stellen, anmerkungen: kopf.anmerkungen }, vorhanden,
     { grabsteine, geraetGrabsteine: grabsteineHier(), staende });
-  return { ...plan, erstellt: kopf.erstellt, grabsteine, tags: tagsLesen(kopf.tags), tonprofile: profileLesen(kopf.tonprofile) };
+  return { ...plan, erstellt: kopf.erstellt, grabsteine, tags: tagsLesen(kopf.tags), tonprofile: profileLesen(kopf.tonprofile),
+    einstellungen: einstellungenLesen(kopf.einstellungen) };
 }
 
 // Schreibt eine geprüfte Sicherung: entweder kommt alles an oder nichts.
@@ -574,7 +599,9 @@ export async function sicherungPruefen(datei: Blob): Promise<Einspielung> {
 // Datei aus der Sicherung gewinnt. Reste eines abgebrochenen Laufs räumt der
 // nächste weg.
 const VORLAEUFIG = 'einspielen:';
-export async function sicherungSchreiben(e: Einspielung): Promise<{ neu: number; aktualisiert: number; stellen: number; anmerkungen: number; uebersprungen: number; geloescht: number }> {
+export async function sicherungSchreiben(e: Einspielung): Promise<{
+  neu: number; aktualisiert: number; stellen: number; anmerkungen: number; uebersprungen: number; geloescht: number; einstellungen: boolean;
+}> {
   const vorlaeufig = () => IDBKeyRange.bound(VORLAEUFIG, `${VORLAEUFIG}\uffff`);
   await tx('dateien', 'readwrite', (s) => { s.delete(vorlaeufig()); });
   // Nur die PDFs, die aus der Sicherung kommen (dort nicht älter als hier).
@@ -636,9 +663,10 @@ export async function sicherungSchreiben(e: Einspielung): Promise<{ neu: number;
   // Tags: je Tag der neuere Stand, gelöschte bleiben weg.
   tagsSpeichern(tagsVereinigen(tagsLaden(), e.tags, grabsteineHier()));
   tonprofileSpeichern(profileVereinigen(tonprofileLaden(), e.tonprofile, grabsteineHier()));
+  const einstellungen = einstellungenUebernehmen(e.einstellungen);
   dauerhaftAnfragen();
   return {
     neu: e.neu, aktualisiert: e.ueberschrieben.noten, stellen: e.stellen.length, anmerkungen: e.anmerkungen.length,
-    uebersprungen: e.uebersprungen, geloescht: e.loeschen.noten.length + e.loeschen.stellen.length,
+    uebersprungen: e.uebersprungen, geloescht: e.loeschen.noten.length + e.loeschen.stellen.length, einstellungen,
   };
 }

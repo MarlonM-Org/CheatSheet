@@ -26,6 +26,16 @@ export interface Sicherungskopf {
   geloescht?: unknown[];
   tags?: unknown[];
   tonprofile?: unknown[];
+  // Ergänzung 2026-10-13, ebenso optional: persönliche Einstellungen
+  // { stand, werte } — Stimmung, Metronom, Stiftfarben … (@/domain/einstellungen).
+  einstellungen?: unknown;
+}
+
+export interface Sicherungszusatz {
+  geloescht?: unknown[];
+  tags?: unknown[];
+  tonprofile?: unknown[];
+  einstellungen?: { stand: number; werte: Record<string, unknown> };
 }
 
 export interface SicherungsInhalt<N, S, A> { noten: N[]; stellen: S[]; anmerkungen: A[] }
@@ -36,7 +46,7 @@ export async function sicherungPacken<
   N extends { id: string; datei: Blob },
   S extends { id: string; notenId: string },
   A extends { id: string; notenId: string },
->(inhalt: SicherungsInhalt<N, S, A>, quelle: string, erstellt: number, zusatz: { geloescht?: unknown[]; tags?: unknown[]; tonprofile?: unknown[] } = {}): Promise<Blob> {
+>(inhalt: SicherungsInhalt<N, S, A>, quelle: string, erstellt: number, zusatz: Sicherungszusatz = {}): Promise<Blob> {
   const kopf: Sicherungskopf = {
     version: VERSION,
     erstellt,
@@ -51,6 +61,7 @@ export async function sicherungPacken<
     ...(zusatz.geloescht?.length ? { geloescht: zusatz.geloescht } : {}),
     ...(zusatz.tags?.length ? { tags: zusatz.tags } : {}),
     ...(zusatz.tonprofile?.length ? { tonprofile: zusatz.tonprofile } : {}),
+    ...(zusatz.einstellungen && Object.keys(zusatz.einstellungen.werte).length ? { einstellungen: zusatz.einstellungen } : {}),
   };
   const json = new TextEncoder().encode(JSON.stringify(kopf));
   const vorspann = new Uint8Array(9);

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { einstellungenLesen } from '@/domain/einstellungen';
 import { sicherungLesen, sicherungPacken, sicherungsName, SicherungsFehler } from '@/domain/sicherung';
 
 const pdf = (inhalt: string) => new Blob([`%PDF-1.4 ${inhalt}`], { type: 'application/pdf' });
@@ -55,6 +56,45 @@ describe('Übe-Sicherung', () => {
     expect(mit.kopf.tags).toEqual([{ id: 't', name: 'Solo', farbe: 'blau', geaendert: 1 }]);
     const ohne = await sicherungLesen(await sicherungPacken(leer, 'test', 1));
     expect('geloescht' in ohne.kopf || 'tags' in ohne.kopf).toBe(false);
+  });
+
+  it('trägt persönliche Einstellungen im Kopf mit', async () => {
+    const leer = { noten: [], stellen: [], anmerkungen: [] };
+    const einstellungen = { stand: 1760000000000, werte: { 'stimm:st': 'Es', 'stimm:a': 443, 'metro:klang': 'glocke', 'ueben:stift': { farbe: '#d12d2d', breite: 0.004 } } };
+    const mit = await sicherungLesen(await sicherungPacken(leer, 'cheatsheet', 1, { einstellungen }));
+    expect(mit.kopf.einstellungen).toEqual(einstellungen);
+    expect(einstellungenLesen(mit.kopf.einstellungen)).toEqual(einstellungen);
+    // ohne Einstellungen, oder ohne einen Wert: kein Feld
+    const ohne = await sicherungLesen(await sicherungPacken(leer, 'cheatsheet', 1));
+    expect('einstellungen' in ohne.kopf).toBe(false);
+    expect(einstellungenLesen(ohne.kopf.einstellungen)).toBeNull();
+    const leereWerte = await sicherungLesen(await sicherungPacken(leer, 'cheatsheet', 1, { einstellungen: { stand: 5, werte: {} } }));
+    expect('einstellungen' in leereWerte.kopf).toBe(false);
+  });
+
+  it('lädt eine alte Datei ohne die neuen Felder (z. B. aus dem Registerführer)', async () => {
+    const datei = new TextEncoder().encode('%PDF-1.4 alt');
+    const kopf = new TextEncoder().encode(JSON.stringify({
+      version: 1, erstellt: 99, quelle: 'registerfuehrer',
+      noten: [{ id: 'n', titel: 'Alt', stimme: '', erstellt: 1, groesse: datei.byteLength, typ: 'application/pdf' }],
+      stellen: [{ id: 's', notenId: 'n', seite: 1 }], anmerkungen: [],
+    }));
+    const vorspann = new Uint8Array(9);
+    vorspann.set([0x55, 0x45, 0x42, 0x45], 0);
+    vorspann[4] = 1;
+    new DataView(vorspann.buffer).setUint32(5, kopf.byteLength, false);
+    const { kopf: k, noten } = await sicherungLesen(new Blob([vorspann, kopf, datei]));
+    expect(noten.map((n) => n.titel)).toEqual(['Alt']);
+    expect(await noten[0].datei.text()).toBe('%PDF-1.4 alt');
+    expect(k.stellen).toHaveLength(1);
+    expect(einstellungenLesen(k.einstellungen)).toBeNull();
+  });
+
+  it('kaputtes Einstellungs-Feld: Datei lädt, Einstellungen bleiben weg', async () => {
+    const leer = { noten: [], stellen: [], anmerkungen: [] };
+    const datei = await sicherungPacken(leer, 'fremd', 1, { einstellungen: { stand: 5, werte: { 'stimm:a': 'sehr hoch', 'ueben:modus': 'dunkel' } } });
+    const { kopf } = await sicherungLesen(datei);
+    expect(einstellungenLesen(kopf.einstellungen)).toBeNull();
   });
 
   it('benennt die Datei mit Datum und Uhrzeit', () => {

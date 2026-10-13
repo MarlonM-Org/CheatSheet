@@ -42,7 +42,8 @@ export function useSicherungLaden(geaendert: () => void): SicherungLaden {
         + `${anzahl(n.stellen, 'Stelle', 'Stellen', true)}, ${anzahl(n.anmerkungen, 'Seite', 'Seiten', true)} mit Anmerkungen.`
         + (n.geloescht ? ` ${anzahl(n.geloescht, 'Eintrag', 'Einträge')} gelöscht, weil auf dem anderen Gerät gelöscht.` : '')
         + (e.verworfen ? ` ${anzahl(e.verworfen, 'Eintrag', 'Einträge')} nicht wieder angelegt, weil hier gelöscht.` : '')
-        + (n.uebersprungen ? ` ${anzahl(n.uebersprungen, 'Eintrag', 'Einträge')} ohne zugehörige Noten übersprungen.` : ''));
+        + (n.uebersprungen ? ` ${anzahl(n.uebersprungen, 'Eintrag', 'Einträge')} ohne zugehörige Noten übersprungen.` : '')
+        + (n.einstellungen ? ' Einstellungen übernommen.' : ''));
       geaendert();
     } catch (x) {
       setFehler(x instanceof SicherungsFehler ? x.message : `Die Sicherung ließ sich nicht speichern: ${fehlerGrund(x)}`);
@@ -73,7 +74,7 @@ function alsApp(): boolean {
 }
 
 // Daten übertragen (in den Einstellungen): alle Noten, Stellen und Anmerkungen
-// als eine .uebe-Datei speichern und wieder laden — um auf ein anderes Gerät
+// samt persönlichen Einstellungen als eine .uebe-Datei speichern und wieder laden — um auf ein anderes Gerät
 // umzuziehen (auch aus der Registerführer-App) und als Schutz, falls der
 // Browser die Gerätedaten löscht. Meldungen zum Laden zeigt, wer `laden` hält.
 //
@@ -155,7 +156,7 @@ export function Sicherung({ laden }: { laden: SicherungLaden }) {
         <li>Alle Noten mit Stellen, Tempi und Anmerkungen in einer Datei</li>
         <li>Anderes Gerät: dort „Sicherung laden“</li>
         <li>Beim Laden gilt der neuere Stand, Gelöschtes wird auch dort gelöscht</li>
-        <li>Einstellungen reisen nicht mit</li>
+        <li>Stimmung, Metronom und Stiftfarben reisen mit, Hell/Dunkel bleibt je Gerät</li>
       </ul>
       <p className="text-sm" role="status">
         {letzte ? <>Letzte Sicherung: <strong>{kurzZeit(letzte)}</strong></> : <span className="gedaempft">Noch keine Sicherung gespeichert.</span>}
