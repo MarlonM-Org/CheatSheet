@@ -210,7 +210,7 @@ function UebeAnsicht({ pdf, notenId, stellen, bpm, tempoSetzen, neuLaden, zeigen
       p = seiteMitEbene(pdf, nr, 1400).then(({ seite, ebene }) => {
         const ctx = seite.getContext('2d')!;
         if (ebene) {
-          ebeneZeichnen(ctx, ebene, objekte, 0, 0, seite.width, seite.height, document.createElement('canvas'));
+          ebeneZeichnen(ctx, ebene, { x: 0, y: 0, b: seite.width, h: seite.height }, objekte, { x: 0, y: 0, b: seite.width, h: seite.height }, document.createElement('canvas'));
           ebene.width = 0; ebene.height = 0;
         }
         anmerkungenZeichnen(ctx, objekte, 0, 0, seite.width, seite.height);

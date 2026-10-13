@@ -282,6 +282,63 @@ a { color: inherit; text-decoration: underline; text-decoration-color: var(--mes
 .farb-knopf[aria-pressed="true"] { outline: 2.5px solid var(--messing); outline-offset: 2px; }
 .palette-schalter { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.78rem; color: var(--gedaempft); min-height: 30px; white-space: nowrap; }
 .palette-schalter input { accent-color: var(--messing); }
+/* Blasen einer hoch schwebenden Palette öffnen nach unten. */
+.palette-blase.unten { bottom: auto; top: calc(100% + 10px); }
+
+/* Farben (E-08): links die Palette, rechts oben die Pipette, darunter der Farbwähler. */
+.farb-pipette { grid-column: 5; grid-row: 1; margin-left: 6px; display: grid; place-items: center; background: var(--flaeche2); color: var(--tinte); }
+.farb-pipette svg, .farb-rondell i svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.farb-pipette[style] { color: #fff; }
+.farb-pipette[style].hell { color: #1b1b1b; }
+.farb-eigen {
+  grid-column: 5; grid-row: 2; margin-left: 6px; display: grid; place-items: center;
+  background: conic-gradient(from 90deg, #ff3b30, #ffcc00, #34c759, #00c7be, #007aff, #af52de, #ff2d55, #ff3b30);
+}
+.farb-eigen i { width: 15px; height: 15px; border-radius: 999px; border: 2px solid #fff; box-shadow: 0 0 0 1px rgb(0 0 0 / 18%); }
+.farb-rondell i { display: grid; place-items: center; }
+.farb-rondell.nimmt-auf i { color: #fff; filter: drop-shadow(0 0 1.5px rgb(0 0 0 / 70%)); }
+.farb-rondell.nimmt-auf { border-color: var(--messing); }
+
+/* Farbwähler: Feld (Sättigung × Helligkeit), Farbton, R/G/B, Hex. */
+.blase-waehler { padding: 12px; }
+.farbwaehler { width: 236px; display: flex; flex-direction: column; gap: 10px; cursor: auto; }
+.fw-feld {
+  position: relative; height: 150px; border-radius: 10px; touch-action: none; cursor: crosshair;
+  background: linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, var(--ton));
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 10%);
+}
+.fw-feld:focus-visible { outline: 2.5px solid var(--messing); outline-offset: 2px; }
+.fw-feld i {
+  position: absolute; width: 20px; height: 20px; margin: -10px 0 0 -10px; border-radius: 999px; pointer-events: none;
+  border: 2.5px solid #fff; box-shadow: 0 0 0 1px rgb(0 0 0 / 30%), 0 2px 6px rgb(0 0 0 / 30%);
+}
+.farbwaehler input[type="range"] {
+  -webkit-appearance: none; appearance: none; width: 100%; height: 14px; margin: 0; border-radius: 999px;
+  background: var(--spur); box-shadow: inset 0 0 0 1px rgb(0 0 0 / 10%); touch-action: none;
+}
+.farbwaehler .fw-ton { --spur: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00); }
+.farbwaehler input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 22px; height: 22px; border-radius: 999px; background: #fff;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 25%), 0 2px 5px rgb(0 0 0 / 25%);
+}
+.farbwaehler input[type="range"]::-moz-range-thumb {
+  width: 22px; height: 22px; border: 0; border-radius: 999px; background: #fff;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 25%), 0 2px 5px rgb(0 0 0 / 25%);
+}
+.fw-regler { display: grid; grid-template-columns: 14px 1fr 28px; align-items: center; gap: 8px; font-size: 0.75rem; font-weight: 700; color: var(--gedaempft); }
+.fw-regler output { text-align: right; font-weight: 600; color: var(--tinte); }
+.fw-fuss { display: flex; align-items: center; gap: 8px; }
+.fw-probe { flex: none; width: 34px; height: 34px; border-radius: 999px; border: 1px solid var(--linie-stark); }
+.fw-hex {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 2px; height: 38px; padding: 0 8px;
+  border: 1px solid var(--linie-stark); border-radius: 6px; background: var(--flaeche); color: var(--gedaempft); font-size: 0.9rem;
+}
+.fw-hex:focus-within { border-color: var(--messing); }
+.fw-hex input {
+  flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: var(--tinte);
+  font: inherit; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; text-transform: lowercase;
+  user-select: text; -webkit-user-select: text;
+}
 .panel-kopf h2 {
   font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--leise);
 }
@@ -569,6 +626,27 @@ details[open] > summary::before { transform: rotate(90deg); }
 .betrachter-blatt { position: absolute; top: 0; left: 0; }
 .betrachter-leinwand { position: absolute; inset: 0; width: 100%; height: 100%; }
 .betrachter-live { pointer-events: none; }
+/* Zoom beim Anmerken (E-06): Das Blatt wird verschoben und vergrößert, der
+   scharfe Ausschnitt liegt an seinem Platz auf der Seite darüber. */
+.betrachter-rahmen.zoombar { transform-origin: 50% 50%; will-change: transform; }
+.betrachter-nah { position: absolute; pointer-events: none; }
+.betrachter-flaeche.pipette { cursor: crosshair; }
+.b-radierer {
+  display: none; position: absolute; aspect-ratio: 1; transform: translate(-50%, -50%); pointer-events: none; z-index: 2;
+  border-radius: 999px; border: 1.5px solid rgb(29 27 23 / 55%); box-shadow: 0 0 0 1px rgb(255 255 255 / 80%);
+  background: rgb(255 255 255 / 18%);
+}
+.b-zoom {
+  position: absolute; z-index: 3; right: 0.6rem; top: calc(max(var(--oben, 0px), env(safe-area-inset-top, 0px)) + 0.6rem);
+  display: flex; align-items: center; height: 38px; padding: 0 2px; border-radius: 999px;
+  background: var(--schleier); backdrop-filter: blur(6px); border: 1px solid var(--linie); box-shadow: 0 6px 24px rgb(0 0 0 / 18%);
+  transition: top 0.25s ease;
+}
+.b-zoom button { min-width: 36px; height: 34px; padding: 0 6px; border-radius: 999px; font-size: 1.05rem; font-weight: 600; color: var(--tinte); }
+.b-zoom .b-zoom-wert { min-width: 3.6rem; font-size: 0.78rem; color: var(--gedaempft); }
+.b-zoom button:disabled { opacity: 0.35; }
+.b-zoom .b-zoom-wert:disabled { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .b-zoom { transition: none; } }
 .b-rechteck { position: absolute; border: 2px dashed #1f5fd1; background: rgb(31 95 209 / 10%); pointer-events: none; border-radius: 3px; }
 .b-rechteck.fest { border-style: solid; border-color: #a8781f; background: rgb(168 120 31 / 14%); }
 .b-linie { position: absolute; left: -2%; right: -2%; height: 34px; margin-top: -17px; cursor: ns-resize; touch-action: none; display: flex; align-items: center; }

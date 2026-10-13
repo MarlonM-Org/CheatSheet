@@ -27,9 +27,15 @@ describe('Radier-Zug', () => {
   let n = 0;
   const neueId = () => `r${++n}`;
 
-  it('ohne Markierungs-Ebene: nimmt getroffene eigene Striche weg, sonst nichts', () => {
+  it('ohne Markierungs-Ebene: schneidet getroffene eigene Striche, sonst nichts', () => {
     const r = radierZug([strich, weit], 0.2, 0.1, 0.012, 1.414, null, false, neueId);
-    expect(r.objekte.map((a) => a.id)).toEqual(['w']);
+    // Die Mitte ist weg: zwei Stücke mit neuen ids, der ferne Strich bleibt.
+    expect(r.objekte.map((a) => a.id)).toEqual([expect.stringMatching(/^r/), expect.stringMatching(/^r/), 'w']);
+    const [links, rechts] = r.objekte as { punkte: number[] }[];
+    expect(links.punkte[0]).toBe(0.1);
+    expect(links.punkte.at(-2)).toBeCloseTo(0.2 - 0.014); // Radius + halbe Strichbreite
+    expect(rechts.punkte[0]).toBeCloseTo(0.2 + 0.014);
+    expect(rechts.punkte.at(-2)).toBe(0.3);
     expect(r.spur).toBeNull();
     const liste = [weit];
     const nichts = radierZug(liste, 0.2, 0.1, 0.012, 1.414, null, false, neueId);
@@ -45,9 +51,19 @@ describe('Radier-Zug', () => {
     expect(b.objekte.find((o) => o.id === a.spur)).toMatchObject({ punkte: [0.5, 0.5, 0.52, 0.5] });
     expect(b.objekte.filter((o) => o.art === 'radiert')).toHaveLength(1);
   });
+  it('Texte fallen ganz weg, Marker werden geschnitten', () => {
+    const text: Anmerkung = { id: 't', art: 'text', farbe: '#000', groesse: 0.024, x: 0.19, y: 0.105, text: 'pp' };
+    const marker: Anmerkung = { id: 'm', art: 'marker', farbe: 'rgba(255, 214, 0, 0.45)', breite: 0.014, punkte: [0.1, 0.1, 0.3, 0.1] };
+    const r = radierZug([text, marker], 0.2, 0.1, 0.012, 1.414, null, false, neueId);
+    expect(r.objekte.every((a) => a.art === 'marker')).toBe(true);
+    expect(r.objekte).toHaveLength(2);
+    // Gerade Enden: Die Lücke reicht nur so weit, wie der Radierer das Band berührt.
+    expect((r.objekte[0] as { punkte: number[] }).punkte.at(-2)).toBeCloseTo(0.2 - Math.hypot(0.012, 0.007));
+  });
   it('Radier-Spuren selbst werden nicht weg-radiert', () => {
     const spur: Anmerkung = { id: 'alt', art: 'radiert', breite: 0.024, punkte: [0.2, 0.1, 0.3, 0.1] };
     const r = radierZug([spur, strich], 0.2, 0.1, 0.012, 1.414, null, false, neueId);
-    expect(r.objekte.map((a) => a.id)).toEqual(['alt']);
+    expect(r.objekte[0]).toBe(spur);
+    expect(r.objekte.slice(1).every((a) => a.art === 'stift')).toBe(true); // der Strich: geschnitten
   });
 });

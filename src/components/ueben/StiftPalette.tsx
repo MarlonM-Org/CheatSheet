@@ -1,7 +1,9 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { DICKEN, FARBEN, type StiftEinstellung, type ZeichenWerkzeug } from '@/domain/stift';
+import { hexVon, istHell, rgbAus } from '@/domain/farbe';
+import { DICKEN, eigeneFarbe, FARBEN, RADIERER_BREITEN, type Pipetten, type StiftEinstellung, type ZeichenWerkzeug } from '@/domain/stift';
+import { Farbwaehler } from './Farbwaehler';
 import { useSchiebbar } from './schiebbar';
 
 export type Werkzeug = 'stift' | 'marker' | 'text' | 'radierer' | 'stelle';
@@ -10,13 +12,14 @@ const ZEICHNER: Werkzeug[] = ['stift', 'marker', 'text'];
 // Markerfarben sind halbtransparent (Malwirkung) — Spitze und Rondell
 // zeigen sie satt, wie bei Apples Textmarker.
 const deckend = (f: string) => f.replace(/rgba\(([^,]+),([^,]+),([^,]+),[^)]+\)/, 'rgb($1,$2,$3)');
+const alsHex = (f: string) => hexVon(rgbAus(f) ?? { r: 0, g: 0, b: 0 });
 
 // Werkzeug-Palette (E-03) nach dem Vorbild der System-Stiftpalette auf dem
 // iPad (Dateien/Markierungen): eine schwebende Pille, aus der die Werkzeuge
 // als gezeichnete Instrumente ragen — das aktive hebt sich heraus, die
 // Spitzen tragen die gewählte Farbe. Tipp aufs aktive Werkzeug öffnet die
-// Optionen-Blase (Strichstärken, Finger-Schalter), das Farbrondell rechts
-// die Farben. Doppeltipp auf die Werkzeug-Reihe wechselt zum Radierer und
+// Optionen-Blase (Strichstärken, Radierer-Breiten, Finger-Schalter), das
+// Farbrondell rechts die Farben — mit Pipette und Farbwähler (E-08). Doppeltipp auf die Werkzeug-Reihe wechselt zum Radierer und
 // zurück — wie der Doppeltipp am Apple Pencil (den Safari nicht durchreicht).
 
 // ── Instrumente: gezeichnete Stifte, Spitze in der aktuellen Farbe ──────
@@ -114,22 +117,37 @@ function StelleKoerper() {
   );
 }
 
+// Pipette: Glas mit Gummikappe, schräg — wie die übliche Pipette.
+function PipettenBild() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M14.6 4.6a2.6 2.6 0 0 1 3.7 0l1.1 1.1a2.6 2.6 0 0 1 0 3.7l-1.9 1.9 1 1-1.5 1.5-5.3-5.3 1.5-1.5 1 1z" />
+      <path d="M11.2 8.4L4.8 14.8a2 2 0 0 0-.5.9l-.6 2.6-.9.9a1.1 1.1 0 0 0 1.6 1.6l.9-.9 2.6-.6a2 2 0 0 0 .9-.5l6.4-6.4" />
+    </svg>
+  );
+}
+
 // ── Palette ─────────────────────────────────────────────────────────────
 
 export function StiftPalette({
-  werkzeug, wechseln, einst, einstellen, fingerZeichnen, setFingerZeichnen,
+  werkzeug, wechseln, einst, einstellen, radierBreite, radiererEinstellen,
+  pipetten, farbeAufnehmen, setFarbeAufnehmen, fingerZeichnen, setFingerZeichnen,
   rueckgaengig, wiederholen, kannRueck, kannWieder,
 }: {
   werkzeug: Werkzeug | null;
   wechseln: (w: Werkzeug | null) => void;
   einst: Record<ZeichenWerkzeug, StiftEinstellung>;
   einstellen: (w: ZeichenWerkzeug, e: StiftEinstellung) => void;
+  radierBreite: number; radiererEinstellen: (b: number) => void;
+  pipetten: Pipetten; farbeAufnehmen: boolean; setFarbeAufnehmen: (an: boolean) => void;
   fingerZeichnen: boolean; setFingerZeichnen: (b: boolean) => void;
   rueckgaengig: () => void; wiederholen: () => void;
   kannRueck: boolean; kannWieder: boolean;
 }) {
   const { panel, lage, ebene, anfassen, bewegen, loslassen } = useSchiebbar('ueben:lage-stift');
-  const [blase, setBlase] = useState<'optionen' | 'farben' | null>(null);
+  const [blase, setBlase] = useState<'optionen' | 'farben' | 'waehler' | null>(null);
+  // Schwebt die Palette weit oben, öffnen die Blasen nach unten.
+  const blaseUnten = !!lage && lage.y < 380;
   // Doppeltipp-Erkennung: das Werkzeug vor dem ERSTEN Tipp zählt.
   const tipp = useRef<{ t: number; vorher: Werkzeug | null } | null>(null);
   const zurueckNach = useRef<Werkzeug>('stift');
@@ -159,6 +177,11 @@ export function StiftPalette({
   }
 
   const zeichner = werkzeug && ZEICHNER.includes(werkzeug) ? (werkzeug as ZeichenWerkzeug) : null;
+  // Welche Farbe gilt: eine der Palette, die der Pipette oder eine eigene.
+  const farbe = zeichner ? einst[zeichner].farbe : null;
+  const pipette = zeichner ? pipetten[zeichner] : undefined;
+  const herkunft = !zeichner || !farbe ? null : FARBEN[zeichner].includes(farbe) ? 'palette' : farbe === pipette ? 'pipette' : 'eigen';
+  const blasenKlasse = `palette-blase ${blaseUnten ? 'unten' : ''}`;
   const dickenWerkzeug = werkzeug === 'stift' || werkzeug === 'marker' ? (werkzeug as 'stift' | 'marker') : null;
 
   const WERKZEUGE: { w: Werkzeug; name: string; bild: React.ReactNode }[] = [
@@ -177,7 +200,7 @@ export function StiftPalette({
       onPointerDown={anfassen} onPointerMove={bewegen} onPointerUp={loslassen} onPointerCancel={loslassen}>
 
       {blase === 'optionen' && dickenWerkzeug && (
-        <div className="palette-blase" role="group" aria-label="Strichstärke">
+        <div className={blasenKlasse} role="group" aria-label="Strichstärke">
           <div className="blase-dicken">
             {DICKEN[dickenWerkzeug].map((d) => (
               <button key={d.wert} type="button" className="dicke-knopf" aria-pressed={einst[dickenWerkzeug].breite === d.wert}
@@ -196,21 +219,52 @@ export function StiftPalette({
         </div>
       )}
       {blase === 'optionen' && werkzeug === 'radierer' && (
-        <div className="palette-blase" role="group" aria-label="Radierer">
+        <div className={blasenKlasse} role="group" aria-label="Radierer">
+          <div className="blase-dicken">
+            {RADIERER_BREITEN.map((d, i) => (
+              <button key={d.wert} type="button" className="dicke-knopf" aria-pressed={radierBreite === d.wert}
+                onClick={() => { radiererEinstellen(d.wert); setBlase(null); }}
+                aria-label={`Radierer ${d.name}`} title={d.name}>
+                <svg viewBox="0 0 44 20" aria-hidden="true">
+                  <circle cx="22" cy="10" r={2.2 + i * 2.4} fill="none" stroke="currentColor" strokeWidth="1.6" />
+                </svg>
+              </button>
+            ))}
+          </div>
           <label className="palette-schalter">
             <input type="checkbox" checked={fingerZeichnen} onChange={(e) => setFingerZeichnen(e.target.checked)} /> auch mit dem Finger
           </label>
         </div>
       )}
       {blase === 'farben' && zeichner && (
-        <div className="palette-blase" role="group" aria-label="Farbe">
+        <div className={blasenKlasse} role="group" aria-label="Farbe">
           <div className="blase-farben">
             {FARBEN[zeichner].map((f) => (
               <button key={f} type="button" className="farb-knopf" style={{ background: f }}
-                aria-pressed={einst[zeichner].farbe === f}
+                aria-pressed={farbe === f}
                 onClick={() => { einstellen(zeichner, { ...einst[zeichner], farbe: f }); setBlase(null); }} aria-label="Farbe wählen" />
             ))}
+            {/* Rechte Spalte: oben die Pipette (in ihrer zuletzt aufgenommenen
+                Farbe), unten der Farbwähler. */}
+            <button type="button" className={`farb-knopf farb-pipette ${pipette && istHell(rgbAus(pipette)!) ? 'hell' : ''}`}
+              style={pipette ? { background: deckend(pipette) } : undefined}
+              aria-pressed={herkunft === 'pipette'} title="Farbe vom Blatt aufnehmen"
+              aria-label="Pipette: Farbe vom Blatt aufnehmen"
+              onClick={() => { setFarbeAufnehmen(true); setBlase(null); }}>
+              <PipettenBild />
+            </button>
+            <button type="button" className="farb-knopf farb-eigen" aria-pressed={herkunft === 'eigen'}
+              title="Eigene Farbe" aria-label="Eigene Farbe wählen" onClick={() => setBlase('waehler')}>
+              {herkunft === 'eigen' && farbe && <i style={{ background: deckend(farbe) }} />}
+            </button>
           </div>
+        </div>
+      )}
+      {blase === 'waehler' && zeichner && farbe && (
+        <div className={`${blasenKlasse} blase-waehler`} role="group" aria-label="Eigene Farbe">
+          <Farbwaehler key={zeichner} farbe={alsHex(farbe)}
+            setzen={(hex) => einstellen(zeichner, { ...einst[zeichner], farbe: eigeneFarbe(zeichner, rgbAus(hex)!) })}
+            fertig={() => setBlase(null)} />
         </div>
       )}
 
@@ -231,10 +285,14 @@ export function StiftPalette({
         ))}
       </div>
 
-      <button type="button" className="farb-rondell" disabled={!zeichner}
-        aria-label="Farbe wählen" aria-pressed={blase === 'farben'} title="Farbe"
-        onClick={() => setBlase(blase === 'farben' ? null : 'farben')}>
-        <i style={{ background: zeichner ? deckend(einst[zeichner].farbe) : 'var(--flaeche2)' }} />
+      <button type="button" className={`farb-rondell ${farbeAufnehmen ? 'nimmt-auf' : ''}`} disabled={!zeichner}
+        aria-label={farbeAufnehmen ? 'Pipette beenden' : 'Farbe wählen'} aria-pressed={blase === 'farben' || blase === 'waehler' || farbeAufnehmen}
+        title={farbeAufnehmen ? 'Pipette beenden' : 'Farbe'}
+        onClick={() => {
+          if (farbeAufnehmen) { setFarbeAufnehmen(false); return; }
+          setBlase(blase === 'farben' || blase === 'waehler' ? null : 'farben');
+        }}>
+        <i style={{ background: farbe ? deckend(farbe) : 'var(--flaeche2)' }}>{farbeAufnehmen && <PipettenBild />}</i>
       </button>
     </div>
   );

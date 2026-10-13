@@ -40,34 +40,50 @@ export async function pdfLaden(datei: Blob): Promise<PDFDocumentProxy> {
 // Darüberlegen (ebene.ts). So lassen sich die Markierungen radieren.
 export interface SeitenBild { seite: HTMLCanvasElement; ebene: HTMLCanvasElement | null }
 export async function seiteMitEbene(pdf: PDFDocumentProxy, nr: number, px: number): Promise<SeitenBild> {
-  const { AnnotationMode, OPS } = await import('pdfjs-dist/legacy/build/pdf.mjs');
-  const page = await pdf.getPage(nr);
-  const v1 = page.getViewport({ scale: 1 });
-  const viewport = page.getViewport({ scale: px / v1.width });
-  const leinwand = () => {
-    const c = document.createElement('canvas');
-    c.width = Math.round(viewport.width); c.height = Math.round(viewport.height);
-    return c;
-  };
-  const seite = leinwand();
-  await page.render({ canvas: seite, viewport, annotationMode: AnnotationMode.DISABLE }).promise;
-  if (!hatMarkierungen(await page.getAnnotations({ intent: 'display' }))) return { seite, ebene: null };
-  // Nur die Zeichenbefehle der Anmerkungen ausführen, auf eine eigene
-  // Leinwand mit Alphakanal (pdf.js legt seine ohne an) und ohne Hintergrund.
-  // Kein Vergleich zweier Durchgänge: Safari zeichnet die Seite beim zweiten
-  // Mal mitunter anders, dann deckte die Ebene die Noten weiß zu.
-  // Scheitert die Ebene, bleiben wenigstens die Noten (ohne Markierungen).
-  try {
-    const { fnArray } = await page.getOperatorList({ annotationMode: AnnotationMode.ENABLE_FORMS });
-    const drin = anmerkungsBefehle(fnArray, OPS.beginAnnotation, OPS.endAnnotation);
-    const ebene = leinwand();
-    await page.render({
-      canvas: ebene, canvasContext: ebene.getContext('2d')!, viewport, annotationMode: AnnotationMode.ENABLE_FORMS,
-      background: 'rgba(0,0,0,0)', operationsFilter: (i) => drin[i] === 1,
-    }).promise;
-    return { seite, ebene };
-  } catch (x) {
-    console.error('Markierungen aus dem PDF ließen sich nicht zeichnen', x);
-    return { seite, ebene: null };
-  }
+  return ausschnittRendern(pdf, nr, px, { x: 0, y: 0, b: 1, h: 1 }).bild;
+}
+
+// Nur ein Teil r der Seite (Anteile 0…1), die Seite in der Breite seitenPx
+// gedacht — beim Zoomen (E-06) der sichtbare Teil in Bildschirmschärfe,
+// statt die ganze Seite riesig zu rendern. Abbrechbar, wenn weitergezoomt wird.
+export function ausschnittRendern(pdf: PDFDocumentProxy, nr: number, seitenPx: number, r: { x: number; y: number; b: number; h: number }) {
+  const aufgaben: { cancel: () => void }[] = [];
+  let abgebrochen = false;
+  const merken = <T extends { cancel: () => void }>(t: T) => { aufgaben.push(t); if (abgebrochen) t.cancel(); return t; };
+  const bild = (async (): Promise<SeitenBild> => {
+    const { AnnotationMode, OPS } = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    const page = await pdf.getPage(nr);
+    const v1 = page.getViewport({ scale: 1 });
+    const scale = seitenPx / v1.width;
+    const B = v1.width * scale, H = v1.height * scale;
+    const viewport = page.getViewport({ scale, offsetX: -r.x * B, offsetY: -r.y * H });
+    const leinwand = () => {
+      const c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(r.b * B)); c.height = Math.max(1, Math.round(r.h * H));
+      return c;
+    };
+    const seite = leinwand();
+    await merken(page.render({ canvas: seite, viewport, annotationMode: AnnotationMode.DISABLE })).promise;
+    if (!hatMarkierungen(await page.getAnnotations({ intent: 'display' }))) return { seite, ebene: null };
+    // Nur die Zeichenbefehle der Anmerkungen ausführen, auf eine eigene
+    // Leinwand mit Alphakanal (pdf.js legt seine ohne an) und ohne Hintergrund.
+    // Kein Vergleich zweier Durchgänge: Safari zeichnet die Seite beim zweiten
+    // Mal mitunter anders, dann deckte die Ebene die Noten weiß zu.
+    // Scheitert die Ebene, bleiben wenigstens die Noten (ohne Markierungen).
+    try {
+      const { fnArray } = await page.getOperatorList({ annotationMode: AnnotationMode.ENABLE_FORMS });
+      const drin = anmerkungsBefehle(fnArray, OPS.beginAnnotation, OPS.endAnnotation);
+      const ebene = leinwand();
+      await merken(page.render({
+        canvas: ebene, canvasContext: ebene.getContext('2d')!, viewport, annotationMode: AnnotationMode.ENABLE_FORMS,
+        background: 'rgba(0,0,0,0)', operationsFilter: (i) => drin[i] === 1,
+      })).promise;
+      return { seite, ebene };
+    } catch (x) {
+      if (abgebrochen) throw x;
+      console.error('Markierungen aus dem PDF ließen sich nicht zeichnen', x);
+      return { seite, ebene: null };
+    }
+  })();
+  return { bild, abbrechen: () => { abgebrochen = true; for (const t of aufgaben) t.cancel(); } };
 }
