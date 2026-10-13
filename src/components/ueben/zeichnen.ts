@@ -40,28 +40,78 @@ export function strichZeichnen(ctx: CanvasRenderingContext2D, p: number[], farbe
   ctx.stroke();
 }
 
-// Übernommene Markierungen aus dem PDF (ebene) in ein Rechteck zeichnen, an
-// den Radier-Spuren ausgestanzt: erst auf die Hilfsleinwand, dort die Spuren
-// wegnehmen, dann darüberlegen. Multipliziert wie Tinte und Textmarker auf
-// Papier — so bleiben Noten unter einer Hervorhebung schwarz.
-export function ebeneZeichnen(ctx: CanvasRenderingContext2D, ebene: HTMLCanvasElement, objekte: Anmerkung[],
-  x0: number, y0: number, b: number, h: number, hilfe: HTMLCanvasElement) {
+// Übernommene Markierungen aus dem PDF (ebene) auf die Leinwand legen, an
+// den Radier-Spuren ausgestanzt: erst auf die Hilfsleinwand (so groß wie die
+// Leinwand), dort die Spuren wegnehmen, dann darüberlegen. Multipliziert wie
+// Tinte und Textmarker auf Papier — so bleiben Noten unter einer
+// Hervorhebung schwarz. bild: wo das Bild der Ebene auf der Leinwand liegt;
+// seite: wo die ganze Seite liegt (für die Spuren). Beim Zoomen ist das
+// Bild nur ein Ausschnitt der Seite.
+export interface Lage { x: number; y: number; b: number; h: number }
+export function ebeneZeichnen(ctx: CanvasRenderingContext2D, ebene: HTMLCanvasElement, bild: Lage, objekte: Anmerkung[],
+  seite: Lage, hilfe: HTMLCanvasElement) {
   const spuren = objekte.filter((a) => a.art === 'radiert');
-  let bild = ebene;
-  if (spuren.length) {
-    const w = Math.round(b), hh = Math.round(h);
-    if (hilfe.width !== w || hilfe.height !== hh) { hilfe.width = w; hilfe.height = hh; }
-    const hc = hilfe.getContext('2d')!;
-    hc.globalCompositeOperation = 'source-over';
-    hc.clearRect(0, 0, w, hh);
-    hc.drawImage(ebene, 0, 0, w, hh);
-    hc.globalCompositeOperation = 'destination-out';
-    for (const s of spuren) strichZeichnen(hc, s.punkte, '#000', s.breite * w, 0, 0, w, hh);
-    hc.globalCompositeOperation = 'source-over';
-    bild = hilfe;
-  }
   ctx.save();
   ctx.globalCompositeOperation = 'multiply';
-  ctx.drawImage(bild, x0, y0, b, h);
+  if (!spuren.length) ctx.drawImage(ebene, bild.x, bild.y, bild.b, bild.h);
+  else {
+    const w = ctx.canvas.width, h = ctx.canvas.height;
+    if (hilfe.width !== w || hilfe.height !== h) { hilfe.width = w; hilfe.height = h; }
+    const hc = hilfe.getContext('2d')!;
+    hc.globalCompositeOperation = 'source-over';
+    hc.clearRect(0, 0, w, h);
+    hc.drawImage(ebene, bild.x, bild.y, bild.b, bild.h);
+    hc.globalCompositeOperation = 'destination-out';
+    for (const s of spuren) strichZeichnen(hc, s.punkte, '#000', s.breite * seite.b, seite.x, seite.y, seite.b, seite.h);
+    hc.globalCompositeOperation = 'source-over';
+    ctx.drawImage(hilfe, 0, 0);
+  }
   ctx.restore();
+}
+
+// Ein Blatt zusammensetzen — die ganze Ansicht oder, beim Zoomen, ihr
+// scharfer Ausschnitt: Seite(n), Markierungs-Ebene, Anmerkungen, Rahmen der
+// Stellen, Übergangskante beim Halbseiten-Blättern, die geübte Stelle
+// hervorgehoben. seite: wo die ganze Seite auf der Leinwand liegt; jeder
+// Teil zeigt die Höhe y0…y1 einer Seite, sein Bild liegt bei lage.
+export interface BlattTeil { seite: number; y0: number; y1: number; bild: HTMLCanvasElement; ebene: HTMLCanvasElement | null; lage: Lage }
+export interface BlattExtras {
+  stellen: { seite: number; x: number; y: number; b: number; h: number }[];
+  schnitt: number | null;
+  hervor: { x: number; y: number; b: number; h: number } | null;
+}
+export function blattZeichnen(ctx: CanvasRenderingContext2D, seite: Lage, teile: BlattTeil[],
+  anm: Record<number, Anmerkung[]>, extras: BlattExtras, hilfe: () => HTMLCanvasElement) {
+  const { x: X, y: Y, b: W, h: H } = seite;
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  for (const t of teile) {
+    const objekte = anm[t.seite] ?? [];
+    ctx.save();
+    ctx.beginPath(); ctx.rect(X, Y + t.y0 * H, W, (t.y1 - t.y0) * H); ctx.clip();
+    ctx.drawImage(t.bild, t.lage.x, t.lage.y, t.lage.b, t.lage.h);
+    if (t.ebene) ebeneZeichnen(ctx, t.ebene, t.lage, objekte, seite, hilfe());
+    anmerkungenZeichnen(ctx, objekte, X, Y, W, H);
+    for (const st of extras.stellen.filter((x) => x.seite === t.seite)) {
+      ctx.strokeStyle = 'rgba(168, 120, 31, 0.55)'; ctx.lineWidth = Math.max(1, W / 600);
+      ctx.setLineDash([W / 120, W / 160]); ctx.strokeRect(X + st.x * W, Y + st.y * H, st.b * W, st.h * H); ctx.setLineDash([]);
+    }
+    ctx.restore();
+  }
+  if (extras.schnitt !== null) {
+    // Übergangskante: hier endet die neue Seite, darunter steht noch die alte.
+    const y = Y + extras.schnitt * H;
+    ctx.fillStyle = 'rgba(168, 120, 31, 0.9)';
+    ctx.fillRect(X, y - Math.max(1.5, H / 500), W, Math.max(3, H / 250));
+  }
+  if (extras.hervor) {
+    const r = extras.hervor;
+    ctx.fillStyle = 'rgba(20, 20, 20, 0.5)';
+    ctx.beginPath();
+    ctx.rect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    ctx.rect(X + r.x * W, Y + r.y * H, r.b * W, r.h * H);
+    ctx.fill('evenodd');
+    ctx.strokeStyle = '#a8781f'; ctx.lineWidth = Math.max(2, W / 350);
+    ctx.strokeRect(X + r.x * W, Y + r.y * H, r.b * W, r.h * H);
+  }
 }

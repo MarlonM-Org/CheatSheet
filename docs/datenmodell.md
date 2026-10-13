@@ -133,7 +133,10 @@ type Eintrag =
   Merker; Setliste) hinterlässt einen Grabstein im localStorage
   (`ueben:geloescht`). Er reist mit der Sicherung, damit Gelöschtes nicht
   zurückkehrt (siehe unten). Jede Änderung setzt `geaendert`; Anmerkungen
-  merken sich wegradierte Striche in `entfernt`.
+  merken sich wegradierte Striche in `entfernt`. Radiert man nur ein Stück
+  eines Strichs weg (E-07), ersetzen ihn die übrigen Stücke mit neuen ids —
+  die alte id landet ebenso in `entfernt`, eine Sicherung bringt den ganzen
+  Strich also nicht zurück.
 - Ids bleiben beim Umstieg gleich: Die `id` eines Stücks in `cheatsheet` ist
   die `id` der Noten in `ueben`. Damit gilt `ueben:zuletzt` im localStorage
   weiter.

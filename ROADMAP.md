@@ -461,6 +461,48 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
   stehen, bis man die Stelle benennt bzw. den Text schreibt oder das
   Werkzeug wechselt. Nur der Hinweis zur Blätterlinie verblasst weiter —
   dort bleibt „Fertig“ im Kästchen.
+- **E-06 · Zoomen beim Anmerken** (2026-10-13): Wunsch Marlon: Notizen
+  mit dem Stift fielen schwer — bei offener Stift-Palette lässt sich jetzt
+  heranzoomen. Regeln in `src/domain/zoom.ts` (getestet).
+  - **Bedienung:** Zwei Finger zoomen und schieben (bis 600 %), ein Finger
+    schiebt, solange gezoomt ist (statt zu blättern); mit „auch mit dem
+    Finger“ zeichnet ein Finger, zwei zoomen. Am Rechner Strg + Mausrad bzw.
+    Zwei-Finger-Zoom am Trackpad, das Rad schiebt; dazu oben rechts − / % / +
+    (Tipp auf die Prozentzahl: ganze Seite).
+  - **Über den Rand hinaus:** Verschieben geht so weit, dass jeder Punkt der
+    Seite in die Bildschirmmitte kommt — auch der Rand; daneben bleibt leere
+    Fläche. So lässt sich am Rand bequem schreiben.
+  - **Scharf:** Kurz nach dem Zoomen rendert die App den sichtbaren Teil
+    (mit etwas Rand) in Bildschirmschärfe nach, samt Markierungen und
+    Anmerkungen; auch der laufende Strich ist scharf.
+  - **Zurück auf ganz:** Palette zu, andere Seite oder Stelle, andere
+    Fenstergröße. Kaum gezoomt (unter 108 %) rastet beim Loslassen ein.
+- **E-07 · Radierer schneidet, Breite wählbar** (2026-10-13): Wunsch Marlon:
+  Der Radierer nahm ganze Striche weg. Jetzt verschwindet nur, worüber er
+  fährt — eine lange Linie, in der Mitte radiert, wird zu zwei. Texte gehen
+  weiterhin ganz weg. Schnelle Wische werden lückenlos nachgezogen.
+  Tipp auf den aktiven Radierer: vier Breiten (Fein, Mittel = bisher,
+  Breit, Sehr breit), gemerkt im localStorage (`ueben:radierer`); unter
+  Stift oder Maus zeigt ein Kreis die Breite. Die Stücke eines Strichs
+  bekommen neue ids, die alte landet in `entfernt` — eine Sicherung bringt
+  den ganzen Strich nicht zurück. Regeln in `strichKappen`/`radierZug`
+  (`src/domain/notenpult.ts`, getestet).
+- **E-08 · Pipette und Farbwähler** (2026-10-13): Wunsch Marlon: In der
+  Farb-Blase fällt Gold (oben rechts) weg; die rechte Spalte hat oben die
+  **Pipette**, unten den **Farbwähler**.
+  - **Pipette:** antippen, dann aufs Blatt tippen — die Farbe an der Stelle
+    (PDF, Markierungen, eigene Anmerkungen; neben einem dünnen Strich zählt
+    der Strich) gilt fürs Werkzeug. Die Pipette trägt danach diese Farbe
+    und den Auswahlring. Beim Marker rechnet sie so zurück, dass er auf
+    weißem Papier genau den angetippten Ton ergibt. Gemerkt je Werkzeug
+    (`ueben:pipette`).
+  - **Farbwähler:** Feld für Sättigung und Helligkeit, Farbton-Leiste,
+    Regler R/G/B, Hex-Feld; die Spitze des Werkzeugs zeigt die Farbe
+    sofort. Selbst gebaut im Stil der Palette (keine neue Abhängigkeit).
+  - **Daten:** Stift und Text speichern eigene Farben als `#rrggbb`, der
+    Marker als `rgba(r, g, b, 0.4)`. Gespeicherte Einstellungen in Gold
+    bleiben gültig (gelten als eigene Farbe). Regeln in `src/domain/farbe.ts`
+    und `src/domain/stift.ts` (getestet).
 - **F-15 · Ausschnitt je Seite** (2026-10-13): Wunsch Marlon: je Seite
   einstellen, welcher Bereich angezeigt wird, und das behalten — z. B. ohne
   die breiten Ränder eines Scans. Regeln in `src/domain/ausschnitt.ts`

@@ -92,17 +92,85 @@ export function getroffen(a: Anmerkung, x: number, y: number, radius: number, se
   return false;
 }
 
-// Ein Punkt eines Radier-Wischs: Getroffene eigene Striche und Texte fallen
-// weg. Liegen übernommene Markierungen auf der Seite (ebene), wird zusätzlich
-// die Radier-Spur dieses Wischs verlängert — oder begonnen, wenn es noch
-// keine gibt (spur = ihre id). Radier-Spuren selbst werden nicht weg-radiert.
+// Radieren schneidet (E-07): Ein Strich verliert nur das Stück, über das der
+// Radierer fährt — aus einer langen Linie, in der Mitte radiert, werden zwei.
+// Rechnet in Seitenbreiten (y mal Seitenformat). r: wie nah die Mittellinie
+// dem Radierer kommen darf. Liefert die übrigen Stücke, [] wenn nichts
+// bleibt, null wenn der Strich gar nicht getroffen ist. Winzige Reste fallen weg.
+const MIN_REST = 0.002;
+export function strichKappen(p: number[], x: number, y: number, r: number, seitenformat = 1.414): number[][] | null {
+  const f = seitenformat, r2 = r * r;
+  const innen = (i: number) => (p[i] - x) ** 2 + ((p[i + 1] - y) * f) ** 2 <= r2;
+  if (p.length < 4) return p.length === 2 && innen(0) ? [] : null;
+  const teile: number[][] = [];
+  let teil: number[] = innen(0) ? [] : [p[0], p[1]];
+  let getroffen = false;
+  const abschliessen = () => { if (teil.length >= 4) teile.push(teil); teil = []; };
+  for (let i = 0; i + 3 < p.length; i += 2) {
+    const ax = p[i], ay = p[i + 1], bx = p[i + 2], by = p[i + 3];
+    // Wo liegt die Strecke A→B im Kreis? |A + t(B−A) − M|² = r², t in [0, 1]
+    const dx = bx - ax, dy = (by - ay) * f, ex = ax - x, ey = (ay - y) * f;
+    const a = dx * dx + dy * dy, b = 2 * (ex * dx + ey * dy), c = ex * ex + ey * ey - r2;
+    let t0 = 1, t1 = 0;
+    if (a > 0) {
+      const d = b * b - 4 * a * c;
+      if (d > 0) { t0 = Math.max(0, (-b - Math.sqrt(d)) / (2 * a)); t1 = Math.min(1, (-b + Math.sqrt(d)) / (2 * a)); }
+    } else if (c <= 0) { t0 = 0; t1 = 1; }
+    if (t1 - t0 <= 1e-9) { teil.push(bx, by); continue; }
+    getroffen = true;
+    if (t0 > 0) teil.push(ax + t0 * (bx - ax), ay + t0 * (by - ay));
+    abschliessen();
+    if (t1 < 1) teil = [ax + t1 * (bx - ax), ay + t1 * (by - ay), bx, by];
+  }
+  if (!getroffen) return null;
+  abschliessen();
+  const laenge = (q: number[]) => {
+    let l = 0;
+    for (let i = 0; i + 3 < q.length; i += 2) l += Math.hypot(q[i + 2] - q[i], (q[i + 3] - q[i + 1]) * f);
+    return l;
+  };
+  return teile.filter((q) => laenge(q) >= MIN_REST);
+}
+
+// Ein Wisch kann schneller sein als die Ereignisse: Zwischen zwei Punkten
+// wird in Schritten von höchstens einem halben Radius nachgezogen, damit
+// keine Lücke stehen bleibt. Liefert die Punkte nach von (ohne von selbst).
+export function radierWeg(von: { x: number; y: number } | null, x: number, y: number, radius: number, seitenformat = 1.414): { x: number; y: number }[] {
+  if (!von) return [{ x, y }];
+  const n = Math.min(200, Math.ceil(Math.hypot(x - von.x, (y - von.y) * seitenformat) / (radius / 2)));
+  if (n <= 1) return [{ x, y }];
+  return Array.from({ length: n }, (_, i) => ({ x: von.x + ((x - von.x) * (i + 1)) / n, y: von.y + ((y - von.y) * (i + 1)) / n }));
+}
+
+// Ein Punkt eines Radier-Wischs (radius: halbe Radiererbreite): Getroffene
+// Striche werden an der Stelle geschnitten, getroffene Texte fallen ganz
+// weg. Geschnittene Stücke bekommen neue ids — so landet die alte id unter
+// „entfernt“, und eine Sicherung bringt den ganzen Strich nicht zurück.
+// Liegen übernommene Markierungen auf der Seite (ebene), wird zusätzlich die
+// Radier-Spur dieses Wischs verlängert — oder begonnen, wenn es noch keine
+// gibt (spur = ihre id). Radier-Spuren selbst werden nicht weg-radiert.
 // Ohne Änderung kommt dieselbe Liste zurück.
 export function radierZug(
   objekte: Anmerkung[], x: number, y: number, radius: number, seitenformat: number,
   spur: string | null, ebene: boolean, neueId: () => string,
 ): { objekte: Anmerkung[]; spur: string | null; geaendert: boolean } {
-  let neu = objekte.filter((a) => a.art === 'radiert' || !getroffen(a, x, y, radius, seitenformat));
-  let geaendert = neu.length !== objekte.length;
+  let geaendert = false;
+  let neu: Anmerkung[] = [];
+  for (const a of objekte) {
+    if (a.art === 'radiert') { neu.push(a); continue; }
+    if (a.art === 'text') {
+      if (getroffen(a, x, y, radius, seitenformat)) geaendert = true;
+      else neu.push(a);
+      continue;
+    }
+    // Runde Enden reichen eine halbe Strichbreite über den Schnitt hinaus,
+    // die geraden des Markers nicht — so endet die Lücke am Radierer.
+    const r = a.art === 'marker' ? Math.hypot(radius, a.breite / 2) : radius + a.breite / 2;
+    const teile = strichKappen(a.punkte, x, y, r, seitenformat);
+    if (!teile) { neu.push(a); continue; }
+    geaendert = true;
+    for (const punkte of teile) neu.push({ ...a, id: neueId(), punkte });
+  }
   if (ebene) {
     const da = spur !== null && neu.some((a) => a.id === spur);
     if (da) neu = neu.map((a) => (a.id === spur && a.art === 'radiert' ? { ...a, punkte: [...a.punkte, x, y] } : a));

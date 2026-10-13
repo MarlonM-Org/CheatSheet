@@ -1,13 +1,20 @@
 'use client';
 
 import type { PDFDocumentProxy } from 'pdfjs-dist';
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ausschnitteLesen, ausschnittFuer, ausschnittSetzen, darstellung, fuerAlleSeiten, VOLL } from '@/domain/ausschnitt';
+import { pipettenPunkt } from '@/domain/farbe';
 import { RAD_ANFANG, radGeste, radWeg, tastenAktion, WISCH_UMKEHREN, zeigerGeste, type Blaetter } from '@/domain/geste';
-import { ansichten, ansichtVonSeite, hauptseite, radierZug, type Anmerkung, type Ansicht, type Blaettermodus } from '@/domain/notenpult';
+import { ansichten, ansichtVonSeite, hauptseite, radierWeg, radierZug, type Anmerkung, type Ansicht, type Blaettermodus } from '@/domain/notenpult';
 import { tempoStand, zielAusText, zielStand } from '@/domain/stellen';
-import { einstellungPruefen, TEXT_GROESSE, type StiftEinstellung, type ZeichenWerkzeug } from '@/domain/stift';
+import {
+  einstellungPruefen, pipettenFarbe, pipettenPruefen, radiererPruefen, TEXT_GROESSE,
+  type Pipetten, type StiftEinstellung, type ZeichenWerkzeug,
+} from '@/domain/stift';
 import { mitRand, rechteckAus, type Rechteck } from '@/domain/ueben';
+import {
+  begrenzen, einrasten, OHNE_ZOOM, sichtbarerTeil, ZOOM_MAX, zoomenUm, zweiFinger, type Punkt, type Zoom,
+} from '@/domain/zoom';
 import { AusschnittRahmen } from './Ausschnitt';
 import { gespeichert as gespeicherterWert, speichern } from './klang';
 import {
@@ -17,14 +24,18 @@ import {
 import { useMetronom } from './MetronomKontext';
 import { ladeFehler, speicherFehler } from './speicherfehler';
 import { StiftPalette, type Werkzeug } from './StiftPalette';
-import { seiteMitEbene, type SeitenBild } from './pdf';
+import { ausschnittRendern, seiteMitEbene, type SeitenBild } from './pdf';
 import { StelleBlatt } from './StelleBlatt';
 import { StellenInfo } from './StellenInfo';
 import type { MixSteuerung } from './StellenMix';
-import { anmerkungenZeichnen, ebeneZeichnen, strichZeichnen } from './zeichnen';
+import { blattZeichnen, strichZeichnen, type BlattTeil } from './zeichnen';
 
 const RAND = 0.06;
 const MAX_PX = 2800;
+// Beim Zoomen (E-06): größte scharfe Leinwand in Pixeln (Safari: 16,7 Mio.).
+const MAX_NAH = 12e6;
+// Ein Wisch mit dem Mausrad oder Trackpad zoomt um höchstens so viel.
+const RAD_ZOOM = 50;
 
 interface Props {
   noten: Stueck; pdf: PDFDocumentProxy; stellen: Stelle[];
@@ -81,6 +92,13 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     setEinst((s) => ({ ...s, [w]: e }));
     speichern(`ueben:${w}`, e);
   };
+  // Radierer-Breite (E-07) und die zuletzt mit der Pipette aufgenommenen
+  // Farben (E-08) — je Gerät gemerkt wie Farbe und Dicke.
+  const [radierBreite, setRadierBreite] = useState(() => radiererPruefen(gespeicherterWert('ueben:radierer', null)));
+  const radiererEinstellen = (b: number) => { setRadierBreite(b); speichern('ueben:radierer', b); };
+  const [pipetten, setPipetten] = useState<Pipetten>(() => pipettenPruefen(gespeicherterWert('ueben:pipette', null)));
+  // Pipette an: Der nächste Tipp aufs Blatt nimmt die Farbe auf, statt zu zeichnen.
+  const [farbeAufnehmen, setFarbeAufnehmen] = useState(false);
   const [fingerZeichnen, setFingerZeichnen] = useState(false);
   const leiste = !leisteWeg;
   // Stück verlassen: Leisten wieder zeigen (sonst fehlt die untere ohne Noten).
@@ -181,6 +199,14 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   const leinwand = useRef<HTMLCanvasElement>(null);
   // Hilfsleinwand zum Ausstanzen der Radier-Spuren (ebeneZeichnen), einmal je Betrachter.
   const hilfe = useRef<HTMLCanvasElement | null>(null);
+  // Was außer Seiten und Anmerkungen aufs Blatt kommt — für das ganze Blatt
+  // und den scharfen Ausschnitt beim Zoomen gleich.
+  const extras = useMemo(() => ({
+    // Rahmen der Stellen nur bei offener Stift-Palette (B-11): beim Lesen stören sie.
+    stellen: !stelle && paletteOffen ? stellen : [],
+    schnitt: ansicht.art === 'halb' && !stelle ? ansicht.schnitt : null,
+    hervor: stelle && bearbeitenSeite === null ? mitRand(stelle, RAND) : null,
+  }), [stelle, paletteOffen, stellen, ansicht, bearbeitenSeite]);
   useEffect(() => {
     const c = leinwand.current;
     if (!c || !rahmen || !px) return;
@@ -195,43 +221,141 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       const bilder = await Promise.all(teile.map((t) => seiteBild(t.seite)));
       if (weg) return;
       c.width = W; c.height = H;
-      const ctx = c.getContext('2d')!;
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(0, 0, W, H);
-      teile.forEach((t, i) => {
-        ctx.save();
-        ctx.beginPath(); ctx.rect(0, t.y0 * H, W, (t.y1 - t.y0) * H); ctx.clip();
-        ctx.drawImage(bilder[i].seite, 0, 0, W, H);
-        const ebene = bilder[i].ebene;
-        if (ebene) ebeneZeichnen(ctx, ebene, anm[t.seite] ?? [], 0, 0, W, H, hilfe.current ??= document.createElement('canvas'));
-        anmerkungenZeichnen(ctx, anm[t.seite] ?? [], 0, 0, W, H);
-        // Rahmen der Stellen nur bei offener Stift-Palette (B-11): beim Lesen stören sie.
-        if (!stelle && paletteOffen) for (const st of stellen.filter((x) => x.seite === t.seite)) {
-          ctx.strokeStyle = 'rgba(168, 120, 31, 0.55)'; ctx.lineWidth = Math.max(1, W / 600);
-          ctx.setLineDash([W / 120, W / 160]); ctx.strokeRect(st.x * W, st.y * H, st.b * W, st.h * H); ctx.setLineDash([]);
-        }
-        ctx.restore();
-      });
-      if (ansicht.art === 'halb' && !stelle) {
-        // Übergangskante: hier endet die neue Seite, darunter steht noch die alte.
-        const y = ansicht.schnitt * H;
-        ctx.fillStyle = 'rgba(168, 120, 31, 0.9)';
-        ctx.fillRect(0, y - Math.max(1.5, H / 500), W, Math.max(3, H / 250));
-      }
-      if (stelle && bearbeitenSeite === null) {
-        const r = mitRand(stelle, RAND);
-        ctx.fillStyle = 'rgba(20, 20, 20, 0.5)';
-        ctx.beginPath();
-        ctx.rect(0, 0, W, H);
-        ctx.rect(r.x * W, r.y * H, r.b * W, r.h * H);
-        ctx.fill('evenodd');
-        ctx.strokeStyle = '#a8781f'; ctx.lineWidth = Math.max(2, W / 350);
-        ctx.strokeRect(r.x * W, r.y * H, r.b * W, r.h * H);
-      }
+      const ganz = { x: 0, y: 0, b: W, h: H };
+      blattZeichnen(c.getContext('2d')!, ganz,
+        teile.map((t, i): BlattTeil => ({ ...t, bild: bilder[i].seite, ebene: bilder[i].ebene, lage: ganz })),
+        anm, extras, () => (hilfe.current ??= document.createElement('canvas')));
     };
     zeichnen().catch((e) => { if (!weg) console.error('Seite ließ sich nicht zeichnen', e); });
     return () => { weg = true; };
-  }, [ansicht, stelle, bearbeitenSeite, anm, stellen, paletteOffen, rahmen, px, format, seiteBild]);
+  }, [ansicht, stelle, bearbeitenSeite, anm, extras, rahmen, px, format, seiteBild]);
+
+  // ── Zoom beim Anmerken (E-06) ── Nur bei offener Stift-Palette auf einer
+  // ganzen Seite. Zwei Finger zoomen und schieben, ein Finger schiebt, solange
+  // gezoomt ist; am Rechner Strg + Rad bzw. Trackpad und die Knöpfe. Andere
+  // Seite, Palette zu, andere Fenstergröße: wieder ganz.
+  const rahmenEl = useRef<HTMLDivElement>(null);
+  const zoomSchluessel = paletteOffen && zeichenSeite !== null && bearbeitenSeite === null && rahmen
+    ? `${zeichenSeite}:${stelle?.id ?? ''}:${rahmen.b}x${rahmen.h}` : null;
+  const zoomAktiv = zoomSchluessel !== null;
+  const [zoom, setZoom] = useState<Zoom>(OHNE_ZOOM);
+  const [zoomFuer, setZoomFuer] = useState(zoomSchluessel);
+  if (zoomSchluessel !== zoomFuer) { setZoomFuer(zoomSchluessel); setZoom(OHNE_ZOOM); }
+  // Während einer Geste läuft der Zoom an React vorbei (flüssig); festgelegt
+  // wird er am Ende (zoom), dann folgt der scharfe Ausschnitt.
+  const zoomLive = useRef<Zoom>(OHNE_ZOOM);
+  const zoomZeigen = useCallback((z: Zoom) => {
+    zoomLive.current = z;
+    const el = rahmenEl.current;
+    if (el) el.style.transform = z.z === 1 && !z.x && !z.y ? '' : `translate(${z.x}px, ${z.y}px) scale(${z.z})`;
+  }, []);
+  useLayoutEffect(() => { zoomZeigen(zoom); }, [zoom, rahmen, zoomZeigen]);
+  // Mitte des Rahmens in Ruhelage (Bildschirm): Bezugspunkt aller Zoom-Rechnungen.
+  const rahmenMitte = useCallback((): Punkt => {
+    const f = flaeche.current!.getBoundingClientRect(), r = rahmenEl.current!;
+    return { x: f.left + r.offsetLeft + r.offsetWidth / 2, y: f.top + r.offsetTop + r.offsetHeight / 2 };
+  }, []);
+  const zoomKnopf = (mal: number) => setZoom(rahmen ? zoomenUm(zoomLive.current, mal, { x: 0, y: 0 }, rahmen) : OHNE_ZOOM);
+
+  // Mausrad und Trackpad: Strg (Mac: auch Zwei-Finger-Zoom) zoomt um den
+  // Zeiger, ohne Strg schiebt es das gezoomte Blatt — statt zu blättern.
+  // Eigener Hörer: React meldet Rad-Ereignisse passiv, die Seite würde sonst
+  // mitzoomen. Safari am Mac schickt Zwei-Finger-Zoom als „gesture“-Ereignisse.
+  const zoomRef = useRef({ aktiv: false, rahmen: null as typeof rahmen });
+  useEffect(() => { zoomRef.current = { aktiv: zoomAktiv, rahmen }; });
+  const finger = useRef(new Map<number, Punkt>());
+  useEffect(() => {
+    const el = flaeche.current;
+    if (!el) return;
+    let festlegen = 0;
+    const spaeterFestlegen = () => {
+      window.clearTimeout(festlegen);
+      festlegen = window.setTimeout(() => setZoom(einrasten(zoomLive.current)), 160);
+    };
+    const rad = (e: WheelEvent) => {
+      const { aktiv, rahmen: r } = zoomRef.current;
+      if (!aktiv || !r) return;
+      const z = zoomLive.current, weg = (d: number) => radWeg(d, e.deltaMode, window.innerHeight);
+      if (e.ctrlKey || e.metaKey) {
+        const m = rahmenMitte(), d = Math.max(-RAD_ZOOM, Math.min(RAD_ZOOM, weg(e.deltaY)));
+        zoomZeigen(zoomenUm(z, Math.exp(-d / 100), { x: e.clientX - m.x, y: e.clientY - m.y }, r));
+      } else if (z.z > 1) {
+        zoomZeigen(begrenzen({ ...z, x: z.x - weg(e.deltaX), y: z.y - weg(e.deltaY) }, r));
+      } else return;
+      e.preventDefault();
+      e.stopPropagation();
+      spaeterFestlegen();
+    };
+    let gesteStart = OHNE_ZOOM;
+    const geste = (e: Event) => {
+      const { aktiv, rahmen: r } = zoomRef.current;
+      if (!aktiv || !r) return;
+      e.preventDefault();
+      // iPad: Finger kommen als Zeiger-Ereignisse (unten), hier nichts doppelt.
+      if (finger.current.size) return;
+      const g = e as Event & { scale: number; clientX: number; clientY: number };
+      if (e.type === 'gesturestart') gesteStart = zoomLive.current;
+      else if (e.type === 'gesturechange') {
+        const m = rahmenMitte();
+        zoomZeigen(zoomenUm(gesteStart, g.scale, { x: g.clientX - m.x, y: g.clientY - m.y }, r));
+      } else setZoom(einrasten(zoomLive.current));
+    };
+    el.addEventListener('wheel', rad, { passive: false });
+    for (const t of ['gesturestart', 'gesturechange', 'gestureend']) el.addEventListener(t, geste);
+    return () => {
+      window.clearTimeout(festlegen);
+      el.removeEventListener('wheel', rad);
+      for (const t of ['gesturestart', 'gesturechange', 'gestureend']) el.removeEventListener(t, geste);
+    };
+  }, [rahmenMitte, zoomZeigen]);
+
+  // Scharfer Ausschnitt: Gezoomt wäre das Blatt nur vergrößert und unscharf.
+  // Kurz nach dem Zoomen wird der sichtbare Teil (mit etwas Rand) in
+  // Bildschirmschärfe gerendert und über das Blatt gelegt.
+  const [nah, setNah] = useState<{ seite: number; r: Rechteck; bild: SeitenBild } | null>(null);
+  const nahGilt = !!nah && zoomAktiv && zoom.z > 1 && nah.seite === zeichenSeite;
+  if (nah && !nahGilt) setNah(null);
+  useEffect(() => () => {
+    // Abgelöst oder nicht mehr gebraucht: Leinwand-Speicher gleich freigeben (Safari).
+    if (nah) for (const c of [nah.bild.seite, nah.bild.ebene]) if (c) { c.width = 0; c.height = 0; }
+  }, [nah]);
+  useEffect(() => {
+    if (!zoomAktiv || zoom.z <= 1 || !darst || zeichenSeite === null || !px) return;
+    const r = sichtbarerTeil(zoom, platz, darst.rahmen, darst.blatt, 0.15);
+    if (!r) return;
+    let seitenPx = darst.blatt.b * zoom.z * Math.min(dpr, 2);
+    // Schärfer als das ganze Blatt ohnehin ist? Sonst lohnt es nicht.
+    if (seitenPx <= px * 1.1) return;
+    const groesse = r.b * r.h * seitenPx * seitenPx * format;
+    if (groesse > MAX_NAH) seitenPx *= Math.sqrt(MAX_NAH / groesse);
+    let weg = false, abbrechen = () => {};
+    const t = window.setTimeout(() => {
+      const auftrag = ausschnittRendern(pdf, zeichenSeite, seitenPx, r);
+      abbrechen = auftrag.abbrechen;
+      auftrag.bild.then((bild) => {
+        if (weg) { for (const c of [bild.seite, bild.ebene]) if (c) { c.width = 0; c.height = 0; } return; }
+        setNah({ seite: zeichenSeite, r, bild });
+      }, (x) => { if (!weg) console.error('Ausschnitt ließ sich nicht schärfen', x); });
+    }, 120);
+    return () => { weg = true; window.clearTimeout(t); abbrechen(); };
+  }, [zoomAktiv, zoom, platz, darst, zeichenSeite, px, dpr, format, pdf]);
+  const nahLeinwand = useRef<HTMLCanvasElement>(null);
+  const nahHilfe = useRef<HTMLCanvasElement | null>(null);
+  useEffect(() => {
+    // Ganz herausgezoomt: auch die Leinwand des Ausschnitts gleich freigeben.
+    const c = nahLeinwand.current;
+    return () => { for (const x of [c, nahHilfe.current]) if (x) { x.width = 0; x.height = 0; } };
+  }, [nahGilt]);
+  useEffect(() => {
+    const c = nahLeinwand.current;
+    if (!c || !nah || !nahGilt) return;
+    const { seite, ebene } = nah.bild, r = nah.r;
+    c.width = seite.width; c.height = seite.height;
+    const W = seite.width / r.b, H = seite.height / r.h;
+    blattZeichnen(c.getContext('2d')!, { x: -r.x * W, y: -r.y * H, b: W, h: H },
+      [{ seite: nah.seite, y0: 0, y1: 1, bild: seite, ebene, lage: { x: 0, y: 0, b: seite.width, h: seite.height } }],
+      anm, extras, () => (nahHilfe.current ??= document.createElement('canvas')));
+  }, [nah, nahGilt, anm, extras]);
 
   // Nachbarseiten vorab rendern: Blättern ohne Wartezeit.
   useEffect(() => {
@@ -277,16 +401,25 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       // Bluetooth-Blätterpedale senden meist Pfeil- oder Bild-Tasten.
       const a = tastenAktion(e.key);
       if (a) { e.preventDefault(); blaetternNach(a); }
-      if (e.key === 'Escape' && werkzeug) setWerkzeug(null);
+      if (e.key === 'Escape' && farbeAufnehmen) setFarbeAufnehmen(false);
+      else if (e.key === 'Escape' && werkzeug) setWerkzeug(null);
     };
     window.addEventListener('keydown', taste);
     return () => window.removeEventListener('keydown', taste);
-  }, [blaetternNach, werkzeug, tastenAktiv, stelleBlatt, bearbeitenSeite]);
+  }, [blaetternNach, werkzeug, farbeAufnehmen, tastenAktiv, stelleBlatt, bearbeitenSeite]);
 
   // ── Zeiger: zeichnen oder blättern ──
   const blatt = useRef<HTMLDivElement>(null);
   const live = useRef<HTMLCanvasElement>(null);
-  const zug = useRef<{ art: 'zeichnen' | 'tippen'; punkte: number[]; x: number; y: number; t: number; id: number } | null>(null);
+  // zeichnen, tippen/wischen (blättern) oder — gezoomt — das Blatt schieben.
+  const zug = useRef<{ art: 'zeichnen' | 'tippen' | 'schieben'; punkte: number[]; x: number; y: number; t: number; id: number; start: Zoom } | null>(null);
+  // Zwei Finger beim Zoomen: wo sie aufsetzten (von der Rahmenmitte aus).
+  const zweiGriff = useRef<{ ids: [number, number]; a: Punkt; b: Punkt; start: Zoom; mitte: Punkt } | null>(null);
+  // Die Leinwand des laufenden Strichs: gezoomt nur der sichtbare Teil, in
+  // Bildschirmschärfe (r: Teil der Seite, W: Seitenbreite in Pixeln).
+  const liveLage = useRef<{ r: Rechteck; W: number }>({ r: VOLL, W: 0 });
+  // Radierer als Kreis unter Stift oder Maus, in seiner Breite.
+  const radierKreis = useRef<HTMLSpanElement>(null);
   const [rechteckEntwurf, setRechteckEntwurf] = useState<Rechteck | null>(null);
   const neueStelleMerken = useRef<{ seite: number; x: number; y: number } | null>(null);
   // Nach dem Neuladen die gerade angelegte Stelle wählen (Liste ist nach Seite sortiert).
@@ -350,38 +483,136 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     staendeAktualisieren();
   }
 
-  function liveZeichnen() {
-    const c = live.current, z = zug.current;
-    if (!c || !z || !blatt.current) return;
+  function liveVorbereiten() {
+    const c = live.current, el = blatt.current;
+    if (!c || !el) return;
+    const z = zoomLive.current;
+    const r = z.z > 1 && darst ? sichtbarerTeil(z, platz, darst.rahmen, darst.blatt) ?? VOLL : VOLL;
     // Blattgröße: beim Ausschnitt größer als der sichtbare Rahmen.
-    c.width = Math.round(blatt.current.offsetWidth * dpr); c.height = Math.round(blatt.current.offsetHeight * dpr);
+    let W = el.offsetWidth * z.z * dpr;
+    const groesse = r.b * r.h * W * W * (el.offsetHeight / el.offsetWidth);
+    if (groesse > MAX_NAH) W *= Math.sqrt(MAX_NAH / groesse);
+    liveLage.current = { r, W };
+    Object.assign(c.style, { left: `${r.x * 100}%`, top: `${r.y * 100}%`, width: `${r.b * 100}%`, height: `${r.h * 100}%` });
+  }
+  function liveZeichnen() {
+    const c = live.current, z = zug.current, el = blatt.current;
+    if (!c || !z || !el) return;
+    const { r, W } = liveLage.current, H = W * (el.offsetHeight / el.offsetWidth);
+    c.width = Math.round(r.b * W); c.height = Math.round(r.h * H);
     const ctx = c.getContext('2d')!;
     ctx.clearRect(0, 0, c.width, c.height);
-    if (werkzeug === 'stift') strichZeichnen(ctx, z.punkte, einst.stift.farbe, einst.stift.breite * c.width, 0, 0, c.width, c.height);
-    if (werkzeug === 'marker') strichZeichnen(ctx, z.punkte, einst.marker.farbe, einst.marker.breite * c.width, 0, 0, c.width, c.height, true);
+    if (werkzeug === 'stift') strichZeichnen(ctx, z.punkte, einst.stift.farbe, einst.stift.breite * W, -r.x * W, -r.y * H, W, H);
+    if (werkzeug === 'marker') strichZeichnen(ctx, z.punkte, einst.marker.farbe, einst.marker.breite * W, -r.x * W, -r.y * H, W, H, true);
+  }
+  const liveLeeren = () => { const c = live.current; if (c) c.getContext('2d')!.clearRect(0, 0, c.width, c.height); };
+
+  function kreisZeigen(e: React.PointerEvent | null) {
+    const k = radierKreis.current;
+    if (!k) return;
+    if (!e || werkzeug !== 'radierer' || zeichenSeite === null) { k.style.display = 'none'; return; }
+    const p = relativ(e);
+    Object.assign(k.style, { display: 'block', left: `${p.x * 100}%`, top: `${p.y * 100}%`, width: `${radierBreite * 100}%` });
+  }
+
+  // Pipette (E-08): die Farbe unter dem Finger aus der schärfsten Leinwand —
+  // beim Zoomen dem Ausschnitt, sonst dem Blatt —, samt PDF und Markierungen.
+  function farbeNehmen(e: React.PointerEvent) {
+    const w = werkzeug;
+    if (w !== 'stift' && w !== 'marker' && w !== 'text') { setFarbeAufnehmen(false); return; }
+    const p = relativ(e);
+    if (p.x < 0 || p.x > 1 || p.y < 0 || p.y > 1) return; // neben der Seite: nichts aufzunehmen
+    let c = leinwand.current, x = p.x, y = p.y;
+    if (nahGilt && nah && nahLeinwand.current && p.x >= nah.r.x && p.x <= nah.r.x + nah.r.b && p.y >= nah.r.y && p.y <= nah.r.y + nah.r.h) {
+      c = nahLeinwand.current; x = (p.x - nah.r.x) / nah.r.b; y = (p.y - nah.r.y) / nah.r.h;
+    }
+    if (!c) return;
+    // Über eine kleine eigene Leinwand gelesen: Das Blatt selbst bleibt fürs
+    // Zeichnen eingerichtet (kein Zurücklesen aus seinem Speicher).
+    const kante = 5, probe = document.createElement('canvas');
+    probe.width = kante; probe.height = kante;
+    const pc = probe.getContext('2d')!;
+    pc.drawImage(c, Math.round(x * c.width) - 2, Math.round(y * c.height) - 2, kante, kante, 0, 0, kante, kante);
+    const daten = pc.getImageData(0, 0, kante, kante).data;
+    const punkt = pipettenPunkt(daten, kante);
+    if (!punkt) return;
+    const farbe = pipettenFarbe(w, punkt);
+    einstellen(w, { ...einst[w], farbe });
+    const neu = { ...pipetten, [w]: farbe };
+    setPipetten(neu);
+    speichern('ueben:pipette', neu);
+    setFarbeAufnehmen(false);
+  }
+
+  // Zwei Finger setzen auf: zoomen. Was der erste angefangen hatte, endet —
+  // ein Strich verfällt, ein Radier-Wisch wird gespeichert.
+  function zweiFingerAnfangen() {
+    const [[ia, a], [ib, b]] = [...finger.current.entries()];
+    zugAbbrechen();
+    const m = rahmenMitte();
+    zweiGriff.current = { ids: [ia, ib], a: { x: a.x - m.x, y: a.y - m.y }, b: { x: b.x - m.x, y: b.y - m.y }, start: zoomLive.current, mitte: m };
+  }
+  function zugAbbrechen() {
+    const z = zug.current;
+    zug.current = null;
+    if (z?.art === 'zeichnen' && werkzeug === 'radierer' && zeichenSeite !== null) radierEnde(zeichenSeite);
+    if (z?.art === 'schieben') setZoom(einrasten(zoomLive.current));
+    liveLeeren();
+    setRechteckEntwurf(null);
   }
 
   function runter(e: React.PointerEvent) {
     if (textEingabe) { textSpeichern(); return; } // Tippen daneben übernimmt den Text
     if (neueStelle || bearbeiten) return;
+    if (zoomAktiv && e.pointerType === 'touch') {
+      finger.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (finger.current.size >= 2) {
+        e.currentTarget.setPointerCapture(e.pointerId);
+        if (finger.current.size === 2) zweiFingerAnfangen();
+        return;
+      }
+    }
+    if (farbeAufnehmen) { e.preventDefault(); farbeNehmen(e); return; }
     const p = relativ(e);
     radierWisch.current = false;
     radierSpur.current = null;
-    if (darfZeichnen(e)) {
+    radierLetzter.current = null;
+    const aufSeite = p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1;
+    if (darfZeichnen(e) && aufSeite) {
       e.preventDefault();
       e.currentTarget.setPointerCapture(e.pointerId);
-      zug.current = { art: 'zeichnen', punkte: [p.x, p.y], x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId };
-      if (werkzeug === 'radierer') radieren(p.x, p.y);
+      zug.current = { art: 'zeichnen', punkte: [p.x, p.y], x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId, start: zoomLive.current };
+      if (werkzeug === 'stift' || werkzeug === 'marker') liveVorbereiten();
+      if (werkzeug === 'radierer') { kreisZeigen(e); radieren(p.x, p.y); }
     } else {
       // Festhalten: Auch ein Wisch als Maus-Zeiger (Scroll-Ring über
       // AssistiveTouch), der über den Rand hinausläuft, endet hier.
       e.currentTarget.setPointerCapture(e.pointerId);
-      zug.current = { art: 'tippen', punkte: [], x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId };
+      // Gezoomt schiebt der Finger das Blatt, statt zu blättern.
+      const art = zoomAktiv && zoomLive.current.z > 1 ? 'schieben' : 'tippen';
+      zug.current = { art, punkte: [], x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId, start: zoomLive.current };
     }
   }
   function bewegen(e: React.PointerEvent) {
+    if (finger.current.has(e.pointerId)) {
+      finger.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      const g = zweiGriff.current;
+      if (g) {
+        const a = finger.current.get(g.ids[0]), b = finger.current.get(g.ids[1]);
+        if (a && b && rahmen) {
+          const rel = (q: Punkt) => ({ x: q.x - g.mitte.x, y: q.y - g.mitte.y });
+          zoomZeigen(zweiFinger(g.start, g.a, g.b, rel(a), rel(b), rahmen));
+        }
+        return;
+      }
+    }
     const z = zug.current;
-    if (!z || z.art !== 'zeichnen' || e.pointerId !== z.id) return;
+    if (!z || e.pointerId !== z.id) { if (e.pointerType !== 'touch') kreisZeigen(e); return; }
+    if (z.art === 'schieben') {
+      if (rahmen) zoomZeigen(begrenzen({ ...z.start, x: z.start.x + e.clientX - z.x, y: z.start.y + e.clientY - z.y }, rahmen));
+      return;
+    }
+    if (z.art !== 'zeichnen') return;
     const ereignisse = (e.nativeEvent as PointerEvent).getCoalescedEvents?.() ?? [e.nativeEvent];
     for (const ev of ereignisse) {
       const p = relativ(ev);
@@ -389,12 +620,20 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       else if (werkzeug === 'stelle') setRechteckEntwurf(rechteckAus(z.punkte[0], z.punkte[1], p.x, p.y));
       else z.punkte.push(p.x, p.y);
     }
+    if (werkzeug === 'radierer') kreisZeigen(e);
     if (werkzeug === 'stift' || werkzeug === 'marker') liveZeichnen();
   }
   function hoch(e: React.PointerEvent) {
+    if (finger.current.delete(e.pointerId) && zweiGriff.current) {
+      // Ein Finger hebt ab: der Zoom steht. Der andere tut danach nichts mehr.
+      if (finger.current.size < 2) { zweiGriff.current = null; setZoom(einrasten(zoomLive.current)); }
+      return;
+    }
     const z = zug.current;
     zug.current = null;
+    if (e.pointerType === 'touch') kreisZeigen(null);
     if (!z) return;
+    if (z.art === 'schieben') { setZoom(einrasten(zoomLive.current)); return; }
     if (z.art === 'tippen') {
       // Wischen (Finger oder Scroll-Ring): nach oben/links weiter, nach unten/rechts zurück.
       const g = zeigerGeste(e.clientX - z.x, e.clientY - z.y, e.timeStamp - z.t, umkehren());
@@ -405,22 +644,13 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       return;
     }
     const seite = zeichenSeite!;
-    // Radier-Wisch zu Ende: einmal speichern — im Updater, der nach allen
-    // Updatern des Wischs läuft — und den Verlaufszähler nachziehen (der
-    // Verlauf wird in den Updatern geschrieben, die bis hierhin gelaufen sind).
-    if (werkzeug === 'radierer') {
-      setAnm((a) => {
-        if (radierWisch.current) anmerkungenSpeichern(noten.id, seite, a[seite] ?? []).catch(speicherFehler);
-        return a;
-      });
-      staendeAktualisieren();
-    }
+    if (werkzeug === 'radierer') radierEnde(seite);
     if (werkzeug === 'stift' || werkzeug === 'marker') {
       const neu: Anmerkung = werkzeug === 'stift'
         ? { id: crypto.randomUUID(), art: 'stift', farbe: einst.stift.farbe, breite: einst.stift.breite, punkte: z.punkte }
         : { id: crypto.randomUUID(), art: 'marker', farbe: einst.marker.farbe, breite: einst.marker.breite, punkte: z.punkte };
       anmerkungenSetzen(seite, [...(anm[seite] ?? []), neu]);
-      const c = live.current; if (c) c.getContext('2d')!.clearRect(0, 0, c.width, c.height);
+      liveLeeren();
     }
     if (werkzeug === 'text') {
       setTextEingabe({ x: z.punkte[0], y: z.punkte[1], text: '', seit: e.timeStamp });
@@ -432,21 +662,45 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       if (r.b > 0.02 && r.h > 0.01) { setNeueStelle(r); setStelleTitel(''); setStelleZiel(''); }
     }
   }
-  // Ein Radier-Wisch nimmt getroffene eigene Striche weg und — auf Seiten mit
+  function abgebrochen(e: React.PointerEvent) {
+    finger.current.delete(e.pointerId);
+    if (zweiGriff.current) { zweiGriff.current = null; setZoom(einrasten(zoomLive.current)); }
+    if (zug.current?.id === e.pointerId) zugAbbrechen();
+    kreisZeigen(null);
+  }
+  // Ein Radier-Wisch schneidet eigene Striche (E-07) und — auf Seiten mit
   // Markierungen aus dem PDF — radiert diese Ebene entlang einer Radier-Spur.
-  // Gespeichert wird einmal am Ende des Wischs (hoch).
+  // Schnelle Wische werden lückenlos nachgezogen (radierWeg).
   const radierSpur = useRef<string | null>(null);
+  const radierLetzter = useRef<{ x: number; y: number } | null>(null);
   function radieren(x: number, y: number) {
     const seite = zeichenSeite!;
     const ebene = mitEbene.current.has(seite);
+    const radius = radierBreite / 2;
+    const punkte = radierWeg(radierLetzter.current, x, y, radius, format);
+    radierLetzter.current = { x, y };
     setAnm((alleAnm) => {
       const alt = alleAnm[seite] ?? [];
-      const r = radierZug(alt, x, y, 0.012, format, radierSpur.current, ebene, () => crypto.randomUUID());
-      radierSpur.current = r.spur;
-      if (!r.geaendert) return alleAnm;
+      let objekte = alt, geaendert = false;
+      for (const q of punkte) {
+        const r = radierZug(objekte, q.x, q.y, radius, format, radierSpur.current, ebene, () => crypto.randomUUID());
+        radierSpur.current = r.spur;
+        if (r.geaendert) { objekte = r.objekte; geaendert = true; }
+      }
+      if (!geaendert) return alleAnm;
       if (!radierWisch.current) { verlaufAnm.current = [...verlaufAnm.current.slice(-49), { seite, vorher: alt }]; wiederholenAnm.current = []; radierWisch.current = true; }
-      return { ...alleAnm, [seite]: r.objekte };
+      return { ...alleAnm, [seite]: objekte };
     });
+  }
+  // Radier-Wisch zu Ende: einmal speichern — im Updater, der nach allen
+  // Updatern des Wischs läuft — und den Verlaufszähler nachziehen (der
+  // Verlauf wird in den Updatern geschrieben, die bis hierhin gelaufen sind).
+  function radierEnde(seite: number) {
+    setAnm((a) => {
+      if (radierWisch.current) anmerkungenSpeichern(noten.id, seite, a[seite] ?? []).catch(speicherFehler);
+      return a;
+    });
+    staendeAktualisieren();
   }
   function rueckgaengig() {
     const letzter = verlaufAnm.current.pop();
@@ -542,7 +796,8 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     : null;
   // Werkzeug-Hinweise bleiben stehen, solange sie gelten (B-11): beim Benennen
   // der Stelle bzw. Schreiben des Texts sind sie erledigt.
-  const werkzeugHinweis = !werkzeug || zeichenSeite === null ? null
+  const werkzeugHinweis = farbeAufnehmen ? 'Auf die Farbe tippen, die du übernehmen willst.'
+    : !werkzeug || zeichenSeite === null ? null
     : werkzeug === 'stelle' ? (neueStelle ? null : 'Rahmen um die Takte ziehen.')
     : werkzeug === 'text' ? (textEingabe ? null : 'Auf die Stelle tippen, an der der Text stehen soll.')
     : null;
@@ -561,8 +816,11 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   const paletteWechsel = (offen: boolean) => {
     setPaletteOffen(offen);
     setWerkzeug(offen ? 'stift' : null);
+    setFarbeAufnehmen(false);
     if (offen) setLinieEinstellen(false);
   };
+  // Knöpfe über dem Blatt: Tippen darauf zeichnet und blättert nicht.
+  const greifbar = { onPointerDown: (e: React.PointerEvent) => e.stopPropagation(), onPointerUp: (e: React.PointerEvent) => e.stopPropagation() };
 
   return (
     <div className={`betrachter ${navDa ? 'nav-da' : ''}`} role="region" aria-label={`Noten: ${noten.titel}`}>
@@ -638,16 +896,19 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       </div>
 
       {/* Zeiger auf der ganzen Fläche: auch Tippen neben das Blatt blättert. */}
-      <div ref={flaeche} className={`betrachter-flaeche ${zeileUnten ? '' : 'unten-frei'}`}
+      <div ref={flaeche} className={`betrachter-flaeche ${zeileUnten ? '' : 'unten-frei'} ${farbeAufnehmen ? 'pipette' : ''}`}
         style={{ '--oben': `${leiste ? obenHoehe : 0}px` } as React.CSSProperties}
         onPointerDown={runter} onPointerMove={(e) => { bewegen(e); linieBewegen(e); }} onPointerUp={(e) => { hoch(e); linieLoslassen(); }}
-        onPointerCancel={() => { zug.current = null; setRechteckEntwurf(null); }} onWheel={radDrehen}
+        onPointerCancel={abgebrochen} onPointerLeave={() => kreisZeigen(null)}
+        onWheel={radDrehen}
         onMouseDown={(e) => { if (werkzeug) e.preventDefault(); }}>
         {darst && (
-          <div className={`betrachter-rahmen ${bearbeiten ? 'einstellen' : ''}`} style={{ width: darst.rahmen.b, height: darst.rahmen.h }}>
+          <div ref={rahmenEl} className={`betrachter-rahmen ${bearbeiten ? 'einstellen' : ''} ${zoomAktiv ? 'zoombar' : ''}`} style={{ width: darst.rahmen.b, height: darst.rahmen.h }}>
             <div ref={blatt} className="betrachter-blatt" style={{ width: darst.blatt.b, height: darst.blatt.h, left: darst.blatt.x, top: darst.blatt.y }}>
               <canvas ref={leinwand} className="betrachter-leinwand" />
+              {nahGilt && nah && <canvas ref={nahLeinwand} className="betrachter-nah" style={prozent(nah.r)} />}
               <canvas ref={live} className="betrachter-leinwand betrachter-live" />
+              {werkzeug === 'radierer' && <span ref={radierKreis} className="b-radierer" aria-hidden="true" />}
               {rechteckEntwurf && <span className="b-rechteck" style={prozent(rechteckEntwurf)} />}
               {bearbeiten && <AusschnittRahmen r={bearbeiten.r} blatt={blatt} setzen={(r) => setBearbeiten({ ...bearbeiten, r })} />}
               {neueStelle && <span className="b-rechteck fest" style={prozent(neueStelle)} />}
@@ -672,6 +933,14 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
             <span className="b-tippzone links" aria-hidden="true">‹</span>
             <span className="b-tippzone rechts" aria-hidden="true">›</span>
           </>
+        )}
+        {zoomAktiv && (
+          <div className="b-zoom" role="group" aria-label="Zoom" {...greifbar}>
+            <button type="button" onClick={() => zoomKnopf(1 / 1.5)} disabled={zoom.z <= 1} aria-label="Verkleinern" title="Verkleinern">−</button>
+            <button type="button" className="b-zoom-wert tabular-nums" onClick={() => setZoom(OHNE_ZOOM)} disabled={zoom.z <= 1}
+              title="Ganze Seite zeigen" aria-label={`Zoom ${Math.round(zoom.z * 100)} %, ganze Seite zeigen`}>{Math.round(zoom.z * 100)} %</button>
+            <button type="button" onClick={() => zoomKnopf(1.5)} disabled={zoom.z >= ZOOM_MAX} aria-label="Vergrößern" title="Vergrößern (auch mit zwei Fingern)">+</button>
+          </div>
         )}
         {/* Schwebende Hinweise: verkleinern das Blatt nicht. */}
         {(linieHinweis || werkzeugHinweis || (werkzeug && zeichenSeite === null)) && (
@@ -763,8 +1032,10 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       {/* Beim Benennen einer neuen Stelle weicht die Palette der Eingabezeile. */}
       {paletteOffen && !neueStelle && !bearbeiten && (
         <StiftPalette werkzeug={werkzeug}
-          wechseln={(w) => { setWerkzeug(w); setLinieEinstellen(false); }}
+          wechseln={(w) => { setWerkzeug(w); setLinieEinstellen(false); setFarbeAufnehmen(false); }}
           einst={einst} einstellen={einstellen}
+          radierBreite={radierBreite} radiererEinstellen={radiererEinstellen}
+          pipetten={pipetten} farbeAufnehmen={farbeAufnehmen} setFarbeAufnehmen={setFarbeAufnehmen}
           fingerZeichnen={fingerZeichnen} setFingerZeichnen={setFingerZeichnen}
           rueckgaengig={rueckgaengig} wiederholen={wiederholen}
           kannRueck={staende.rueck > 0} kannWieder={staende.wieder > 0} />
