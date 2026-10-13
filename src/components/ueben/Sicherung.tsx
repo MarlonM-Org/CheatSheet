@@ -151,12 +151,12 @@ export function Sicherung({ laden }: { laden: SicherungLaden }) {
   return (
     <section className="space-y-2" aria-label="Daten übertragen">
       <p className="text-sm font-semibold">Daten übertragen</p>
-      <p className="gedaempft text-sm">
-        Eine Datei mit allen Noten dieses Geräts samt markierten Stellen, Tempi und Anmerkungen — zum Übertragen auf
-        ein anderes Gerät (dort hier „Sicherung laden“) oder als Schutz. Laden ergänzt: Was es schon gibt, wird nach
-        Rückfrage zusammengeführt (der neuere Stand gilt); was nur auf dem Gerät ist, bleibt; was auf einem Gerät
-        gelöscht wurde, wird auch auf dem anderen gelöscht. Einstellungen wie Tempo oder Farbwelt reisen nicht mit.
-      </p>
+      <ul className="stichpunkte gedaempft text-sm">
+        <li>Alle Noten mit Stellen, Tempi und Anmerkungen in einer Datei</li>
+        <li>Anderes Gerät: dort „Sicherung laden“</li>
+        <li>Beim Laden gilt der neuere Stand, Gelöschtes wird auch dort gelöscht</li>
+        <li>Einstellungen reisen nicht mit</li>
+      </ul>
       <p className="text-sm" role="status">
         {letzte ? <>Letzte Sicherung: <strong>{kurzZeit(letzte)}</strong></> : <span className="gedaempft">Noch keine Sicherung gespeichert.</span>}
       </p>
@@ -172,11 +172,12 @@ export function Sicherung({ laden }: { laden: SicherungLaden }) {
         <div className="space-y-2" role="status">
           <p className="text-sm">„{fertig.datei.name}“ ist bereit. Jetzt speichern:</p>
           <div className="flex flex-wrap gap-2">{app ? [teilenKnopf, herunterladen] : [herunterladen, teilenKnopf]}</div>
-          <p className="gedaempft text-sm">
-            {teilbar
-              ? 'Auf iPad/iPhone: „Teilen“ → „In Dateien sichern“ legt sie in die Dateien-App (z. B. iCloud Drive); AirDrop und Mail gehen auch. Jede Sicherung enthält alle PDFs — alte Sicherungen kannst du dort löschen.'
-              : 'Die Datei landet bei den Downloads.'}
-          </p>
+          {teilbar ? (
+            <ul className="stichpunkte gedaempft text-sm">
+              <li>iPhone/iPad: „Teilen“ → „In Dateien sichern“ (z. B. iCloud Drive)</li>
+              <li>Jede Sicherung enthält alle PDFs, alte kannst du löschen</li>
+            </ul>
+          ) : <p className="gedaempft text-sm">Die Datei landet bei den Downloads.</p>}
         </div>
       )}
       {fehler && <p className="warnung text-sm" role="alert">{fehler}</p>}

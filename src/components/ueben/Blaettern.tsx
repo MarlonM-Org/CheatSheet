@@ -55,24 +55,23 @@ export function BlaetternEinstellung() {
     const g = zeigerGeste(e.clientX - z.x, e.clientY - z.y, e.timeStamp - z.t, umkehren);
     const wie = QUELLE[z.typ] ?? '';
     if (g.art === 'wisch') melden(g.aktion, `Wisch ${RICHTUNG[g.richtung]} · ${g.weg} px ${wie}`);
-    else if (g.art === 'tippen') melden(null, `Tippen ${wie} — auf den Noten blättert das am Rand, in der Mitte blendet es die Leiste ein und aus.`);
-    else if (g.weg > 12) melden(null, `Zu kurz für einen Wisch (${g.weg} px, ab ${WISCH_MIN} px). Beim Ring am iPhone die Zeiger-Geschwindigkeit höher stellen.`);
-    else melden(null, 'Lange gedrückt — das blättert nicht.');
+    else if (g.art === 'tippen') melden(null, `Tippen ${wie}`);
+    else if (g.weg > 12) melden(null, `Zu kurz (${g.weg} px, ab ${WISCH_MIN} px)`);
+    else melden(null, 'Lange gedrückt');
   }
 
   return (
     <section className="space-y-2" aria-label="Blättern mit Scroll-Ring oder Pedal">
       <p className="text-sm font-semibold">Blättern mit Scroll-Ring oder Pedal</p>
-      <p className="gedaempft text-sm">
-        Auf den Noten blättern Finger und Scroll-Ring per Wischen: nach links weiter, nach rechts zurück, hoch und
-        runter wie hier eingestellt. Ein Blätterpedal (Pfeil- oder Bild-Tasten, Leertaste) und das Mausrad gehen
-        auch; im Stellen-Modus geht es Stelle für Stelle.
-      </p>
+      <ul className="stichpunkte gedaempft text-sm">
+        <li>Wischen: links weiter, rechts zurück</li>
+        <li>Pedal (Pfeil-, Bild-Tasten, Leertaste) und Mausrad gehen auch</li>
+      </ul>
       <label className="flex items-center justify-between gap-3">
         <span>
           <span className="text-sm font-semibold">Hoch und runter tauschen</span>
           <span className="block text-xs gedaempft">
-            {umkehren ? 'Wischen nach unten blättert weiter, nach oben zurück.' : 'Wischen nach oben blättert weiter (wie bei Videos), nach unten zurück.'}
+            {umkehren ? 'Runter weiter, hoch zurück' : 'Hoch weiter (wie bei Videos), runter zurück'}
           </span>
         </span>
         <input type="checkbox" role="switch" className="ios-schalter" checked={umkehren}
@@ -80,11 +79,10 @@ export function BlaetternEinstellung() {
       </label>
       <details className="text-sm">
         <summary className="font-semibold">Scroll-Ring am iPhone einrichten</summary>
-        <ol className="list-decimal space-y-1 pl-5 pt-1 gedaempft">
-          <li>Wie auf dem Beipackzettel: AssistiveTouch einschalten (Einstellungen → Bedienungshilfen → Tippen → AssistiveTouch) und den Ring unter Bluetooth koppeln.</li>
-          <li>Der Ring wischt dort, wo der graue Zeiger-Punkt steht — den Punkt mitten auf die Noten stellen, nicht auf einen Knopf.</li>
-          <li>Video-Modus (hoch/runter) und Lese-Modus (links/rechts) blättern beide.</li>
-          <li>Unten ausprobieren. Steht dort „zu kurz“, am iPhone die Zeiger-Geschwindigkeit (Tracking) höher stellen.</li>
+        <ol className="stichpunkte gedaempft pt-1">
+          <li>AssistiveTouch an (Bedienungshilfen → Tippen), Ring per Bluetooth koppeln</li>
+          <li>Grauen Zeiger-Punkt mitten auf die Noten stellen</li>
+          <li>„Zu kurz“? Zeiger-Geschwindigkeit am iPhone erhöhen</li>
         </ol>
       </details>
       <div ref={feld} className="wisch-test" tabIndex={0} aria-label="Ausprobieren: hier wischen, tippen, Mausrad drehen oder Pedal drücken"
@@ -106,7 +104,7 @@ export function BlaetternEinstellung() {
             <p className="text-sm">{meldung.text}</p>
           </div>
         ) : (
-          <p className="gedaempft text-sm">Ausprobieren: hier wischen, tippen, das Mausrad drehen oder das Pedal drücken.</p>
+          <p className="gedaempft text-sm">Hier ausprobieren</p>
         )}
       </div>
       <p className="gedaempft text-xs tabular-nums">Weiter {zahl.weiter} · zurück {zahl.zurueck}</p>

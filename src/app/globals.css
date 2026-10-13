@@ -920,8 +920,10 @@ details[open] > summary::before { transform: rotate(90deg); }
   padding: 1.1rem 1.25rem; border-radius: 14px; background: var(--karte); color: var(--tinte);
   border: 1px solid var(--linie); box-shadow: 0 18px 50px rgb(0 0 0 / 30%);
 }
-.stellen-info-liste { display: grid; gap: 0.3rem; padding-left: 1.2rem; }
-ul.stellen-info-liste { list-style: disc; }
+/* Stichpunkte für kurze Erklärungen (Stellen, Sicherung, Blättern) */
+.stichpunkte { display: grid; gap: 0.2rem; padding-left: 1.2rem; }
+ul.stichpunkte { list-style: disc; }
+ol.stichpunkte { list-style: decimal; }
 @keyframes einblenden { from { opacity: 0; } }
 
 /* Ausschnitt einstellen: Rahmen mit Griffen über der ganzen Seite */
