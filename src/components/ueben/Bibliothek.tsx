@@ -176,7 +176,7 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
   useEffect(() => { auswahlMelden(auswaehlen ? auswahl.size : null); }, [auswaehlen, auswahl, auswahlMelden]);
   const sicherung = useSicherungLaden(laden);
   // Leere Bibliothek, aber die Datenbank der Vorgängerversion liegt noch auf
-  // dem Gerät: Hinweis auf die Sicherung (docs/datenmodell.md, Umstieg).
+  // dem Gerät: Hinweis samt „Übernehmen“ (docs/datenmodell.md, Umstieg).
   const [vorgaenger, setVorgaenger] = useState(false);
   const leer = noten?.length === 0;
   useEffect(() => { if (leer) vorgaengerDa().then(setVorgaenger); }, [leer]);
@@ -428,11 +428,16 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
       {leer && (
         <div className="karte space-y-3">
           {vorgaenger && (
-            <p>
-              <strong>Deine Noten aus der Vorgängerversion</strong> liegen noch auf diesem Gerät, aber in einem älteren
-              Speicher. Sie kommen über die Sicherung herüber, die du vor dem Update erstellt hast: „Sicherung laden“
-              und die .uebe-Datei wählen. Der alte Speicher bleibt dabei unangetastet.
-            </p>
+            <div className="space-y-2">
+              <p>
+                <strong>Deine Noten aus der Vorgängerversion</strong> liegen noch auf diesem Gerät, in einem älteren
+                Speicher. „Übernehmen“ holt sie samt Stellen und Anmerkungen hierher; der alte Speicher bleibt dabei
+                unangetastet.
+              </p>
+              <button type="button" className="knopf" onClick={sicherung.uebernehmen} disabled={sicherung.laeuft || sicherung.uebernimmt || laeuft}>
+                {sicherung.uebernimmt ? 'Wird übernommen …' : 'Übernehmen'}
+              </button>
+            </div>
           )}
           <p>Noch keine Noten auf diesem Gerät. PDF-Dateien wählen — oder gleich einen ganzen Ordner: Seine Unterordner werden Sammlungen (z. B. „Märsche“, „Orchester A“).</p>
           <p>
@@ -441,11 +446,11 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
             Registerführer-App. Safari-Tab und Home-Bildschirm-App haben getrennte Speicher.
           </p>
           <div className="flex flex-wrap gap-2">
-            <button type="button" className="knopf" onClick={sicherung.waehlen} disabled={sicherung.laeuft || laeuft}>
+            <button type="button" className={`knopf ${vorgaenger ? 'knopf-leise' : ''}`} onClick={sicherung.waehlen} disabled={sicherung.laeuft || sicherung.uebernimmt || laeuft}>
               {sicherung.laeuft ? 'Sicherung wird geladen …' : 'Sicherung laden'}
             </button>
-            <button type="button" className="knopf knopf-leise" onClick={() => void hinzufuegen('dateien')} disabled={sicherung.laeuft || laeuft}>+ Noten hinzufügen</button>
-            <button type="button" className="knopf knopf-leise" onClick={() => void hinzufuegen('ordner')} disabled={sicherung.laeuft || laeuft}>Ordner wählen</button>
+            <button type="button" className="knopf knopf-leise" onClick={() => void hinzufuegen('dateien')} disabled={sicherung.laeuft || sicherung.uebernimmt || laeuft}>+ Noten hinzufügen</button>
+            <button type="button" className="knopf knopf-leise" onClick={() => void hinzufuegen('ordner')} disabled={sicherung.laeuft || sicherung.uebernimmt || laeuft}>Ordner wählen</button>
           </div>
         </div>
       )}

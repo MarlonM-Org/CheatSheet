@@ -65,6 +65,101 @@ describe('Die Vorgängerin „ueben“', () => {
   });
 });
 
+describe('Übernahme aus „ueben“ (nur lesend)', () => {
+  const alteStelle = { id: 's1', notenId: 'n1', seite: 2, x: 0.1, y: 0.2, b: 0.3, h: 0.1, titel: 'T. 1–4', notiz: 'leise', zielTempo: 96, tempi: [{ tempo: 80, am: 5 }] };
+  const bytes = async (id: string, inhalt: string) => ({ id, daten: await pdf(inhalt).arrayBuffer(), typ: 'application/pdf' });
+  const uebernehmen = async () => g.lokal.sicherungSchreiben(await g.lokal.vorgaengerPruefen());
+
+  it.each([1, 2, 3] as const)('holt mit Schema %i alles herüber, „ueben“ bleibt bytegleich', async (stand) => {
+    await altesGeraetAnlegen(stand, {
+      noten: [{ id: 'n1', titel: 'Pomp', stimme: 'Klar 1', erstellt: 1, zuletzt: 7, sammlungen: ['Märsche'], ...(stand < 3 ? { datei: pdf('pomp') } : {}) }],
+      stellen: [alteStelle],
+      ...(stand >= 2 ? { anmerkungen: [{ id: 'n1:2', notenId: 'n1', seite: 2, objekte: [strich] }] } : {}),
+      ...(stand >= 3 ? { dateien: [await bytes('n1', 'pomp')] } : {}),
+    });
+    const vorher = await abzug(VORGAENGER);
+    const e = await g.lokal.vorgaengerPruefen();
+    expect(e.neu).toBe(1);
+    expect(e.ohnePdf).toEqual([]);
+    await g.lokal.sicherungSchreiben(e);
+    expect(await g.lokal.stueckHolen('n1')).toMatchObject({ titel: 'Pomp', stimme: 'Klar 1', zuletzt: 7, sammlungen: ['Märsche'], groesse: 13 });
+    for (const s of await roh('stuecke')) expect(s).not.toHaveProperty('datei');
+    expect(await (await g.lokal.stueckDatei({ id: 'n1' })).text()).toBe('%PDF-1.4 pomp');
+    const { notenId: _n, ...rest } = alteStelle;
+    void _n;
+    expect(await g.lokal.stellenVon('n1')).toEqual([{ ...rest, stueckId: 'n1' }]);
+    if (stand >= 2) expect(await g.lokal.anmerkungenVon('n1')).toEqual([{ id: 'n1:2', stueckId: 'n1', seite: 2, objekte: [strich] }]);
+    expect(await abzug(VORGAENGER)).toEqual(vorher);
+    expect((await schemaVon(VORGAENGER)).version).toBe(stand);
+  });
+
+  it('ältere Stücke mit der PDF im Datensatz kommen mit; ohne lesbare PDF kommt das Stück samt Stellen, nur ohne Datei', async () => {
+    await altesGeraetAnlegen(3, {
+      noten: [
+        { id: 'n1', titel: 'Bytes', stimme: '', erstellt: 1 },
+        { id: 'n2', titel: 'Alt', stimme: '', erstellt: 2, datei: pdf('alt') },
+        { id: 'n3', titel: 'Verloren', stimme: '', erstellt: 3 },
+      ],
+      stellen: [{ ...alteStelle, id: 's3', notenId: 'n3' }],
+      dateien: [await bytes('n1', 'bytes')],
+    });
+    const e = await g.lokal.vorgaengerPruefen();
+    expect(e.ohnePdf).toEqual(['Verloren']);
+    await g.lokal.sicherungSchreiben(e);
+    expect(await (await g.lokal.stueckDatei({ id: 'n1' })).text()).toBe('%PDF-1.4 bytes');
+    expect(await (await g.lokal.stueckDatei({ id: 'n2' })).text()).toBe('%PDF-1.4 alt');
+    await expect(g.lokal.stueckDatei({ id: 'n3' })).rejects.toBeInstanceOf(g.lokal.DateiVerloren);
+    expect(await g.lokal.stellenVon('n3')).toHaveLength(1);
+    expect((await roh('dateien')).map((d) => d.id).sort()).toEqual(['n1', 'n2']);
+  });
+
+  it('behält den Dateiverweis — er gehört zu diesem Gerät', async () => {
+    await altesGeraetAnlegen(3, {
+      noten: [{ id: 'n1', titel: 'Pomp', stimme: '', erstellt: 1, handle: { kind: 'file', name: 'pomp.pdf' } }],
+      dateien: [await bytes('n1', 'pomp')],
+    });
+    await uebernehmen();
+    expect((await g.lokal.stueckHolen('n1'))?.handle).toEqual({ kind: 'file', name: 'pomp.pdf' });
+  });
+
+  it('zweimal übernehmen: keine Dubletten, hier Neueres bleibt, hier Gelöschtes kommt nicht wieder', async () => {
+    await altesGeraetAnlegen(3, {
+      noten: [{ id: 'n1', titel: 'Pomp', stimme: '', erstellt: 1 }, { id: 'n2', titel: 'Polka', stimme: '', erstellt: 2 }],
+      dateien: [await bytes('n1', 'pomp'), await bytes('n2', 'polka')],
+    });
+    await uebernehmen();
+    await g.lokal.stueckAendern('n1', { titel: 'Pomp (neu)' });
+    await g.lokal.stueckeLoeschen(['n2']);
+    await uebernehmen();
+    expect((await g.lokal.alleStuecke()).map((s) => s.titel)).toEqual(['Pomp (neu)']);
+    expect(await roh('dateien')).toHaveLength(1);
+  });
+
+  it('ein kaputter Eintrag hält den Rest nicht auf', async () => {
+    await altesGeraetAnlegen(3, {
+      noten: [{ id: 'n1', titel: 'Pomp', stimme: '', erstellt: 1 }, { id: 'kaputt', titel: 'ohne Stimme', erstellt: 1 }],
+      dateien: [await bytes('n1', 'pomp')],
+    });
+    const e = await g.lokal.vorgaengerPruefen();
+    expect(e.ungueltig).toBe(1);
+    await g.lokal.sicherungSchreiben(e);
+    expect((await g.lokal.alleStuecke()).map((s) => s.id)).toEqual(['n1']);
+  });
+
+  it('gibt es „ueben“ nicht, wird nichts geöffnet und nichts angelegt', async () => {
+    await expect(g.lokal.vorgaengerPruefen()).rejects.toThrow('keine Noten aus der Vorgängerversion');
+    expect(await datenbanken()).not.toContain(VORGAENGER);
+  });
+
+  it('verschwindet „ueben“ zwischen Nachfrage und Öffnen, legt das Öffnen keine leere an', async () => {
+    const echt = indexedDB.databases.bind(indexedDB);
+    Object.defineProperty(indexedDB, 'databases', { value: async () => [{ name: VORGAENGER, version: 3 }], configurable: true });
+    await expect(g.lokal.vorgaengerPruefen()).rejects.toBeTruthy();
+    Object.defineProperty(indexedDB, 'databases', { value: echt, configurable: true });
+    expect(await datenbanken()).not.toContain(VORGAENGER);
+  });
+});
+
 describe('Stücke', () => {
   it('legt den Datensatz ohne Blob und die Datei als Bytes in „dateien“ ab', async () => {
     const id = await g.lokal.stueckAnlegen({ titel: 'Pomp', stimme: 'Klar 1', datei: pdf('eins'), dateiname: 'pomp.pdf' });

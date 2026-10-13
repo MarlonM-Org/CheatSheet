@@ -6,7 +6,7 @@ import {
 } from '@/domain/bestand';
 import {
   dateiStand, einspielenPlanen, eintragZusammenfuehren, grabsteineLesen, grabsteineVereinigen, notenZusammenfuehren,
-  seiteZusammenfuehren, stand, stelleZusammenfuehren, type Einspielplan, type Grabstein, type Staende, type Vorhanden,
+  nurGueltige, seiteZusammenfuehren, stand, stelleZusammenfuehren, type Einspielplan, type Grabstein, type Staende, type Vorhanden,
 } from '@/domain/einspielen';
 import { nurLesbare } from '@/domain/lesbar';
 import type { Anmerkung } from '@/domain/notenpult';
@@ -15,6 +15,7 @@ import { verbindungVerloren } from '@/domain/speicher';
 import { tagsLesen, tagsVereinigen, type Tag, type TagFarbe } from '@/domain/tags';
 import { profileLesen, profileVereinigen, type Tonprofil } from '@/domain/tonprofil';
 import { ohneFehlende, vonSicherung, zurSicherung } from '@/domain/uebersetzen';
+import { dateiQuelle, ohneDatei, VORGAENGER_SPEICHER } from '@/domain/vorgaenger';
 
 export type { Lesezeichen, Merker, SeitenAnmerkungen, Setliste, Stelle, Stueck } from '@/domain/bestand';
 
@@ -25,9 +26,11 @@ export type { Lesezeichen, Merker, SeitenAnmerkungen, Setliste, Stelle, Stueck }
 // seltener — dagegen hilft die Sicherung. Schema und Beziehungen:
 // docs/datenmodell.md, Typen und Regeln: @/domain/bestand.
 //
-// Die Vorgängerin „ueben“ (bis Schema 3, Registerführer-Zuschnitt) wird hier
-// nie geöffnet — nur ihr Dasein erfragt (vorgaengerDa). Ihre Daten kommen
-// über die Sicherung herüber.
+// Die Vorgängerin „ueben“ (bis Schema 3, Registerführer-Zuschnitt) wird nie
+// geändert, nie umgebaut, nie gelöscht. Geöffnet wird sie nur zum Lesen, wenn
+// jemand „Übernehmen“ wählt (vorgaengerPruefen), und nur, wenn die Liste der
+// Datenbanken sie nennt (vorgaengerDa). Ihre Daten laufen dann durch dasselbe
+// Einspielen wie eine Sicherung.
 //
 // Jede Änderung setzt `geaendert`: Beim Laden einer Sicherung gilt der neuere
 // Stand. Gelöschtes hinterlässt einen Grabstein (localStorage), damit eine
@@ -595,11 +598,18 @@ export async function sicherungErstellen(): Promise<{ datei: Blob; noten: number
 // Einspielen in zwei Schritten, damit die Oberfläche dazwischen nachfragen
 // kann: erst lesen, prüfen und mit dem Gerät abgleichen — dabei wird nichts
 // geschrieben —, dann alles in EINER Transaktion schreiben.
-export interface Einspielung extends Einspielplan<Record<string, unknown> & { id: string; datei: Blob }> {
+// Bei der Übernahme aus „ueben“ kann einem Stück die Datei fehlen (`datei`
+// leer, `ohnePdf` nennt es); es kommt trotzdem samt Stellen und Anmerkungen.
+export interface Einspielung extends Einspielplan<Record<string, unknown> & { id: string; datei?: Blob }> {
   erstellt: number;
   grabsteine: Grabstein[];
   tags: Tag[];
   tonprofile: Tonprofil[];
+  // Nur bei der Übernahme aus „ueben“: Titel der Stücke ohne lesbare PDF,
+  // weggelassene kaputte Einträge, Dateiverweise (gehören zu diesem Gerät).
+  ohnePdf?: string[];
+  ungueltig?: number;
+  verweise?: ReadonlyMap<string, FileSystemFileHandle>;
 }
 
 // Falsche Datei gewählt: Der Vertrag sagt nur, dass es keine Sicherung ist —
@@ -618,7 +628,15 @@ export async function sicherungPruefen(datei: Blob): Promise<Einspielung> {
     throw e instanceof SicherungsFehler ? e : new SicherungsFehler('Die Sicherung ist beschädigt.');
   }
   const { kopf, noten } = gelesen;
-  // Was es hier gibt und wie neu es ist (für „neuer gewinnt“ und Grabsteine).
+  return planen({ ...kopf, noten }, kopf);
+}
+
+// Mit dem Gerät abgleichen — liest nur. Was es hier gibt und wie neu es ist
+// (für „neuer gewinnt“ und Grabsteine).
+async function planen(
+  inhalt: { noten: (Record<string, unknown> & { id: string; datei?: Blob })[]; stellen: unknown[]; anmerkungen: unknown[] } & Partial<Zusatz>,
+  kopf: { erstellt: number; geloescht?: unknown; tags?: unknown; tonprofile?: unknown },
+): Promise<Einspielung> {
   const namen: Speicher[] = ['stuecke', 'stellen', 'anmerkungen', 'lesezeichen', 'merker', 'setlisten'];
   const { vorhanden, staende } = await transaktion<{ vorhanden: Vorhanden; staende: Staende }>(namen, 'readonly', (t) => {
     const [st, s, a, l, m, sl] = namen.map((name) => t.objectStore(name).getAll()) as IDBRequest<Record<string, unknown>[]>[];
@@ -639,8 +657,86 @@ export async function sicherungPruefen(datei: Blob): Promise<Einspielung> {
     };
   });
   const grabsteine = grabsteineLesen(kopf.geloescht);
-  const plan = einspielenPlanen({ ...kopf, noten }, vorhanden, { grabsteine, geraetGrabsteine: grabsteineHier(), staende });
+  const plan = einspielenPlanen(inhalt, vorhanden, { grabsteine, geraetGrabsteine: grabsteineHier(), staende });
   return { ...plan, erstellt: kopf.erstellt, grabsteine, tags: tagsLesen(kopf.tags), tonprofile: profileLesen(kopf.tonprofile) };
+}
+
+// ── Übernahme aus der Vorgängerin „ueben“ ── nur lesend.
+
+// Ohne Versionsangabe geöffnet: kein Umbau, kein Schreiben. Verschwindet die
+// Datenbank genau zwischen Nachfrage und Öffnen, würde das eine leere
+// anlegen — dann bricht das Anlegen ab.
+function vorgaengerOeffnen(): Promise<IDBDatabase> {
+  return new Promise<IDBDatabase>((ok, fehler) => {
+    let aufgegeben = false;
+    const wecker = window.setTimeout(() => {
+      aufgegeben = true;
+      fehler(new Error('Der alte Speicher antwortet nicht. Bitte neu laden.'));
+    }, 8000);
+    const r = indexedDB.open(VORGAENGER);
+    r.onupgradeneeded = () => { r.transaction?.abort(); };
+    r.onsuccess = () => {
+      window.clearTimeout(wecker);
+      // Kam die Verbindung doch noch, nachdem wir aufgegeben haben: gleich wieder zu.
+      if (aufgegeben) r.result.close(); else ok(r.result);
+    };
+    r.onerror = () => { window.clearTimeout(wecker); fehler(r.error ?? new Error('Der alte Speicher ließ sich nicht öffnen.')); };
+  });
+}
+
+// Alles aus „ueben“ in EINER lesenden Transaktion — je nach Schema gibt es
+// nicht jeden Speicher.
+async function vorgaengerLesen(): Promise<Partial<Record<(typeof VORGAENGER_SPEICHER)[number], unknown[]>>> {
+  const db = await vorgaengerOeffnen();
+  try {
+    const namen = VORGAENGER_SPEICHER.filter((n) => db.objectStoreNames.contains(n));
+    if (!namen.length) return {};
+    return await new Promise((ok, fehler) => {
+      const t = db.transaction(namen, 'readonly');
+      const r = namen.map((n) => t.objectStore(n).getAll());
+      t.oncomplete = () => ok(Object.fromEntries(namen.map((n, i) => [n, r[i].result])));
+      t.onabort = () => fehler(t.error ?? new Error('Der alte Speicher hat das Lesen abgebrochen.'));
+    });
+  } finally {
+    db.close();
+  }
+}
+
+type AlteNoten = Record<string, unknown> & { id: string; titel: string; datei?: unknown; handle?: FileSystemFileHandle };
+
+// Die Noten aus „ueben“ wie eine Sicherung abgleichen; geschrieben wird mit
+// sicherungSchreiben (dieselben Regeln: neuerer Stand, Grabsteine, keine
+// Dubletten). Die PDF kommt aus „dateien“ oder, bei älteren Stücken, aus dem
+// Datensatz; ist keine lesbar, kommt das Stück ohne sie (`ohnePdf`) — seine
+// Stellen und Anmerkungen bleiben, die Datei lässt sich neu wählen.
+// Kaputte Einträge fallen weg (`ungueltig`), statt alles aufzuhalten.
+export async function vorgaengerPruefen(): Promise<Einspielung> {
+  if (!(await vorgaengerDa())) throw new SicherungsFehler('Auf diesem Gerät gibt es keine Noten aus der Vorgängerversion.');
+  const alt = await vorgaengerLesen();
+  const dateien = new Map((alt.dateien ?? []).map((d) => [(d as Datei).id, d]));
+  delete alt.dateien;
+  const { noten: gueltig, stellen, anmerkungen, ungueltig } = nurGueltige({
+    noten: (alt.noten ?? []) as AlteNoten[], stellen: alt.stellen ?? [], anmerkungen: alt.anmerkungen ?? [],
+  });
+  const noten: (Record<string, unknown> & { id: string; datei?: Blob })[] = [];
+  const ohnePdf: string[] = [];
+  const verweise = new Map<string, FileSystemFileHandle>();
+  for (const n of gueltig) {
+    const eintrag = dateien.get(n.id) as Datei | undefined;
+    let datei: Blob | undefined;
+    const quelle = dateiQuelle(eintrag, n);
+    if (quelle === 'dateien') datei = new Blob([eintrag!.daten], { type: eintrag!.typ || 'application/pdf' });
+    // Die gelesenen Bytes freigeben, sobald sie im Blob stecken.
+    dateien.delete(n.id);
+    if (quelle === 'datensatz') {
+      // Safari verliert solche Blobs mitunter — dann eben ohne Datei.
+      try { datei = new Blob([await (n.datei as Blob).arrayBuffer()], { type: typVon(n.datei as Blob) }); } catch { /* verloren */ }
+    }
+    if (!datei) ohnePdf.push(n.titel);
+    if (n.handle) verweise.set(n.id, n.handle);
+    noten.push({ ...ohneDatei(n), id: n.id, ...(datei ? { datei } : {}) });
+  }
+  return { ...(await planen({ noten, stellen, anmerkungen }, { erstellt: Date.now() })), ohnePdf, ungueltig, verweise };
 }
 
 // Schreibt eine geprüfte Sicherung: entweder kommt alles an oder nichts.
@@ -666,11 +762,15 @@ export async function sicherungSchreiben(e: Einspielung): Promise<{
 }> {
   const vorlaeufig = () => IDBKeyRange.bound(VORLAEUFIG, `${VORLAEUFIG}￿`);
   await tx('dateien', 'readwrite', (s) => { s.delete(vorlaeufig()); });
-  const dateiNehmen = new Set(e.dateiAusSicherung);
+  // Nur Stücke, die ihre Datei auch mitbringen (bei der Übernahme aus „ueben“
+  // kann sie fehlen).
+  const mitDateiDa = new Set(e.noten.filter((n) => n.datei).map((n) => n.id));
+  const dateiNehmen = new Set(e.dateiAusSicherung.filter((id) => mitDateiDa.has(id)));
   for (const n of e.noten) {
-    if (!dateiNehmen.has(n.id)) continue;
-    const daten = await bytesLesen(n.datei);
-    await tx('dateien', 'readwrite', (s) => s.put({ id: VORLAEUFIG + n.id, daten, typ: typVon(n.datei) } satisfies Datei));
+    const datei = n.datei;
+    if (!dateiNehmen.has(n.id) || !datei) continue;
+    const daten = await bytesLesen(datei);
+    await tx('dateien', 'readwrite', (s) => s.put({ id: VORLAEUFIG + n.id, daten, typ: typVon(datei) } satisfies Datei));
   }
   const ids = [...new Set(e.noten.filter((n) => dateiNehmen.has(n.id)).map((n) => n.id))];
   let folgen: Loeschfolgen | null = null;
@@ -708,10 +808,13 @@ export async function sicherungSchreiben(e: Einspielung): Promise<{
       }
     };
     // Datensätze ohne Blob — die Datei liegt in „dateien“. Kam sie aus der
-    // Sicherung, gelten deren Zeitpunkt und Größe der Datei.
+    // Sicherung, gelten deren Zeitpunkt und Größe der Datei. Bei der
+    // Übernahme aus „ueben“ kommt der Dateiverweis mit, wenn hier keiner ist.
     einspielen('stuecke', e.noten, (g, n) => {
-      const { datei, ...z } = notenZusammenfuehren(g, n);
-      if (!dateiNehmen.has(n.id)) return z as typeof n;
+      const { datei, ...zusammen } = notenZusammenfuehren(g, n);
+      const verweis = zusammen.handle === undefined ? e.verweise?.get(n.id) : undefined;
+      const z = verweis ? { ...zusammen, handle: verweis } : zusammen;
+      if (!dateiNehmen.has(n.id) || !datei) return z as typeof n;
       return { ...z, groesse: datei.size, ...(typeof n.aktualisiert === 'number' ? { aktualisiert: n.aktualisiert } : {}) } as unknown as typeof n;
     });
     einspielen('stuecke', e.zusatz.virtuelle, notenZusammenfuehren);

@@ -265,8 +265,9 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
   `stueckId`); neu `lesezeichen`, `merker`, `setlisten` und virtuelle Stücke
   (teilen Stellen/Anmerkungen mit der Quelle, fallen mit ihr weg); gelöschte
   Stücke verschwinden aus Setlisten, die Rückfrage nennt sie; Einstellungen
-  bleiben im localStorage. Umstieg über die Sicherung — `ueben` bleibt
-  unangetastet liegen, die leere Bibliothek weist darauf hin. Die Sicherung
+  bleiben im localStorage. Umstieg per „Übernehmen“ (liest `ueben` nur,
+  ergänzt 2026-10-13) oder über eine Sicherung — `ueben` bleibt unangetastet
+  liegen. Die Sicherung
   bleibt Version 1 und trägt vier optionale Listen. Alles in
   `docs/datenmodell.md`; CLAUDE.md und README nachgezogen. **Am 2026-10-13
   mit Marlons Stand zusammengeführt** (Sammlungen, Tags, Stellen-Mix,
@@ -274,9 +275,9 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
   (Definitionen im localStorage), beim Laden gewinnt der neuere Stand,
   Grabsteine; Lesezeichen, Merker, Setlisten und virtuelle Stücke folgen
   denselben Regeln. Der Hintergrund-Umzug alter Blobs entfällt (die neue
-  Datenbank kennt keine). **Vor dem Deploy:**
-  Marlon erstellt auf jedem Gerät mit Daten eine Sicherung (nach dem Update
-  gibt es die alte Fassung zum Sichern nicht mehr).
+  Datenbank kennt keine). **Vor dem Deploy:** auf jedem Gerät mit Daten
+  eine Sicherung erstellen und aufheben — als Schutz; der Umstieg selbst
+  geht nach dem Update per „Übernehmen“.
 
 - **B-01 · Kopfzeile weg, drei große Knöpfe unten** (2026-10-10, `9b36fcc`):
   Kopf- und Fußzeile ersatzlos entfernt; untere Leiste mit Noten · Metronom ·

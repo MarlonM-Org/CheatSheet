@@ -6,12 +6,16 @@ neue Datenbank `cheatsheet` mit dem Stück als Grundbegriff, virtuelle
 Stücke teilen Stellen und Anmerkungen mit der Quelle, Hinweis auf `ueben`
 in der leeren Bibliothek, die Sicherung trägt zusätzlich Lesezeichen,
 Merker, Setlisten und virtuelle Stücke. Keine offenen Fragen mehr.
+Ergänzt (2026-10-13): **Übernahme direkt aus `ueben`**, nur lesend — der
+Umstieg hängt nicht mehr an einer Sicherung, die vor dem Update erstellt
+sein muss (siehe Umstieg).
 
 Kurz: Die App bekommt eine **neue Datenbank `cheatsheet`** mit eigenem
 Schema. Die alte Datenbank `ueben` wird nicht umgebaut, sondern bleibt
-unangetastet liegen. Die Daten kommen über die **Sicherung (.uebe)**
-herüber: Marlon, der einzige Nutzer mit Daten, erstellt sie direkt vor dem
-Umstieg und lädt sie in der neuen Fassung.
+unangetastet liegen. Die Daten kommen per Knopf „Übernehmen“ herüber: Die
+App liest `ueben` (nur lesend) und spielt den Inhalt ein wie eine
+Sicherung. Eine Sicherung (.uebe) vor dem Update bleibt als zweiter Weg
+und als Schutz.
 
 ## Warum neu statt umbauen
 
@@ -23,10 +27,14 @@ Umstieg und lädt sie in der neuen Fassung.
   Lesen und die Spuren der Registerführer-App fallen weg.
 - **Rückfall.** `ueben` bleibt vollständig erhalten. Fehlt nach dem Umstieg
   etwas, ist der alte Bestand noch auf dem Gerät.
-- **Ein Weg statt zwei.** Den `.uebe`-Import braucht es ohnehin (Vertrag mit
-  `registerfuehrer`, „Daten übertragen“). Er ist damit der einzige
-  Migrationsweg. Eine automatische Übernahme aus `ueben` liefe genau einmal
-  und lohnt bei einem Nutzer nicht.
+- **Ein Einspielen für beides.** Den `.uebe`-Import braucht es ohnehin
+  (Vertrag mit `registerfuehrer`, „Daten übertragen“). Die Übernahme aus
+  `ueben` liest nur und gibt den Inhalt an genau dieses Einspielen
+  (`planen` und `sicherungSchreiben` in `lokal.ts`) — dieselben Regeln,
+  dieselben Tests. Ursprünglich war die Sicherung der einzige Weg; dann
+  hätte ein Gerät, das die neue Fassung vor der Sicherung bekommt (der
+  Service Worker aktualisiert von selbst), seine Daten nur über ein
+  Zurückrollen des Deployments erreicht.
 
 ## Neu: IndexedDB `cheatsheet`, Version 1
 
@@ -232,39 +240,48 @@ bestehenden):
 
 ## Umstieg
 
-1. Die neue Fassung liest `ueben` nicht mehr und schreibt nie hinein.
-2. **Marlon erstellt direkt vor dem Update eine Sicherung**, auf jedem
-   Gerät mit eigenen Daten. Was nach der Sicherung noch geändert wird,
-   kommt nicht mit.
-3. Zeigt die Sicherung beim Erstellen fehlende Stücke an (PDF nicht
-   lesbar), diese vorher neu wählen. Sonst bleiben sie samt Stellen und
-   Anmerkungen draußen.
-4. Nach dem Update ist die Bibliothek leer. Liegt auf dem Gerät noch
-   `ueben`, steht dort ein Hinweis (siehe unten). „Sicherung laden“ holt
-   alles herüber.
-5. `ueben` bleibt auf dem Gerät. Gelöscht wird sie frühestens, wenn der
+1. **Vorher, als Schutz:** auf jedem Gerät mit Daten mit der alten Fassung
+   eine Sicherung erstellen und aufheben. Nötig ist sie für den Umstieg
+   nicht mehr, aber sie ist der einzige Schutz, falls etwas schiefgeht
+   (oder Safari den Speicher räumt).
+2. Nach dem Update ist die Bibliothek leer. Liegt auf dem Gerät noch
+   `ueben`, steht dort ein Hinweis mit dem Knopf **„Übernehmen“** (siehe
+   unten); dasselbe gibt es in den Einstellungen unter „Daten übertragen“,
+   solange `ueben` da ist.
+3. „Übernehmen“ liest `ueben` und spielt alles ein wie eine Sicherung:
+   Stücke samt PDF, Stellen, Anmerkungen. Zweimal übernehmen schadet
+   nicht (gleiche ids, neuerer Stand gewinnt, hier Gelöschtes kommt nicht
+   wieder).
+4. `ueben` bleibt auf dem Gerät. Gelöscht wird sie frühestens, wenn der
    Umstieg sich bewährt hat, und dann als eigener Roadmap-Punkt.
 
-### Hinweis in der leeren Bibliothek
+### Übernahme aus `ueben` (nur lesend)
 
-Ist die Bibliothek leer und liegt auf dem Gerät noch `ueben`, zeigt sie
-einen Absatz über „Sicherung laden“: Die Noten aus der Vorgängerversion
-liegen noch in einem älteren Speicher und kommen über die Sicherung herüber,
-die vor dem Update erstellt wurde; der alte Speicher bleibt unangetastet.
-Nur ein Hinweis, keine Übernahme. Sobald ein Stück da ist, verschwindet er.
-(Eine Vorgängerversion zum Sichern gibt es nach dem Update nicht mehr —
-deshalb Schritt 2 vor dem Update.)
-
-Erkennen nur über `indexedDB.databases()`, **nie** über
-`indexedDB.open('ueben')`: Das Öffnen würde eine leere `ueben` anlegen, wo
-keine war. Kennt der Browser `databases()` nicht, gibt es keinen Hinweis.
+- **Erkennen** nur über `indexedDB.databases()`, **nie** über ein
+  blindes `indexedDB.open('ueben')`: Das würde eine leere `ueben` anlegen,
+  wo keine war. Kennt der Browser `databases()` nicht, gibt es keinen
+  Knopf — dann bleibt der Weg über eine Sicherung.
+- **Öffnen** ohne Versionsangabe (kein Umbau) und lesen in einer
+  `readonly`-Transaktion. Verschwindet `ueben` genau zwischen Nachfrage und
+  Öffnen, bricht das Anlegen ab (getestet).
+- **PDF:** aus `dateien` (Schema 3) oder, bei älteren Stücken, aus dem
+  Blob im Datensatz (`dateiQuelle` in `src/domain/vorgaenger.ts`). Ist
+  keine lesbar, kommt das Stück trotzdem, samt Stellen und Anmerkungen,
+  nur ohne Datei; die Meldung nennt es, die Datei lässt sich neu wählen.
+  (Eine Sicherung ließe solche Stücke samt Stellen draußen.)
+- **Kaputte Einträge** fallen weg und werden gezählt (`nurGueltige` in
+  `src/domain/einspielen.ts`), statt die ganze Übernahme aufzuhalten.
+- **Dateiverweise** (`handle`, Chrome/Edge am Rechner) gehören zu diesem
+  Gerät und kommen mit — anders als über die Sicherung.
+- Im Browser (Chromium) einmal durchgespielt: Schema 3 mit Bytes-Stück und
+  altem Blob-Stück, danach ist `ueben` unverändert.
 
 ### Was beim Umstieg verloren geht
 
-Nicht im Export und deshalb nach dem Umstieg weg: Dateiverweise (`handle`,
-nur Chrome/Edge am Rechner, die Datei lässt sich neu wählen).
-„Zuletzt geöffnet“ und alle Einstellungen bleiben, weil sie im
-localStorage liegen.
+Über „Übernehmen“: nichts aus der Datenbank. Über eine Sicherung: die
+Dateiverweise (`handle`) und Stücke ohne lesbare PDF samt ihren Stellen.
+„Zuletzt geöffnet“, Tags, Tonprofile, Grabsteine und alle Einstellungen
+bleiben ohnehin, weil sie im localStorage liegen.
 
 ## Absicherung
 
@@ -301,19 +318,22 @@ localStorage liegen.
      und Merker mit, die Setliste bleibt.
    - Ein virtuelles Stück ohne Quelle wird beim Laden übersprungen.
    - Verwaiste Einträge werden weggelassen.
-8. **Hinweis:** erscheint nur bei leerer Bibliothek und vorhandener
-   `ueben`; die Prüfung legt keine Datenbank an.
+8. **Hinweis und Übernahme:** erscheint nur bei vorhandener `ueben`; die
+   Prüfung legt keine Datenbank an. Übernahme aus Schema 1, 2 und 3,
+   ältere Blob-Stücke, Stück ohne lesbare PDF, Dateiverweis, zweimal
+   übernehmen, kaputter Eintrag — danach ist `ueben` bytegleich.
 9. **Echte Daten:** Marlons Export lokal gegen die Übersetzung laufen
    lassen. Die Datei liegt **außerhalb des Repos** (öffentlich), der Test
    läuft nur, wenn ihr Pfad gesetzt ist.
-10. **Gerät:** `fake-indexeddb` ist nicht Safari. Den Umstieg einmal auf dem
-   iPhone durchspielen, bevor Marlon ihn macht.
+10. **Gerät:** `fake-indexeddb` ist nicht Safari. In Chromium ist die
+   Übernahme durchgespielt; auf dem iPhone noch einmal, bevor Marlon den
+   Umstieg macht.
 
 ## Regeln, die sich ändern (CLAUDE.md)
 
 - „IndexedDB `ueben`, Version 3 … Der Name `ueben` bleibt (Vertrag)“
   wird zu: IndexedDB `cheatsheet` (Schema hier). `ueben` ist die
-  Vorgängerin, bleibt liegen und wird nicht gelesen.
+  Vorgängerin, bleibt liegen und wird nur für „Übernehmen“ gelesen.
 - „Schema nur per Versionssprung ändern, nie Daten verwerfen“ gilt ab dann
   für `cheatsheet`, mit Migrationstest.
 - „Ältere Stücke tragen noch einen Blob in `noten`“ entfällt.

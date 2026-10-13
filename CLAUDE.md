@@ -14,8 +14,9 @@ anders ist, ist ein Fehler oder gehört dort nachgetragen.
   Schema und Beziehungen in `docs/datenmodell.md` (Typen und Regeln in
   `src/domain/bestand.ts`). Schema nur per Versionssprung mit Migrationstest
   ändern, nie Daten verwerfen. Die Vorgängerin `ueben` (bis Schema 3) wird nie
-  geöffnet, nie geändert, nie gelöscht — ihre Daten kamen über die Sicherung
-  herüber; nur ihr Dasein wird erfragt (`indexedDB.databases()`).
+  geändert, nie umgebaut, nie gelöscht. Gelesen wird sie nur für
+  „Übernehmen“ (`vorgaengerPruefen`: ohne Versionsangabe, `readonly`) und nur,
+  wenn `indexedDB.databases()` sie nennt — ein blindes Öffnen legte sie an.
 - Das Sicherungsformat `.uebe` (`src/domain/sicherung.ts`) ist der Vertrag mit
   `registerfuehrer`: Dateien von dort müssen hier ladbar bleiben. Version 1;
   `noten`/`stellen`/`anmerkungen` im Registerführer-Zuschnitt (`notenId`).

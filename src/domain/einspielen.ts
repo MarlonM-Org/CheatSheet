@@ -166,6 +166,18 @@ const istSetliste = (e: unknown) => istObjekt(e) && text(e.id) && text(e.titel) 
 
 type Roh = { id: string } & Record<string, unknown>;
 
+// Nur die Einträge, die das Laden annimmt, und wie viele wegfallen. Für die
+// Übernahme aus „ueben“: Dort soll ein kaputter Eintrag den Rest nicht
+// aufhalten (eine Sicherung mit so einem Eintrag gilt dagegen als beschädigt).
+export function nurGueltige<N>(inhalt: { noten: N[]; stellen: unknown[]; anmerkungen: unknown[] }):
+  { noten: N[]; stellen: unknown[]; anmerkungen: unknown[]; ungueltig: number } {
+  const noten = inhalt.noten.filter(istNote);
+  const stellen = inhalt.stellen.filter(istStelle);
+  const anmerkungen = inhalt.anmerkungen.filter(istSeite);
+  const vorher = inhalt.noten.length + inhalt.stellen.length + inhalt.anmerkungen.length;
+  return { noten, stellen, anmerkungen, ungueltig: vorher - noten.length - stellen.length - anmerkungen.length };
+}
+
 export function einspielenPlanen<N extends { id: string }>(
   inhalt: { noten: N[]; stellen: unknown[]; anmerkungen: unknown[] } & Partial<Record<keyof Zusatz, unknown[]>>,
   vorhanden: Vorhanden,
@@ -378,9 +390,11 @@ export function notenZusammenfuehren<N extends Record<string, unknown>>(geraet: 
 }
 
 // Text der Rückfrage. `datum` ist der lesbare Zeitpunkt der Sicherung oder null.
+// `woher`: eine Sicherung oder die Übernahme aus der Vorgängerversion („ueben“).
 export function rueckfrage(
   p: Pick<Einspielplan<unknown>, 'ueberschrieben' | 'uebersprungen'> & { loeschen?: Loeschen; ersetzt?: Einspielplan<unknown>['ersetzt'] },
   datum: string | null,
+  woher: 'sicherung' | 'vorgaenger' = 'sicherung',
 ): string {
   const u = p.ueberschrieben;
   const e = p.ersetzt ?? { lesezeichen: 0, merker: 0, setlisten: 0 };
@@ -403,9 +417,12 @@ export function rueckfrage(
     weg.merker?.length ? n(weg.merker.length, 'Merker', 'Merker') : '',
     weg.setlisten?.length ? n(weg.setlisten.length, 'Setliste', 'Setlisten') : '',
   ].filter(Boolean);
-  return `${datum ? `Die Sicherung vom ${datum}` : 'Die Sicherung (Datum unbekannt)'} aktualisiert auf diesem Gerät ${was}. `
-    + 'Wo beide Geräte etwas geändert haben, gilt der neuere Stand; Tempo-Verläufe und Striche werden zusammengeführt, Wegradiertes bleibt weg.'
+  const vorgaenger = woher === 'vorgaenger';
+  const wer = vorgaenger ? 'Die Übernahme aus der Vorgängerversion' : datum ? `Die Sicherung vom ${datum}` : 'Die Sicherung (Datum unbekannt)';
+  return `${wer} aktualisiert auf diesem Gerät ${was}. `
+    + (vorgaenger ? 'Wo es hier schon einen Stand gibt, gilt der neuere' : 'Wo beide Geräte etwas geändert haben, gilt der neuere Stand')
+    + '; Tempo-Verläufe und Striche werden zusammengeführt, Wegradiertes bleibt weg.'
     + (geloescht.length ? ` Auf dem anderen Gerät gelöscht und deshalb auch hier gelöscht: ${aufzaehlen(geloescht)}.` : '')
     + (p.uebersprungen ? ` ${n(p.uebersprungen, 'Eintrag', 'Einträge')} ohne zugehörige Noten ${p.uebersprungen === 1 ? 'wird' : 'werden'} übersprungen.` : '')
-    + ' Laden?';
+    + (vorgaenger ? ' Übernehmen?' : ' Laden?');
 }

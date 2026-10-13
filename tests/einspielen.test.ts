@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  einspielenPlanen, eintragZusammenfuehren, grabsteineLesen, grabsteineVereinigen, notenZusammenfuehren, rueckfrage, seiteZusammenfuehren, stand,
+  einspielenPlanen, eintragZusammenfuehren, grabsteineLesen, grabsteineVereinigen, notenZusammenfuehren, nurGueltige, rueckfrage, seiteZusammenfuehren, stand,
   stelleZusammenfuehren, tempiVereinigen, ueberschreibt, type Vorhanden,
 } from '@/domain/einspielen';
 import { SicherungsFehler } from '@/domain/sicherung';
@@ -192,6 +192,22 @@ describe('Sicherung zusammenführen ohne Verlust', () => {
   });
 });
 
+describe('Nur gültige Einträge (Übernahme aus „ueben“)', () => {
+  it('lässt kaputte Einträge weg und zählt sie, statt alles abzulehnen', () => {
+    const r = nurGueltige({
+      noten: [note('a'), { id: 'b', titel: 'ohne Stimme' }],
+      stellen: [stelle('s1', 'a'), { id: 's2', notenId: 'a', seite: 0 }],
+      anmerkungen: [anm('a', 1), { id: 'falsch', notenId: 'a', seite: 2, objekte: [] }],
+    });
+    expect(r.noten.map((n) => n.id)).toEqual(['a']);
+    expect(r.stellen).toEqual([stelle('s1', 'a')]);
+    expect(r.anmerkungen).toEqual([anm('a', 1)]);
+    expect(r.ungueltig).toBe(3);
+    // Was übrig bleibt, nimmt der Plan an.
+    expect(() => einspielenPlanen(r, geraet())).not.toThrow();
+  });
+});
+
 describe('Rückfrage beim Laden', () => {
   const plan = (noten: number, stellen: number, anmerkungen: number, uebersprungen = 0, loeschen = { noten: [] as string[], stellen: [] as string[] }) =>
     ({ ueberschrieben: { noten, stellen, anmerkungen }, uebersprungen, loeschen });
@@ -211,6 +227,13 @@ describe('Rückfrage beim Laden', () => {
     );
     expect(rueckfrage(plan(1, 0, 0, 3), null)).toContain(' 3 Einträge ohne zugehörige Noten werden übersprungen.');
     expect(rueckfrage(plan(1, 0, 0), null)).toContain('aktualisiert auf diesem Gerät 1 Noten. ');
+  });
+
+  it('bei der Übernahme aus der Vorgängerversion', () => {
+    expect(rueckfrage(plan(2, 0, 1), null, 'vorgaenger')).toBe(
+      'Die Übernahme aus der Vorgängerversion aktualisiert auf diesem Gerät 2 Noten und 1 Seite mit Anmerkungen. '
+      + 'Wo es hier schon einen Stand gibt, gilt der neuere; Tempo-Verläufe und Striche werden zusammengeführt, Wegradiertes bleibt weg. Übernehmen?',
+    );
   });
 
   it('nennt, was auf dem anderen Gerät gelöscht wurde und hier verschwindet', () => {

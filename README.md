@@ -81,9 +81,9 @@ geschützt und lassen sich so nicht prüfen.
 Kein Login, kein Konto, kein Server: Noten-PDFs, markierte Stellen, Tempi,
 Anmerkungen, Lesezeichen, Merker und Setlisten liegen nur im Browser dieses
 Geräts (IndexedDB `cheatsheet`, Schema in `docs/datenmodell.md`). Die
-Datenbank der Vorgängerversion (`ueben`) bleibt unangetastet liegen; ihre
-Daten kommen über die Sicherung herüber, und solange die Bibliothek leer ist,
-weist sie darauf hin.
+Datenbank der Vorgängerversion (`ueben`) bleibt unangetastet liegen; solange
+es sie gibt, holt „Übernehmen“ (leere Bibliothek oder Einstellungen → Daten
+übertragen) ihre Noten samt Stellen und Anmerkungen herüber — nur lesend.
 Einstellungen wie Tempo und Reiter liegen im `localStorage`. Beides ist je
 Adresse getrennt — eine andere Adresse sieht diese Daten nicht.
 
