@@ -1,8 +1,8 @@
 // Sprünge (F-05): zwei Punkte im Stück verknüpfen — Wiederholung, D.S.,
-// D.C., Coda. Am Sprungzeichen („von“) sitzt eine Marke; Antippen springt
-// zur Ansicht mit der Einstiegsstelle („nach“). Gespeichert am Stück
-// (`spruenge`), Koordinaten in Anteilen der Seite wie Stellen, Anmerkungen
-// und Ausschnitte. Rein, getestet.
+// D.C., Coda. Weiterblättern folgt ihnen (spielfolge.ts); am Sprungzeichen
+// („von“) sitzt eine Marke, Antippen springt zur Einstiegsstelle („nach“).
+// Gespeichert am Stück (`spruenge`), Koordinaten in Anteilen der Seite wie
+// Stellen, Anmerkungen und Ausschnitte. Rein, getestet.
 
 import { hauptseite, type Ansicht } from './notenpult';
 import type { Rechteck } from './ueben';
@@ -25,7 +25,7 @@ function punktLesen(roh: unknown): Punkt | null {
 }
 
 // Reihenfolge: nach Seite und Lage des Sprungzeichens (wie im Stück).
-const vorher = (a: Sprung, b: Sprung) => a.von.seite - b.von.seite || a.von.y - b.von.y || a.von.x - b.von.x;
+export const vorher = (a: Sprung, b: Sprung) => a.von.seite - b.von.seite || a.von.y - b.von.y || a.von.x - b.von.x;
 
 // Prüft und säubert (Sicherung, ältere Stände): Kaputtes fällt weg, Anteile
 // bleiben in 0..1, je id ein Sprung.
@@ -107,7 +107,8 @@ export function zielAnsicht(liste: Ansicht[], nach: Punkt): number | null {
   return i < 0 ? null : i;
 }
 
-// Zurück zur Ausgangsansicht: dieselbe, sonst die ganze Seite, die dort galt.
+// Dieselbe Ansicht in einer anderen Liste (Blätter-Modus gewechselt), sonst
+// die ganze Seite, die dort galt.
 export function ansichtFinden(liste: Ansicht[], a: Ansicht): number {
   const gleich = liste.findIndex((b) => (b.art === 'ganz' && a.art === 'ganz' && b.seite === a.seite)
     || (b.art === 'halb' && a.art === 'halb' && b.oben === a.oben && b.unten === a.unten && Math.abs(b.schnitt - a.schnitt) < 1e-9));

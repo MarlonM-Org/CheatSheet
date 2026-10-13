@@ -497,6 +497,10 @@ details[open] > summary::before { transform: rotate(90deg); }
 .nav-titel-schnitt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nav-pfeil { width: 11px; height: 11px; flex: none; color: var(--leise); }
 .nav-untertitel { max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.04em; color: var(--gedaempft); white-space: nowrap; }
+/* „S. 1 · nach D.S.“: wird es eng, kürzt sich die Seite, nicht der Abschnitt. */
+.nav-abschnitt { display: flex; gap: 0.3em; letter-spacing: 0.02em; }
+.nav-abschnitt > :first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.nav-abschnitt > :last-child { flex: none; }
 .nav-rund {
   flex: none; width: 34px; height: 34px; border-radius: 999px;
   display: grid; place-items: center; background: var(--flaeche); color: var(--gedaempft);
@@ -972,13 +976,6 @@ ol.stichpunkte { list-style: decimal; }
   100% { transform: scale(0.95); opacity: 0.35; }
 }
 @media (prefers-reduced-motion: reduce) { .b-blink { animation: none; } }
-.b-zurueck {
-  position: absolute; z-index: 3; left: 0.75rem; top: calc(max(var(--oben, 0px), env(safe-area-inset-top, 0px)) + 0.6rem);
-  min-height: 2.75rem; padding: 0 1rem; border-radius: 999px; font-size: 0.85rem; font-weight: 700; color: var(--tinte);
-  background: var(--schleier); backdrop-filter: blur(6px); border: 1px solid var(--messing); box-shadow: 0 6px 24px rgb(0 0 0 / 18%);
-  transition: top 0.25s ease; animation: einblenden 0.15s ease;
-}
-@media (prefers-reduced-motion: reduce) { .b-zurueck { transition: none; animation: none; } }
 /* Sprung setzen: geführte Zeile unten */
 .b-sprung { flex-direction: column; align-items: stretch; gap: 0.35rem; }
 .b-sprung-zeile { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
