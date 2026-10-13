@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { FARB_NAMEN, mitTag, ohneTag, TAG_FARBEN, tagName, tagsVon, VORSCHLAEGE, type Tag, type TagFarbe } from '@/domain/tags';
-import { tagAendern, tagAnlegen, tagLoeschen, type LokaleNoten } from './lokal';
+import { tagAendern, tagAnlegen, tagLoeschen, type Stueck } from './lokal';
 import { speicherFehler } from './speicherfehler';
 import { useDialogFokus, useEscape } from './tasten';
 
@@ -115,7 +115,7 @@ export function TagVerwaltung({ tags, geaendert }: { tags: Tag[]; geaendert: () 
 // Markieren: für die gewählten Stücke jeden Tag an/aus (halb: nur manche).
 // Neue Tags lassen sich hier gleich anlegen.
 export function TagWahl({ noten, tags: start, speichern, schliessen }: {
-  noten: LokaleNoten[]; tags: Tag[];
+  noten: Stueck[]; tags: Tag[];
   speichern: (aenderungen: { id: string; tags: string[] }[]) => void; schliessen: () => void;
 }) {
   useEscape(schliessen);

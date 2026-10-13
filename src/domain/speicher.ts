@@ -33,18 +33,3 @@ export function zuletztAus(liste: Record<string, number>, n: { id: string; zulet
   const t = Math.max(liste[n.id] ?? 0, n.zuletzt ?? 0);
   return t > 0 ? t : undefined;
 }
-
-// Die PDF-Datei eines Stücks liegt seit Schema 3 als reine Bytes im eigenen
-// Speicher „dateien“ — Safari verliert Blobs in IndexedDB mitunter. Ältere
-// Stücke tragen sie noch als Blob im Datensatz, bis sie umziehen.
-export function dateiQuelle(eintrag: unknown, n: { datei?: unknown }): 'dateien' | 'datensatz' | 'keine' {
-  if (eintrag && typeof eintrag === 'object' && (eintrag as { daten?: unknown }).daten instanceof ArrayBuffer) return 'dateien';
-  return n.datei instanceof Blob ? 'datensatz' : 'keine';
-}
-
-// Datensatz ohne die Datei — so wird nie ein Blob zurückgeschrieben.
-export function ohneDatei<T extends { datei?: unknown }>(n: T): Omit<T, 'datei'> {
-  const kopie = { ...n };
-  Reflect.deleteProperty(kopie, 'datei');
-  return kopie;
-}

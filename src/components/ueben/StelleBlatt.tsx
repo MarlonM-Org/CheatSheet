@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { reserveVon, steigerung, tagesbeste, tempoStand, zielAusText, zielStand } from '@/domain/stellen';
-import { stelleAendern, type LokaleStelle } from './lokal';
+import { stelleAendern, type Stelle } from './lokal';
 import { speicherFehler } from './speicherfehler';
 import { useDialogFokus, useEscape } from './tasten';
 import { TempoKurve } from './TempoKurve';
@@ -13,7 +13,7 @@ const datum = (t: number) => new Date(t).toLocaleDateString('de-DE', { day: '2-d
 // der letzten drei Wochen und der Tempo-Verlauf als Kurve. Geöffnet aus der
 // Stellen-Leiste (Tipp auf den Namen der Stelle).
 export function StelleBlatt({ stelle, stueck, geaendert, schliessen }: {
-  stelle: LokaleStelle; stueck: string; geaendert: () => void; schliessen: () => void;
+  stelle: Stelle; stueck: string; geaendert: () => void; schliessen: () => void;
 }) {
   useEscape(schliessen);
   const fokus = useDialogFokus<HTMLDivElement>();

@@ -10,7 +10,7 @@ function zufall(saat = 1) {
   return () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
 }
 const stellen = (je: Record<string, number>): MixStelle[] =>
-  Object.entries(je).flatMap(([notenId, n]) => Array.from({ length: n }, (_, i) => ({ id: `${notenId}${i + 1}`, notenId })));
+  Object.entries(je).flatMap(([stueckId, n]) => Array.from({ length: n }, (_, i) => ({ id: `${stueckId}${i + 1}`, stueckId })));
 const stueck = (id: string) => id.replace(/\d+$/, '');
 const nebeneinander = (reihe: string[]) => reihe.filter((id, i) => i > 0 && stueck(reihe[i - 1]) === stueck(id)).length;
 
@@ -77,7 +77,7 @@ describe('Stellen-Mix: Runde an den Bestand angleichen', () => {
     expect(rundeAbgleichen(runde, ohne, zufall())).toEqual({ reihe: ['a1', 'b1', 'a2', 'b2'], pos: 2 });
   });
   it('neue Stellen kommen in den noch offenen Teil, die geübten bleiben vorn', () => {
-    const mehr = [...alle, { id: 'd1', notenId: 'd' }, { id: 'd2', notenId: 'd' }];
+    const mehr = [...alle, { id: 'd1', stueckId: 'd' }, { id: 'd2', stueckId: 'd' }];
     const neu = rundeAbgleichen(runde, mehr, zufall(7));
     expect(neu.pos).toBe(2);
     expect(neu.reihe.slice(0, 3)).toEqual(['a1', 'b1', 'c1']);
@@ -85,7 +85,7 @@ describe('Stellen-Mix: Runde an den Bestand angleichen', () => {
   });
   it('Runde geschafft und neue Stellen dazu: es geht mit den neuen weiter', () => {
     const fertig = { reihe: ['a1', 'b1', 'c1', 'a2', 'b2'], pos: 5 };
-    const neu = rundeAbgleichen(fertig, [...alle, { id: 'e1', notenId: 'e' }], zufall());
+    const neu = rundeAbgleichen(fertig, [...alle, { id: 'e1', stueckId: 'e' }], zufall());
     expect(neu).toEqual({ reihe: ['a1', 'b1', 'c1', 'a2', 'b2', 'e1'], pos: 5 });
   });
   it('neue Runde: alle Stellen, vorn beginnend', () => {
@@ -197,7 +197,7 @@ describe('Achse der Tempo-Kurve', () => {
 });
 
 describe('Stellen-Mix: Bereich (Sammlung, nur offene)', () => {
-  const s = (id: string, notenId: string, zielTempo: number | null = null, tempi: { tempo: number; am: number }[] = []) => ({ id, notenId, zielTempo, tempi });
+  const s = (id: string, stueckId: string, zielTempo: number | null = null, tempi: { tempo: number; am: number }[] = []) => ({ id, stueckId, zielTempo, tempi });
   it('offen: ohne Ziel, oder Ziel samt Reserve noch nicht geschafft', () => {
     expect(stelleOffen(s('a', 'n'))).toBe(true);
     expect(stelleOffen(s('a', 'n', 120, [{ tempo: 125, am: 1 }]))).toBe(true);
@@ -205,7 +205,7 @@ describe('Stellen-Mix: Bereich (Sammlung, nur offene)', () => {
   });
   it('wählt die Stellen der Sammlung, auf Wunsch nur offene — Behaltenes bleibt drin', () => {
     const alle = [s('a1', 'A'), s('a2', 'A', 100, [{ tempo: 110, am: 1 }]), s('b1', 'B'), s('c1', 'C', 100, [{ tempo: 111, am: 1 }])];
-    const inSammlung = (notenId: string) => notenId !== 'B';
+    const inSammlung = (stueckId: string) => stueckId !== 'B';
     expect(mixAuswahl(alle, inSammlung, false).map((x) => x.id)).toEqual(['a1', 'a2', 'c1']);
     expect(mixAuswahl(alle, inSammlung, true).map((x) => x.id)).toEqual(['a1']);
     // schon geübt bzw. gerade dran: bleibt in der Runde, auch wenn jetzt geschafft

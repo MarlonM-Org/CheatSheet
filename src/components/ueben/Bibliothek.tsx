@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { loeschHinweis } from '@/domain/bestand';
 import { stand } from '@/domain/einspielen';
 import { ausDateiname, nachTitel, zeitpunkt, zuordnen } from '@/domain/notenpult';
 import {
@@ -12,8 +13,8 @@ import { imTagFilter, mitTag, tagsVon, tagUebersicht, type Tag } from '@/domain/
 import { gespeichert, speichern } from './klang';
 import { zuletztAus } from '@/domain/speicher';
 import {
-  alleNoten, alleStellen, alleUmziehen, dateiGroessen, DateiNichtLesbar, letzteSicherung, notenAendern, notenAnlegen, notenLoeschen, sammlungenSetzen,
-  tagsLaden, tagsSetzen, zuletztListe, type LokaleNoten, type LokaleStelle,
+  alleStellen, alleStuecke, dateiGroessen, DateiNichtLesbar, letzteSicherung, loeschVorschau, sammlungenSetzen, stueckAendern, stueckAnlegen,
+  stueckeLoeschen, tagsLaden, tagsSetzen, vorgaengerDa, zuletztListe, type Stelle, type Stueck,
 } from './lokal';
 import { HinzufuegenMenue, SammlungenLeiste, SammlungKopf, SammlungWahl } from './Sammlungen';
 import { useSicherungLaden } from './Sicherung';
@@ -116,7 +117,7 @@ function ordnerWaehlen(): Promise<File[]> {
   });
 }
 
-async function ausVerweis(n: LokaleNoten): Promise<File | null> {
+async function ausVerweis(n: Stueck): Promise<File | null> {
   const h = n.handle as Recht | undefined;
   if (!h) return null;
   try {
@@ -133,8 +134,8 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
   offenEntfernt: () => void; aktualisiert: (ids: string[]) => void; stand: number;
   mixStarten: (neu: boolean, bereich: MixBereich) => void; einstellungen: () => void;
 }) {
-  const [noten, setNoten] = useState<LokaleNoten[] | null>(null);
-  const [stellen, setStellen] = useState<LokaleStelle[]>([]);
+  const [noten, setNoten] = useState<Stueck[] | null>(null);
+  const [stellen, setStellen] = useState<Stelle[]>([]);
   const [fehler, setFehler] = useState('');
   const [meldung, setMeldung] = useState('');
   // Teilweise gescheitert (Gerätespeicher): was geklappt hat und was nicht.
@@ -163,8 +164,8 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
   // Erinnerung an die Sicherung (H-01)
   const [erinnerung, setErinnerung] = useState<{ faellig: boolean; tage: number | null } | null>(null);
   const laden = useCallback(() => {
-    Promise.all([alleNoten(), alleStellen()]).then(([l, st]) => {
-      setZuletzt(zuletztListe()); setNoten(l); setStellen(st); setTags(tagsLaden()); void alleUmziehen();
+    Promise.all([alleStuecke(), alleStellen()]).then(([l, st]) => {
+      setZuletzt(zuletztListe()); setNoten(l); setStellen(st); setTags(tagsLaden());
       const aenderung = Math.max(0, ...l.map((n) => stand(n as unknown as Record<string, unknown>)), ...st.map((x) => stand(x as unknown as Record<string, unknown>)));
       const erste = l.length ? Math.min(...l.map((n) => n.erstellt)) : null;
       setErinnerung(sicherungFaellig(letzteSicherung(), aenderung, erste, Date.now()));
@@ -174,6 +175,11 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
   useEffect(() => { if (noten) anzahlMelden(noten.length); }, [noten, anzahlMelden]);
   useEffect(() => { auswahlMelden(auswaehlen ? auswahl.size : null); }, [auswaehlen, auswahl, auswahlMelden]);
   const sicherung = useSicherungLaden(laden);
+  // Leere Bibliothek, aber die Datenbank der Vorgängerversion liegt noch auf
+  // dem Gerät: Hinweis samt „Übernehmen“ (docs/datenmodell.md, Umstieg).
+  const [vorgaenger, setVorgaenger] = useState(false);
+  const leer = noten?.length === 0;
+  useEffect(() => { if (leer) vorgaengerDa().then(setVorgaenger); }, [leer]);
 
   const sortiert = useMemo(() => [...(noten ?? [])].sort((a, b) => sortierung === 'abc'
     ? nachTitel(a, b)
@@ -193,7 +199,7 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
   const alleGewaehlt = gefiltert.length > 0 && gefiltert.every((n) => auswahl.has(n.id));
   const stellenJe = useMemo(() => {
     const je: Record<string, number> = {};
-    for (const s of stellen) je[s.notenId] = (je[s.notenId] ?? 0) + 1;
+    for (const s of stellen) je[s.stueckId] = (je[s.stueckId] ?? 0) + 1;
     return je;
   }, [stellen]);
 
@@ -226,7 +232,7 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
         setFortschritt(`${fertig + nichtLesbar.length + 1} von ${plan.neu.length} …`);
         const { titel, stimme } = ausDateiname(datei.name);
         try {
-          await notenAnlegen({ titel, stimme, datei, dateiname: datei.name, handle, ...(p.sammlungen.length ? { sammlungen: p.sammlungen } : {}), ...(tagZiel ? { tags: [tagZiel.id] } : {}) });
+          await stueckAnlegen({ titel, stimme, datei, dateiname: datei.name, handle, ...(p.sammlungen.length ? { sammlungen: p.sammlungen } : {}), ...(tagZiel ? { tags: [tagZiel.id] } : {}) });
           fertig++;
         } catch (x) {
           if (!(x instanceof DateiNichtLesbar)) throw x;
@@ -273,21 +279,23 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
   }
 
   // Dieselben Dateien neu einlesen; markierte Stellen und Anmerkungen bleiben.
-  async function aktualisieren(ziel: LokaleNoten[]) {
+  // Virtuelle Stücke haben keine eigene Datei — sie zeigen die ihrer Quelle.
+  async function aktualisieren(alle: Stueck[]) {
+    const ziel = alle.filter((n) => !n.quelle);
     if (!ziel.length) return;
     setMeldung(''); setWarnung(''); setLaeuft(true);
     let fertig = 0;
     const geaendert: string[] = [];
     try {
-      const offenOhne: LokaleNoten[] = [];
+      const offenOhne: Stueck[] = [];
       if (kannVerweise()) {
         for (const n of ziel) {
           const datei = await ausVerweis(n);
-          if (datei) { await notenAendern(n.id, { datei, aktualisiert: Date.now() }); fertig++; geaendert.push(n.id); } else offenOhne.push(n);
+          if (datei) { await stueckAendern(n.id, { datei, aktualisiert: Date.now() }); fertig++; geaendert.push(n.id); } else offenOhne.push(n);
         }
       } else offenOhne.push(...ziel);
 
-      let fehlen: LokaleNoten[] = [];
+      let fehlen: Stueck[] = [];
       let uebrig = 0;
       if (offenOhne.length) {
         // Ohne Dateiverweis (iPad/iPhone): einmal die Dateien wählen, Zuordnung über den Namen.
@@ -296,7 +304,7 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
         const r = zuordnen(offenOhne, gewaehlt.map((g) => g.datei.name));
         for (const p of r.paare) {
           const g = gewaehlt[p.datei];
-          await notenAendern(p.notenId, { datei: g.datei, dateiname: g.datei.name, aktualisiert: Date.now(), ...(g.handle ? { handle: g.handle } : {}) });
+          await stueckAendern(p.notenId, { datei: g.datei, dateiname: g.datei.name, aktualisiert: Date.now(), ...(g.handle ? { handle: g.handle } : {}) });
           fertig++;
           geaendert.push(p.notenId);
         }
@@ -322,22 +330,25 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
 
   // Einzeln nacheinander (jede Note samt Stellen und Anmerkungen in einer
   // Transaktion). Scheitert eine, sagt die Meldung, wie weit es kam.
+  // Alles in einem Schritt: die Stücke samt allem, was an ihnen hängt —
+  // auch virtuelle Stücke aus ihnen und ihre Einträge in Setlisten (Regeln in
+  // @/domain/bestand). Die Rückfrage nennt vorher, was mit wegfällt.
   async function loeschen() {
     const ids = [...auswahl];
-    if (!confirm(`${ids.length} Noten mit allen Stellen und Anmerkungen von diesem Gerät löschen?`)) return;
-    setMeldung(''); setWarnung(''); setLaeuft(true);
-    const geloescht = new Set<string>();
+    setMeldung(''); setWarnung('');
     try {
-      for (const id of ids) { await notenLoeschen(id); geloescht.add(id); }
+      const hinweis = loeschHinweis(await loeschVorschau(ids));
+      if (!confirm(`${ids.length} Noten mit allen Stellen und Anmerkungen von diesem Gerät löschen?${hinweis ? ` ${hinweis}` : ''}`)) return;
+      setLaeuft(true);
+      const { stuecke } = await stueckeLoeschen(ids);
       setAuswahl(new Set());
       setAuswaehlen(false);
+      if (offen && stuecke.includes(offen)) offenEntfernt();
     } catch (x) {
-      setWarnung(`${geloescht.size} von ${ids.length} gelöscht, der Rest ist noch da und weiter ausgewählt: ${fehlerGrund(x)}`);
-      setAuswahl(new Set(ids.filter((id) => !geloescht.has(id))));
+      setWarnung(`Nichts gelöscht, die Auswahl ist noch da: ${fehlerGrund(x)}`);
     } finally {
       setLaeuft(false);
       laden();
-      if (offen && geloescht.has(offen)) offenEntfernt();
     }
   }
 
@@ -414,8 +425,20 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
       ))}
       {laeuft && <p className="gedaempft text-sm">Einen Moment … {fortschritt}</p>}
 
-      {noten?.length === 0 && (
+      {leer && (
         <div className="karte space-y-3">
+          {vorgaenger && (
+            <div className="space-y-2">
+              <p>
+                <strong>Deine Noten aus der Vorgängerversion</strong> liegen noch auf diesem Gerät, in einem älteren
+                Speicher. „Übernehmen“ holt sie samt Stellen und Anmerkungen hierher; der alte Speicher bleibt dabei
+                unangetastet.
+              </p>
+              <button type="button" className="knopf" onClick={sicherung.uebernehmen} disabled={sicherung.laeuft || sicherung.uebernimmt || laeuft}>
+                {sicherung.uebernimmt ? 'Wird übernommen …' : 'Übernehmen'}
+              </button>
+            </div>
+          )}
           <p>Noch keine Noten auf diesem Gerät. PDF-Dateien wählen — oder gleich einen ganzen Ordner: Seine Unterordner werden Sammlungen (z. B. „Märsche“, „Orchester A“).</p>
           <p>
             <strong>Noten von einem anderen Gerät?</strong> Dort in den Einstellungen (Zahnrad) „Sicherung erstellen“
@@ -423,11 +446,11 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
             Registerführer-App. Safari-Tab und Home-Bildschirm-App haben getrennte Speicher.
           </p>
           <div className="flex flex-wrap gap-2">
-            <button type="button" className="knopf" onClick={sicherung.waehlen} disabled={sicherung.laeuft || laeuft}>
+            <button type="button" className={`knopf ${vorgaenger ? 'knopf-leise' : ''}`} onClick={sicherung.waehlen} disabled={sicherung.laeuft || sicherung.uebernimmt || laeuft}>
               {sicherung.laeuft ? 'Sicherung wird geladen …' : 'Sicherung laden'}
             </button>
-            <button type="button" className="knopf knopf-leise" onClick={() => void hinzufuegen('dateien')} disabled={sicherung.laeuft || laeuft}>+ Noten hinzufügen</button>
-            <button type="button" className="knopf knopf-leise" onClick={() => void hinzufuegen('ordner')} disabled={sicherung.laeuft || laeuft}>Ordner wählen</button>
+            <button type="button" className="knopf knopf-leise" onClick={() => void hinzufuegen('dateien')} disabled={sicherung.laeuft || sicherung.uebernimmt || laeuft}>+ Noten hinzufügen</button>
+            <button type="button" className="knopf knopf-leise" onClick={() => void hinzufuegen('ordner')} disabled={sicherung.laeuft || sicherung.uebernimmt || laeuft}>Ordner wählen</button>
           </div>
         </div>
       )}

@@ -4,7 +4,7 @@ import { imFilter } from '@/domain/sammlungen';
 import { imTagFilter } from '@/domain/tags';
 import { mixAuswahl, mixSchluessel, neueRunde, rundeAbgleichen, rundeLesen, rundeStand, type MixBereich, type Runde } from '@/domain/stellen';
 import { gespeichert, speichern } from './klang';
-import { alleNoten, alleStellen, type LokaleNoten, type LokaleStelle } from './lokal';
+import { alleStellen, alleStuecke, type Stelle, type Stueck } from './lokal';
 
 // Stellen-Mix (F-11): Stellen aus allen Stücken bunt gemischt üben, Runde
 // für Runde jede einmal (Regeln in @/domain/stellen). Die Runde liegt auf dem
@@ -19,7 +19,7 @@ export interface MixStand { bereich: MixBereich; runde: Runde; stueckVon: Record
 
 // Die Stellen eines Bereichs. Schon geübte und die aktuelle Stelle der Runde
 // bleiben drin, auch wenn sie inzwischen „geschafft“ sind.
-export function bereichsStellen(b: MixBereich, noten: LokaleNoten[], stellen: LokaleStelle[], runde: Runde | null = null) {
+export function bereichsStellen(b: MixBereich, noten: Stueck[], stellen: Stelle[], runde: Runde | null = null) {
   const drin = new Set(noten.filter((n) => imFilter(n, b.sammlung) && imTagFilter(n, b.tag)).map((n) => n.id));
   const behalten = new Set(runde ? runde.reihe.slice(0, runde.pos + 1) : []);
   return mixAuswahl(stellen, (notenId) => drin.has(notenId), b.offen, behalten);
@@ -28,12 +28,12 @@ export function bereichsStellen(b: MixBereich, noten: LokaleNoten[], stellen: Lo
 // Die gespeicherte Runde an die Stellen auf dem Gerät angleichen (oder, ohne
 // Runde bzw. mit `neu`, frisch mischen) und speichern.
 export async function mixLaden(bereich: MixBereich, neu = false): Promise<MixStand> {
-  const [noten, alle] = await Promise.all([alleNoten(), alleStellen()]);
+  const [noten, alle] = await Promise.all([alleStuecke(), alleStellen()]);
   const alt = neu ? null : rundeLaden(bereich);
   const stellen = bereichsStellen(bereich, noten, alle, alt);
   const runde = alt ? rundeAbgleichen(alt, stellen) : neueRunde(stellen);
   rundeSpeichern(bereich, runde);
-  return { bereich, runde, stueckVon: Object.fromEntries(alle.map((s) => [s.id, s.notenId])) };
+  return { bereich, runde, stueckVon: Object.fromEntries(alle.map((s) => [s.id, s.stueckId])) };
 }
 
 // Was der Notenbetrachter im Mix braucht: die Stelle und das Blättern durch
@@ -58,7 +58,7 @@ const MischSymbol = () => (
 // Einstieg in der Bibliothek: mischt, was gerade gefiltert ist (Sammlung),
 // auf Wunsch nur offene Stellen.
 export function MixKarte({ bereich, tagName, noten, stellen, starten, nurOffen }: {
-  bereich: MixBereich; tagName: string | null; noten: LokaleNoten[]; stellen: LokaleStelle[];
+  bereich: MixBereich; tagName: string | null; noten: Stueck[]; stellen: Stelle[];
   starten: (neu: boolean, bereich: MixBereich) => void; nurOffen: (an: boolean) => void;
 }) {
   const runde = rundeLaden(bereich);

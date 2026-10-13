@@ -78,9 +78,12 @@ geschützt und lassen sich so nicht prüfen.
 
 ## Datenhaltung
 
-Kein Login, kein Konto, kein Server: Noten-PDFs, markierte Stellen, Tempi und
-Anmerkungen liegen nur im Browser dieses Geräts (IndexedDB `ueben` — der
-Name bleibt aus der Übe-App, damit Sicherungen und Schema passen).
+Kein Login, kein Konto, kein Server: Noten-PDFs, markierte Stellen, Tempi,
+Anmerkungen, Lesezeichen, Merker und Setlisten liegen nur im Browser dieses
+Geräts (IndexedDB `cheatsheet`, Schema in `docs/datenmodell.md`). Die
+Datenbank der Vorgängerversion (`ueben`) bleibt unangetastet liegen; solange
+es sie gibt, holt „Übernehmen“ (leere Bibliothek oder Einstellungen → Daten
+übertragen) ihre Noten samt Stellen und Anmerkungen herüber — nur lesend.
 Einstellungen wie Tempo und Reiter liegen im `localStorage`. Beides ist je
 Adresse getrennt — eine andere Adresse sieht diese Daten nicht.
 
@@ -171,11 +174,14 @@ Einstellungen (Tempo, Farbwelt …) reisen nicht mit.
 
 - **Sicherung erstellen** packt eine Datei `Uebe-Sicherung JJJJ-MM-TT HH.MM.uebe`:
   alle Noten-PDFs, markierten Stellen mit Tempo-Verlauf und Anmerkungen
-  dieses Geräts. Jede PDF wird dafür einmal komplett gelesen (als Strom, ohne
+  dieses Geräts, dazu virtuelle Stücke, Lesezeichen, Merker und Setlisten
+  (optionale Listen im Kopf, Format bleibt Version 1). Jede PDF wird dafür einmal komplett gelesen (als Strom, ohne
   den Inhalt zu behalten) und die Bytes werden gegen die gespeicherte Größe
   gezählt. Noten, deren PDF sich nicht lesen lässt („%PDF-“ nicht in den
   ersten 1024 Bytes, Lesefehler oder zu wenige bzw. zu viele Bytes), bleiben
-  samt Stellen und Anmerkungen draußen und werden mit Titel gemeldet. Danach
+  samt Stellen und Anmerkungen draußen und werden mit Titel gemeldet — ebenso
+  virtuelle Stücke aus ihnen; ihre Lesezeichen und Merker fehlen, Setlisten
+  verlieren nur diese Einträge. Danach
   erscheinen ein echter Link „Herunterladen (x MB)“ und — wo der Browser
   Dateien teilen kann (iPhone/iPad) — „Teilen / In Dateien sichern“. Zweistufig, weil Safari Download und Teilen nur aus einer
   frischen Berührung zulässt; als Home-Bildschirm-App steht Teilen vorn.
@@ -191,11 +197,15 @@ Einstellungen (Tempo, Farbwelt …) reisen nicht mit.
   Striche/Texte einer Seite nach ihrer id — was auf einem der Geräte
   wegradiert wurde (`entfernt`), bleibt weg. Die PDF kommt aus der
   Sicherung, wenn sie dort nicht älter ist als hier; der Dateiverweis des
-  Geräts bleibt. **Gelöschtes reist mit:** Gelöschte Stücke und Stellen
-  hinterlassen einen Grabstein (localStorage `ueben:geloescht`, im Kopf der
-  Sicherung als `geloescht`). Was auf dem anderen Gerät gelöscht und hier
-  seitdem nicht geändert wurde, wird hier gelöscht (die Rückfrage nennt es);
-  was hier gelöscht wurde, legt eine ältere Sicherung nicht wieder an. Die PDFs gehen dabei nie als Blob in die
+  Geräts bleibt. Lesezeichen, Merker und Setlisten: ebenfalls der neuere
+  Stand (eine Setliste ganz, samt Reihenfolge); virtuelle Stücke ohne echte
+  Quelle und Einträge auf fehlende Stücke werden übersprungen und gezählt.
+  **Gelöschtes reist mit:** Gelöschte Stücke (auch virtuelle), Stellen,
+  Lesezeichen, Merker und Setlisten hinterlassen einen Grabstein
+  (localStorage `ueben:geloescht`, im Kopf der Sicherung als `geloescht`).
+  Was auf dem anderen Gerät gelöscht und hier seitdem nicht geändert wurde,
+  wird hier gelöscht (die Rückfrage nennt es); was hier gelöscht wurde, legt
+  eine ältere Sicherung nicht wieder an. Die PDFs gehen dabei nie als Blob in die
   Datenbank (Safari verliert sie mitunter): erst einzeln als Bytes vorläufig
   in `dateien`, dann zieht die eine Transaktion sie an ihren Platz. Gibt es schon etwas davon auf dem Gerät,
   fragt die App vorher („Die Sicherung vom … aktualisiert auf diesem Gerät N

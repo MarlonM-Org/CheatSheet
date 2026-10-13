@@ -10,8 +10,8 @@ import { tempoStand, zielAusText } from '@/domain/stellen';
 import { mitRand } from '@/domain/ueben';
 import { NeueVersion } from '@/components/NeueVersion';
 import {
-  alleNoten, anmerkungenVon, notenAendern, notenDatei, notenHolen, sammlungenSetzen, stelleAendern, zuletztMerken, stelleLoeschen, stellenVon,
-  tagsLaden, tagsSetzen, tempoGeschafft, type LokaleNoten, type LokaleStelle as Stelle,
+  alleStuecke, anmerkungenVon, stueckAendern, stueckDatei, stueckHolen, sammlungenSetzen, stelleAendern, zuletztMerken, stelleLoeschen, stellenVon,
+  tagsLaden, tagsSetzen, tempoGeschafft, type Stueck, type Stelle,
 } from './lokal';
 import { SammlungWahl } from './Sammlungen';
 import { TagEtikett, TagWahl } from './Tags';
@@ -34,7 +34,7 @@ export function NotenPult({ notenId, tastenAktiv, verschwunden, mix = null, leis
   leisten: { leisteWeg: boolean; setLeisteWeg: (weg: boolean) => void; navDa: boolean };
 }) {
   const { bpm, setBpm } = useMetronom();
-  const [noten, setNoten] = useState<LokaleNoten | null>(null);
+  const [noten, setNoten] = useState<Stueck | null>(null);
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
   const [fehler, setFehler] = useState('');
   const [neueVersion, setNeueVersion] = useState(false);
@@ -52,10 +52,10 @@ export function NotenPult({ notenId, tastenAktiv, verschwunden, mix = null, leis
     let weg = false;
     let dokument: Promise<PDFDocumentProxy> | null = null;
     (async () => {
-      const n = await notenHolen(notenId);
+      const n = await stueckHolen(notenId);
       if (!n) { verschwunden(); return; }
       zuletztMerken(notenId);
-      dokument = notenDatei(n).then(pdfLaden);
+      dokument = stueckDatei(n).then(pdfLaden);
       const [d, st] = await Promise.all([dokument, stellenVon(notenId)]);
       if (weg) return;
       setNoten(n); setPdf(d); setStellen(st);
@@ -103,8 +103,8 @@ export function NotenPult({ notenId, tastenAktiv, verschwunden, mix = null, leis
 // ── Stück-Blatt: Umbenennen und Stellen-Übersicht ───────────────────────
 
 function StueckBlatt({ noten, pdf, stellen, bpm, tempoSetzen, neuLaden, umbenannt, zeigen, schliessen }: {
-  noten: LokaleNoten; pdf: PDFDocumentProxy; stellen: Stelle[]; bpm: number; tempoSetzen: (n: number) => void;
-  neuLaden: () => void; umbenannt: (neu: Partial<LokaleNoten>) => void; zeigen: (id: string) => void; schliessen: () => void;
+  noten: Stueck; pdf: PDFDocumentProxy; stellen: Stelle[]; bpm: number; tempoSetzen: (n: number) => void;
+  neuLaden: () => void; umbenannt: (neu: Partial<Stueck>) => void; zeigen: (id: string) => void; schliessen: () => void;
 }) {
   const [umbenennen, setUmbenennen] = useState(false);
   // Sammlungen des Stücks ändern: alle vorhandenen zur Auswahl (F-13).
@@ -130,7 +130,7 @@ function StueckBlatt({ noten, pdf, stellen, bpm, tempoSetzen, neuLaden, umbenann
             e.preventDefault();
             const f = new FormData(e.currentTarget);
             const neu = { titel: String(f.get('titel') || noten.titel), stimme: String(f.get('stimme') ?? '') };
-            try { await notenAendern(noten.id, neu); } catch (x) { speicherFehler(x); return; }
+            try { await stueckAendern(noten.id, neu); } catch (x) { speicherFehler(x); return; }
             umbenannt(neu); setUmbenennen(false);
           }}>
             <input className="feld" name="titel" defaultValue={noten.titel} aria-label="Titel" />
@@ -141,7 +141,7 @@ function StueckBlatt({ noten, pdf, stellen, bpm, tempoSetzen, neuLaden, umbenann
         <p className="text-sm">
           <span className="gedaempft">Sammlungen: </span>{sammlungenVon(noten).join(', ') || <span className="gedaempft">keine</span>}
           <button type="button" className="text-knopf gedaempft ml-2 text-sm underline"
-            onClick={() => { alleNoten().then((l) => setWahl(sammlungenUebersicht(l)), (x) => speicherFehler(x)); }}>ändern</button>
+            onClick={() => { alleStuecke().then((l) => setWahl(sammlungenUebersicht(l)), (x) => speicherFehler(x)); }}>ändern</button>
         </p>
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
           <span className="gedaempft">Tags:</span>

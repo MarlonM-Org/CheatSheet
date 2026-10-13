@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { gleicheSammlung, imFilter, mitSammlung, ohneSammlung, sammlungenVon, sammlungName } from '@/domain/sammlungen';
 import type { Tag } from '@/domain/tags';
-import type { LokaleNoten } from './lokal';
+import type { Stueck } from './lokal';
 import { TagPunkt } from './Tags';
 import { useDialogFokus, useEscape } from './tasten';
 
@@ -140,7 +140,7 @@ export function HinzufuegenMenue({ ziel, einsortieren, setEinsortieren, tagZiel,
 // Einsortieren: für die gewählten Stücke jede Sammlung an/aus. Haben nur
 // manche Stücke eine Sammlung, steht ihr Häkchen halb — antippen setzt sie für alle.
 export function SammlungWahl({ noten, uebersicht, speichern, schliessen }: {
-  noten: LokaleNoten[]; uebersicht: Uebersicht;
+  noten: Stueck[]; uebersicht: Uebersicht;
   speichern: (aenderungen: { id: string; sammlungen: string[] }[]) => void; schliessen: () => void;
 }) {
   useEscape(schliessen);

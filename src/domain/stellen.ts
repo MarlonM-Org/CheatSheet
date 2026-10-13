@@ -91,7 +91,7 @@ export function tempoAchse(werte: number[]): { min: number; max: number; striche
 // jede Stelle genau einmal — so bleibt keine liegen —, gemischt, und nach
 // Möglichkeit nie zwei Stellen desselben Stücks hintereinander.
 
-export interface MixStelle { id: string; notenId: string }
+export interface MixStelle { id: string; stueckId: string }
 // pos zeigt auf die aktuelle Stelle; pos = reihe.length heißt: Runde geschafft.
 export interface Runde { reihe: string[]; pos: number }
 
@@ -113,8 +113,8 @@ function durchmischen<T>(liste: T[], zufall: () => number): T[] {
 export function mischen(stellen: MixStelle[], zufall: () => number = Math.random, davor: string | null = null): string[] {
   const stuecke = new Map<string, string[]>();
   for (const s of stellen) {
-    const l = stuecke.get(s.notenId);
-    if (l) l.push(s.id); else stuecke.set(s.notenId, [s.id]);
+    const l = stuecke.get(s.stueckId);
+    if (l) l.push(s.id); else stuecke.set(s.stueckId, [s.id]);
   }
   for (const l of stuecke.values()) durchmischen(l, zufall);
 
@@ -154,9 +154,9 @@ export function stelleOffen(s: { zielTempo: number | null; tempi: Tempo[] }): bo
 // der laufenden Runde — sie bleiben, auch wenn sie inzwischen geschafft sind,
 // damit Zählung und Platz in der Runde nicht springen.
 export function mixAuswahl<S extends MixStelle & { zielTempo: number | null; tempi: Tempo[] }>(
-  stellen: S[], imBereich: (notenId: string) => boolean, nurOffen: boolean, behalten: ReadonlySet<string> = new Set(),
+  stellen: S[], imBereich: (stueckId: string) => boolean, nurOffen: boolean, behalten: ReadonlySet<string> = new Set(),
 ): S[] {
-  return stellen.filter((s) => imBereich(s.notenId) && (behalten.has(s.id) || !nurOffen || stelleOffen(s)));
+  return stellen.filter((s) => imBereich(s.stueckId) && (behalten.has(s.id) || !nurOffen || stelleOffen(s)));
 }
 
 // Speicherplatz der Runde je Bereich; „alle“ behält den bisherigen.
@@ -180,7 +180,7 @@ export const neueRunde = (stellen: MixStelle[], zufall: () => number = Math.rand
 // offenen Teil. Was schon dran war, bleibt vorn. Unverändert bleibt die
 // Reihenfolge, wenn nichts neu ist.
 export function rundeAbgleichen(r: Runde, stellen: MixStelle[], zufall: () => number = Math.random): Runde {
-  const stueck = new Map(stellen.map((s) => [s.id, s.notenId]));
+  const stueck = new Map(stellen.map((s) => [s.id, s.stueckId]));
   const da = (id: string) => stueck.has(id);
   const gesehen = r.reihe.slice(0, r.pos).filter(da);
   const aktuell = r.reihe[r.pos];
@@ -189,7 +189,7 @@ export function rundeAbgleichen(r: Runde, stellen: MixStelle[], zufall: () => nu
   const bekannt = new Set(r.reihe);
   const neu = stellen.filter((s) => !bekannt.has(s.id));
   const rest = neu.length
-    ? mischen([...offen.map((id) => ({ id, notenId: stueck.get(id)! })), ...neu], zufall, vorne.length ? stueck.get(vorne[vorne.length - 1])! : null)
+    ? mischen([...offen.map((id) => ({ id, stueckId: stueck.get(id)! })), ...neu], zufall, vorne.length ? stueck.get(vorne[vorne.length - 1])! : null)
     : offen;
   return { reihe: [...vorne, ...rest], pos: gesehen.length };
 }
@@ -199,7 +199,7 @@ export function rundeAbgleichen(r: Runde, stellen: MixStelle[], zufall: () => nu
 export function rundeStand(r: Runde | null, stellen: MixStelle[]): { anzahl: number; stuecke: number; geuebt: number; fertig: boolean } {
   const ids = new Set(stellen.map((s) => s.id));
   const geuebt = r ? r.reihe.slice(0, r.pos).filter((id) => ids.has(id)).length : 0;
-  return { anzahl: stellen.length, stuecke: new Set(stellen.map((s) => s.notenId)).size, geuebt, fertig: stellen.length > 0 && geuebt >= stellen.length };
+  return { anzahl: stellen.length, stuecke: new Set(stellen.map((s) => s.stueckId)).size, geuebt, fertig: stellen.length > 0 && geuebt >= stellen.length };
 }
 
 // Gespeicherte Runde (localStorage) prüfen: Unstimmiges gilt als keine Runde.

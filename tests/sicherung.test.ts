@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sicherungLesen, sicherungPacken, sicherungsName, SicherungsFehler } from '@/domain/sicherung';
+import { keinZusatz, sicherungLesen, sicherungPacken, sicherungsName, SicherungsFehler } from '@/domain/sicherung';
 
 const pdf = (inhalt: string) => new Blob([`%PDF-1.4 ${inhalt}`], { type: 'application/pdf' });
 
@@ -59,5 +59,55 @@ describe('Übe-Sicherung', () => {
 
   it('benennt die Datei mit Datum und Uhrzeit', () => {
     expect(sicherungsName(new Date(2026, 9, 9, 18, 5))).toBe('Uebe-Sicherung 2026-10-09 18.05.uebe');
+  });
+});
+
+// Ein Kopf von Hand, um auch Dateien zu bauen, die sicherungPacken nie schreibt.
+function rohDatei(kopf: object, ...pdfs: Blob[]): Blob {
+  const json = new TextEncoder().encode(JSON.stringify(kopf));
+  const vorspann = new Uint8Array(9);
+  vorspann.set([0x55, 0x45, 0x42, 0x45], 0);
+  vorspann[4] = 1;
+  new DataView(vorspann.buffer).setUint32(5, json.byteLength, false);
+  return new Blob([vorspann, json, ...pdfs]);
+}
+
+describe('Übe-Sicherung: optionale Listen (seit „cheatsheet“)', () => {
+  const noten = [{ id: 'band', titel: 'Sammelband', stimme: '', erstellt: 1, datei: pdf('band') }];
+  const zusatz = {
+    virtuelle: [{ id: 'v', titel: 'Marsch', stimme: '', erstellt: 2, quelle: { stueckId: 'band', von: 3, bis: 5 }, handle: { nicht: 'übertragbar' } }],
+    lesezeichen: [{ id: 'lz', stueckId: 'band', seite: 3, titel: 'Marsch', erstellt: 3 }],
+    merker: [{ id: 'band:4', stueckId: 'band', seite: 4, gesetzt: 4 }],
+    setlisten: [{ id: 'sl', titel: 'Konzert', erstellt: 5, eintraege: [{ id: 'e', art: 'stueck', stueckId: 'v' }] }],
+  };
+
+  it('überträgt sie im Kopf; der Datenteil gehört nur den Noten', async () => {
+    const datei = await sicherungPacken({ noten, stellen: [], anmerkungen: [] }, 'cheatsheet', 7, zusatz);
+    const { kopf, noten: gelesen } = await sicherungLesen(datei);
+    expect(kopf.version).toBe(1);
+    const { handle: _h, ...virtuell } = zusatz.virtuelle[0];
+    void _h;
+    expect(kopf.virtuelle).toEqual([virtuell]);
+    expect(kopf.lesezeichen).toEqual(zusatz.lesezeichen);
+    expect(kopf.merker).toEqual(zusatz.merker);
+    expect(kopf.setlisten).toEqual(zusatz.setlisten);
+    expect(gelesen).toHaveLength(1);
+    expect(await gelesen[0].datei.text()).toBe('%PDF-1.4 band');
+  });
+
+  it('ohne sie wie bisher (Registerführer, ältere Fassungen)', async () => {
+    const { kopf } = await sicherungLesen(await sicherungPacken({ noten, stellen: [], anmerkungen: [] }, 'registerfuehrer', 7));
+    for (const k of ['virtuelle', 'lesezeichen', 'merker', 'setlisten'] as const) expect(kopf[k]).toBeUndefined();
+    // Leere Listen schreibt die Sicherung gar nicht erst.
+    const leer = await sicherungLesen(await sicherungPacken({ noten: [], stellen: [], anmerkungen: [] }, 'x', 0, keinZusatz()));
+    expect(leer.kopf.setlisten).toBeUndefined();
+  });
+
+  it('eine Liste, die keine ist, macht die Sicherung kaputt', async () => {
+    const kopf = { version: 1, erstellt: 0, quelle: 'x', noten: [], stellen: [], anmerkungen: [] };
+    await expect(sicherungLesen(rohDatei({ ...kopf, virtuelle: 5 }))).rejects.toThrow(/beschädigt/);
+    await expect(sicherungLesen(rohDatei({ ...kopf, setlisten: {} }))).rejects.toThrow(/beschädigt/);
+    await expect(sicherungLesen(rohDatei({ ...kopf, merker: null }))).rejects.toThrow(/beschädigt/);
+    await expect(sicherungLesen(rohDatei({ ...kopf, lesezeichen: [] }))).resolves.toBeTruthy();
   });
 });

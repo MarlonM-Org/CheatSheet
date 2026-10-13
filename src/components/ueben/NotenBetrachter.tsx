@@ -11,8 +11,8 @@ import { mitRand, rechteckAus, type Rechteck } from '@/domain/ueben';
 import { AusschnittRahmen } from './Ausschnitt';
 import { gespeichert as gespeicherterWert, speichern } from './klang';
 import {
-  anmerkungenSpeichern, anmerkungenVon, notenAendern, stelleAnlegen, tempoGeschafft,
-  type LokaleNoten, type LokaleStelle,
+  anmerkungenSpeichern, anmerkungenVon, stueckAendern, stelleAnlegen, tempoGeschafft,
+  type Stueck, type Stelle,
 } from './lokal';
 import { useMetronom } from './MetronomKontext';
 import { ladeFehler, speicherFehler } from './speicherfehler';
@@ -27,7 +27,7 @@ const RAND = 0.06;
 const MAX_PX = 2800;
 
 interface Props {
-  noten: LokaleNoten; pdf: PDFDocumentProxy; stellen: LokaleStelle[];
+  noten: Stueck; pdf: PDFDocumentProxy; stellen: Stelle[];
   geaendert: () => void;
   // Tasten blättern nur, wenn kein Overlay über den Noten liegt.
   tastenAktiv: boolean;
@@ -54,7 +54,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     const seite = hauptseite(ansicht);
     setBlaettern(b);
     setIndex(ansichtVonSeite(ansichten(seiten, b.modus, b.linien), seite));
-    notenAendern(noten.id, { blaettern: b }).catch(speicherFehler);
+    stueckAendern(noten.id, { blaettern: b }).catch(speicherFehler);
   };
 
   // ── Modus: lesen oder Stelle für Stelle ── Im Mix immer die Stelle der Runde.
@@ -465,7 +465,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     if (!neueStelle || zeichenSeite === null) return;
     const r = neueStelle;
     try {
-      await stelleAnlegen({ notenId: noten.id, seite: zeichenSeite, ...r, titel: stelleTitel.trim() }, zielAusText(stelleZiel));
+      await stelleAnlegen({ stueckId: noten.id, seite: zeichenSeite, ...r, titel: stelleTitel.trim() }, zielAusText(stelleZiel));
     } catch (x) {
       // Rahmen bleibt stehen: nach dem Neuladen ist er weg, aber bis dahin sichtbar.
       speicherFehler(x);
@@ -516,7 +516,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     const neu = bearbeiten.alle ? fuerAlleSeiten(seiten, bearbeiten.r) : ausschnittSetzen(ausschnitte, bearbeiten.seite, bearbeiten.r);
     setAusschnitte(neu);
     ausschnittEnde();
-    notenAendern(noten.id, { ausschnitte: neu }).catch(speicherFehler);
+    stueckAendern(noten.id, { ausschnitte: neu }).catch(speicherFehler);
   }
 
   const { zuletzt, bestes } = tempoStand(stelle?.tempi ?? []);
