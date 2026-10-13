@@ -9,7 +9,7 @@ import {
 import { nurLesbare } from '@/domain/lesbar';
 import { sicherungLesen, sicherungPacken, SicherungsFehler, type SicherungsInhalt } from '@/domain/sicherung';
 import { dateiQuelle, dateiVerloren, ohneDatei, verbindungVerloren } from '@/domain/speicher';
-import { tagsLesen, tagsVereinigen, type Tag, type TagFarbe } from '@/domain/tags';
+import { tagMitNamen, tagsAbgleichen, tagsLesen, tagsUmschreiben, tagsVon, type Tag, type TagFarbe } from '@/domain/tags';
 import { profileLesen, profileVereinigen, type Tonprofil } from '@/domain/tonprofil';
 
 // Ablage nur auf diesem Gerät (IndexedDB): Noten-PDFs, markierte Stellen,
@@ -338,8 +338,9 @@ export function grabsteineHier(): Grabstein[] {
 function grabsteineSetzen(g: Grabstein[]) {
   try { localStorage.setItem(GRAB, JSON.stringify(grabsteineVereinigen(g, [], Date.now()))); } catch { /* egal */ }
 }
-function begraben(art: Grabstein['art'], id: string) {
-  grabsteineSetzen([...grabsteineHier(), { art, id, am: Date.now() }]);
+function begraben(art: Grabstein['art'], ...ids: string[]) {
+  const am = Date.now();
+  grabsteineSetzen([...grabsteineHier(), ...ids.map((id) => ({ art, id, am }))]);
 }
 
 // ── Sammlungen und Tags ── Mehrere Stücke in EINER Transaktion umsortieren
@@ -377,13 +378,90 @@ export function tagsLaden(): Tag[] {
 function tagsSpeichern(tags: Tag[]) {
   try { localStorage.setItem(TAGS, JSON.stringify(tags)); } catch { /* egal */ }
 }
+// Gibt es den Namen schon (Groß/klein egal), kommt der vorhandene Tag zurück
+// — keine Doppelten.
 export function tagAnlegen(name: string, farbe: TagFarbe): Tag {
+  const tags = tagsLaden();
+  const da = tagMitNamen(tags, name);
+  if (da) return da;
   const tag = { id: crypto.randomUUID(), name, farbe, geaendert: Date.now() };
-  tagsSpeichern([...tagsLaden(), tag]);
+  tagsSpeichern([...tags, tag]);
   return tag;
 }
-export function tagAendern(id: string, felder: { name?: string; farbe?: TagFarbe }) {
-  tagsSpeichern(tagsLaden().map((t) => (t.id === id ? { ...t, ...felder, geaendert: Date.now() } : t)));
+// Umbenennen auf einen Namen, den ein anderer Tag trägt: nichts ändern (false).
+export function tagAendern(id: string, felder: { name?: string; farbe?: TagFarbe }): boolean {
+  const tags = tagsLaden();
+  if (felder.name !== undefined && tagMitNamen(tags, felder.name, id)) return false;
+  tagsSpeichern(tags.map((t) => (t.id === id ? { ...t, ...felder, geaendert: Date.now() } : t)));
+  return true;
+}
+
+// Ein Datensatz mit umgeschriebenen Tag-ids; null, wenn sich nichts ändert.
+// `geaendert` bleibt: Nur die ids ändern sich, nicht das Stück — sonst gälte
+// es beim nächsten Laden als neuer als Änderungen vom anderen Gerät.
+function mitTagTabelle<N extends object>(n: N, tabelle: Record<string, string>): N | null {
+  const alt = (n as { tags?: unknown }).tags;
+  if (!Array.isArray(alt)) return null;
+  const neu = tagsUmschreiben(tagsVon({ tags: alt }), tabelle);
+  return neu.length === alt.length && neu.every((x, i) => x === alt[i]) ? null : { ...n, tags: neu };
+}
+
+// Gemerkter Tag-Filter der Bibliothek und Bereich des laufenden Mix: zeigt
+// er auf eine zusammengelegte id, auf die bleibende umstellen.
+function tagVerweiseUmschreiben(tabelle: Record<string, string>) {
+  const neu = (id: unknown) => (typeof id === 'string' && Object.hasOwn(tabelle, id) ? tabelle[id] : null);
+  try {
+    const filter = neu(JSON.parse(localStorage.getItem('ueben:tag') ?? 'null'));
+    if (filter) localStorage.setItem('ueben:tag', JSON.stringify(filter));
+    const mix = JSON.parse(localStorage.getItem('ueben:mix-an') ?? 'null') as { tag?: unknown } | null;
+    const mixTag = mix && typeof mix === 'object' ? neu(mix.tag) : null;
+    if (mixTag) localStorage.setItem('ueben:mix-an', JSON.stringify({ ...mix, tag: mixTag }));
+  } catch { /* egal */ }
+}
+
+// Gleichnamige Tags auf diesem Gerät zu einem zusammenlegen (Regeln in
+// tagsAbgleichen): die Stücke in EINER Transaktion umschreiben, dann die
+// Tags. Liefert, wie viele Tags dabei wegfielen.
+type Abgleich = ReturnType<typeof tagsAbgleichen>;
+export async function doppelteZusammenfuehren(): Promise<number> {
+  const vorher = tagsLaden();
+  const { abgleich, mitBlob } = await transaktion<{ abgleich: Abgleich | null; mitBlob: LokaleNoten[] }>('noten', 'readwrite', (t, abbrechen) => {
+    const s = t.objectStore('noten');
+    const alle = s.getAll() as IDBRequest<LokaleNoten[]>;
+    let abgleich: Abgleich | null = null;
+    const mitBlob: LokaleNoten[] = [];
+    alle.onsuccess = () => {
+      try {
+        abgleich = tagsAbgleichen(vorher, [], [], { hier: alle.result });
+        mitBlob.push(...stueckeUmschreiben(s, alle.result, abgleich.tabelle));
+      } catch (x) { abbrechen(x); }
+    };
+    return () => ({ abgleich, mitBlob });
+  });
+  if (!abgleich) return 0;
+  const { tags, tabelle } = abgleich;
+  tagsSpeichern(tags);
+  tagVerweiseUmschreiben(tabelle);
+  await nachziehen(mitBlob);
+  return vorher.length - tags.length;
+}
+// Die Tag-Listen hiesiger Stücke umschreiben (in der laufenden Transaktion).
+// Den alten Blob nie zurückschreiben: Solche Stücke kommen zurück und ziehen
+// danach über notenAendern um (nachziehen).
+function stueckeUmschreiben(s: IDBObjectStore, noten: LokaleNoten[], tabelle: Record<string, string>): LokaleNoten[] {
+  const mitBlob: LokaleNoten[] = [];
+  for (const n of noten) {
+    const neu = mitTagTabelle(n, tabelle);
+    if (!neu) continue;
+    if (n.datei) mitBlob.push(neu); else s.put(neu);
+  }
+  return mitBlob;
+}
+// Stücke, die ihre PDF noch als alten Blob tragen: umschreiben und dabei umziehen.
+async function nachziehen(noten: LokaleNoten[]) {
+  for (const n of noten) {
+    try { await notenAendern(n.id, { tags: n.tags }); } catch (x) { console.warn('Tags eines Stücks nicht umgeschrieben', n.id, x); }
+  }
 }
 // Tonprofile (C-04) auf dem Gerät, neueste zuerst; sie reisen im Kopf der Sicherung mit.
 const TONPROFILE = 'ueben:tonprofile';
@@ -404,12 +482,14 @@ export function tonprofilLoeschen(id: string) {
   begraben('tonprofil', id);
 }
 
-// Tag löschen: von allen Stücken nehmen, Grabstein für die anderen Geräte.
+// Tag löschen: von allen Stücken nehmen, Grabstein für die anderen Geräte —
+// auch unter seinen weiteren ids (dort heißt er womöglich anders).
 export async function tagLoeschen(id: string) {
   const betroffen = (await alleNoten()).filter((n) => n.tags?.includes(id));
   await tagsSetzen(betroffen.map((n) => ({ id: n.id, tags: (n.tags ?? []).filter((x) => x !== id) })));
-  tagsSpeichern(tagsLaden().filter((t) => t.id !== id));
-  begraben('tag', id);
+  const tags = tagsLaden();
+  tagsSpeichern(tags.filter((t) => t.id !== id));
+  begraben('tag', id, ...(tags.find((t) => t.id === id)?.auch ?? []));
 }
 
 // Größe der PDF je Stück — für ältere Stücke ohne `groesse` aus „dateien“ gelesen
@@ -585,7 +665,9 @@ export async function sicherungSchreiben(e: Einspielung): Promise<{ neu: number;
     await tx('dateien', 'readwrite', (s) => s.put({ id: VORLAEUFIG + n.id, daten, typ: n.datei.type || 'application/pdf' } satisfies LokaleDatei));
   }
   const ids = [...new Set(e.noten.filter((n) => dateiNehmen.has(n.id)).map((n) => n.id))];
-  await transaktion<void>(ALLE_MIT_DATEIEN, 'readwrite', (t, abbrechen) => {
+  const tagsVorher = tagsLaden();
+  const grabsteine = [...grabsteineHier(), ...e.grabsteine];
+  const { abgleich, mitBlob } = await transaktion<{ abgleich: Abgleich | null; mitBlob: LokaleNoten[] }>(ALLE_MIT_DATEIEN, 'readwrite', (t, abbrechen) => {
     const dateien = t.objectStore('dateien');
     // Nacheinander, damit nicht alle Dateien zugleich gelesen im Speicher liegen.
     const umziehen = (i: number) => {
@@ -618,23 +700,47 @@ export async function sicherungSchreiben(e: Einspielung): Promise<{ neu: number;
         };
       }
     };
-    // Datensätze ohne Blob — die Datei liegt jetzt in „dateien“. Kam sie aus
-    // der Sicherung, gelten deren Zeitpunkt und Größe der Datei.
-    einspielen('noten', e.noten, (g, n) => {
-      const z = ohneDatei(notenZusammenfuehren(g, n)) as typeof n;
-      if (!dateiNehmen.has(n.id)) return z;
-      return { ...z, groesse: n.datei.size, ...(typeof n.aktualisiert === 'number' ? { aktualisiert: n.aktualisiert } : {}) };
-    });
+    // Tags (Regeln in tagsAbgleichen): gleichnamige werden EIN Tag mit der
+    // hiesigen id. Dafür erst alle Stücke hier lesen (für die Doppelten auf
+    // dem Gerät zählt, welche id die meisten Stücke trägt), dann die
+    // Tag-Listen umschreiben — die aus der Sicherung vor dem Zusammenführen,
+    // die übrigen hiesigen direkt.
+    const noten = t.objectStore('noten');
+    const alle = noten.getAll() as IDBRequest<LokaleNoten[]>;
+    let abgleich: Abgleich | null = null;
+    const mitBlob: LokaleNoten[] = [];
+    alle.onsuccess = () => {
+      try {
+        const a = tagsAbgleichen(tagsVorher, e.tags, grabsteine, { hier: alle.result, dort: e.noten });
+        abgleich = a;
+        const umschreiben = <N extends object>(n: N) => mitTagTabelle(n, a.tabelle) ?? n;
+        // Datensätze ohne Blob — die Datei liegt jetzt in „dateien“. Kam sie aus
+        // der Sicherung, gelten deren Zeitpunkt und Größe der Datei.
+        einspielen('noten', e.noten.map(umschreiben), (g, n) => {
+          const z = ohneDatei(notenZusammenfuehren(g && umschreiben(g), n)) as typeof n;
+          if (!dateiNehmen.has(n.id)) return z;
+          return { ...z, groesse: n.datei.size, ...(typeof n.aktualisiert === 'number' ? { aktualisiert: n.aktualisiert } : {}) };
+        });
+        // Die schon zusammengeführten und die gleich gelöschten nicht anfassen.
+        const anders = new Set([...e.noten.map((n) => n.id), ...e.loeschen.noten]);
+        mitBlob.push(...stueckeUmschreiben(noten, alle.result.filter((n) => !anders.has(n.id)), a.tabelle));
+      } catch (x) { abbrechen(x); }
+    };
     einspielen('stellen', e.stellen, stelleZusammenfuehren);
     einspielen('anmerkungen', e.anmerkungen, seiteZusammenfuehren);
     // Auf dem anderen Gerät gelöscht (und hier seitdem unverändert).
     for (const id of e.loeschen.noten) notenEntfernen(t, id, abbrechen);
     for (const id of e.loeschen.stellen) t.objectStore('stellen').delete(id);
+    return () => ({ abgleich, mitBlob });
   });
-  // Die Löschungen der Sicherung gelten jetzt auch hier — und reisen weiter.
-  grabsteineSetzen([...grabsteineHier(), ...e.grabsteine]);
-  // Tags: je Tag der neuere Stand, gelöschte bleiben weg.
-  tagsSpeichern(tagsVereinigen(tagsLaden(), e.tags, grabsteineHier()));
+  // Die Löschungen der Sicherung gelten jetzt auch hier — und reisen weiter;
+  // dazu die Grabsteine gelöschter Tags unter ihren hiesigen ids.
+  grabsteineSetzen([...grabsteineHier(), ...e.grabsteine, ...(abgleich?.grabsteine ?? [])]);
+  if (abgleich) {
+    tagsSpeichern(abgleich.tags);
+    tagVerweiseUmschreiben(abgleich.tabelle);
+  }
+  await nachziehen(mitBlob);
   tonprofileSpeichern(profileVereinigen(tonprofileLaden(), e.tonprofile, grabsteineHier()));
   dauerhaftAnfragen();
   return {

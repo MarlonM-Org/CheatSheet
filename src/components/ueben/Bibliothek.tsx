@@ -165,6 +165,8 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
   const laden = useCallback(() => {
     Promise.all([alleNoten(), alleStellen()]).then(([l, st]) => {
       setZuletzt(zuletztListe()); setNoten(l); setStellen(st); setTags(tagsLaden()); void alleUmziehen();
+      // Der gemerkte Tag-Filter (nach dem Zusammenlegen Doppelter womöglich umgestellt).
+      setTagFilter(gespeichert<string | null>('ueben:tag', null));
       const aenderung = Math.max(0, ...l.map((n) => stand(n as unknown as Record<string, unknown>)), ...st.map((x) => stand(x as unknown as Record<string, unknown>)));
       const erste = l.length ? Math.min(...l.map((n) => n.erstellt)) : null;
       setErinnerung(sicherungFaellig(letzteSicherung(), aenderung, erste, Date.now()));
