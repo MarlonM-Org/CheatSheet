@@ -5,13 +5,14 @@ import { useMetronom } from './MetronomKontext';
 // Untere Leiste (B-01): drei große Knöpfe — Stimmgerät · Noten · Metronom,
 // die Noten in der Mitte. „Noten" öffnet die Bibliothek, „Metronom" und
 // „Stimmgerät" schalten ihre schwebenden Widgets.
-export function UntereLeiste({ bibliothekOffen, metroAn, stimmAn, umschalten }: {
-  bibliothekOffen: boolean; metroAn: boolean; stimmAn: boolean;
+// Sie liegt über den Noten; `weg` schiebt sie nach unten hinaus.
+export function UntereLeiste({ weg, bibliothekOffen, metroAn, stimmAn, umschalten }: {
+  weg: boolean; bibliothekOffen: boolean; metroAn: boolean; stimmAn: boolean;
   umschalten: (ziel: 'bibliothek' | 'metronom' | 'stimmgeraet') => void;
 }) {
   const { laeuft } = useMetronom();
   return (
-    <nav className="leiste" aria-label="Werkzeuge">
+    <nav className={`leiste ${weg ? 'weg' : ''}`} aria-label="Werkzeuge" inert={weg}>
       <div className="leiste-innen">
         <button type="button" className="leiste-knopf" aria-pressed={stimmAn} onClick={() => umschalten('stimmgeraet')}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3.5v5.7a4 4 0 0 0 8 0V3.5" /><path d="M12 13.2v5.3" /><path d="M9.3 20.5h5.4" /></svg>

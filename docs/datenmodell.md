@@ -58,6 +58,7 @@ interface Stueck {
   dateiname?: string;
   handle?: FileSystemFileHandle;          // nur Chrome/Edge am Rechner
   blaettern?: { modus: Blaettermodus; linien: Record<number, number> };
+  ausschnitte?: Record<number, Rechteck>; // angezeigter Bereich je Seite
   groesse?: number;                       // Bytes der PDF (Doppelte beim Ordner-Import)
   geaendert?: number;                     // letzte Änderung: beim Laden gilt der neuere Stand
   sammlungen?: string[];                  // F-13: Namen
@@ -161,7 +162,7 @@ aus der heutigen CheatSheet-Fassung laden können.
 | `handle` | gibt es in der Datei nicht, entfällt |
 
 Beim Erstellen gilt dieselbe Übersetzung rückwärts. Metadaten, Sammlungen,
-Tags, `geaendert`, `entfernt` und `groesse` reisen als zusätzliche Felder
+Tags, Ausschnitte, `geaendert`, `entfernt` und `groesse` reisen als zusätzliche Felder
 mit, das kann v1 schon heute. Im Kopf stehen außerdem `geloescht`
 (Grabsteine), `tags` (Tag-Definitionen) und `tonprofile`.
 

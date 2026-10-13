@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { DUNKLE_THEMEN, HELLE_THEMEN, MODI, MODUS_NAME, THEMA_NAME, type Thema } from '@/domain/thema';
 import { useThema } from '@/components/thema';
+import { BlaetternEinstellung } from './Blaettern';
 import { tagsLaden } from './lokal';
 import { Sicherung, useSicherungLaden } from './Sicherung';
 import { TagVerwaltung } from './Tags';
@@ -69,6 +70,8 @@ export function Einstellungen({ schliessen, geaendert }: { schliessen: () => voi
         <WeltWahl titel="Dunkle Farbwelt" welten={DUNKLE_THEMEN} wert={dunkel} setzen={setDunkel} aktiv={aktiv} />
         <hr className="trenner" />
         <TagVerwaltung tags={tags} geaendert={tagsGeaendert} />
+        <hr className="trenner" />
+        <BlaetternEinstellung />
         <hr className="trenner" />
         <Sicherung laden={laden} />
         {laden.meldung && <p className="karte" role="status">{laden.meldung}</p>}

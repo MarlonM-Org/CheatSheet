@@ -432,6 +432,61 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
   obwohl sich das Stück öffnen ließ („Nicht lesbar, nicht in der
   Sicherung“). Ist eine PDF wirklich verloren, nennt die Meldung den Weg
   zur Rettung. Ersetzt A-01.
+- **B-09 · Leisten liegen über den Noten** (2026-10-13): Wunsch Marlon: Die
+  Noten nutzen immer den ganzen Bildschirm (nur Notch und Home-Leiste
+  bleiben frei); obere Leiste (Titel, Stellen, Ansicht, Stift) und untere
+  Werkzeug-Leiste legen sich darüber, statt die Seite kleiner zu machen.
+  Tippen in die Mitte schiebt **beide** hinaus und wieder herein — die Seite
+  behält ihre Größe. Bibliothek und Dialoge holen die untere Leiste zurück;
+  wer das Stück verlässt, hat beide wieder. Die Stellen-Zeile (‹ geschafft ›)
+  bleibt im Stellen-Modus stehen und rückt über die Werkzeug-Leiste, solange
+  die zu sehen ist.
+- **B-10 · Stellen auffindbar** (2026-10-13): Wunsch Marlon: Neue Nutzer
+  sahen nicht, wie man Stellen markiert. Der Schalter „Stellen“ steht jetzt
+  bei jedem Stück, auch ohne Stellen; daneben ein „i“ mit der Erklärung (was
+  Stellen können, wie man eine markiert: Stift → Werkzeug „Stelle“ → Rahmen
+  um die Takte → Namen, Speichern). Dieselbe Erklärung erscheint, wenn man
+  Stellen ohne eine einzige einschaltet; Tippen irgendwo schließt sie, der
+  Schalter geht wieder aus. Die „Ansicht der Stelle“ ist entfallen: Etwas
+  Rand ist immer an, „Heranzoomen“ ist weg (zoomte bei breiten Stellen kaum
+  und war unnötig — geübt wird im großen Notenbild).
+- **F-15 · Ausschnitt je Seite** (2026-10-13): Wunsch Marlon: je Seite
+  einstellen, welcher Bereich angezeigt wird, und das behalten — z. B. ohne
+  die breiten Ränder eines Scans. Regeln in `src/domain/ausschnitt.ts`
+  (getestet).
+  - **Einstellen:** Ansicht → „Seite n zuschneiden“. Die ganze Seite mit einem
+    Rahmen; an Ecken und Kanten ziehen, in der Mitte verschieben, daneben neu
+    aufziehen (mindestens 15 % der Seite). „Ganze Seite“ setzt zurück, „Für
+    alle n Seiten“ übernimmt den Rahmen für jede Seite. Die Leisten weichen,
+    solange man einstellt.
+  - **Anzeige:** Der Ausschnitt füllt den Platz, die Seite wird dafür
+    entsprechend schärfer gerendert. Beim Halbseiten-Blättern gilt der
+    Bereich, der beide Ausschnitte umfasst. Stellen, Anmerkungen und Linien
+    bleiben in Seiten-Koordinaten — Zeichnen trifft auch im Ausschnitt genau.
+  - **Daten:** am Stück `ausschnitte` (je Seitennummer `{x, y, b, h}` in
+    Anteilen der Seite; ganze Seite = kein Eintrag), reist in der Sicherung
+    mit. Kein Schema-Sprung.
+- **B-08 · Blättern mit Scroll-Ring** (2026-10-13): Wunsch Marlon: mit einem
+  Bluetooth-Scroll-Ring („TikTok-Ring“, z. B. ZL-03) die Noten blättern, ohne
+  die Hände vom Instrument zu nehmen. Am iPhone läuft so ein Ring über
+  AssistiveTouch und wischt wie ein Finger — je nach Modus hoch/runter
+  (Video) oder links/rechts (Lesen). Regeln in `src/domain/geste.ts`
+  (getestet).
+  - **Auf den Noten:** Wischen nach oben oder links blättert weiter, nach
+    unten oder rechts zurück (ab 40 px; vorher nur waagrecht ab 60 px). Ein
+    Wisch, der als Maus-Zeiger über den Rand der Noten hinausläuft, zählt
+    trotzdem. Mausrad und Trackpad: eine Bewegung blättert genau eine Seite
+    (Nachlauf zählt nicht). Pedale wie bisher (Pfeil-, Bild-Tasten,
+    Leertaste). Im Stellen-Modus und im Mix geht es Stelle für Stelle.
+    Tippen bleibt: Rand blättert, Mitte blendet die Leiste aus und ein.
+  - **Einstellungen → „Blättern mit Scroll-Ring oder Pedal“:** Schalter
+    „Hoch und runter tauschen“ (localStorage `ueben:wisch-umkehren`),
+    Anleitung fürs iPhone (AssistiveTouch, Zeiger-Punkt mitten auf die
+    Noten) und ein Feld zum Ausprobieren, das zeigt, was ankommt (Richtung,
+    Weg in px, als Berührung oder Zeiger, Taste, Mausrad) und bei zu kurzen
+    Wischen rät, die Zeiger-Geschwindigkeit am iPhone höher zu stellen.
+  - Ring-Modi, die nur Lautstärke- oder Kamera-Tasten senden, kommen bei
+    einer Web-App nicht an.
 - **C-04 · Tonprofil** (2026-10-12): Wunsch Marlon: die Töne des eigenen
   Instruments kennenlernen — welche zu hoch, welche zu tief liegen. Name
   entschieden: **Tonprofil** (aus den Vorschlägen; funktioniert als Knopf).

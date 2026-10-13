@@ -1,11 +1,14 @@
 'use client';
 
 import type { PDFDocumentProxy } from 'pdfjs-dist';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { ausschnitteLesen, ausschnittFuer, ausschnittSetzen, darstellung, fuerAlleSeiten, VOLL } from '@/domain/ausschnitt';
+import { RAD_ANFANG, radGeste, radWeg, tastenAktion, WISCH_UMKEHREN, zeigerGeste, type Blaetter } from '@/domain/geste';
 import { ansichten, ansichtVonSeite, hauptseite, radierZug, type Anmerkung, type Ansicht, type Blaettermodus } from '@/domain/notenpult';
 import { tempoStand, zielAusText, zielStand } from '@/domain/stellen';
 import { einstellungPruefen, TEXT_GROESSE, type StiftEinstellung, type ZeichenWerkzeug } from '@/domain/stift';
 import { mitRand, rechteckAus, type Rechteck } from '@/domain/ueben';
+import { AusschnittRahmen } from './Ausschnitt';
 import { gespeichert as gespeicherterWert, speichern } from './klang';
 import {
   anmerkungenSpeichern, anmerkungenVon, stueckAendern, stelleAnlegen, tempoGeschafft,
@@ -16,6 +19,7 @@ import { ladeFehler, speicherFehler } from './speicherfehler';
 import { StiftPalette, type Werkzeug } from './StiftPalette';
 import { seiteMitEbene, type SeitenBild } from './pdf';
 import { StelleBlatt } from './StelleBlatt';
+import { StellenInfo } from './StellenInfo';
 import type { MixSteuerung } from './StellenMix';
 import { anmerkungenZeichnen, ebeneZeichnen, strichZeichnen } from './zeichnen';
 
@@ -32,9 +36,12 @@ interface Props {
   titelTipp: () => void;
   // Stellen-Mix (F-11): genau diese Stelle, ‹ › gehen durch die Runde.
   mix: MixSteuerung | null;
+  // Leisten (oben hier, unten die Werkzeug-Leiste) liegen über den Noten;
+  // Tippen in die Mitte blendet beide aus und ein. navDa: die untere ist zu sehen.
+  leisteWeg: boolean; setLeisteWeg: (weg: boolean) => void; navDa: boolean;
 }
 
-export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, sprung, titelTipp, mix }: Props) {
+export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, sprung, titelTipp, mix, leisteWeg, setLeisteWeg, navDa }: Props) {
   const seiten = pdf.numPages;
   const { bpm, setBpm } = useMetronom();
 
@@ -56,12 +63,10 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   const [stelleNr, setStelleNr] = useState(0);
   const stelle = mix ? stellen.find((s) => s.id === mix.stelle)
     : modus === 'stellen' ? stellen[Math.min(stelleNr, stellen.length - 1)] : undefined;
-  const [rand, setRand] = useState(true);
   const zumLesen = () => {
     if (stelle) setIndex(ansichtVonSeite(liste, stelle.seite));
     setModus('lesen');
   };
-  const [zoom, setZoom] = useState(false);
 
   // ── Werkzeuge ──
   const [werkzeug, setWerkzeug] = useState<Werkzeug | null>(null);
@@ -77,8 +82,13 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     speichern(`ueben:${w}`, e);
   };
   const [fingerZeichnen, setFingerZeichnen] = useState(false);
-  const [leiste, setLeiste] = useState(true);
-  // Ansicht-Menü (Blättern bzw. Rand/Zoom) als Popover unter der Leiste.
+  const leiste = !leisteWeg;
+  // Stück verlassen: Leisten wieder zeigen (sonst fehlt die untere ohne Noten).
+  useEffect(() => () => setLeisteWeg(false), [setLeisteWeg]);
+  // Was Stellen sind: „i“ neben dem Schalter, oder beim Einschalten ohne Stellen.
+  const [stellenInfo, setStellenInfo] = useState<'info' | 'leer' | null>(null);
+  const schalterId = useId();
+  // Ansicht-Menü (Blättern, Ausschnitt) als Popover unter der Leiste.
   const [ansichtOffen, setAnsichtOffen] = useState(false);
 
   // Vollbild als bewusster Knopf (der automatische Versuch beim Öffnen
@@ -114,24 +124,31 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   useEffect(() => {
     const el = flaeche.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => setPlatz({ b: el.clientWidth, h: el.clientHeight }));
+    // Innenmaß: ohne den Abstand zu Notch und Home-Leiste.
+    const ro = new ResizeObserver(([e]) => setPlatz({ b: e.contentRect.width, h: e.contentRect.height }));
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  const rahmen = useMemo(() => {
+
+  // ── Ausschnitt je Seite: der eingestellte Bereich füllt den Platz ──
+  const [ausschnitte, setAusschnitte] = useState(() => ausschnitteLesen(noten.ausschnitte));
+  const [bearbeiten, setBearbeiten] = useState<{ seite: number; r: Rechteck; alle: boolean } | null>(null);
+  const bearbeitenSeite = bearbeiten?.seite ?? null;
+  const ausschnitt = useMemo(() => bearbeitenSeite !== null ? VOLL
+    : ausschnittFuer(ausschnitte, stelle ? [stelle.seite] : ansicht.art === 'ganz' ? [ansicht.seite] : [ansicht.oben, ansicht.unten]),
+  [ausschnitte, bearbeitenSeite, stelle, ansicht]);
+  // Beim Einstellen etwas kleiner: die Griffe an den Ecken bleiben greifbar.
+  const darst = useMemo(() => {
     if (!platz.b || !platz.h) return null;
-    const b = Math.min(platz.b - 8, (platz.h - 8) / format);
-    return { b: Math.floor(b), h: Math.floor(b * format) };
-  }, [platz, format]);
+    const rand = bearbeitenSeite !== null ? 40 : 0;
+    return darstellung({ b: platz.b - rand, h: platz.h - rand }, format, ausschnitt);
+  }, [platz, format, ausschnitt, bearbeitenSeite]);
+  const rahmen = darst?.rahmen ?? null;
 
   // ── Seiten einmal rendern, dann aus dem Zwischenspeicher zusammensetzen ──
   const dpr = typeof window === 'undefined' ? 1 : Math.min(window.devicePixelRatio || 1, 2.5);
-  const zoomFaktor = useMemo(() => {
-    if (!stelle || !zoom || !rahmen) return 1;
-    const r = rand ? mitRand(stelle, RAND) : stelle;
-    return Math.max(1, Math.min(3, Math.min(1 / r.b, 1 / r.h) * 0.95));
-  }, [stelle, zoom, rand, rahmen]);
-  const px = rahmen ? Math.min(MAX_PX, Math.round(rahmen.b * dpr * Math.min(zoomFaktor, 2))) : 0;
+  // Gerendert wird die ganze Seite in Blattgröße (beim Ausschnitt größer als der Rahmen).
+  const px = darst ? Math.min(MAX_PX, Math.round(darst.blatt.b * dpr)) : 0;
   // Je Seite die nackte Seite und, stecken Markierungen im PDF, deren Ebene
   // (seiteMitEbene). Welche Seiten eine Ebene haben, merkt sich mitEbene —
   // nur dort hinterlässt der Radierer eine Radier-Spur.
@@ -170,8 +187,9 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     let weg = false;
     const W = px, H = Math.round(px * format);
     const zeichnen = async () => {
-      const teile: { seite: number; y0: number; y1: number }[] = stelle
-        ? [{ seite: stelle.seite, y0: 0, y1: 1 }]
+      const teile: { seite: number; y0: number; y1: number }[] = bearbeitenSeite !== null
+        ? [{ seite: bearbeitenSeite, y0: 0, y1: 1 }]
+        : stelle ? [{ seite: stelle.seite, y0: 0, y1: 1 }]
         : ansicht.art === 'ganz' ? [{ seite: ansicht.seite, y0: 0, y1: 1 }]
           : [{ seite: ansicht.oben, y0: 0, y1: ansicht.schnitt }, { seite: ansicht.unten, y0: ansicht.schnitt, y1: 1 }];
       const bilder = await Promise.all(teile.map((t) => seiteBild(t.seite)));
@@ -199,8 +217,8 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
         ctx.fillStyle = 'rgba(168, 120, 31, 0.9)';
         ctx.fillRect(0, y - Math.max(1.5, H / 500), W, Math.max(3, H / 250));
       }
-      if (stelle) {
-        const r = rand ? mitRand(stelle, RAND) : stelle;
+      if (stelle && bearbeitenSeite === null) {
+        const r = mitRand(stelle, RAND);
         ctx.fillStyle = 'rgba(20, 20, 20, 0.5)';
         ctx.beginPath();
         ctx.rect(0, 0, W, H);
@@ -212,7 +230,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     };
     zeichnen().catch((e) => { if (!weg) console.error('Seite ließ sich nicht zeichnen', e); });
     return () => { weg = true; };
-  }, [ansicht, stelle, rand, anm, stellen, rahmen, px, format, seiteBild]);
+  }, [ansicht, stelle, bearbeitenSeite, anm, stellen, rahmen, px, format, seiteBild]);
 
   // Nachbarseiten vorab rendern: Blättern ohne Wartezeit.
   useEffect(() => {
@@ -233,23 +251,36 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     else setIndex((i) => Math.max(0, i - 1));
   }, [mix, modus]);
 
+  const blaetternNach = useCallback((a: Blaetter) => { if (a === 'weiter') weiter(); else zurueck(); }, [weiter, zurueck]);
+  // Wischrichtung (Einstellungen): beim Wischen frisch gelesen, ändert sich selten.
+  const umkehren = () => gespeicherterWert(WISCH_UMKEHREN, false);
+  // Mausrad / Trackpad: eine Bewegung blättert einmal.
+  const rad = useRef(RAD_ANFANG);
+  function radDrehen(e: React.WheelEvent) {
+    if (e.ctrlKey || neueStelle || textEingabe || bearbeiten) return; // Strg+Rad = Zoomen
+    const f = (d: number) => radWeg(d, e.deltaMode, window.innerHeight);
+    const r = radGeste(rad.current, f(e.deltaX), f(e.deltaY), e.timeStamp, umkehren());
+    rad.current = r.z;
+    if (r.aktion) blaetternNach(r.aktion);
+  }
+
   // Stellen-Blatt (Ziel, Verlauf) der aktuellen Stelle
   const [stelleBlatt, setStelleBlatt] = useState(false);
 
   useEffect(() => {
-    if (!tastenAktiv || stelleBlatt) return;
+    if (!tastenAktiv || stelleBlatt || bearbeitenSeite !== null) return;
     const taste = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).closest('input, textarea')) return;
       // Leertaste auf einem Bedienelement aktiviert es, statt zu blättern.
       if (e.key === ' ' && (e.target as HTMLElement).closest('button, a, select, summary, [role="dialog"]')) return;
       // Bluetooth-Blätterpedale senden meist Pfeil- oder Bild-Tasten.
-      if (['ArrowRight', 'ArrowDown', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); weiter(); }
-      if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) { e.preventDefault(); zurueck(); }
+      const a = tastenAktion(e.key);
+      if (a) { e.preventDefault(); blaetternNach(a); }
       if (e.key === 'Escape' && werkzeug) setWerkzeug(null);
     };
     window.addEventListener('keydown', taste);
     return () => window.removeEventListener('keydown', taste);
-  }, [weiter, zurueck, werkzeug, tastenAktiv, stelleBlatt]);
+  }, [blaetternNach, werkzeug, tastenAktiv, stelleBlatt, bearbeitenSeite]);
 
   // ── Zeiger: zeichnen oder blättern ──
   const blatt = useRef<HTMLDivElement>(null);
@@ -321,7 +352,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   function liveZeichnen() {
     const c = live.current, z = zug.current;
     if (!c || !z || !blatt.current) return;
-    // offsetWidth ignoriert den Zoom (transform) — die Leinwand skaliert mit dem Blatt.
+    // Blattgröße: beim Ausschnitt größer als der sichtbare Rahmen.
     c.width = Math.round(blatt.current.offsetWidth * dpr); c.height = Math.round(blatt.current.offsetHeight * dpr);
     const ctx = c.getContext('2d')!;
     ctx.clearRect(0, 0, c.width, c.height);
@@ -331,7 +362,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
 
   function runter(e: React.PointerEvent) {
     if (textEingabe) { textSpeichern(); return; } // Tippen daneben übernimmt den Text
-    if (neueStelle) return;
+    if (neueStelle || bearbeiten) return;
     const p = relativ(e);
     radierWisch.current = false;
     radierSpur.current = null;
@@ -341,6 +372,9 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       zug.current = { art: 'zeichnen', punkte: [p.x, p.y], x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId };
       if (werkzeug === 'radierer') radieren(p.x, p.y);
     } else {
+      // Festhalten: Auch ein Wisch als Maus-Zeiger (Scroll-Ring über
+      // AssistiveTouch), der über den Rand hinausläuft, endet hier.
+      e.currentTarget.setPointerCapture(e.pointerId);
       zug.current = { art: 'tippen', punkte: [], x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId };
     }
   }
@@ -361,11 +395,12 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     zug.current = null;
     if (!z) return;
     if (z.art === 'tippen') {
-      const dx = e.clientX - z.x, dy = e.clientY - z.y;
-      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) { if (dx < 0) weiter(); else zurueck(); return; }
-      if (Math.hypot(dx, dy) > 12 || e.timeStamp - z.t > 600) return;
+      // Wischen (Finger oder Scroll-Ring): nach oben/links weiter, nach unten/rechts zurück.
+      const g = zeigerGeste(e.clientX - z.x, e.clientY - z.y, e.timeStamp - z.t, umkehren());
+      if (g.art === 'wisch') { blaetternNach(g.aktion); return; }
+      if (g.art !== 'tippen') return;
       const b = window.innerWidth, x = e.clientX;
-      if (x < b * 0.3) zurueck(); else if (x > b * 0.7) weiter(); else setLeiste((l) => !l);
+      if (x < b * 0.3) zurueck(); else if (x > b * 0.7) weiter(); else { setAnsichtOffen(false); setLeisteWeg(leiste); }
       return;
     }
     const seite = zeichenSeite!;
@@ -466,17 +501,23 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     blaetternSpeichern({ modus: 'linie', linien: blaettern.linien });
   }
 
-  // Zoom auf die Stelle: Blatt so verschieben und vergrößern, dass sie mittig steht.
-  const transform = useMemo(() => {
-    if (!stelle || !rahmen || zoomFaktor === 1) return undefined;
-    const r = rand ? mitRand(stelle, RAND) : stelle;
-    const cx = (r.x + r.b / 2) * rahmen.b, cy = (r.y + r.h / 2) * rahmen.h;
-    // Mittig auf die Stelle, aber nie über den Blattrand hinaus (kein leerer Streifen).
-    const klemmen = (v: number, min: number) => Math.min(0, Math.max(min, v));
-    const tx = klemmen(rahmen.b / 2 - cx * zoomFaktor, rahmen.b * (1 - zoomFaktor));
-    const ty = klemmen(rahmen.h / 2 - cy * zoomFaktor, rahmen.h * (1 - zoomFaktor));
-    return `translate(${tx}px, ${ty}px) scale(${zoomFaktor})`;
-  }, [stelle, rahmen, zoomFaktor, rand]);
+  // Ausschnitt einstellen: zeigt die ganze Seite mit Rahmen; Fertig speichert
+  // für diese Seite oder für alle.
+  const seiteJetzt = stelle ? stelle.seite : hauptseite(ansicht);
+  function ausschnittStarten() {
+    setBearbeiten({ seite: seiteJetzt, r: ausschnitte[seiteJetzt] ?? VOLL, alle: false });
+    setWerkzeug(null); setPaletteOffen(false); setLinieEinstellen(false); setAnsichtOffen(false);
+    // Leisten weg: die ganze Seite samt Griffen bleibt frei.
+    setLeisteWeg(true);
+  }
+  const ausschnittEnde = () => { setBearbeiten(null); setLeisteWeg(false); };
+  function ausschnittSpeichern() {
+    if (!bearbeiten) return;
+    const neu = bearbeiten.alle ? fuerAlleSeiten(seiten, bearbeiten.r) : ausschnittSetzen(ausschnitte, bearbeiten.seite, bearbeiten.r);
+    setAusschnitte(neu);
+    ausschnittEnde();
+    stueckAendern(noten.id, { ausschnitte: neu }).catch(speicherFehler);
+  }
 
   const { zuletzt, bestes } = tempoStand(stelle?.tempi ?? []);
   // Metronom folgt der Stelle (D-04): Kommt eine Stelle dran — beim Blättern,
@@ -502,6 +543,18 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     : werkzeug === 'stelle' ? 'Rahmen um die Takte ziehen.'
     : werkzeug === 'text' ? 'Auf die Stelle tippen, an der der Text stehen soll.'
     : null;
+  // Höhe der oberen Leiste: Hinweise schweben darunter, solange sie zu sehen ist.
+  const oben = useRef<HTMLDivElement>(null);
+  const [obenHoehe, setObenHoehe] = useState(0);
+  useEffect(() => {
+    const el = oben.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setObenHoehe(el.offsetHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  // Unten eine Zeile der Noten selbst (Stelle, neue Stelle, Ausschnitt)?
+  const zeileUnten = !!(neueStelle || stelle || bearbeiten);
   const paletteWechsel = (offen: boolean) => {
     setPaletteOffen(offen);
     setWerkzeug(offen ? 'stift' : null);
@@ -509,92 +562,91 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   };
 
   return (
-    <div className="betrachter" role="region" aria-label={`Noten: ${noten.titel}`}>
-      {leiste && (
-        <div className="betrachter-leiste">
-          <div className="nav-zeile">
-            <button type="button" className="nav-titel" onClick={titelTipp} title="Stück-Details und Stellen-Übersicht">
-              <span className="nav-titel-text">
-                <span className="nav-titel-schnitt">{noten.titel}{noten.stimme && <span className="b-leise"> · {noten.stimme}</span>}</span>
-                <svg className="nav-pfeil" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
-              </span>
-              <span className="nav-untertitel tabular-nums">{anzeige}</span>
-            </button>
-            <span className="flex-1" />
-            {stellen.length > 0 && (
-              <label className="nav-schalter" title="Stelle für Stelle üben">
-                <span className="nav-schalter-label">Stellen</span>
-                <input type="checkbox" role="switch" className="ios-schalter" checked={modus === 'stellen'}
-                  onChange={(e) => {
-                    if (e.target.checked) { setModus('stellen'); setWerkzeug(null); setPaletteOffen(false); setLinieEinstellen(false); setAnsichtOffen(false); }
-                    else { zumLesen(); setAnsichtOffen(false); mix?.beenden(); }
-                  }} />
-              </label>
-            )}
-            <button type="button" className="nav-rund" aria-pressed={ansichtOffen} onClick={() => setAnsichtOffen(!ansichtOffen)}
-              aria-label="Ansicht" title="Ansicht">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.5h10A1.5 1.5 0 0 1 18.5 5v14a1.5 1.5 0 0 1-1.5 1.5H7A1.5 1.5 0 0 1 5.5 19V5A1.5 1.5 0 0 1 7 3.5z" /><path d="M9.5 9L12 6.5 14.5 9M14.5 15L12 17.5 9.5 15" /></svg>
-            </button>
-            {kannVollbild && (
-              <button type="button" className="nav-rund" aria-pressed={vollbild} onClick={vollbildWechseln}
-                aria-label={vollbild ? 'Vollbild verlassen' : 'Vollbild'} title={vollbild ? 'Vollbild verlassen' : 'Vollbild'}>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4.5H6A1.5 1.5 0 0 0 4.5 6v3M15 4.5h3A1.5 1.5 0 0 1 19.5 6v3M9 19.5H6A1.5 1.5 0 0 1 4.5 18v-3M15 19.5h3a1.5 1.5 0 0 0 1.5-1.5v-3" /></svg>
-              </button>
-            )}
-            <button type="button" className="nav-rund" aria-pressed={paletteOffen} onClick={() => paletteWechsel(!paletteOffen)}
-              aria-label="Zeichenwerkzeuge" title="Zeichenwerkzeuge">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l1.2-4.2L16.6 4.4a1.8 1.8 0 0 1 2.5 0l.5.5a1.8 1.8 0 0 1 0 2.5L8.2 18.8 4 20z" /></svg>
-            </button>
+    <div className={`betrachter ${navDa ? 'nav-da' : ''}`} role="region" aria-label={`Noten: ${noten.titel}`}>
+      <div ref={oben} className={`betrachter-leiste ${leiste ? '' : 'weg'}`} inert={!leiste}>
+        <div className="nav-zeile">
+          <button type="button" className="nav-titel" onClick={titelTipp} title="Stück-Details und Stellen-Übersicht">
+            <span className="nav-titel-text">
+              <span className="nav-titel-schnitt">{noten.titel}{noten.stimme && <span className="b-leise"> · {noten.stimme}</span>}</span>
+              <svg className="nav-pfeil" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            </span>
+            <span className="nav-untertitel tabular-nums">{anzeige}</span>
+          </button>
+          <span className="flex-1" />
+          {/* Immer da, auch ohne Stellen: so findet man sie. Das „i“ erklärt sie. */}
+          <div className="nav-schalter">
+            <label htmlFor={schalterId} className="nav-schalter-label" title="Stelle für Stelle üben">Stellen</label>
+            <button type="button" className="nav-info" onClick={() => { setAnsichtOffen(false); setStellenInfo('info'); }}
+              aria-label="Was sind Stellen?" title="Was sind Stellen?">i</button>
+            <input id={schalterId} type="checkbox" role="switch" className="ios-schalter" checked={modus === 'stellen' || stellenInfo === 'leer'}
+              onChange={(e) => {
+                setAnsichtOffen(false);
+                // Noch keine Stellen: erklären, der Schalter geht beim Schließen wieder aus.
+                if (e.target.checked && !stellen.length) { setStellenInfo('leer'); return; }
+                if (e.target.checked) { setModus('stellen'); setWerkzeug(null); setPaletteOffen(false); setLinieEinstellen(false); setBearbeiten(null); }
+                else { zumLesen(); mix?.beenden(); }
+              }} />
           </div>
-          {ansichtOffen && (
-            <>
-              <button type="button" className="nav-fang" aria-label="Menü schließen" onClick={() => setAnsichtOffen(false)} />
-              <div className="nav-blase" role="group" aria-label="Ansicht">
-                {modus === 'lesen' ? (
-                  <>
-                    <p className="nav-blase-titel">Blättern</p>
-                    <div className="segment nav-segment" role="group" aria-label="Blättern">
-                      {([['ganz', 'Ganz'], ['halb', 'Halb'], ['linie', 'Linie']] as const).map(([m, name]) => (
-                        <button key={m} type="button" aria-pressed={blaettern.modus === m}
-                          onClick={() => { blaetternSpeichern({ ...blaettern, modus: m }); setLinieEinstellen(m === 'linie'); if (m === 'linie') { setWerkzeug(null); setAnsichtOffen(false); } }}>
-                          {name}
-                        </button>
-                      ))}
-                    </div>
-                    {blaettern.modus === 'linie' && (
-                      <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => { setLinieEinstellen(true); setWerkzeug(null); setAnsichtOffen(false); }}>
-                        Blätterlinie einstellen
-                      </button>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <p className="nav-blase-titel">Ansicht der Stelle</p>
-                    <label className="nav-blase-reihe">Etwas Rand zeigen
-                      <input type="checkbox" role="switch" className="ios-schalter" checked={rand} onChange={(e) => setRand(e.target.checked)} />
-                    </label>
-                    <label className="nav-blase-reihe">Heranzoomen
-                      <input type="checkbox" role="switch" className="ios-schalter" checked={zoom} onChange={(e) => setZoom(e.target.checked)} />
-                    </label>
-                  </>
-                )}
-              </div>
-            </>
+          <button type="button" className="nav-rund" aria-pressed={ansichtOffen} onClick={() => setAnsichtOffen(!ansichtOffen)}
+            aria-label="Ansicht" title="Ansicht">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.5h10A1.5 1.5 0 0 1 18.5 5v14a1.5 1.5 0 0 1-1.5 1.5H7A1.5 1.5 0 0 1 5.5 19V5A1.5 1.5 0 0 1 7 3.5z" /><path d="M9.5 9L12 6.5 14.5 9M14.5 15L12 17.5 9.5 15" /></svg>
+          </button>
+          {kannVollbild && (
+            <button type="button" className="nav-rund" aria-pressed={vollbild} onClick={vollbildWechseln}
+              aria-label={vollbild ? 'Vollbild verlassen' : 'Vollbild'} title={vollbild ? 'Vollbild verlassen' : 'Vollbild'}>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4.5H6A1.5 1.5 0 0 0 4.5 6v3M15 4.5h3A1.5 1.5 0 0 1 19.5 6v3M9 19.5H6A1.5 1.5 0 0 1 4.5 18v-3M15 19.5h3a1.5 1.5 0 0 0 1.5-1.5v-3" /></svg>
+            </button>
           )}
+          <button type="button" className="nav-rund" aria-pressed={paletteOffen} onClick={() => paletteWechsel(!paletteOffen)}
+            aria-label="Zeichenwerkzeuge" title="Zeichenwerkzeuge">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l1.2-4.2L16.6 4.4a1.8 1.8 0 0 1 2.5 0l.5.5a1.8 1.8 0 0 1 0 2.5L8.2 18.8 4 20z" /></svg>
+          </button>
         </div>
-      )}
+        {ansichtOffen && (
+          <>
+            <button type="button" className="nav-fang" aria-label="Menü schließen" onClick={() => setAnsichtOffen(false)} />
+            <div className="nav-blase" role="group" aria-label="Ansicht">
+              {modus === 'lesen' && (
+                <>
+                  <p className="nav-blase-titel">Blättern</p>
+                  <div className="segment nav-segment" role="group" aria-label="Blättern">
+                    {([['ganz', 'Ganz'], ['halb', 'Halb'], ['linie', 'Linie']] as const).map(([m, name]) => (
+                      <button key={m} type="button" aria-pressed={blaettern.modus === m}
+                        onClick={() => { blaetternSpeichern({ ...blaettern, modus: m }); setLinieEinstellen(m === 'linie'); if (m === 'linie') { setWerkzeug(null); setAnsichtOffen(false); } }}>
+                        {name}
+                      </button>
+                    ))}
+                  </div>
+                  {blaettern.modus === 'linie' && (
+                    <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => { setLinieEinstellen(true); setWerkzeug(null); setAnsichtOffen(false); }}>
+                      Blätterlinie einstellen
+                    </button>
+                  )}
+                </>
+              )}
+              <p className="nav-blase-titel">Ausschnitt</p>
+              <button type="button" className="knopf knopf-leise knopf-klein" onClick={ausschnittStarten}>
+                Seite {seiteJetzt} {ausschnitte[seiteJetzt] ? 'anders zuschneiden' : 'zuschneiden'}
+              </button>
+              <p className="gedaempft text-xs">Nur den Bereich zeigen, den du brauchst — z. B. ohne breite Ränder. Gilt künftig für diese Seite.</p>
+            </div>
+          </>
+        )}
+      </div>
 
       {/* Zeiger auf der ganzen Fläche: auch Tippen neben das Blatt blättert. */}
-      <div ref={flaeche} className="betrachter-flaeche"
+      <div ref={flaeche} className={`betrachter-flaeche ${zeileUnten ? '' : 'unten-frei'}`}
+        style={{ '--oben': `${leiste ? obenHoehe : 0}px` } as React.CSSProperties}
         onPointerDown={runter} onPointerMove={(e) => { bewegen(e); linieBewegen(e); }} onPointerUp={(e) => { hoch(e); linieLoslassen(); }}
-        onPointerCancel={() => { zug.current = null; setRechteckEntwurf(null); }}
+        onPointerCancel={() => { zug.current = null; setRechteckEntwurf(null); }} onWheel={radDrehen}
         onMouseDown={(e) => { if (werkzeug) e.preventDefault(); }}>
-        {rahmen && (
-          <div className="betrachter-rahmen" style={{ width: rahmen.b, height: rahmen.h }}>
-            <div ref={blatt} className="betrachter-blatt" style={{ transform }}>
+        {darst && (
+          <div className={`betrachter-rahmen ${bearbeiten ? 'einstellen' : ''}`} style={{ width: darst.rahmen.b, height: darst.rahmen.h }}>
+            <div ref={blatt} className="betrachter-blatt" style={{ width: darst.blatt.b, height: darst.blatt.h, left: darst.blatt.x, top: darst.blatt.y }}>
               <canvas ref={leinwand} className="betrachter-leinwand" />
               <canvas ref={live} className="betrachter-leinwand betrachter-live" />
               {rechteckEntwurf && <span className="b-rechteck" style={prozent(rechteckEntwurf)} />}
+              {bearbeiten && <AusschnittRahmen r={bearbeiten.r} blatt={blatt} setzen={(r) => setBearbeiten({ ...bearbeiten, r })} />}
               {neueStelle && <span className="b-rechteck fest" style={prozent(neueStelle)} />}
               {linieEinstellen && modus === 'lesen' && linienSeite && (
                 <div className="b-linie" style={{ top: `${linieWert * 100}%` }}
@@ -612,7 +664,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
             </div>
           </div>
         )}
-        {!werkzeug && !linieEinstellen && (
+        {!werkzeug && !linieEinstellen && !bearbeiten && (
           <>
             <span className="b-tippzone links" aria-hidden="true">‹</span>
             <span className="b-tippzone rechts" aria-hidden="true">›</span>
@@ -653,7 +705,26 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
         </div>
       )}
 
-      {stelle && !neueStelle && (
+      {bearbeiten && (
+        <div className="b-unten b-umbruch b-ausschnitt-leiste" role="group" aria-label="Ausschnitt einstellen">
+          <p className="b-aus-hinweis">
+            <strong>Seite {bearbeiten.seite} zuschneiden:</strong> Ecken und Kanten ziehen. Was im Rahmen liegt, füllt künftig den Bildschirm.
+          </p>
+          <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => setBearbeiten({ ...bearbeiten, r: VOLL })}>Ganze Seite</button>
+          {seiten > 1 && (
+            <label className="b-schalter">
+              <input type="checkbox" role="switch" className="ios-schalter" checked={bearbeiten.alle}
+                onChange={(e) => setBearbeiten({ ...bearbeiten, alle: e.target.checked })} />
+              Für alle {seiten} Seiten
+            </label>
+          )}
+          <span className="flex-1" />
+          <button type="button" className="knopf knopf-leise knopf-klein" onClick={ausschnittEnde}>Abbrechen</button>
+          <button type="button" className="knopf knopf-klein" onClick={ausschnittSpeichern}>Fertig</button>
+        </div>
+      )}
+
+      {stelle && !neueStelle && !bearbeiten && (
         <div className="b-unten b-stellenleiste">
           <button type="button" className="b-knopf gross" onClick={zurueck} disabled={mix ? mix.nr <= 1 : stelleNr === 0} aria-label="Vorige Stelle">‹</button>
           <button type="button" className="b-stelleninfo min-w-0 flex-1" onClick={() => setStelleBlatt(true)} title="Ziel und Tempo-Verlauf der Stelle">
@@ -680,12 +751,14 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
         </div>
       )}
 
+      {stellenInfo && <StellenInfo leer={stellenInfo === 'leer'} schliessen={() => setStellenInfo(null)} />}
+
       {stelleBlatt && stelle && (
         <StelleBlatt stelle={stelle} stueck={noten.titel} geaendert={geaendert} schliessen={() => setStelleBlatt(false)} />
       )}
 
       {/* Beim Benennen einer neuen Stelle weicht die Palette der Eingabezeile. */}
-      {paletteOffen && !neueStelle && (
+      {paletteOffen && !neueStelle && !bearbeiten && (
         <StiftPalette werkzeug={werkzeug}
           wechseln={(w) => { setWerkzeug(w); setLinieEinstellen(false); }}
           einst={einst} einstellen={einstellen}

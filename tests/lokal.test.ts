@@ -370,7 +370,8 @@ describe('Verbindung', () => {
 describe('Sicherung von Gerät zu Gerät', () => {
   async function befuellen() {
     const a = await g.lokal.stueckAnlegen({ titel: 'Pomp', stimme: 'Klar 1', datei: pdf('pomp'), dateiname: 'pomp.pdf' });
-    await g.lokal.stueckAendern(a, { blaettern: { modus: 'halb', linien: { 1: 0.3 } }, komponist: 'Elgar', tags: ['Marsch'] });
+    await g.lokal.stueckAendern(a, { blaettern: { modus: 'halb', linien: { 1: 0.3 } }, komponist: 'Elgar', tags: ['Marsch'],
+      ausschnitte: { 1: { x: 0.05, y: 0.1, b: 0.9, h: 0.6 } } });
     const band = await anlegen('Sammelband', 'band');
     const v = await g.lokal.virtuellesAnlegen({ titel: 'Polka', stimme: '', quelle: { stueckId: band, von: 2, bis: 3 }, genre: 'Polka' });
     await g.lokal.stelleAnlegen(stelle(a, 1, 0.2, 'T. 1–4'));

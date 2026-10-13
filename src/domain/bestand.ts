@@ -2,6 +2,7 @@
 // Stücke mit ihrer PDF, Stellen, Anmerkungen je Seite, Lesezeichen, Merker
 // und Setlisten. Hier stehen die Typen und die Regeln, die nicht vom
 // Gerätespeicher abhängen — rein, getestet.
+import type { Ausschnitte } from './ausschnitt';
 import type { Anmerkung, Blaettermodus } from './notenpult';
 
 export interface Stueck {
@@ -11,6 +12,8 @@ export interface Stueck {
   // Nur Chrome/Edge am Rechner: Verweis auf die Datei, um ohne Dateiauswahl neu zu laden.
   handle?: FileSystemFileHandle;
   blaettern?: { modus: Blaettermodus; linien: Record<number, number> };
+  // Angezeigter Bereich je Seite (Anteile der Seite); ohne Eintrag die ganze Seite.
+  ausschnitte?: Ausschnitte;
   // „Zuletzt geöffnet“ liegt im localStorage; ältere Datensätze (über die
   // Sicherung aus „ueben“) tragen es noch hier (zuletztAus in ./speicher).
   zuletzt?: number;

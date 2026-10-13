@@ -25,8 +25,8 @@ anders ist, ist ein Fehler oder gehört dort nachgetragen.
   `ueben:tonprofile`) und, im Zuschnitt des Geräts (`stueckId`), `virtuelle`,
   `lesezeichen`, `merker`, `setlisten`. Zusätzliche Felder an
   Noten/Stellen/Seiten (`sammlungen`, `tags`, `geaendert`, `entfernt`,
-  `groesse`, Metadaten) reisen ohnehin mit. Nicht weiter ändern; eine neue
-  Version nur mit Lesen der alten.
+  `groesse`, `ausschnitte`, Metadaten) reisen ohnehin mit. Nicht weiter
+  ändern; eine neue Version nur mit Lesen der alten.
 - Fachlogik rein und getestet in `src/domain/` — neue Regeln dort zuerst als Test.
 - Die Adresse steht nur in `src/adresse.ts`.
 - Offline: `public/sw.js` + `scripts/precache.mjs`. Neue statische Dateien
