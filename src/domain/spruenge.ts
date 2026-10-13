@@ -24,8 +24,27 @@ function punktLesen(roh: unknown): Punkt | null {
   return { seite: seite as number, x: z(x), y: z(y) };
 }
 
-// Reihenfolge: nach Seite und Lage des Sprungzeichens (wie im Stück).
-export const vorher = (a: Sprung, b: Sprung) => a.von.seite - b.von.seite || a.von.y - b.von.y || a.von.x - b.von.x;
+// Vorsortierung: Seite, Höhe, links vor rechts.
+const vorher = (a: Sprung, b: Sprung) => a.von.seite - b.von.seite || a.von.y - b.von.y || a.von.x - b.von.x;
+
+// Was so wenig höher oder tiefer sitzt, gilt als dieselbe Zeile (ein System;
+// beim Antippen gerät ein Zeichen leicht höher als das andere).
+const ZEILE = 0.03;
+
+// Lesereihenfolge der Sprungzeichen: Seite für Seite, Zeile für Zeile, in der
+// Zeile von links nach rechts. Eine Zeile beginnt beim obersten Zeichen und
+// reicht ZEILE tiefer.
+export function lesereihenfolge(liste: Sprung[]): Sprung[] {
+  const s = [...liste].sort(vorher);
+  const zeile: number[] = [];
+  s.forEach((x, i) => {
+    const anfang = i > 0 ? s[zeile[i - 1]] : null;
+    zeile[i] = anfang && anfang.von.seite === x.von.seite && x.von.y - anfang.von.y <= ZEILE + 1e-9 ? zeile[i - 1] : i;
+  });
+  return s.map((x, i) => ({ x, z: zeile[i], i }))
+    .sort((a, b) => a.z - b.z || a.x.von.x - b.x.von.x || a.i - b.i)
+    .map((e) => e.x);
+}
 
 // Prüft und säubert (Sicherung, ältere Stände): Kaputtes fällt weg, Anteile
 // bleiben in 0..1, je id ein Sprung.
@@ -43,7 +62,7 @@ export function spruengeLesen(roh: unknown): Sprung[] {
     ids.add(id);
     aus.push({ id, von: v, nach: n, art: art as SprungArt });
   }
-  return aus.sort(vorher);
+  return lesereihenfolge(aus);
 }
 
 // Sprünge einer neueren Version (Art hier unbekannt, sonst stimmig) zeigt
@@ -74,7 +93,7 @@ export function spruengeSchreiben(neu: Sprung[], roh: unknown): Sprung[] {
 
 export function sprungHinzufuegen(liste: Sprung[], s: Omit<Sprung, 'id'>, id: string): Sprung[] {
   const neu: Sprung = { id, art: s.art, von: { seite: s.von.seite, x: z(s.von.x), y: z(s.von.y) }, nach: { seite: s.nach.seite, x: z(s.nach.x), y: z(s.nach.y) } };
-  return [...liste, neu].sort(vorher);
+  return lesereihenfolge([...liste, neu]);
 }
 
 export const sprungLoeschen = (liste: Sprung[], id: string) => liste.filter((s) => s.id !== id);

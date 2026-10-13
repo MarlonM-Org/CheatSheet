@@ -496,11 +496,16 @@ details[open] > summary::before { transform: rotate(90deg); }
 }
 .nav-titel-schnitt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nav-pfeil { width: 11px; height: 11px; flex: none; color: var(--leise); }
-.nav-untertitel { max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.04em; color: var(--gedaempft); white-space: nowrap; }
-/* „S. 1 · nach D.S.“: wird es eng, kürzt sich die Seite, nicht der Abschnitt. */
-.nav-abschnitt { display: flex; gap: 0.3em; letter-spacing: 0.02em; }
-.nav-abschnitt > :first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.nav-abschnitt > :last-child { flex: none; }
+.nav-untertitel { max-width: 100%; overflow: hidden; text-overflow: ellipsis; color: var(--gedaempft); white-space: nowrap; }
+.nav-untertitel, .nav-messung > span { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.04em; }
+/* Der Titel nimmt den freien Platz bis zu den Knöpfen (darin misst der
+   Untertitel, welche Form ganz passt). */
+.nav-titel-platz { position: relative; flex: 1 1 0; min-width: 0; display: flex; }
+.nav-messung {
+  position: absolute; left: 0; top: 0; height: 0; overflow: hidden; visibility: hidden; pointer-events: none;
+  display: flex; flex-direction: column; align-items: flex-start;
+}
+.nav-messung > span { width: max-content; white-space: nowrap; }
 .nav-rund {
   flex: none; width: 34px; height: 34px; border-radius: 999px;
   display: grid; place-items: center; background: var(--flaeche); color: var(--gedaempft);

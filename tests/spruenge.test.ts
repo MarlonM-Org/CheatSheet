@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ansichten, type Ansicht } from '@/domain/notenpult';
 import {
-  ansichtFinden, artVorschlag, artWaehlen, einpassen, KUERZEL, punktSichtbar, seiteAn, setzenTippen, sichtbareMarken, spruengeLesen,
+  ansichtFinden, artVorschlag, artWaehlen, einpassen, KUERZEL, lesereihenfolge, punktSichtbar, seiteAn, setzenTippen, sichtbareMarken, spruengeLesen,
   spruengeSchreiben, sprungHinzufuegen, sprungLoeschen, sprungText, SPRUNG_ARTEN, zielAnsicht, type Setzen, type Sprung,
 } from '@/domain/spruenge';
 
@@ -44,6 +44,16 @@ describe('Sprünge lesen (Sicherung, ältere Stände)', () => {
       sprung('b', p(3, 0.5, 0.1), p(1, 0, 0)),
     ]);
     expect(liste.map((s) => s.id)).toEqual(['a', 'b', 'c']);
+  });
+  it('in einer Zeile (kaum höher oder tiefer) links vor rechts', () => {
+    const liste = spruengeLesen([
+      sprung('rechts', p(2, 0.9, 0.49), p(1, 0, 0)),
+      sprung('links', p(2, 0.4, 0.5), p(1, 0, 0)),
+      sprung('tiefer', p(2, 0.1, 0.6), p(1, 0, 0)),
+      sprung('oben', p(2, 0.95, 0.1), p(1, 0, 0)),
+    ]);
+    expect(liste.map((s) => s.id)).toEqual(['oben', 'links', 'rechts', 'tiefer']);
+    expect(lesereihenfolge([]).length).toBe(0);
   });
 });
 

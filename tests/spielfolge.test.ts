@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { ansichten, type Ansicht } from '@/domain/notenpult';
-import { abschnitt, ankunftSchritt, schrittUebertragen, schrittZu, spielfolge, type Schritt } from '@/domain/spielfolge';
+import {
+  abschnitt, ankunftSchritt, nachSprung, schrittUebertragen, schrittZu, spielfolge, standUebertragen, standZu,
+  weiterGehen, zurueckGehen, type Schritt,
+} from '@/domain/spielfolge';
 import type { Sprung } from '@/domain/spruenge';
 
 const p = (seite: number, x: number, y: number) => ({ seite, x, y });
@@ -69,7 +72,54 @@ describe('Spielfolge: Weiterblättern folgt den Sprüngen', () => {
 
   it('Halb: Sprung aus der Halb-Ansicht zur ganzen Zielseite, danach weiter wie gewohnt', () => {
     const liste = ansichten(3, 'halb');
-    expect(zeige(liste, spielfolge(liste, [ds, coda]))).toEqual(['1', '1→2', '2', '2→3', '1*ds', '1→2', '2', '3*coda']);
+    // Das ⊕ (S. 2 unten) steht unter der Linie: erst in 2→3 fällig.
+    expect(zeige(liste, spielfolge(liste, [ds, coda]))).toEqual(['1', '1→2', '2', '2→3', '1*ds', '1→2', '2', '2→3', '3*coda']);
+  });
+
+  it('Halb/Linie: ein Zeichen unter der Linie ist erst in der Halb-Ansicht fällig', () => {
+    // Auf der ganzen Seite blättert man an der Linie weiter — bis zum Zeichen
+    // ist noch zu spielen; es steht danach unten in der Halb-Ansicht.
+    const halb = ansichten(3, 'halb');
+    const w = sprung('w', p(1, 0.9, 0.9), p(1, 0.1, 0.1), 'wdh');
+    expect(zeige(halb, spielfolge(halb, [w]))).toEqual(['1', '1→2', '1*w', '1→2', '2', '2→3', '3']);
+    const dsMitte = sprung('ds', p(2, 0.9, 0.8), p(1, 0.1, 0.3), 'ds');
+    expect(zeige(halb, spielfolge(halb, [dsMitte]))).toEqual(['1', '1→2', '2', '2→3', '1*ds', '1→2', '2', '2→3', '3']);
+    // Linie je Seite: maßgeblich ist die Linie dieser Seite.
+    const linie = ansichten(3, 'linie', { 1: 0.7 });
+    expect(zeige(linie, spielfolge(linie, [sprung('w', p(1, 0.9, 0.8), p(1, 0.1, 0.1), 'wdh')])))
+      .toEqual(['1', '1→2', '1*w', '1→2', '2', '2→3', '3']);
+    // Über der Linie: schon auf der ganzen Seite.
+    expect(zeige(linie, spielfolge(linie, [sprung('w', p(1, 0.9, 0.6), p(1, 0.1, 0.1), 'wdh')])))
+      .toEqual(['1', '1*w', '1→2', '2', '2→3', '3']);
+    // Letzte Seite (keine Halb-Ansicht danach): dort fällig.
+    const dc = sprung('dc', p(3, 0.9, 0.9), p(1, 0, 0), 'dc');
+    expect(zeige(halb, spielfolge(halb, [dc]))).toEqual(['1', '1→2', '2', '2→3', '3', '1*dc', '1→2', '2', '2→3', '3']);
+    // Linie zu nah am Rand (keine Halb-Ansicht): auf der ganzen Seite.
+    const rand = ansichten(3, 'linie', { 1: 0.97 });
+    expect(zeige(rand, spielfolge(rand, [sprung('w', p(1, 0.9, 0.98), p(1, 0, 0), 'wdh')]))).toEqual(['1', '1*w', '2', '2→3', '3']);
+  });
+
+  it('Halb: per Sprung unter der Linie angekommen — ein Zeichen darunter gilt schon auf der ganzen Seite', () => {
+    const halb = ansichten(3, 'halb');
+    const zuCoda = sprung('coda', p(1, 0.5, 0.9), p(3, 0.1, 0.1), 'coda');
+    // Einstieg (0,7) unter der Linie: man liest von dort, ein Druck am ⊕ springt.
+    const dsTief = sprung('ds', p(3, 0.5, 0.4), p(1, 0.1, 0.7), 'ds');
+    expect(zeige(halb, spielfolge(halb, [dsTief, zuCoda]))).toEqual(['1', '1→2', '2', '2→3', '1*ds', '3*coda']);
+    // Einstieg über der Linie: erst an der Linie umblättern, dann am ⊕.
+    const dsHoch = sprung('ds', p(3, 0.5, 0.4), p(1, 0.1, 0.3), 'ds');
+    expect(zeige(halb, spielfolge(halb, [dsHoch, zuCoda]))).toEqual(['1', '1→2', '2', '2→3', '1*ds', '1→2', '3*coda']);
+  });
+
+  it('Lesereihenfolge: in einer Zeile links vor rechts, auch wenn ein Zeichen etwas höher sitzt', () => {
+    const liste = ansichten(3, 'ganz');
+    // |: a :|: b :| in einem System; b ist beim Antippen 0,01 höher geraten.
+    const a = sprung('a', p(1, 0.4, 0.5), p(1, 0.1, 0.5), 'wdh');
+    const b = sprung('b', p(1, 0.9, 0.49), p(1, 0.4, 0.5), 'wdh');
+    expect(zeige(liste, spielfolge(liste, [b, a]))).toEqual(['1', '1*a', '1*b', '2', '3']);
+    // Eine Zeile tiefer bleibt tiefer, auch weiter links.
+    const c = sprung('c', p(1, 0.1, 0.6), p(1, 0, 0), 'wdh');
+    const d = sprung('d', p(1, 0.9, 0.5), p(1, 0, 0), 'wdh');
+    expect(zeige(liste, spielfolge(liste, [c, d]))).toEqual(['1', '1*d', '1*c', '2', '3']);
   });
 
   it('Halb: in einer Ansicht erst die untere (alte) Seite, dann die obere', () => {
@@ -132,6 +182,38 @@ describe('Spielfolge: Position', () => {
     expect(ankunftSchritt(spielfolge(liste, [coda]), 'coda', 0)).toBeNull();
   });
 
+  it('Untertitel „nach …“: der Sprung, über den man in diesen Teil kam', () => {
+    const id = (f: Schritt[], spr: Sprung[]) => f.map((_, i) => nachSprung(f, i, spr)?.id ?? null);
+    expect(id(folge, [ds, coda])).toEqual([null, null, null, 'ds', 'ds', 'coda']);
+    expect(nachSprung([], 0, [ds])).toBeNull();
+    // Wiederholung: nur solange man in ihr ist — bis zur Ansicht, an der gesprungen wurde.
+    const wSeite = sprung('w', p(2, 0.9, 0.8), p(2, 0.1, 0.2), 'wdh');
+    const f1 = spielfolge(liste, [wSeite]); // 1 2 2*w 3
+    expect(id(f1, [wSeite])).toEqual([null, null, 'w', null]);
+    const wZurueck = sprung('w', p(2, 0.9, 0.8), p(1, 0.1, 0.2), 'wdh');
+    const f2 = spielfolge(liste, [wZurueck, ds]); // 1 2 1*w 2 3 1*ds 2 3
+    expect(id(f2, [wZurueck, ds])).toEqual([null, null, 'w', 'w', null, 'ds', 'ds', 'ds']);
+    // Halb: gesprungen aus 2→3 — die Wiederholung reicht bis 2→3.
+    const halb = ansichten(3, 'halb');
+    const wHalb = sprung('w', p(2, 0.9, 0.8), p(2, 0.1, 0.1), 'wdh');
+    const f3 = spielfolge(halb, [wHalb]);
+    expect(zeige(halb, f3)).toEqual(['1', '1→2', '2', '2→3', '2*w', '2→3', '3']);
+    expect(id(f3, [wHalb])).toEqual([null, null, null, null, 'w', 'w', null]);
+    // Außer der Reihe hinter dem Ende der Wiederholung (ganze S. 3, Halb springt schon aus 2→3): vorbei.
+    const f4 = spielfolge(halb, [wHalb, ds]); // 1 1→2 2 2→3 2*w 2→3 1*ds …
+    expect(nachSprung(f4, 5, [wHalb, ds])?.id).toBe('w');
+    expect(nachSprung(f4, 5, [wHalb, ds], 4)).toBeNull();
+    expect(nachSprung(f4, 5, [wHalb, ds], 3)?.id).toBe('w');
+    // Wiederholung in der Coda: danach wieder „nach Coda“.
+    const fuenf = ansichten(5, 'ganz');
+    const ds5 = sprung('ds', p(3, 0.5, 0.5), p(1, 0, 0), 'ds');
+    const coda5 = sprung('coda', p(2, 0.5, 0.9), p(4, 0, 0), 'coda');
+    const w5 = sprung('w', p(4, 0.9, 0.9), p(4, 0.1, 0.1), 'wdh');
+    const f5 = spielfolge(fuenf, [ds5, coda5, w5]);
+    expect(zeige(fuenf, f5)).toEqual(['1', '2', '3', '1*ds', '2', '4*coda', '4*w', '5']);
+    expect(id(f5, [ds5, coda5, w5])).toEqual([null, null, null, 'ds', 'ds', 'coda', 'w', 'coda']);
+  });
+
   it('Abschnitt: seit welchem Sprung man hier ist', () => {
     expect([0, 1, 2, 3, 4, 5].map((i) => abschnitt(folge, i))).toEqual([null, null, null, 'ds', 'ds', 'coda']);
     expect(abschnitt(folge, 99)).toBe('coda');
@@ -185,5 +267,59 @@ describe('Spielfolge geändert: auf derselben Ansicht bleiben', () => {
   it('Unsinniger Stand: nichts geht kaputt', () => {
     expect(schrittUebertragen(ganz, mitDs, 99, ganz, ohne)).toBe(2);
     expect(schrittUebertragen(ganz, [], 0, ganz, ohne)).toBe(0);
+  });
+});
+
+describe('Ansicht außer der Reihe (zeige): weiter im selben Durchgang', () => {
+  const ganz = ansichten(3, 'ganz'), halb = ansichten(3, 'halb');
+  const mitDs = spielfolge(ganz, [ds]); // 1 2 3 1* 2 3
+  const halbDs = spielfolge(halb, [ds]); // 1 1→2 2 2→3 | 1* 1→2 2 2→3 3
+
+  it('Moduswechsel: dieselbe Ansicht; hat der Durchgang sie nicht, bleibt sie zu sehen', () => {
+    // Ganz S. 3 im ersten Durchgang → Halb: dort springt man schon aus 2→3.
+    const h = standUebertragen(ganz, mitDs, { schritt: 2, zeige: null }, halb, halbDs);
+    expect(h).toEqual({ schritt: 3, zeige: 4 });
+    // … und zurück auf Ganz: wieder S. 3 im ersten Durchgang.
+    expect(standUebertragen(halb, halbDs, h, ganz, mitDs)).toEqual({ schritt: 2, zeige: null });
+    // Linie wie Halb.
+    const linie = ansichten(3, 'linie'), linieDs = spielfolge(linie, [ds]);
+    expect(standUebertragen(ganz, mitDs, { schritt: 2, zeige: null }, linie, linieDs)).toEqual({ schritt: 3, zeige: 4 });
+    // Kommt die Ansicht im Durchgang vor: ganz normal ein Schritt.
+    expect(standUebertragen(ganz, mitDs, { schritt: 4, zeige: null }, halb, halbDs)).toEqual({ schritt: 6, zeige: null });
+    expect(standUebertragen(ganz, [], { schritt: 0, zeige: null }, halb, halbDs)).toEqual({ schritt: 0, zeige: null });
+  });
+
+  it('ganze Seite zeigen (ziel): im Durchgang, sonst außer der Reihe', () => {
+    // Halb 2→3 im ersten Durchgang → ganze S. 3 (kommt dort nicht vor).
+    expect(standUebertragen(halb, halbDs, { schritt: 3, zeige: null }, halb, halbDs, 4)).toEqual({ schritt: 3, zeige: 4 });
+    // Halb 2→3 im D.S.-Durchgang → ganze S. 3 ist der nächste Schritt.
+    expect(standUebertragen(halb, halbDs, { schritt: 7, zeige: null }, halb, halbDs, 4)).toEqual({ schritt: 8, zeige: null });
+  });
+
+  it('weiter und zurück von einer Ansicht außer der Reihe', () => {
+    // ganze S. 3 außer der Reihe, Schritt 2→3: weiter springt (D.S.), zurück ist 2→3.
+    expect(weiterGehen(halbDs, { schritt: 3, zeige: 4 })).toEqual({ schritt: 4, zeige: null });
+    expect(zurueckGehen(halbDs, { schritt: 3, zeige: 4 })).toEqual({ schritt: 3, zeige: null });
+    // Schritt liegt hinter der gezeigten Ansicht: weiter zu ihm, zurück davor.
+    expect(weiterGehen(halbDs, { schritt: 6, zeige: 1 })).toEqual({ schritt: 6, zeige: null });
+    expect(zurueckGehen(halbDs, { schritt: 6, zeige: 1 })).toEqual({ schritt: 5, zeige: null });
+    // gewöhnlich: ein Schritt; am Ende und am Anfang bleibt alles.
+    expect(weiterGehen(mitDs, { schritt: 1, zeige: null })).toEqual({ schritt: 2, zeige: null });
+    expect(zurueckGehen(mitDs, { schritt: 1, zeige: null })).toEqual({ schritt: 0, zeige: null });
+    const ende = { schritt: 5, zeige: null };
+    expect(weiterGehen(mitDs, ende)).toBe(ende);
+    const anfang = { schritt: 0, zeige: null };
+    expect(zurueckGehen(mitDs, anfang)).toBe(anfang);
+    const fern = { schritt: 3, zeige: 4 };
+    expect(weiterGehen(halbDs.slice(0, 4), fern)).toBe(fern);
+    expect(weiterGehen([], anfang)).toBe(anfang);
+  });
+
+  it('eine Ansicht zeigen: der nächstliegende Schritt mit ihr; fehlt sie in der Folge, außer der Reihe', () => {
+    expect(standZu(mitDs, 0, 4)).toEqual({ schritt: 3, zeige: null });
+    const vier = ansichten(4, 'ganz');
+    const vor = spielfolge(vier, [sprung('v', p(1, 0.9, 0.9), p(3, 0, 0), 'wdh')]); // 1 3* 4
+    expect(standZu(vor, 1, 0)).toEqual({ schritt: 0, zeige: 1 });
+    expect(standZu(vor, 3, 0)).toEqual({ schritt: 2, zeige: null });
   });
 });

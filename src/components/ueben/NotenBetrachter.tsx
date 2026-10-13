@@ -5,7 +5,9 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { ausschnitteLesen, ausschnittFuer, ausschnittSetzen, darstellung, fuerAlleSeiten, VOLL } from '@/domain/ausschnitt';
 import { RAD_ANFANG, radGeste, radWeg, tastenAktion, WISCH_UMKEHREN, zeigerGeste, type Blaetter } from '@/domain/geste';
 import { ansichten, ansichtVonSeite, hauptseite, radierZug, type Anmerkung, type Ansicht, type Blaettermodus } from '@/domain/notenpult';
-import { abschnitt, ankunftSchritt, schrittUebertragen, schrittZu, spielfolge } from '@/domain/spielfolge';
+import {
+  ankunftSchritt, nachSprung, spielfolge, standUebertragen, standZu, weiterGehen, zurueckGehen, type Stand,
+} from '@/domain/spielfolge';
 import {
   artWaehlen, einpassen, KUERZEL, punktSichtbar, seiteAn, setzenTippen, sichtbareMarken, spruengeLesen,
   spruengeSchreiben, sprungHinzufuegen, sprungLoeschen, sprungText, SPRUNG_ARTEN, zielAnsicht, type Punkt, type Setzen, type Sprung,
@@ -58,32 +60,31 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   const [spruenge, setSpruenge] = useState(() => spruengeLesen(noten.spruenge));
   const folge = useMemo(() => spielfolge(liste, spruenge), [liste, spruenge]);
   // Sprung setzen: geführt in drei Schritten (Zeile unten). Dabei blättert man
-  // durch die Ansichten selbst (frei), nicht durch die Spielfolge.
+  // durch die Ansichten selbst (frei: zeige wandert), nicht durch die Spielfolge.
   const [setzen, setSetzen] = useState<Setzen | null>(null);
   const setzenAktiv = setzen !== null;
-  const [pos, setPos] = useState(() => ({ schritt: 0, frei: null as number | null, liste, folge }));
+  // zeige: eine Ansicht außer der Reihe (siehe Stand in spielfolge.ts).
+  const [pos, setPos] = useState(() => ({ schritt: 0, zeige: null as number | null, frei: false, liste, folge }));
   // Zustand im Rendern nachziehen (React-Muster): Sprünge oder Blättern
-  // geändert → dieselbe Ansicht im selben Abschnitt; Setzen vorbei → der
-  // Schritt mit der zuletzt gezeigten Ansicht, der am nächsten liegt.
-  const folgeNeu = pos.folge !== folge, setzenVorbei = pos.frei !== null && !setzen;
-  const uebertragen = folgeNeu ? schrittUebertragen(pos.liste, pos.folge, pos.schritt, liste, folge) : pos.schritt;
-  const nachgezogen = setzenVorbei ? schrittZu(folge, Math.min(pos.frei ?? 0, liste.length - 1), uebertragen) : uebertragen;
-  const frei = setzenVorbei ? null : pos.frei;
-  if (folgeNeu || setzenVorbei) setPos({ schritt: nachgezogen, frei, liste, folge });
-  const schritt = Math.max(0, Math.min(nachgezogen, folge.length - 1));
-  const ansichtNr = frei !== null ? Math.min(frei, liste.length - 1) : (folge[schritt]?.ansicht ?? 0);
+  // geändert, Setzen vorbei → dieselbe Ansicht im selben Durchgang; hat er
+  // sie nicht, bleibt sie außer der Reihe zu sehen.
+  const folgeNeu = pos.folge !== folge, setzenVorbei = pos.frei && !setzen;
+  const nachgezogen: Stand = folgeNeu || setzenVorbei ? standUebertragen(pos.liste, pos.folge, pos, liste, folge) : pos;
+  const frei = pos.frei && !setzenVorbei;
+  if (folgeNeu || setzenVorbei) setPos({ schritt: nachgezogen.schritt, zeige: nachgezogen.zeige, frei, liste, folge });
+  const schritt = Math.max(0, Math.min(nachgezogen.schritt, folge.length - 1));
+  const zeige = nachgezogen.zeige === null ? null : Math.min(nachgezogen.zeige, liste.length - 1);
+  const ansichtNr = zeige ?? folge[schritt]?.ansicht ?? 0;
   const ansicht: Ansicht = liste[ansichtNr];
-  const zuSchritt = (s: number) => setPos({ schritt: s, frei: null, liste, folge });
-  // Eine Ansicht zeigen (Stelle → Lesen, ganze Seite …): der nächstliegende Schritt mit ihr.
-  const zuAnsicht = (v: number) => zuSchritt(schrittZu(folge, v, schritt));
+  const zuStand = (st: Stand) => setPos({ schritt: st.schritt, zeige: st.zeige, frei: false, liste, folge });
+  // Ganze Seite zeigen (zum Anmerken): im selben Durchgang, sonst außer der Reihe.
+  const ganzeSeite = () => zuStand(standUebertragen(liste, folge, { schritt, zeige }, liste, folge, ansichtVonSeite(liste, hauptseite(ansicht))));
   const blaetternSpeichern = (b: typeof blaettern) => {
-    // Auf die ganze Seite, die gerade gilt — im selben Abschnitt.
+    // Auf die ganze Seite, die gerade gilt — im selben Durchgang; hat er sie
+    // nicht, bleibt sie außer der Reihe zu sehen (z. B. zum Linie-Ziehen).
     const l = ansichten(seiten, b.modus, b.linien), f = spielfolge(l, spruenge);
-    const ziel = ansichtVonSeite(l, hauptseite(ansicht));
-    let s = schrittUebertragen(liste, folge, schritt, l, f, ziel);
-    // Die Blätterlinie zieht man auf der ganzen Seite, notfalls in einem anderen Durchgang.
-    if (b.modus === 'linie' && f[s]?.ansicht !== ziel) s = schrittZu(f, ziel, s);
-    setPos({ schritt: s, frei: null, liste: l, folge: f });
+    const st = standUebertragen(liste, folge, { schritt, zeige }, l, f, ansichtVonSeite(l, hauptseite(ansicht)));
+    setPos({ schritt: st.schritt, zeige: st.zeige, frei, liste: l, folge: f });
     setBlaettern(b);
     notenAendern(noten.id, { blaettern: b }).catch(speicherFehler);
   };
@@ -95,7 +96,8 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   const stelle = mix ? stellen.find((s) => s.id === mix.stelle)
     : modus === 'stellen' ? stellen[Math.min(stelleNr, stellen.length - 1)] : undefined;
   const zumLesen = () => {
-    if (stelle) zuAnsicht(ansichtVonSeite(liste, stelle.seite));
+    // Die Seite der Stelle: der nächstliegende Schritt mit ihr.
+    if (stelle) zuStand(standZu(folge, ansichtVonSeite(liste, stelle.seite), schritt));
     setModus('lesen');
   };
 
@@ -197,12 +199,13 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   function springen(s: Sprung) {
     const ziel = zielAnsicht(liste, s.nach);
     if (ziel === null) return;
-    zuSchritt(ankunftSchritt(folge, s.id, schritt) ?? schrittZu(folge, ziel, schritt));
+    const ankunft = ankunftSchritt(folge, s.id, schritt);
+    zuStand(ankunft !== null ? { schritt: ankunft, zeige: null } : standZu(folge, ziel, schritt));
     blinken(s.nach);
   }
   function setzenStarten() {
     setSetzen({ schritt: 'von' });
-    setPos({ schritt, frei: ansichtNr, liste, folge });
+    setPos({ schritt, zeige: ansichtNr, frei: true, liste, folge });
     setWerkzeug(null); setPaletteOffen(false); setLinieEinstellen(false); setAnsichtOffen(false);
     // Leisten weg: die ganze Seite ist antippbar, auch ganz oben.
     setLeisteWeg(true);
@@ -214,7 +217,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     const { von, nach, art } = setzen;
     spruengeSpeichern(sprungHinzufuegen(spruenge, { von, nach, art }, crypto.randomUUID()));
     // Zurück zum Sprungzeichen: die neue Marke blinkt kurz.
-    if (!punktSichtbar(ansicht, von)) setPos({ schritt, frei: ansichtVonSeite(liste, von.seite), liste, folge });
+    if (!punktSichtbar(ansicht, von)) setPos({ schritt, zeige: ansichtVonSeite(liste, von.seite), frei: true, liste, folge });
     setzenEnde();
     blinken(von);
   }
@@ -321,25 +324,29 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   const weiter = useCallback(() => {
     if (mix) mix.weiter();
     else if (modus === 'stellen') setStelleNr((n) => Math.min(stellen.length - 1, n + 1));
-    else if (frei !== null) setPos({ schritt, frei: Math.min(liste.length - 1, frei + 1), liste, folge });
-    else if (schritt < folge.length - 1) {
-      setPos({ schritt: schritt + 1, frei: null, liste, folge });
+    else if (frei) setPos({ schritt, zeige: Math.min(liste.length - 1, ansichtNr + 1), frei, liste, folge });
+    else {
+      const neu = weiterGehen(folge, { schritt, zeige });
+      if (neu.schritt === schritt && neu.zeige === zeige) return;
+      setPos({ schritt: neu.schritt, zeige: neu.zeige, frei, liste, folge });
       // Per Sprung angekommen: Ring an der Einstiegsstelle.
-      const s = spruenge.find((x) => x.id === folge[schritt + 1].ankunft);
+      const s = neu.schritt > schritt ? spruenge.find((x) => x.id === folge[neu.schritt].ankunft) : undefined;
       if (s) blinken(s.nach);
     }
-  }, [mix, modus, stellen.length, frei, schritt, liste, folge, spruenge, blinken]);
+  }, [mix, modus, stellen.length, frei, schritt, zeige, ansichtNr, liste, folge, spruenge, blinken]);
   const zurueck = useCallback(() => {
     if (mix) { if (mix.nr > 1) mix.zurueck(); }
     else if (modus === 'stellen') setStelleNr((n) => Math.max(0, n - 1));
-    else if (frei !== null) setPos({ schritt, frei: Math.max(0, frei - 1), liste, folge });
-    else if (schritt > 0) {
-      setPos({ schritt: schritt - 1, frei: null, liste, folge });
+    else if (frei) setPos({ schritt, zeige: Math.max(0, ansichtNr - 1), frei, liste, folge });
+    else {
+      const neu = zurueckGehen(folge, { schritt, zeige });
+      if (neu.schritt === schritt && neu.zeige === zeige) return;
+      setPos({ schritt: neu.schritt, zeige: neu.zeige, frei, liste, folge });
       // Über den Sprung zurück: Ring am Sprungzeichen.
-      const s = spruenge.find((x) => x.id === folge[schritt].ankunft);
+      const s = neu.schritt < schritt ? spruenge.find((x) => x.id === folge[schritt].ankunft) : undefined;
       if (s) blinken(s.von);
     }
-  }, [mix, modus, frei, schritt, liste, folge, spruenge, blinken]);
+  }, [mix, modus, frei, schritt, zeige, ansichtNr, liste, folge, spruenge, blinken]);
 
   const blaetternNach = useCallback((a: Blaetter) => { if (a === 'weiter') weiter(); else zurueck(); }, [weiter, zurueck]);
   // Wischrichtung (Einstellungen): beim Wischen frisch gelesen, ändert sich selten.
@@ -665,10 +672,33 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     : modus === 'stellen'
     ? `Stelle ${stelleNr + 1} von ${stellen.length}`
     : `Seite ${seitenText} von ${seiten}`;
-  // Per Sprung erreichter Abschnitt (nicht beim Setzen): „S. 1 · nach D.S.“ —
-  // kurz, und „nach D.S.“ bleibt neben den Knöpfen immer ganz zu sehen.
-  const seit = !mix && modus === 'lesen' && frei === null ? abschnitt(folge, schritt) : null;
-  const seitArt = seit ? spruenge.find((s) => s.id === seit)?.art : undefined;
+  // Per Sprung erreichter Teil (nicht beim Setzen): „Seite 1 von 3 · nach D.S.“,
+  // wird es eng „S. 1 · nach D.S.“, dann „S. 1 · D.S.“ — die längste Form,
+  // die neben den Knöpfen ganz passt (gemessen: Schrift und Knöpfe je Gerät).
+  const seit = !mix && modus === 'lesen' && !frei ? nachSprung(folge, schritt, spruenge, zeige) : null;
+  const formen = seit ? [
+    `Seite ${seitenText} von ${seiten} · nach ${KUERZEL[seit.art]}`,
+    `S. ${seitenText} · nach ${KUERZEL[seit.art]}`,
+    `S. ${seitenText} · ${KUERZEL[seit.art]}`,
+  ] : null;
+  const titelPlatz = useRef<HTMLDivElement>(null);
+  const formMessung = useRef<HTMLSpanElement>(null);
+  const [formNr, setFormNr] = useState(1);
+  const mitFormen = formen !== null;
+  useEffect(() => {
+    const platz = titelPlatz.current, messung = formMessung.current, knopf = platz?.firstElementChild;
+    if (!platz || !messung || !knopf) return;
+    const ro = new ResizeObserver(() => {
+      const k = getComputedStyle(knopf);
+      const raum = platz.clientWidth - parseFloat(k.paddingLeft) - parseFloat(k.paddingRight) - parseFloat(k.marginLeft) - parseFloat(k.marginRight);
+      const breiten = [...messung.children].map((e) => e.getBoundingClientRect().width);
+      const i = breiten.findIndex((b) => b <= raum + 0.5);
+      setFormNr(i < 0 ? breiten.length - 1 : i);
+    });
+    ro.observe(platz);
+    for (const e of messung.children) ro.observe(e);
+    return () => ro.disconnect();
+  }, [mitFormen]);
   const ladeTempo = stelle ? (zuletzt ?? stelle.zielTempo) : null;
   // Linien-Hinweis schwebt über dem Blatt; Werkzeug-Hinweise stehen in der Palette.
   const linieHinweis = linieEinstellen && modus === 'lesen'
@@ -708,18 +738,20 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     <div className={`betrachter ${navDa ? 'nav-da' : ''}`} role="region" aria-label={`Noten: ${noten.titel}`}>
       <div ref={oben} className={`betrachter-leiste ${leiste ? '' : 'weg'}`} inert={!leiste}>
         <div className="nav-zeile">
-          <button type="button" className="nav-titel" onClick={titelTipp} title="Stück-Details und Stellen-Übersicht">
-            <span className="nav-titel-text">
-              <span className="nav-titel-schnitt">{noten.titel}{noten.stimme && <span className="b-leise"> · {noten.stimme}</span>}</span>
-              <svg className="nav-pfeil" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
-            </span>
-            {seitArt ? (
-              <span className="nav-untertitel nav-abschnitt tabular-nums">
-                <span>S. {seitenText}</span><span> · nach {KUERZEL[seitArt]}</span>
+          <div ref={titelPlatz} className="nav-titel-platz">
+            <button type="button" className="nav-titel" onClick={titelTipp} title="Stück-Details und Stellen-Übersicht">
+              <span className="nav-titel-text">
+                <span className="nav-titel-schnitt">{noten.titel}{noten.stimme && <span className="b-leise"> · {noten.stimme}</span>}</span>
+                <svg className="nav-pfeil" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
               </span>
-            ) : <span className="nav-untertitel tabular-nums">{anzeige}</span>}
-          </button>
-          <span className="flex-1" />
+              <span className="nav-untertitel tabular-nums">{formen ? formen[Math.min(formNr, formen.length - 1)] : anzeige}</span>
+            </button>
+            {formen && (
+              <span ref={formMessung} className="nav-messung tabular-nums" aria-hidden="true">
+                {formen.map((f, i) => <span key={i}>{f}</span>)}
+              </span>
+            )}
+          </div>
           {/* Immer da, auch ohne Stellen: so findet man sie. Das „i“ erklärt sie. */}
           <div className="nav-schalter">
             <label htmlFor={schalterId} className="nav-schalter-label" title="Stelle für Stelle üben">Stellen</label>
@@ -861,7 +893,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
               <>
                 <span>Anmerken geht auf einer ganzen Seite.</span>
                 <button type="button" className="b-knopf b-greifbar" onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()}
-                  onClick={() => zuAnsicht(ansichtVonSeite(liste, hauptseite(ansicht)))}>Ganze Seite zeigen</button>
+                  onClick={ganzeSeite}>Ganze Seite zeigen</button>
               </>
             ) : (
               <>
