@@ -3,6 +3,7 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ansichten, ansichtVonSeite, hauptseite, radierZug, type Anmerkung, type Ansicht, type Blaettermodus } from '@/domain/notenpult';
+import { tempoStand, zielAusText, zielStand } from '@/domain/stellen';
 import { einstellungPruefen, TEXT_GROESSE, type StiftEinstellung, type ZeichenWerkzeug } from '@/domain/stift';
 import { mitRand, rechteckAus, type Rechteck } from '@/domain/ueben';
 import { gespeichert as gespeicherterWert, speichern } from './klang';
@@ -14,6 +15,8 @@ import { useMetronom } from './MetronomKontext';
 import { ladeFehler, speicherFehler } from './speicherfehler';
 import { StiftPalette, type Werkzeug } from './StiftPalette';
 import { seiteMitEbene, type SeitenBild } from './pdf';
+import { StelleBlatt } from './StelleBlatt';
+import type { MixSteuerung } from './StellenMix';
 import { anmerkungenZeichnen, ebeneZeichnen, strichZeichnen } from './zeichnen';
 
 const RAND = 0.06;
@@ -27,9 +30,11 @@ interface Props {
   // Sprung aus der Stellen-Übersicht: in den Stellen-Modus zu dieser Stelle.
   sprung: { stelle: string; n: number } | null;
   titelTipp: () => void;
+  // Stellen-Mix (F-11): genau diese Stelle, ‹ › gehen durch die Runde.
+  mix: MixSteuerung | null;
 }
 
-export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, sprung, titelTipp }: Props) {
+export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, sprung, titelTipp, mix }: Props) {
   const seiten = pdf.numPages;
   const { bpm, setBpm } = useMetronom();
 
@@ -45,10 +50,12 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     stueckAendern(noten.id, { blaettern: b }).catch(speicherFehler);
   };
 
-  // ── Modus: lesen oder Stelle für Stelle ──
-  const [modus, setModus] = useState<'lesen' | 'stellen'>('lesen');
+  // ── Modus: lesen oder Stelle für Stelle ── Im Mix immer die Stelle der Runde.
+  const [eigenerModus, setModus] = useState<'lesen' | 'stellen'>(mix ? 'stellen' : 'lesen');
+  const modus = mix ? 'stellen' : eigenerModus;
   const [stelleNr, setStelleNr] = useState(0);
-  const stelle = modus === 'stellen' ? stellen[Math.min(stelleNr, stellen.length - 1)] : undefined;
+  const stelle = mix ? stellen.find((s) => s.id === mix.stelle)
+    : modus === 'stellen' ? stellen[Math.min(stelleNr, stellen.length - 1)] : undefined;
   const [rand, setRand] = useState(true);
   const zumLesen = () => {
     if (stelle) setIndex(ansichtVonSeite(liste, stelle.seite));
@@ -216,16 +223,21 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
 
   // ── Navigation ──
   const weiter = useCallback(() => {
-    if (modus === 'stellen') setStelleNr((n) => Math.min(stellen.length - 1, n + 1));
+    if (mix) mix.weiter();
+    else if (modus === 'stellen') setStelleNr((n) => Math.min(stellen.length - 1, n + 1));
     else setIndex((i) => Math.min(liste.length - 1, i + 1));
-  }, [modus, stellen.length, liste.length]);
+  }, [mix, modus, stellen.length, liste.length]);
   const zurueck = useCallback(() => {
-    if (modus === 'stellen') setStelleNr((n) => Math.max(0, n - 1));
+    if (mix) { if (mix.nr > 1) mix.zurueck(); }
+    else if (modus === 'stellen') setStelleNr((n) => Math.max(0, n - 1));
     else setIndex((i) => Math.max(0, i - 1));
-  }, [modus]);
+  }, [mix, modus]);
+
+  // Stellen-Blatt (Ziel, Verlauf) der aktuellen Stelle
+  const [stelleBlatt, setStelleBlatt] = useState(false);
 
   useEffect(() => {
-    if (!tastenAktiv) return;
+    if (!tastenAktiv || stelleBlatt) return;
     const taste = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).closest('input, textarea')) return;
       // Leertaste auf einem Bedienelement aktiviert es, statt zu blättern.
@@ -237,7 +249,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     };
     window.addEventListener('keydown', taste);
     return () => window.removeEventListener('keydown', taste);
-  }, [weiter, zurueck, werkzeug, tastenAktiv]);
+  }, [weiter, zurueck, werkzeug, tastenAktiv, stelleBlatt]);
 
   // ── Zeiger: zeichnen oder blättern ──
   const blatt = useRef<HTMLDivElement>(null);
@@ -266,11 +278,13 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       zuletztGespeichert.current = { id, tempo: bpm, t: jetzt };
       geaendert();
     }
-    setGespeichert(`Gespeichert: ${bpm} geschafft`);
+    const amZiel = zielStand(bpm, stellen.find((s) => s.id === id)?.zielTempo ?? null)?.stufe;
+    setGespeichert(`Gespeichert: ${bpm} geschafft${amZiel === 'reserve' ? ' — Ziel mit Reserve!' : amZiel === 'ziel' ? ' — Ziel erreicht!' : ''}`);
     window.setTimeout(() => setGespeichert(null), 1600);
   }
   const [neueStelle, setNeueStelle] = useState<Rechteck | null>(null);
   const [stelleTitel, setStelleTitel] = useState('');
+  const [stelleZiel, setStelleZiel] = useState('');
   const [textEingabe, setTextEingabe] = useState<{ x: number; y: number; text: string; seit: number } | null>(null);
   const [linieZiehen, setLinieZiehen] = useState(false);
   const [linieEinstellen, setLinieEinstellen] = useState(false);
@@ -379,7 +393,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       const p = relativ(e);
       const r = rechteckAus(z.punkte[0], z.punkte[1], p.x, p.y);
       setRechteckEntwurf(null);
-      if (r.b > 0.02 && r.h > 0.01) { setNeueStelle(r); setStelleTitel(''); }
+      if (r.b > 0.02 && r.h > 0.01) { setNeueStelle(r); setStelleTitel(''); setStelleZiel(''); }
     }
   }
   // Ein Radier-Wisch nimmt getroffene eigene Striche weg und — auf Seiten mit
@@ -416,7 +430,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     if (!neueStelle || zeichenSeite === null) return;
     const r = neueStelle;
     try {
-      await stelleAnlegen({ stueckId: noten.id, seite: zeichenSeite, ...r, titel: stelleTitel.trim() });
+      await stelleAnlegen({ stueckId: noten.id, seite: zeichenSeite, ...r, titel: stelleTitel.trim() }, zielAusText(stelleZiel));
     } catch (x) {
       // Rahmen bleibt stehen: nach dem Neuladen ist er weg, aber bis dahin sichtbar.
       speicherFehler(x);
@@ -464,10 +478,19 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     return `translate(${tx}px, ${ty}px) scale(${zoomFaktor})`;
   }, [stelle, rahmen, zoomFaktor, rand]);
 
-  const verlauf = stelle ? [...stelle.tempi].sort((a, b) => a.am - b.am) : [];
-  const zuletzt = verlauf.at(-1)?.tempo ?? null;
-  const bestes = verlauf.reduce((m, t) => Math.max(m, t.tempo), 0) || null;
-  const anzeige = modus === 'stellen'
+  const { zuletzt, bestes } = tempoStand(stelle?.tempi ?? []);
+  // Metronom folgt der Stelle (D-04): Kommt eine Stelle dran — beim Blättern,
+  // im Mix, beim Einschalten —, steht es auf ihrem zuletzt geschafften Tempo.
+  // Nur beim Wechsel: −1/+1 und „geschafft“ bleiben, wie sie sind.
+  const tempoFuer = useRef<string | null>(null);
+  useEffect(() => {
+    const id = stelle?.id ?? null;
+    if (id === tempoFuer.current) return;
+    tempoFuer.current = id;
+    if (zuletzt) setBpm(zuletzt);
+  }, [stelle?.id, zuletzt, setBpm]);
+  const anzeige = mix ? `Mix${mix.titel ? ` ${mix.titel}` : ''} · ${mix.nr} von ${mix.anzahl}`
+    : modus === 'stellen'
     ? `Stelle ${stelleNr + 1} von ${stellen.length}`
     : ansicht.art === 'ganz' ? `Seite ${ansicht.seite} von ${seiten}` : `Seite ${ansicht.unten} → ${ansicht.oben} von ${seiten}`;
   const ladeTempo = stelle ? (zuletzt ?? stelle.zielTempo) : null;
@@ -504,7 +527,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
                 <input type="checkbox" role="switch" className="ios-schalter" checked={modus === 'stellen'}
                   onChange={(e) => {
                     if (e.target.checked) { setModus('stellen'); setWerkzeug(null); setPaletteOffen(false); setLinieEinstellen(false); setAnsichtOffen(false); }
-                    else { zumLesen(); setAnsichtOffen(false); }
+                    else { zumLesen(); setAnsichtOffen(false); mix?.beenden(); }
                   }} />
               </label>
             )}
@@ -623,23 +646,28 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
         <div className="b-unten b-umbruch">
           <input className="feld b-feld" autoFocus value={stelleTitel} onChange={(e) => setStelleTitel(e.target.value)} placeholder="Takte, z. B. T. 32–48" aria-label="Bezeichnung der Stelle"
             onKeyDown={(e) => { if (e.key === 'Enter') void stelleSpeichern(); }} />
-          <button className="knopf knopf-klein" type="button" onClick={() => void stelleSpeichern()}>Stelle speichern</button>
+          <input className="feld feld-zahl b-ziel" inputMode="numeric" value={stelleZiel} onChange={(e) => setStelleZiel(e.target.value)}
+            placeholder="Ziel ♩" aria-label="Zieltempo (optional)" onKeyDown={(e) => { if (e.key === 'Enter') void stelleSpeichern(); }} />
+          <button className="knopf knopf-klein" type="button" onClick={() => void stelleSpeichern()} aria-label="Stelle speichern">Speichern</button>
           <button className="knopf knopf-leise knopf-klein" type="button" onClick={() => setNeueStelle(null)}>Verwerfen</button>
         </div>
       )}
 
       {stelle && !neueStelle && (
         <div className="b-unten b-stellenleiste">
-          <button type="button" className="b-knopf gross" onClick={zurueck} disabled={stelleNr === 0} aria-label="Vorige Stelle">‹</button>
-          <div className="b-stelleninfo min-w-0 flex-1">
-            <p className="truncate font-bold">{stelle.titel || `Stelle auf Seite ${stelle.seite}`}</p>
-            <p className="b-leise truncate text-xs tabular-nums">
+          <button type="button" className="b-knopf gross" onClick={zurueck} disabled={mix ? mix.nr <= 1 : stelleNr === 0} aria-label="Vorige Stelle">‹</button>
+          <button type="button" className="b-stelleninfo min-w-0 flex-1" onClick={() => setStelleBlatt(true)} title="Ziel und Tempo-Verlauf der Stelle">
+            <span className="b-stellentitel">
+              <span className="truncate font-bold">{stelle.titel || `Stelle auf Seite ${stelle.seite}`}</span>
+              <svg className="nav-pfeil" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            </span>
+            <span className="b-leise block truncate text-xs tabular-nums">
               {gespeichert ?? <>
-                {zuletzt ? `zuletzt geschafft ${zuletzt}` : 'noch kein Tempo geschafft'}{bestes && bestes !== zuletzt ? ` · bestes ${bestes}` : ''}{stelle.zielTempo ? ` · Ziel ${stelle.zielTempo}` : ''}
+                {zuletzt ? `zuletzt geschafft ${zuletzt}` : 'noch kein Tempo geschafft'}{bestes && bestes !== zuletzt ? ` · bestes ${bestes}` : ''}{stelle.zielTempo ? ` · Ziel ${stelle.zielTempo}` : ' · Ziel setzen'}
                 {stelle.notiz ? ` · ${stelle.notiz}` : ''}
               </>}
-            </p>
-          </div>
+            </span>
+          </button>
           {ladeTempo && ladeTempo !== bpm && (
             <button type="button" className="mini-knopf" onClick={() => setBpm(ladeTempo)} title="Metronom auf das zuletzt geschaffte Tempo stellen">♩ {ladeTempo}<span className="b-lang"> laden</span></button>
           )}
@@ -648,8 +676,12 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
             <button type="button" onClick={() => setBpm(bpm + 1)} aria-label="Ein Schlag schneller">+1</button>
           </div>
           <button type="button" className="knopf b-geschafft" onClick={() => void geschafft(stelle.id)} title="Dieses Tempo als geschafft speichern">✓ {bpm} geschafft</button>
-          <button type="button" className="b-knopf gross" onClick={weiter} disabled={stelleNr >= stellen.length - 1} aria-label="Nächste Stelle">›</button>
+          <button type="button" className="b-knopf gross" onClick={weiter} disabled={!mix && stelleNr >= stellen.length - 1} aria-label="Nächste Stelle">›</button>
         </div>
+      )}
+
+      {stelleBlatt && stelle && (
+        <StelleBlatt stelle={stelle} stueck={noten.titel} geaendert={geaendert} schliessen={() => setStelleBlatt(false)} />
       )}
 
       {/* Beim Benennen einer neuen Stelle weicht die Palette der Eingabezeile. */}

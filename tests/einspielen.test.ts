@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  einspielenPlanen, notenZusammenfuehren, rueckfrage, seiteZusammenfuehren, stelleZusammenfuehren, tempiVereinigen, ueberschreibt,
-  type Vorhanden,
+  einspielenPlanen, eintragZusammenfuehren, grabsteineLesen, grabsteineVereinigen, notenZusammenfuehren, rueckfrage, seiteZusammenfuehren, stand,
+  stelleZusammenfuehren, tempiVereinigen, ueberschreibt, type Vorhanden,
 } from '@/domain/einspielen';
 import { SicherungsFehler } from '@/domain/sicherung';
 
@@ -122,14 +122,39 @@ describe('Sicherung zusammenführen ohne Verlust', () => {
     expect(tempiVereinigen([], [])).toEqual([]);
   });
 
-  it('Stelle: Felder aus der Sicherung, Tempi vereinigt, Geräte-Felder bleiben', () => {
-    const geraet = { ...stelle('s1', 'a'), titel: 'Gerät', notiz: 'alt', x: 0.5, zielTempo: 120, tempi: [{ tempo: 80, am: 1 }, { tempo: 96, am: 50 }], nurGeraet: true };
-    const sicherung = { ...stelle('s1', 'a'), titel: 'Sicherung', notiz: 'neu', x: 0.1, zielTempo: null, tempi: [{ tempo: 80, am: 1 }, { tempo: 84, am: 10 }] };
+  it('Stelle: Sicherung neuer → ihre Felder, Tempi vereinigt, Geräte-Felder bleiben', () => {
+    const geraet = { ...stelle('s1', 'a'), titel: 'Gerät', notiz: 'alt', x: 0.5, zielTempo: 120, tempi: [{ tempo: 80, am: 1 }, { tempo: 96, am: 50 }], nurGeraet: true, geaendert: 60 };
+    const sicherung = { ...stelle('s1', 'a'), titel: 'Sicherung', notiz: 'neu', x: 0.1, zielTempo: null, tempi: [{ tempo: 80, am: 1 }, { tempo: 84, am: 10 }], geaendert: 70 };
     const r = stelleZusammenfuehren(geraet, sicherung);
-    expect(r).toMatchObject({ titel: 'Sicherung', notiz: 'neu', x: 0.1, zielTempo: null, nurGeraet: true });
+    expect(r).toMatchObject({ titel: 'Sicherung', notiz: 'neu', x: 0.1, zielTempo: null, nurGeraet: true, geaendert: 70 });
     expect(r.tempi).toEqual([{ tempo: 80, am: 1 }, { tempo: 84, am: 10 }, { tempo: 96, am: 50 }]);
     // Ohne Gegenstück auf dem Gerät: unverändert.
     expect(stelleZusammenfuehren(undefined, sicherung)).toBe(sicherung);
+  });
+
+  it('Stelle: Gerät neuer → seine Felder bleiben, Tempi trotzdem vereinigt', () => {
+    const geraet = { ...stelle('s1', 'a'), titel: 'Gerät', zielTempo: 120, tempi: [{ tempo: 96, am: 50 }], geaendert: 90 };
+    const sicherung = { ...stelle('s1', 'a'), titel: 'Sicherung', zielTempo: 100, tempi: [{ tempo: 84, am: 10 }], geaendert: 40 };
+    const r = stelleZusammenfuehren(geraet, sicherung);
+    expect(r).toMatchObject({ titel: 'Gerät', zielTempo: 120, geaendert: 90 });
+    expect(r.tempi).toEqual([{ tempo: 84, am: 10 }, { tempo: 96, am: 50 }]);
+  });
+
+  it('Stand eines Eintrags: geändert, sonst aktualisiert/erstellt, sonst letztes Tempo', () => {
+    expect(stand({ geaendert: 9, erstellt: 20 })).toBe(9);
+    expect(stand({ erstellt: 5, aktualisiert: 12 })).toBe(12);
+    expect(stand({ tempi: [{ tempo: 80, am: 3 }, { tempo: 90, am: 7 }] })).toBe(7);
+    expect(stand({})).toBe(0);
+    expect(stand(undefined)).toBe(0);
+  });
+
+  it('Seite: Wegradiertes bleibt weg — von welchem Gerät auch immer', () => {
+    const strich = (id: string) => ({ id, art: 'stift', farbe: '#000', breite: 0.0025, punkte: [0, 0, 1, 1] });
+    const geraet = { ...anm('a', 1), objekte: [strich('alt'), strich('neuHier')], entfernt: ['wegDort'] };
+    const sicherung = { ...anm('a', 1), objekte: [strich('wegDort'), strich('neuDort')], entfernt: ['alt'] };
+    const r = seiteZusammenfuehren(geraet, sicherung);
+    expect(r.objekte.map((o) => (o as { id: string }).id)).toEqual(['neuHier', 'neuDort']);
+    expect([...(r.entfernt as string[])].sort()).toEqual(['alt', 'wegDort']);
   });
 
   it('Seite: Striche nach id vereinigt, bei gleicher id gewinnt die Sicherung', () => {
@@ -143,6 +168,14 @@ describe('Sicherung zusammenführen ohne Verlust', () => {
     expect(seiteZusammenfuehren(undefined, sicherung)).toBe(sicherung);
     // Leere Sicherung löscht keine Striche.
     expect(seiteZusammenfuehren(geraet, { ...anm('a', 1), objekte: [] }).objekte).toHaveLength(3);
+  });
+
+  it('Noten: Gerät neuer → seine Felder bleiben (z. B. Sammlungen), Verweis auch', () => {
+    const handle = { name: 'Marsch.pdf' };
+    const geraet = { ...note('a'), titel: 'Gerät', sammlungen: ['Märsche'], handle, geaendert: 80 };
+    const r = notenZusammenfuehren(geraet, { ...note('a'), titel: 'Sicherung', sammlungen: [], geaendert: 30 });
+    expect(r).toMatchObject({ titel: 'Gerät', sammlungen: ['Märsche'], geaendert: 80 });
+    expect((r as { handle?: unknown }).handle).toBe(handle);
   });
 
   it('Noten: Felder und Datei aus der Sicherung, Dateiverweis des Geräts bleibt', () => {
@@ -160,26 +193,79 @@ describe('Sicherung zusammenführen ohne Verlust', () => {
 });
 
 describe('Rückfrage beim Laden', () => {
-  const plan = (noten: number, stellen: number, anmerkungen: number, uebersprungen = 0) => ({ ueberschrieben: { noten, stellen, anmerkungen }, uebersprungen });
+  const plan = (noten: number, stellen: number, anmerkungen: number, uebersprungen = 0, loeschen = { noten: [] as string[], stellen: [] as string[] }) =>
+    ({ ueberschrieben: { noten, stellen, anmerkungen }, uebersprungen, loeschen });
 
-  it('nennt Datum, Anzahlen und was zusammengeführt wird', () => {
+  it('nennt Datum, Anzahlen und wie zusammengeführt wird', () => {
     expect(rueckfrage(plan(2, 1, 3), '09.10.2026, 16:27 Uhr')).toBe(
       'Die Sicherung vom 09.10.2026, 16:27 Uhr aktualisiert auf diesem Gerät 2 Noten, 1 Stelle und 3 Seiten mit Anmerkungen. '
-      + 'Titel, Notizen, Rahmen, PDF-Dateien und Blättermodus kommen aus der Sicherung. '
-      + 'Tempo-Verläufe und Striche werden zusammengeführt; Striche, die hier seit der Sicherung wegradiert wurden, erscheinen wieder. Laden?',
+      + 'Wo beide Geräte etwas geändert haben, gilt der neuere Stand; Tempo-Verläufe und Striche werden zusammengeführt, Wegradiertes bleibt weg. Laden?',
     );
   });
 
   it('ohne Datum und mit übersprungenen Einträgen', () => {
     expect(rueckfrage(plan(0, 2, 1, 1), null)).toBe(
       'Die Sicherung (Datum unbekannt) aktualisiert auf diesem Gerät 2 Stellen und 1 Seite mit Anmerkungen. '
-      + 'Titel, Notizen, Rahmen, PDF-Dateien und Blättermodus kommen aus der Sicherung. '
-      + 'Tempo-Verläufe und Striche werden zusammengeführt; Striche, die hier seit der Sicherung wegradiert wurden, erscheinen wieder. '
+      + 'Wo beide Geräte etwas geändert haben, gilt der neuere Stand; Tempo-Verläufe und Striche werden zusammengeführt, Wegradiertes bleibt weg. '
       + '1 Eintrag ohne zugehörige Noten wird übersprungen. Laden?',
     );
     expect(rueckfrage(plan(1, 0, 0, 3), null)).toContain(' 3 Einträge ohne zugehörige Noten werden übersprungen.');
     expect(rueckfrage(plan(1, 0, 0), null)).toContain('aktualisiert auf diesem Gerät 1 Noten. ');
-    expect(rueckfrage(plan(0, 0, 0, 2), null)).toContain('aktualisiert auf diesem Gerät nichts. ');
+  });
+
+  it('nennt, was auf dem anderen Gerät gelöscht wurde und hier verschwindet', () => {
+    const r = rueckfrage(plan(0, 0, 0, 0, { noten: ['a', 'b'], stellen: ['s'] }), null);
+    expect(r).toContain('Auf dem anderen Gerät gelöscht und deshalb auch hier gelöscht: 2 Stücke (samt Stellen und Anmerkungen) und 1 Stelle.');
+    expect(rueckfrage(plan(0, 0, 0, 0, { noten: [], stellen: ['s', 't'] }), null)).toContain('gelöscht: 2 Stellen.');
+  });
+});
+
+describe('Gelöschtes übertragen (Grabsteine)', () => {
+  const g = (art: 'noten' | 'stelle', id: string, am: number) => ({ art, id, am });
+
+  it('liest nur stimmige Grabsteine', () => {
+    expect(grabsteineLesen([g('noten', 'a', 5), { art: 'x', id: 'b', am: 1 }, { art: 'stelle', id: 3, am: 1 }, null, { art: 'tag', id: 't', am: 2 }]))
+      .toEqual([g('noten', 'a', 5), { art: 'tag', id: 't', am: 2 }]);
+    expect(grabsteineLesen(undefined)).toEqual([]);
+  });
+  it('vereinigt: je Eintrag der späteste, sehr alte fallen weg', () => {
+    const tag = 86_400_000, jetzt = 400 * tag;
+    expect(grabsteineVereinigen([g('noten', 'a', 40 * tag), g('stelle', 'uralt', 5 * tag), g('stelle', 's', 380 * tag)], [g('noten', 'a', 50 * tag), g('noten', 'b', 390 * tag)], jetzt))
+      .toEqual([g('noten', 'a', 50 * tag), g('stelle', 's', 380 * tag), g('noten', 'b', 390 * tag)]);
+  });
+
+  const vorhanden = (noten: [string, number][], stellen: [string, number][] = []) => ({
+    ids: geraet(noten.map(([id]) => id), stellen.map(([id]) => id)),
+    staende: { noten: new Map(noten.map(([id, st]) => [id, { stand: st, datei: st }])), stellen: new Map(stellen) },
+  });
+
+  it('auf dem anderen Gerät gelöscht → hier löschen, wenn hier nicht später geändert', () => {
+    const v = vorhanden([['a', 10], ['b', 90]], [['s1', 10], ['s2', 99]]);
+    const plan = einspielenPlanen({ noten: [], stellen: [], anmerkungen: [] }, v.ids, {
+      staende: v.staende, grabsteine: [g('noten', 'a', 50), g('noten', 'b', 50), g('stelle', 's1', 50), g('stelle', 's2', 50), g('noten', 'gibtsNicht', 50)],
+    });
+    expect(plan.loeschen).toEqual({ noten: ['a'], stellen: ['s1'] });
+    expect(ueberschreibt(plan)).toBe(true);
+  });
+
+  it('hier gelöscht → aus der Sicherung nicht wieder anlegen (samt Stellen), außer dort später geändert', () => {
+    const plan = einspielenPlanen({
+      noten: [note('weg', { geaendert: 20 }), note('neuer', { geaendert: 80 })],
+      stellen: [stelle('s-weg', 'weg'), { ...stelle('s-tot', 'neuer'), geaendert: 10 }],
+      anmerkungen: [anm('weg', 1)],
+    }, geraet(), { geraetGrabsteine: [g('noten', 'weg', 50), g('noten', 'neuer', 50), g('stelle', 's-tot', 50)] });
+    expect(plan.noten.map((n) => n.id)).toEqual(['neuer']);
+    expect(plan.stellen).toEqual([]);
+    expect(plan.anmerkungen).toEqual([]);
+    expect(plan.verworfen).toBe(4);
+    expect(plan.uebersprungen).toBe(0);
+  });
+
+  it('PDF nur aus der Sicherung, wenn sie dort nicht älter ist als hier', () => {
+    const plan = einspielenPlanen({ noten: [note('a', { aktualisiert: 30 }), note('b', { aktualisiert: 30 }), note('c')], stellen: [], anmerkungen: [] }, geraet(['a', 'b']), {
+      staende: { noten: new Map([['a', { stand: 5, datei: 20 }], ['b', { stand: 5, datei: 40 }]]), stellen: new Map() },
+    });
+    expect(plan.dateiAusSicherung).toEqual(['a', 'c']);
   });
 });
 
@@ -254,7 +340,6 @@ describe('Sicherung einspielen: optionale Listen', () => {
     expect(plan.ueberschrieben).toEqual({ noten: 0, stellen: 0, anmerkungen: 0 });
     expect(ueberschreibt(plan)).toBe(true);
     expect(rueckfrage(plan, null)).toContain('1 Lesezeichen, 1 Merker und 1 Setliste');
-    expect(rueckfrage(plan, null)).toContain('Setlisten kommen ganz aus der Sicherung');
   });
 
   it('weist kaputte Einträge ab', () => {
@@ -272,5 +357,51 @@ describe('Sicherung einspielen: optionale Listen', () => {
     for (const [liste, eintrag] of kaputt) {
       expect(() => einspielenPlanen({ ...n, [liste]: [eintrag] }, geraet()), `${liste} ${JSON.stringify(eintrag)}`).toThrow(SicherungsFehler);
     }
+  });
+});
+
+describe('Optionale Listen: neuerer Stand und Grabsteine', () => {
+  const lz = (id: string, geaendert: number) => ({ id, stueckId: 'a', seite: 1, titel: `LZ ${geaendert}`, erstellt: 1, geaendert });
+  const sl = (id: string, geaendert: number, eintraege: object[] = []) => ({ id, titel: `SL ${geaendert}`, erstellt: 1, geaendert, eintraege });
+  const leer = { stellen: [], anmerkungen: [] };
+
+  it('dort gelöscht → hier löschen, wenn hier nicht später geändert', () => {
+    const plan = einspielenPlanen({ noten: [], ...leer }, { ...geraet(['a']), lesezeichen: new Set(['l-alt', 'l-neu']), merker: new Set(['a:1']), setlisten: new Set(['s']) }, {
+      grabsteine: [
+        { art: 'lesezeichen', id: 'l-alt', am: 50 }, { art: 'lesezeichen', id: 'l-neu', am: 50 },
+        { art: 'merker', id: 'a:1', am: 50 }, { art: 'setliste', id: 's', am: 50 },
+      ],
+      staende: { noten: new Map(), stellen: new Map(), lesezeichen: new Map([['l-alt', 10], ['l-neu', 90]]), merker: new Map([['a:1', 10]]), setlisten: new Map([['s', 10]]) },
+    });
+    expect(plan.loeschen).toEqual({ noten: [], stellen: [], lesezeichen: ['l-alt'], merker: ['a:1'], setlisten: ['s'] });
+    expect(ueberschreibt(plan)).toBe(true);
+    expect(rueckfrage(plan, null)).toContain('1 Lesezeichen, 1 Merker und 1 Setliste');
+  });
+
+  it('hier gelöscht → die Sicherung legt es nicht wieder an, außer sie ist neuer', () => {
+    const plan = einspielenPlanen({ noten: [note('a')], ...leer, lesezeichen: [lz('l1', 10), lz('l2', 90)], setlisten: [sl('s', 10)] }, geraet(), {
+      geraetGrabsteine: [{ art: 'lesezeichen', id: 'l1', am: 50 }, { art: 'lesezeichen', id: 'l2', am: 50 }, { art: 'setliste', id: 's', am: 50 }],
+    });
+    expect(plan.zusatz.lesezeichen.map((l) => l.id)).toEqual(['l2']);
+    expect(plan.zusatz.setlisten).toEqual([]);
+    expect(plan.verworfen).toBe(2);
+  });
+
+  it('ein hier gelöschtes virtuelles Stück kommt nicht wieder, samt seinen Lesezeichen', () => {
+    const v = { id: 'v', titel: 'V', stimme: '', erstellt: 1, geaendert: 10, quelle: { stueckId: 'a', von: 1, bis: 2 } };
+    const plan = einspielenPlanen({ noten: [note('a')], ...leer, virtuelle: [v], lesezeichen: [{ ...lz('l', 5), stueckId: 'v' }] }, geraet(), {
+      geraetGrabsteine: [{ art: 'noten', id: 'v', am: 50 }],
+    });
+    expect(plan.zusatz.virtuelle).toEqual([]);
+    expect(plan.zusatz.lesezeichen).toEqual([]);
+    expect(plan.verworfen).toBe(2);
+  });
+
+  it('Setliste: der neuere Stand ganz, Einträge nicht gemischt', () => {
+    const hier = sl('s', 90, [{ id: '1', art: 'platzhalter', titel: 'hier' }]);
+    const dort = sl('s', 10, [{ id: '2', art: 'platzhalter', titel: 'dort' }]);
+    expect(eintragZusammenfuehren(hier, dort)).toEqual(hier);
+    expect(eintragZusammenfuehren(dort, hier)).toEqual(hier);
+    expect(eintragZusammenfuehren(undefined, dort)).toEqual(dort);
   });
 });

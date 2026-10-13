@@ -18,9 +18,15 @@ anders ist, ist ein Fehler oder gehört dort nachgetragen.
   herüber; nur ihr Dasein wird erfragt (`indexedDB.databases()`).
 - Das Sicherungsformat `.uebe` (`src/domain/sicherung.ts`) ist der Vertrag mit
   `registerfuehrer`: Dateien von dort müssen hier ladbar bleiben. Version 1;
-  `noten`/`stellen`/`anmerkungen` im Registerführer-Zuschnitt (`notenId`),
-  dazu vier optionale Listen (`virtuelle`, `lesezeichen`, `merker`,
-  `setlisten`). Nicht weiter ändern; eine neue Version nur mit Lesen der alten.
+  `noten`/`stellen`/`anmerkungen` im Registerführer-Zuschnitt (`notenId`).
+  Einzige Ergänzungen (weiter Version 1, wer sie nicht kennt, überliest sie):
+  optionale Kopf-Felder `geloescht` (Grabsteine), `tags` (Tag-Definitionen,
+  sonst im localStorage `ueben:tags`), `tonprofile` (sonst
+  `ueben:tonprofile`) und, im Zuschnitt des Geräts (`stueckId`), `virtuelle`,
+  `lesezeichen`, `merker`, `setlisten`. Zusätzliche Felder an
+  Noten/Stellen/Seiten (`sammlungen`, `tags`, `geaendert`, `entfernt`,
+  `groesse`, Metadaten) reisen ohnehin mit. Nicht weiter ändern; eine neue
+  Version nur mit Lesen der alten.
 - Fachlogik rein und getestet in `src/domain/` — neue Regeln dort zuerst als Test.
 - Die Adresse steht nur in `src/adresse.ts`.
 - Offline: `public/sw.js` + `scripts/precache.mjs`. Neue statische Dateien

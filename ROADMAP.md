@@ -6,7 +6,7 @@ Punkt ein; wer etwas fertigstellt, hakt ab und verschiebt den Punkt nach
 „Erledigt“ (unten). Größere Richtungsentscheidungen bitte als kurzen Absatz
 hier dokumentieren, nicht nur im Chat.
 
-Stand: 2026-10-12.
+Stand: 2026-10-13.
 
 ## Leitbild
 
@@ -19,8 +19,14 @@ nicht in der Breite, aber in der Sorgfalt.
 **Bewusst außen vor** (nicht bauen, auch nicht „mal eben“):
 
 - MIDI, Audio-Begleitspuren, Soundbearbeitung
-- Kollaboration/Mehrbenutzer, Cloud-Sync (iCloud o. Ä.)
-- Server-Code, Konten, Datenbanken außerhalb des Geräts
+- Kollaboration/Mehrbenutzer
+- Server-Code, eigene Konten, Datenbanken außerhalb des Geräts
+
+*Cloud-Sync* stand hier ebenfalls. Seit 2026-10-12 ist er als **Vision H**
+aufgenommen — ausschließlich über die eigene Cloud der Nutzer (iCloud,
+OneDrive, Google Drive), ohne eigenen Server, ohne eigene Konten. Das heißt
+aber: Anmelden beim Cloud-Anbieter. Vor der Umsetzung entscheidet Marlon,
+ob das ins Leitbild passt (dann auch CLAUDE.md anpassen: „kein Login“).
 
 ## Meilensteine (Reihenfolge)
 
@@ -29,10 +35,11 @@ nicht in der Breite, aber in der Sorgfalt.
 | M1 | **Fundament aufräumen** | Datenmodell klären, Tests für die Speicherschicht (A-01 verworfen) — *erledigt 2026-10-12* | A-02, A-03 |
 | M2 | **Noten im Zentrum** | UI-Neuaufbau: Noten vollflächig, Werkzeuge als Overlays, drei Knöpfe unten | B-01…B-03 |
 | M3 | **Werkzeuge schärfen** | Stimmgerät- und Metronom-Verbesserungen, Stift-Ausbau | C-01…C-03, D-01, E-01…E-03 |
-| M4 | **Notenmanagement I** | Metadaten, Bookmarks, Flags, Kontextmenüs, Drag & Drop | F-01, F-03, F-04, F-08, F-09 |
-| M5 | **Üben & Setlisten** | Setlisten, Wiederholungs-Links, Halbseiten-Blättern, Intonations-Trainer | F-02, F-05, F-06, C-04 |
+| M4 | **Notenmanagement I** | Metadaten, Bookmarks, Flags, Kontextmenüs, Drag & Drop (Sammlungen F-13 erledigt) | F-01, F-03, F-04, F-08, F-09 |
+| M5 | **Üben & Setlisten** | Setlisten, Wiederholungs-Links, Halbseiten-Blättern (Stellen-Mix F-11 und Tonprofil C-04 schon erledigt) | F-02, F-05, F-06 |
 | M6 | **Design & Extras** | Themes, Stempel/Formen, Kamera-Scan | B-04, B-05, E-04, F-07 |
 | M7 | **Komponieren** (Vision) | Noteneingabe, Rhythmus-/Melodie-Transkription | G-01…G-03 |
+| M8 | **Geräteübergreifend** (Vision, Entscheidung offen) | Noten und Übe-Daten über die eigene Cloud auf mehreren Geräten | H-01…H-05 |
 
 **Quick Wins** (klein, unabhängig, jederzeit zwischenschieben — guter
 Einstieg): C-01, C-02, C-03, D-01 — *alle am 2026-10-10 erledigt.*
@@ -65,43 +72,13 @@ Branch `feature/ui-noten-im-zentrum`, PR #1)*
 
 ## C — Stimmgerät
 
-### C-04 · Intonations-Trainer (Name gesucht)
-
-Das Bonus-Feature: sein Instrument kennenlernen. Ablauf:
-
-1. Man spielt jeden Ton seines Instruments an (geführt, z. B. chromatisch
-   oder als Tonleiter); die App misst je Ton die Abweichung (Median über die
-   Messdauer — `grundfrequenz`/`median` aus `src/domain/ueben.ts` können das).
-2. Ergebnis ist ein **Tonprofil**: welche Töne auf *meinem* Instrument zu
-   hoch/zu tief sind, als übersichtliche Grafik je Ton.
-3. Profile werden gespeichert und datiert — das macht man idealerweise
-   wöchentlich und sieht die Entwicklung.
-4. Darauf aufbauend: Hinweise, wie eine sauber intonierte Tonleiter gelingt
-   (welche Töne ziehen, welche stützen).
-
-**Fachliche Grundlage (recherchiert, reine Stimmung ggü. gleichstufig):**
-
-| Intervall | rein (Cent) | gleichstufig | Differenz |
-|---|---|---|---|
-| große Terz (5:4) | 386 | 400 | **−14 — tiefer spielen** |
-| kleine Terz (6:5) | 316 | 300 | **+16 — höher spielen** |
-| Quarte (4:3) | 498 | 500 | −2 — praktisch rein |
-| Quinte (3:2) | 702 | 700 | +2 — praktisch rein |
-
-Die Terz-Regeln (Dur-Terz tiefer, Moll-Terz höher) stimmen also; die
-Annahme „Quarte eher höher“ hat sich **nicht** bestätigt — Quarte und Quinte
-sind nahezu rein. Im UI nur die Terz-Regeln hervorheben. (Gilt fürs
-harmonische Spielen im Ensemble; der Trainer misst zuerst das Instrument
-selbst, die reinen Intervalle sind Zielwerte für den Akkord-Kontext.)
-
-**Namensvorschläge** (Entscheidung offen, muss als Knopf-Beschriftung
-funktionieren): *Tonkompass* · *Tonprofil* · *Stimmbild* · *Tonleiter-Check*.
+*(C-04 Tonprofil am 2026-10-12 erledigt, siehe unten.)*
 
 ---
 
 ## D — Metronom
 
-*(derzeit keine offenen Punkte — D-01 erledigt, siehe unten)*
+*(derzeit keine offenen Punkte — D-01…D-04 erledigt, siehe unten)*
 
 ---
 
@@ -223,6 +200,53 @@ G-02 getrennt — Rhythmus zuerst, Töne später.
 
 ---
 
+## H — Geräteübergreifend: Noten und Daten in der eigenen Cloud (Vision)
+
+Wunsch Marlon (2026-10-12): auf einem Gerät einmal einen Cloud-Ordner
+festlegen (iCloud, OneDrive, Google Drive), in dem die Noten liegen; die App
+merkt sich den Ordner, holt die Noten daraus und legt auch ihre Daten
+(Stellen, Tempi, Anmerkungen) dort ab. Ein zweites Gerät mit demselben
+Ordner hat denselben Stand. Die Daten bleiben bei den Nutzern — auf dem
+Gerät bzw. in *ihrer* Cloud —, nie bei uns.
+
+**Machbarkeit (Stand 2026-10-12, recherchiert):**
+
+| Weg | iPhone/iPad (Safari, Home-Bildschirm) | Rechner (Chrome/Edge) | Aufwand / Haken |
+|---|---|---|---|
+| Ordner direkt wählen (File System Access, `showDirectoryPicker`) | **nein** — Safari hat die Ordner-Auswahl nicht, nur den abgeschotteten App-Speicher (OPFS) | ja, mit dauerhafter Erlaubnis; geht mit dem iCloud-, OneDrive- oder Drive-Ordner auf dem Rechner | klein; hilft aber nicht auf dem iPhone |
+| **OneDrive** (Microsoft Graph, Anmeldung im Browser per MSAL, eigener App-Ordner `Apps/CheatSheet`) | ja | ja | kostenlose App-Registrierung bei Microsoft; im Browser läuft die Anmeldung nach höchstens 24 h ab → etwa täglich neu anmelden |
+| **Google Drive** (Google Identity Services, Scope `drive.file` + Google Picker) | ja | ja | Google-Cloud-Projekt und Zustimmungsseite; Zugriffs-Token kurzlebig (eine Stunde), danach erneute Bestätigung; mit `drive.file` sieht die App nur selbst angelegte oder im Picker gewählte Dateien |
+| **iCloud** per CloudKit JS | ja | ja | Apple Developer Program (kostenpflichtig, jährlich), Anmeldung mit Apple-ID in der Web-App; Daten liegen in der privaten iCloud-Datenbank der Nutzer, **nicht** als sichtbarer Ordner in der Dateien-App |
+| iCloud-Ordner wie in der Dateien-App | nur als **eigene App** (App Store, z. B. per Capacitor) | — | großer Schritt: Entwicklerkonto, Prüfung durch Apple |
+
+Fazit: Einen festen iCloud-Ordner merken kann eine Web-App auf dem iPhone
+nicht. OneDrive und Google Drive gehen ohne eigenen Server, aber mit
+Anmelden beim Anbieter, das regelmäßig erneuert werden muss.
+
+**Vorgeschlagene Stufen:**
+
+- **H-01 · Übertragen per Sicherung (ohne Login)** — *erster Teil erledigt
+  (2026-10-12, siehe unten)*: Uhrzeit im Dateinamen, Erinnerung, neuerer
+  Stand gewinnt, Gelöschtes und Wegradiertes reisen mit. Offen: **Sicherung
+  ohne PDFs** — liegen die Noten ohnehin in einem iCloud-Ordner (auf beiden
+  Geräten per Ordner-Import übernommen), reicht eine kleine Datei mit
+  Stellen, Tempi und Anmerkungen; zugeordnet über Dateiname und Größe statt
+  über die id. Braucht eine neue Format-Version (die alte bleibt lesbar).
+  Danach: nur Änderungen seit der letzten Sicherung.
+- **H-02 · Ordner am Rechner** (Chrome/Edge): Noten-Ordner wählen, die App
+  liest neue/geänderte PDFs und schreibt `cheatsheet-daten.json` daneben.
+- **H-03 · OneDrive** und **H-04 · Google Drive**: Anmelden, App-Ordner,
+  dort PDFs und eine Daten-Datei; beim Start abgleichen.
+- **H-05 · iCloud** über CloudKit JS oder als eigene App — erst entscheiden,
+  ob Kosten und Apple-Anmeldung es wert sind.
+
+**Was für alle Stufen gilt:** Abgleich mit den Regeln aus
+`src/domain/einspielen.ts` (Tempi vereinigen, sonst gewinnt der neuere
+Stand; Löschen braucht Grabsteine, sonst kehrt Gelöschtes zurück). Ein
+Datenformat für die Cloud: PDFs als Dateien plus eine JSON-Datei, kein
+Eigenformat. Keine Secrets im Repo — Client-IDs sind öffentlich, Anmeldung
+per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
+
 ## Erledigt
 
 *(Abgeschlossene Punkte hierher verschieben, mit Datum und Commit.)*
@@ -244,7 +268,13 @@ G-02 getrennt — Rhythmus zuerst, Töne später.
   bleiben im localStorage. Umstieg über die Sicherung — `ueben` bleibt
   unangetastet liegen, die leere Bibliothek weist darauf hin. Die Sicherung
   bleibt Version 1 und trägt vier optionale Listen. Alles in
-  `docs/datenmodell.md`; CLAUDE.md und README nachgezogen. **Vor dem Deploy:**
+  `docs/datenmodell.md`; CLAUDE.md und README nachgezogen. **Am 2026-10-13
+  mit Marlons Stand zusammengeführt** (Sammlungen, Tags, Stellen-Mix,
+  Tonprofil, H-01): seine Regeln gelten — Tags als ids mit Farbe
+  (Definitionen im localStorage), beim Laden gewinnt der neuere Stand,
+  Grabsteine; Lesezeichen, Merker, Setlisten und virtuelle Stücke folgen
+  denselben Regeln. Der Hintergrund-Umzug alter Blobs entfällt (die neue
+  Datenbank kennt keine). **Vor dem Deploy:**
   Marlon erstellt auf jedem Gerät mit Daten eine Sicherung (nach dem Update
   gibt es die alte Fassung zum Sichern nicht mehr).
 
@@ -396,7 +426,178 @@ G-02 getrennt — Rhythmus zuerst, Töne später.
   Einstellungen (Tempo, Farbwelt …) reisen nicht mit. Beim Laden gehen die
   PDFs nie als Blob in die Datenbank: erst einzeln als Bytes vorläufig in
   `dateien`, dann zieht eine Transaktion sie an ihren Platz (alles oder
-  nichts). Ersetzt A-01.
+  nichts). Vor jeder Sicherung — und still im Hintergrund nach dem Laden der
+  Bibliothek — ziehen alle Stücke, die ihre PDF noch als alten Blob tragen,
+  in `dateien` um: Safari las solche Blobs beim Prüfen mitunter nicht,
+  obwohl sich das Stück öffnen ließ („Nicht lesbar, nicht in der
+  Sicherung“). Ist eine PDF wirklich verloren, nennt die Meldung den Weg
+  zur Rettung. Ersetzt A-01.
+- **C-04 · Tonprofil** (2026-10-12): Wunsch Marlon: die Töne des eigenen
+  Instruments kennenlernen — welche zu hoch, welche zu tief liegen. Name
+  entschieden: **Tonprofil** (aus den Vorschlägen; funktioniert als Knopf).
+  Regeln in `src/domain/tonprofil.ts` (getestet).
+  - **Einstieg:** Stimmgerät → „alles“ → „Tonprofil — Ton für Ton messen“.
+    Tiefster und höchster Ton wählbar (gemerkt), chromatisch oder ohne
+    Vorzeichen; notiert wie im Stimmgerät (Stimmung, Kammerton).
+  - **Messen, geführt:** Die App nennt den Ton, man hält ihn gut eine Sekunde;
+    nur dieser Ton zählt (Stille, andere Töne nicht), Ergebnis ist der Median
+    von 20 Ablesungen — Ansatz und Ausreißer fallen kaum ins Gewicht. Zurück,
+    Überspringen, vorzeitig fertig. Das Mikrofon geht von selbst an und, wenn
+    die App es selbst eingeschaltet hat, danach wieder aus.
+  - **Ergebnis:** Kennzahlen (Ø Abweichung, wie viele sauber ±5, am
+    stärksten daneben — je mit dem Wert der vorigen Messung), Diagramm mit
+    Balken je Ton nach oben (zu hoch) bzw. unten (zu tief) um ein
+    Sauber-Band, die vorige Messung als Ringe; antippen zeigt den Wert.
+    „Darauf achten“ listet die auffälligsten Töne mit Tipp (tiefer ansetzen /
+    höher ansetzen, gut stützen), dazu eine Tabelle aller Töne.
+  - **Entwicklung:** Jede Messung wird datiert gespeichert (ideal
+    wöchentlich); Vergleich mit einer frei wählbaren älteren („x von y Tönen
+    näher an sauber“). Einzelne Messungen lassen sich löschen.
+  - **Tonleiter sauber spielen:** Grundton + Dur/Moll → je Stufe die Neigung
+    des eigenen Instruments; die Terz mit der Regel aus der Recherche
+    verrechnet (rein: Dur-Terz 386 statt 400 Cent → etwa 14 tiefer,
+    Moll-Terz 316 statt 300 → etwa 16 höher; Quarte und Quinte praktisch
+    rein), z. B. „mit deinen −20 also etwa 6 höher ansetzen“.
+  - **Daten:** im localStorage `ueben:tonprofile` (`{id, am, stimmung,
+    kammerton, toene: [{midi, cent}]}`, Töne notiert als MIDI-Zahl); in der
+    Sicherung als optionales Kopf-Feld `tonprofile`, beim Laden vereinigt,
+    gelöschte reisen als Grabstein mit. Kein Schema-Sprung.
+- **F-14 · Tags** (2026-10-12): Wunsch Marlon: Stücke mit eigenen, farbigen
+  Tags markieren — anders als Sammlungen: „Wichtig üben — kann noch wenig“
+  (rot), „Mein Solo“ (blau), „Wenige Stellen“ (gelb), „Kann ich“ (grün).
+  Regeln in `src/domain/tags.ts` (getestet).
+  - **Tags anlegen** in den Einstellungen (Name + eine von 9 Farben;
+    umbenennen, umfärben, löschen — die Stücke bleiben). Ohne Tags bietet die
+    App Marlons vier als Vorschlag an („Diese vier anlegen“). Neue Tags auch
+    direkt beim Markieren.
+  - **Markieren** im Auswahl-Modus („Tags …“, mehrere Stücke auf einmal, Häkchen
+    halb bei „manche“) und im Stück-Blatt („Tags: … ändern“). Ein Stück kann
+    mehrere Tags tragen.
+  - **Anzeige:** Jede Zeile der Bibliothek zeigt ihre Tags als Punkt + Name
+    (nie Farbe allein); eigene Filterzeile unter den Sammlungen (ein Tag oder
+    keiner, mit Sammlung kombinierbar).
+  - **Stellen-Mix je Tag** (auch mit Sammlung: „Mix Märsche · Wichtig üben“),
+    eigene Runde je Bereich.
+  - **Hinzufügen bei gewähltem Tag** genauso deutlich wie bei Sammlungen:
+    Abzeichen auf „+ Noten“, im Menü hervorgehoben „Mit ● „Wichtig üben“
+    markieren“ mit Schalter, Meldung danach.
+  - **Daten:** Definitionen `{id, name, farbe, geaendert}` im localStorage
+    `ueben:tags` (ein Tag gibt es auch, solange kein Stück ihn trägt), an den
+    Stücken nur die ids (`tags`). In der Sicherung als optionales Kopf-Feld
+    `tags`; beim Laden je Tag der neuere Stand, gelöschte Tags reisen als
+    Grabstein mit. Kein Schema-Sprung.
+  - **Farben:** aus der geprüften Diagramm-Palette (Farbsehschwäche,
+    Kontrast); für dunkle Welten eigene Stufen (Gelb dunkler, damit es sich
+    von Rot abhebt).
+- **F-13 · Sammlungen — und Stellen-Mix je Sammlung** (2026-10-12): Wunsch
+  Marlon: Stücke einordnen („Orchester A“, „Märsche“, „Jazz“ …) und gezielt
+  in einer Sammlung Stellen üben. Regeln in `src/domain/sammlungen.ts`
+  (getestet).
+  - **Sammlungen statt Ordner:** Jedes Stück trägt eine Liste von Namen
+    (`sammlungen`), ein Stück kann in mehreren sein und liegt trotzdem nur
+    einmal auf dem Gerät. Eine Sammlung gibt es, solange ein Stück sie trägt.
+    Kein Schema-Sprung (Feld am Noten-Datensatz), reist in der Sicherung mit.
+  - **Bibliothek:** Filterzeile „Alle · Jazz 2 · Märsche 5 · … · + Sammlung“;
+    die gewählte Sammlung steht darunter („Sammlung „Märsche“ · 5 Stücke ·
+    bearbeiten“: umbenennen, auflösen — die Stücke bleiben). Einsortieren im
+    Auswahl-Modus („In Sammlung …“, Häkchen halb bei „manche“) und im
+    Stück-Blatt („Sammlungen: … ändern“).
+  - **Hinzufügen bei gewählter Sammlung — deutlich gekennzeichnet:** „+ Noten“
+    trägt dann ein Messing-Abzeichen, das Menü zeigt oben hervorgehoben „In
+    „Märsche“ einsortieren“ mit Schalter (bei jeder Filterwahl wieder an), die
+    Meldung danach sagt es noch einmal.
+  - **Ordner übernehmen** („+ Noten → Ordner wählen“, auch in der leeren
+    Bibliothek; auf dem iPhone ab iOS 18.4 laut Kompatibilitätstabelle, auf
+    dem Gerät noch zu prüfen): alle PDFs samt Unterordnern; Unterordner
+    werden Sammlungen, der gewählte Ordner nur, wenn die PDFs direkt darin
+    liegen. Einmal gelesen, kein dauerhafter Ordnerzugriff (kann Safari nicht).
+  - **Nichts doppelt:** Beim Hinzufügen (Dateien wie Ordner) wird eine Datei,
+    die schon in der Bibliothek liegt (gleicher Name und gleiche Größe — neu
+    gespeichert als `groesse`), nicht noch einmal angelegt, nur einsortiert;
+    dieselbe Datei in mehreren Unterordnern wird ein Stück in mehreren
+    Sammlungen; gleicher Name mit anderer Größe (etwa „Klarinette 1.pdf“ je
+    Stück-Ordner) bleiben verschiedene Stücke. Nicht lesbare Dateien (nur in
+    iCloud) werden übersprungen und genannt. Die PDF liegt auf dem iPhone
+    zwangsläufig einmal in der App und einmal in iCloud — Safari kann sich
+    keinen Verweis auf eine iCloud-Datei merken.
+  - **Stellen-Mix je Sammlung:** Die Mix-Karte mischt, was gefiltert ist
+    („Stellen-Mix · Märsche“, Kopf „Mix Märsche · 3 von 14“); jede Sammlung
+    hat ihre eigene Runde. Schalter **„Nur offene Stellen“**: nur Stellen ohne
+    Ziel oder mit Ziel + Reserve noch nicht geschafft; schon geübte und die
+    aktuelle bleiben in der laufenden Runde.
+- **H-01 (erster Teil) · Sicherung: Uhrzeit, Erinnerung, neuer gewinnt,
+  Gelöschtes reist mit** (2026-10-12): Dateiname `Uebe-Sicherung 2026-10-12
+  18.30.uebe`. Die Einstellungen zeigen „Letzte Sicherung: …“ (gemerkt beim
+  Herunterladen bzw. Teilen, `ueben:letzte-sicherung`); die Bibliothek
+  erinnert, wenn sie älter als 7 Tage ist und sich seitdem etwas geändert
+  hat. Beim Laden gilt bei gleicher id der **neuere Stand** (neues Feld
+  `geaendert` an Noten, Stellen und Seiten); Tempi werden weiter vereinigt;
+  die PDF kommt aus der Sicherung, wenn sie dort nicht älter ist.
+  **Wegradiertes bleibt weg** (Seiten merken `entfernt`), **Gelöschtes reist
+  mit** (Grabsteine in `ueben:geloescht`, im Sicherungskopf `geloescht`, ein
+  Jahr lang): dort gelöscht und hier unverändert → hier gelöscht (die
+  Rückfrage nennt es); hier gelöscht → eine ältere Sicherung legt es nicht
+  wieder an. Getestet in `src/domain/einspielen.ts`, dazu ein Durchlauf mit
+  zwei Geräten im Browser.
+- **F-12 · Zieltempo und Tempo-Verlauf je Stelle** (2026-10-12): Wunsch
+  Marlon: jeder Stelle ein Endziel geben („120 auf Viertel“) und sehen, wie
+  sich das Tempo entwickelt — „die letzten drei Wochen +20 %“ —, mit dem Ziel
+  als Deckel und einer Reserve darüber (Stellen 10 % schneller üben, als sie
+  müssen, falls der Dirigent im Konzert flotter wird).
+  - Tipp auf den Namen der Stelle in der Stellen-Leiste öffnet das
+    Stellen-Blatt: Zieltempo setzen (Schläge pro Minute wie im Metronom,
+    20–400), Kennzahlen **Bestes** · **Zum Ziel** (% und was fehlt, „✓ mit
+    Reserve“) · **3 Wochen** (Bestes heute gegenüber dem Besten bis vor drei
+    Wochen; ist alles jünger, seit dem ersten Übetag), die Kurve und eine
+    Tabelle aller Übetage. Beim Anlegen einer Stelle gibt es ein optionales
+    Feld „Ziel ♩“. „Geschafft“ meldet „Ziel erreicht!“ bzw. „Ziel mit
+    Reserve!“.
+  - Kurve (`TempoKurve.tsx`): je Übetag das Beste als Linie, alle geschafften
+    Tempi als leise Punkte — Aufwärmen bleibt sichtbar, zieht die Linie aber
+    nicht runter —, Ziel gestrichelt, Reserve (+10 %) als Band darüber.
+    Antippen zeigt den Tag in einer Ablesezeile darüber. Kurvenfarbe als
+    eigenes Token `--kurve` je Farbwelt (dunkel eine Stufe tiefer, geprüft).
+    Im Stück-Blatt hat jede geübte Stelle eine kleine Kurve (statt der
+    Textzeile „Verlauf: …“).
+  - Regeln getestet in `src/domain/stellen.ts` (`tagesbeste`, `steigerung`,
+    `zielStand`, `reserveVon`, `zielAusText`, `tempoAchse`). Daten: das
+    Feld `zielTempo` gab es schon — kein Schema-Sprung, die Sicherung trägt
+    Ziel und alle Tempi wie bisher.
+  - Offen, falls gewünscht: Notenwert des Ziels (etwa „𝅗𝅥 = 60“ bei Alla
+    breve) — derzeit gilt die Einheit des Metronoms; Reserve fest 10 %.
+- **F-11 · Stellen-Mix** (2026-10-12): Wunsch Marlon: Stellen aus *allen*
+  Stücken üben, ohne erst ein Stück auszusuchen — mit Abwechslung, und so,
+  dass keine Stelle übersehen wird. Einstieg oben in der Bibliothek (Karte
+  „Stellen-Mix“, zeigt „6 Stellen aus 3 Stücken“ bzw. „Weiter bei 4 von 6“
+  und „Neu mischen“). Regeln (`src/domain/stellen.ts`, getestet):
+  - Eine **Runde** enthält jede markierte Stelle genau einmal, gemischt; nie
+    zwei Stellen desselben Stücks hintereinander, solange es anders geht
+    (gewichtet nach offenen Stellen je Stück, damit sich große Stücke über
+    die Runde verteilen).
+  - Neue Stellen kommen gemischt in den noch offenen Teil der Runde,
+    gelöschte fallen weg; Geübtes bleibt vorn. Nach der letzten Stelle:
+    „Runde geschafft“ → neue Runde.
+  - Geübt wird im gewohnten Stellen-Modus des Notenbetrachters (‹ › gehen
+    durch die Runde, über Stückgrenzen hinweg; Kopf „Mix · 4 von 27“).
+    Stellen-Schalter aus = Mix verlassen, das Stück bleibt zum Lesen offen.
+  - Die Runde liegt auf dem Gerät (localStorage `ueben:mix`, an/aus in
+    `ueben:mix-an`) — nach einem App-Wechsel oder Neustart geht es an
+    derselben Stelle weiter. Sie reist nicht mit der Sicherung.
+- **D-04 · Metronom folgt der Stelle** (2026-10-12): Kommt beim Üben eine
+  Stelle dran (Blättern, Stellen-Modus einschalten, Stellen-Mix), steht das
+  Metronom automatisch auf dem Tempo, bei dem sie **zuletzt geschafft** wurde.
+  Nur beim Wechsel — −1/+1 und „geschafft“ bleiben, wie sie sind. Ist noch
+  kein Tempo geschafft, bleibt das Metronom stehen; „♩ … laden“ (zuletzt
+  geschafft, sonst Zieltempo) bleibt als Knopf. Regel `tempoStand` in
+  `src/domain/stellen.ts`.
+- **B-07 · Bibliothek aufgeräumt** (2026-10-12): Statt großer, teils
+  zweizeiliger Knöpfe eine Werkzeugzeile **+ Noten · Zuletzt/A–Z ·
+  Auswählen**; die Stücke als ruhige Liste mit Haarlinien (Titel, Stimme,
+  zuletzt, Zahl der Stellen). Häkchen, Aktualisieren und Löschen erst im
+  Auswahl-Modus (wie „Auswählen“ in der Dateien-App; Tipp auf die Zeile
+  wählt aus, „Fertig“ beendet) — „Alle aktualisieren“ ist jetzt „Auswählen →
+  Alle → Aktualisieren“. Kopf „Bibliothek · 9 Stücke“ bzw. „· 2 gewählt“,
+  Zahnrad und Schließen rechts beisammen.
 - **B-05 · Design-Überarbeitung** (2026-10-10): **Entscheidung Marlon:
   Studio.** Drei helle Entwürfe (Blatt · Studio · Galerie, identischer
   Funktionsumfang) liegen als antippbare HTML-Mockups in `docs/design/` und

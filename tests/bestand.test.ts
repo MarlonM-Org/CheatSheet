@@ -57,7 +57,7 @@ describe('Löschen und seine Folgen', () => {
     expect(f.virtuelleTitel).toEqual(['Marsch', 'Polka']);
     expect(f.setlistenTitel).toEqual(['Liste konzert']);
     // Die übrigen Einträge bleiben in ihrer Reihenfolge, der Platzhalter auch.
-    expect(f.setlisten).toEqual([{ ...bestand.setlisten[0], aktualisiert: 99, eintraege: [
+    expect(f.setlisten).toEqual([{ ...bestand.setlisten[0], aktualisiert: 99, geaendert: 99, eintraege: [
       { id: '1', art: 'stueck', stueckId: 'pomp' },
       { id: '3', art: 'platzhalter', titel: 'auswendig' },
       { id: '5', art: 'stueck', stueckId: 'pomp' },

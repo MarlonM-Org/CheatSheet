@@ -7,12 +7,12 @@
 //   · Kopf (JSON, UTF-8) · die PDF-Dateien direkt hintereinander.
 //
 // Der Kopf trägt `noten`, `stellen` und `anmerkungen` im Zuschnitt der
-// Registerführer-App (`notenId`) — das ist der Vertrag. Seit der Datenbank
-// „cheatsheet“ kommen vier optionale Listen dazu, so wie sie im
-// Gerätespeicher liegen (`stueckId`): `virtuelle` (Stücke ohne eigene PDF,
-// tragen nichts zum Datenteil bei), `lesezeichen`, `merker`, `setlisten`. Die
-// Version bleibt 1: Fehlt eine Liste, gilt sie als leer; ältere Leser
-// übergehen sie.
+// Registerführer-App (`notenId`) — das ist der Vertrag. Dazu kommen
+// optionale Felder (Version bleibt 1, wer sie nicht kennt, überliest sie):
+// `geloescht`, `tags`, `tonprofile` (siehe unten) und, so wie sie im
+// Gerätespeicher „cheatsheet“ liegen (`stueckId`), `virtuelle` (Stücke ohne
+// eigene PDF, tragen nichts zum Datenteil bei), `lesezeichen`, `merker`,
+// `setlisten`.
 
 export const SICHERUNG_ENDUNG = '.uebe';
 const MAGIE = [0x55, 0x45, 0x42, 0x45]; // "UEBE"
@@ -26,6 +26,15 @@ export interface Sicherungskopf {
   noten: ({ id: string; groesse: number; typ: string } & Record<string, unknown>)[];
   stellen: ({ id: string; notenId: string } & Record<string, unknown>)[];
   anmerkungen: ({ id: string; notenId: string } & Record<string, unknown>)[];
+  // Ergänzungen 2026-10-12, weiter Version 1 — fehlen in älteren Sicherungen
+  // und in denen der Registerführer-App; wer sie nicht kennt, überliest sie:
+  // Grabsteine gelöschter Noten, Stellen, Tags und Tonprofile (siehe
+  // @/domain/einspielen), die Tag-Definitionen (@/domain/tags) und die
+  // Tonprofile (@/domain/tonprofil).
+  geloescht?: unknown[];
+  tags?: unknown[];
+  tonprofile?: unknown[];
+  // Ergänzungen der Datenbank „cheatsheet“ (docs/datenmodell.md), weiter Version 1.
   virtuelle?: Eintrag[];
   lesezeichen?: Eintrag[];
   merker?: Eintrag[];
@@ -45,7 +54,10 @@ export async function sicherungPacken<
   N extends { id: string; datei: Blob },
   S extends { id: string; notenId: string },
   A extends { id: string; notenId: string },
->(inhalt: SicherungsInhalt<N, S, A>, quelle: string, erstellt: number, zusatz?: Zusatz): Promise<Blob> {
+>(
+  inhalt: SicherungsInhalt<N, S, A>, quelle: string, erstellt: number,
+  zusatz: { geloescht?: unknown[]; tags?: unknown[]; tonprofile?: unknown[] } & Partial<Zusatz> = {},
+): Promise<Blob> {
   const kopf: Sicherungskopf = {
     version: VERSION,
     erstellt,
@@ -57,12 +69,13 @@ export async function sicherungPacken<
     }),
     stellen: inhalt.stellen.map((s) => ({ ...s })),
     anmerkungen: inhalt.anmerkungen.map((a) => ({ ...a })),
-    ...(zusatz && {
-      virtuelle: zusatz.virtuelle.map(({ handle: _handle, ...rest }) => { void _handle; return rest as Eintrag; }),
-      lesezeichen: zusatz.lesezeichen.map((e) => ({ ...e })),
-      merker: zusatz.merker.map((e) => ({ ...e })),
-      setlisten: zusatz.setlisten.map((e) => ({ ...e })),
-    }),
+    ...(zusatz.geloescht?.length ? { geloescht: zusatz.geloescht } : {}),
+    ...(zusatz.tags?.length ? { tags: zusatz.tags } : {}),
+    ...(zusatz.tonprofile?.length ? { tonprofile: zusatz.tonprofile } : {}),
+    ...(zusatz.virtuelle?.length ? { virtuelle: zusatz.virtuelle.map(({ handle: _h, ...rest }) => { void _h; return rest as Eintrag; }) } : {}),
+    ...(zusatz.lesezeichen?.length ? { lesezeichen: zusatz.lesezeichen } : {}),
+    ...(zusatz.merker?.length ? { merker: zusatz.merker } : {}),
+    ...(zusatz.setlisten?.length ? { setlisten: zusatz.setlisten } : {}),
   };
   const json = new TextEncoder().encode(JSON.stringify(kopf));
   const vorspann = new Uint8Array(9);
@@ -114,7 +127,10 @@ export async function sicherungLesen(datei: Blob): Promise<{
   return { kopf, noten };
 }
 
+// Mit Uhrzeit: Die neueste ist auf einen Blick zu erkennen, und eine zweite
+// Sicherung am selben Tag überschreibt die erste nicht (Punkt statt
+// Doppelpunkt — den mögen Dateisysteme nicht).
 export function sicherungsName(datum: Date): string {
   const z = (n: number) => String(n).padStart(2, '0');
-  return `Uebe-Sicherung ${datum.getFullYear()}-${z(datum.getMonth() + 1)}-${z(datum.getDate())}${SICHERUNG_ENDUNG}`;
+  return `Uebe-Sicherung ${datum.getFullYear()}-${z(datum.getMonth() + 1)}-${z(datum.getDate())} ${z(datum.getHours())}.${z(datum.getMinutes())}${SICHERUNG_ENDUNG}`;
 }

@@ -1,13 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Bibliothek } from './Bibliothek';
 import { Einstellungen } from './Einstellungen';
 import { gespeichert, speichern } from './klang';
 import { MetronomAnbieter } from './MetronomKontext';
 import { MetronomWidget } from './MetronomWidget';
+import { tagsLaden } from './lokal';
 import { NotenPult } from './NotenPult';
-import { SpeicherHinweis } from './speicherfehler';
+import { ladeFehler, SpeicherHinweis } from './speicherfehler';
+import { mixBereichLesen, type MixBereich } from '@/domain/stellen';
+import { MixFertig, mixLaden, rundeSpeichern, type MixStand, type MixSteuerung } from './StellenMix';
 import { StimmgeraetAnbieter, useStimmgeraetApi } from './StimmgeraetKontext';
 import { StimmgeraetWidget } from './StimmgeraetWidget';
 import { UntereLeiste } from './UntereLeiste';
@@ -25,7 +28,12 @@ function Zentrale() {
   // Fassung erzwingt einen Neuaufbau desselben Stücks (nach „aktualisieren"
   // oder erneutem Antippen) — zusammen mit `offen` der key des NotenPults.
   const [fassung, setFassung] = useState(0);
-  const [bibliothek, setBibliothek] = useState(() => gespeichert<string | null>('ueben:offen', null) === null);
+  // Stellen-Mix (F-11): an, bis man ihn verlässt — auch über einen Neustart
+  // der App. Gemerkt wird der Bereich (alle oder eine Sammlung, nur offene).
+  const [mixBereich, setMixBereich] = useState<MixBereich | null>(() => mixBereichLesen(gespeichert<unknown>('ueben:mix-an', false)));
+  const mixAn = mixBereich !== null;
+  const [mix, setMix] = useState<MixStand | null>(null);
+  const [bibliothek, setBibliothek] = useState(() => gespeichert<string | null>('ueben:offen', null) === null && !mixBereichLesen(gespeichert<unknown>('ueben:mix-an', false)));
   const [einstellungen, setEinstellungen] = useState(false);
   // Zählt hoch, wenn in den Einstellungen eine Sicherung geladen wurde —
   // die Bibliothek liest ihre Liste dann neu.
@@ -36,14 +44,51 @@ function Zentrale() {
   const [metroVoll, setMetroVoll] = useState(false);
   const [stimmVoll, setStimmVoll] = useState(false);
 
+  // ── Stellen-Mix ──
+  const mixAus = useCallback(() => { setMixBereich(null); speichern('ueben:mix-an', false); setMix(null); }, []);
+  const mixAbgleichen = useCallback(() => {
+    if (!mixBereich) return;
+    mixLaden(mixBereich).then(setMix, (x) => { ladeFehler(x); setMixBereich(null); speichern('ueben:mix-an', false); });
+  }, [mixBereich]);
+  // Nach einem Neustart im Mix: Runde laden.
+  useEffect(() => { if (mixAn && !mix) mixAbgleichen(); }, [mixAn, mix, mixAbgleichen]);
+  const mixStelle = mix ? mix.runde.reihe[mix.runde.pos] : undefined;
+  const mixNoten = mixStelle ? mix?.stueckVon[mixStelle] : undefined;
+  const mixStarten = (neu: boolean, bereich: MixBereich) => {
+    mixLaden(bereich, neu).then((m) => { setMix(m); setMixBereich(bereich); speichern('ueben:mix-an', bereich); setBibliothek(false); }, ladeFehler);
+  };
+  // „Märsche · Wichtig üben“: Sammlung und Tag, aus denen gemischt wird.
+  const mixTitel = mix ? [mix.bereich.sammlung, tagsLaden().find((t) => t.id === mix.bereich.tag)?.name].filter(Boolean).join(' · ') || null : null;
+  const mixSteuerung = useMemo<MixSteuerung | null>(() => {
+    if (!mix || !mixStelle) return null;
+    const gehen = (d: number) => {
+      const runde = { ...mix.runde, pos: Math.max(0, Math.min(mix.runde.reihe.length, mix.runde.pos + d)) };
+      rundeSpeichern(mix.bereich, runde);
+      setMix({ ...mix, runde });
+    };
+    return {
+      stelle: mixStelle, nr: mix.runde.pos + 1, anzahl: mix.runde.reihe.length, titel: mixTitel,
+      weiter: () => gehen(1), zurueck: () => gehen(-1),
+      // Das Stück der Stelle bleibt offen, zum Weiterlesen.
+      beenden: () => { mixAus(); if (mixNoten) { setOffen(mixNoten); speichern('ueben:offen', mixNoten); } },
+      abgleichen: mixAbgleichen,
+    };
+  }, [mix, mixStelle, mixNoten, mixTitel, mixAus, mixAbgleichen]);
+  // Was gerade auf der Bühne liegt.
+  const angezeigt = mixAn ? (mixNoten ?? null) : offen;
+
   const oeffnen = (id: string) => {
-    if (id === offen) setFassung((f) => f + 1);
+    // Aus dem Mix heraus immer frisch aufbauen: zum Lesen, von Seite 1.
+    if (mixAn) mixAus();
+    if (mixAn || id === offen) setFassung((f) => f + 1);
     else { setOffen(id); speichern('ueben:offen', id); }
     setBibliothek(false);
   };
   const offenWeg = () => { setOffen(null); speichern('ueben:offen', null); setBibliothek(true); };
+  // Gelöscht, während der Mix es zeigt: Runde ohne seine Stellen weiter.
+  const angezeigtWeg = () => { if (mixAn) mixAbgleichen(); else offenWeg(); };
   // Nach „aktualisieren" in der Bibliothek: offenes Stück neu aufbauen.
-  const aktualisiert = (ids: string[]) => { if (offen && ids.includes(offen)) setFassung((f) => f + 1); };
+  const aktualisiert = (ids: string[]) => { if (angezeigt && ids.includes(angezeigt)) setFassung((f) => f + 1); };
   const metroUmschalten = (an: boolean) => { setMetroAn(an); speichern('ueben:metronom-an', an); if (!an) setMetroVoll(false); };
   const stimmUmschalten = (an: boolean) => { setStimmAn(an); if (!an) { stimmStopp(); setStimmVoll(false); } };
 
@@ -59,7 +104,16 @@ function Zentrale() {
     <div className="app-schale">
       <SpeicherHinweis />
       <main className="buehne">
-        {offen ? (
+        {mixAn ? (
+          !mix ? <div className="leer"><p className="gedaempft">Stellen werden gemischt …</p></div>
+          : mixSteuerung && mixNoten ? (
+            <NotenPult key={`${mixNoten}:${fassung}`} notenId={mixNoten} mix={mixSteuerung}
+              tastenAktiv={!bibliothek && !dialogOffen} verschwunden={mixAbgleichen} />
+          ) : (
+            <MixFertig anzahl={mix.runde.reihe.length} titel={mixTitel} neu={() => mixStarten(true, mix.bereich)} beenden={mixAus}
+              zurueck={() => { const runde = { ...mix.runde, pos: Math.max(0, mix.runde.reihe.length - 1) }; rundeSpeichern(mix.bereich, runde); setMix({ ...mix, runde }); }} />
+          )
+        ) : offen ? (
           <NotenPult key={`${offen}:${fassung}`} notenId={offen}
             tastenAktiv={!bibliothek && !dialogOffen} verschwunden={offenWeg} />
         ) : (
@@ -77,9 +131,9 @@ function Zentrale() {
       </div>
 
       {bibliothek && (
-        <Bibliothek offen={offen} oeffnen={oeffnen} schliessen={() => setBibliothek(false)}
-          einstellungen={() => setEinstellungen(true)} offenEntfernt={offenWeg}
-          aktualisiert={aktualisiert} escapeAktiv={!dialogOffen} stand={bibStand} />
+        <Bibliothek offen={angezeigt} oeffnen={oeffnen} schliessen={() => setBibliothek(false)}
+          einstellungen={() => setEinstellungen(true)} offenEntfernt={angezeigtWeg}
+          aktualisiert={aktualisiert} escapeAktiv={!dialogOffen} stand={bibStand} mixStarten={mixStarten} />
       )}
       {einstellungen && <Einstellungen schliessen={() => setEinstellungen(false)} geaendert={() => setBibStand((n) => n + 1)} />}
 

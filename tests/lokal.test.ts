@@ -275,10 +275,14 @@ describe('Anmerkungen', () => {
     await g.lokal.anmerkungenSpeichern('n', 1, [strich, spur]);
     await g.lokal.anmerkungenSpeichern('anders', 1, []);
     const seiten = (await g.lokal.anmerkungenVon('n')).sort((a, b) => a.seite - b.seite);
-    expect(seiten).toEqual([
-      { id: 'n:1', stueckId: 'n', seite: 1, objekte: [strich, spur] },
-      { id: 'n:2', stueckId: 'n', seite: 2, objekte: [spur] },
+    expect(seiten).toMatchObject([
+      { id: 'n:1', stueckId: 'n', seite: 1, objekte: [strich, spur], entfernt: [] },
+      { id: 'n:2', stueckId: 'n', seite: 2, objekte: [spur], entfernt: [] },
     ]);
+    expect(seiten[0].geaendert).toBeTypeOf('number');
+    // Was wegkommt, merkt sich die Seite — damit eine Sicherung es nicht zurückbringt.
+    await g.lokal.anmerkungenSpeichern('n', 1, [spur]);
+    expect((await g.lokal.anmerkungenVon('n')).find((a) => a.seite === 1)?.entfernt).toEqual(['x']);
   });
 });
 
@@ -461,8 +465,8 @@ describe('Umstieg: Sicherungen im bisherigen Format', () => {
 
   it.each(['cheatsheet', 'registerfuehrer'])('lädt eine Sicherung aus „%s“ vollständig ins neue Schema', async (quelle) => {
     await g.lokal.sicherungSchreiben(await g.lokal.sicherungPruefen(await alteSicherung(quelle)));
-    expect(await g.lokal.stueckHolen('n1')).toEqual({ id: 'n1', titel: 'Pomp', stimme: 'Klar 1', erstellt: 1, aktualisiert: 2, zuletzt: 3, dateiname: 'pomp.pdf', blaettern: { modus: 'linie', linien: { 2: 0.4 } } });
-    expect(await g.lokal.stueckHolen('n2')).toEqual({ id: 'n2', titel: 'Ärger mit Ümlauten', stimme: '', erstellt: 4 });
+    expect(await g.lokal.stueckHolen('n1')).toEqual({ id: 'n1', titel: 'Pomp', stimme: 'Klar 1', erstellt: 1, aktualisiert: 2, zuletzt: 3, dateiname: 'pomp.pdf', blaettern: { modus: 'linie', linien: { 2: 0.4 } }, groesse: 13 });
+    expect(await g.lokal.stueckHolen('n2')).toEqual({ id: 'n2', titel: 'Ärger mit Ümlauten', stimme: '', erstellt: 4, groesse: 13 });
     expect(await (await g.lokal.stueckDatei({ id: 'n1' })).text()).toBe('%PDF-1.4 pomp');
     expect(await (await g.lokal.stueckDatei({ id: 'n2' })).text()).toBe('%PDF-1.4 zwei');
     expect(await g.lokal.stellenVon('n1')).toEqual([
@@ -505,4 +509,61 @@ describe.skipIf(!exportPfad || !existsSync(exportPfad))('Umstieg mit einem echte
     expect(nochmal.kopf.stellen).toEqual(expect.arrayContaining(kopf.stellen));
     expect(nochmal.kopf.anmerkungen).toEqual(expect.arrayContaining(kopf.anmerkungen));
   }, 120_000);
+});
+
+describe('Zwischen zwei Geräten: neuerer Stand, Grabsteine, Tags, Tonprofile', () => {
+  it('Löschen hinterlässt Grabsteine — für das Stück, seine virtuellen, Lesezeichen und Merker', async () => {
+    const band = await anlegen('Sammelband');
+    const v = await g.lokal.virtuellesAnlegen({ titel: 'Marsch', stimme: '', quelle: { stueckId: band, von: 1, bis: 2 } });
+    const lz = await g.lokal.lesezeichenAnlegen({ stueckId: band, seite: 1, titel: 'Trio' });
+    await g.lokal.merkerSetzen(v, 1, true);
+    await g.lokal.stueckeLoeschen([band]);
+    const grab = g.lokal.grabsteineHier().map((x) => `${x.art}:${x.id}`).sort();
+    expect(grab).toEqual([`lesezeichen:${lz}`, `merker:${v}:1`, `noten:${band}`, `noten:${v}`].sort());
+  });
+
+  it('auf A gelöscht, über die Sicherung auf B auch weg — samt virtuellen Stücken und Setlisten-Einträgen', async () => {
+    const band = await anlegen('Sammelband');
+    const pomp = await anlegen('Pomp');
+    const v = await g.lokal.virtuellesAnlegen({ titel: 'Marsch', stimme: '', quelle: { stueckId: band, von: 1, bis: 2 } });
+    const sl = await g.lokal.setlisteAnlegen('Konzert');
+    await g.lokal.setlisteAendern(sl, { eintraege: [{ id: '1', art: 'stueck', stueckId: pomp }, { id: '2', art: 'stueck', stueckId: v }] });
+    const erste = (await g.lokal.sicherungErstellen()).datei;
+    // A löscht den Sammelband etwas später und sichert erneut.
+    await new Promise((ok) => setTimeout(ok, 5));
+    await g.lokal.stueckeLoeschen([band]);
+    const zweite = (await g.lokal.sicherungErstellen()).datei;
+
+    g = await neuesGeraet(); // B hat noch den alten vollen Stand
+    await g.lokal.sicherungSchreiben(await g.lokal.sicherungPruefen(erste));
+    const e = await g.lokal.sicherungPruefen(zweite);
+    expect(e.loeschen.noten.sort()).toEqual([band, v].sort());
+    await g.lokal.sicherungSchreiben(e);
+    expect((await g.lokal.alleStuecke()).map((s) => s.id)).toEqual([pomp]);
+    expect((await g.lokal.setlisteHolen(sl))?.eintraege.map((x) => x.id)).toEqual(['1']);
+  });
+
+  it('der neuere Stand gewinnt: eine ältere Sicherung überschreibt nichts Neueres', async () => {
+    const id = await anlegen('Alt');
+    const alt = (await g.lokal.sicherungErstellen()).datei;
+    await new Promise((ok) => setTimeout(ok, 5));
+    await g.lokal.stueckAendern(id, { titel: 'Neu' });
+    await g.lokal.sicherungSchreiben(await g.lokal.sicherungPruefen(alt));
+    expect((await g.lokal.stueckHolen(id))?.titel).toBe('Neu');
+  });
+
+  it('Tags, Sammlungen und Tonprofile reisen mit', async () => {
+    const id = await anlegen('Pomp');
+    const tag = g.lokal.tagAnlegen('Wichtig üben', 'rot');
+    await g.lokal.tagsSetzen([{ id, tags: [tag.id] }]);
+    await g.lokal.sammlungenSetzen([{ id, sammlungen: ['Märsche'] }]);
+    const profil = g.lokal.tonprofilAnlegen({ am: 1, stimmung: 'B' as never, kammerton: 443, toene: [{ midi: 60, cent: -12 }] });
+    const { datei } = await g.lokal.sicherungErstellen();
+
+    g = await neuesGeraet();
+    await g.lokal.sicherungSchreiben(await g.lokal.sicherungPruefen(datei));
+    expect(await g.lokal.stueckHolen(id)).toMatchObject({ tags: [tag.id], sammlungen: ['Märsche'] });
+    expect(g.lokal.tagsLaden()).toEqual([tag]);
+    expect(g.lokal.tonprofileLaden()).toEqual([profil]);
+  });
 });

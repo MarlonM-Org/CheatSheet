@@ -1,6 +1,7 @@
 # Datenmodell (Gerätespeicher)
 
-Stand 2026-10-12 · **Umgesetzt** (A-02). Entschieden (Leon, 2026-10-12):
+Stand 2026-10-13 · **Umgesetzt** (A-02), zusammengeführt mit Marlons
+Sammlungen, Tags, Tonprofil und „neuer gewinnt“ (Regeln dort gelten). Entschieden (Leon, 2026-10-12):
 neue Datenbank `cheatsheet` mit dem Stück als Grundbegriff, virtuelle
 Stücke teilen Stellen und Anmerkungen mit der Quelle, Hinweis auf `ueben`
 in der leeren Bibliothek, die Sicherung trägt zusätzlich Lesezeichen,
@@ -57,10 +58,13 @@ interface Stueck {
   dateiname?: string;
   handle?: FileSystemFileHandle;          // nur Chrome/Edge am Rechner
   blaettern?: { modus: Blaettermodus; linien: Record<number, number> };
+  groesse?: number;                       // Bytes der PDF (Doppelte beim Ordner-Import)
+  geaendert?: number;                     // letzte Änderung: beim Laden gilt der neuere Stand
+  sammlungen?: string[];                  // F-13: Namen
+  tags?: string[];                        // F-14: ids der Tag-Definitionen (localStorage)
   // F-01 Metadaten, alle optional
   komponist?: string;
   genre?: string;
-  tags?: string[];
   tonart?: string;
   schwierigkeit?: 1 | 2 | 3 | 4 | 5;
   kennung?: string;
@@ -116,6 +120,11 @@ type Eintrag =
   stehen in Setlisten.“
 - Ein virtuelles Stück zu löschen, lässt die Quelle und die geteilten
   Stellen und Anmerkungen unberührt.
+- **Grabsteine:** Jedes Löschen (Stück, auch virtuell; Stelle; Lesezeichen;
+  Merker; Setliste) hinterlässt einen Grabstein im localStorage
+  (`ueben:geloescht`). Er reist mit der Sicherung, damit Gelöschtes nicht
+  zurückkehrt (siehe unten). Jede Änderung setzt `geaendert`; Anmerkungen
+  merken sich wegradierte Striche in `entfernt`.
 - Ids bleiben beim Umstieg gleich: Die `id` eines Stücks in `cheatsheet` ist
   die `id` der Noten in `ueben`. Damit gilt `ueben:zuletzt` im localStorage
   weiter.
@@ -130,6 +139,11 @@ type Eintrag =
   das Thema muss `layout.tsx` synchron vor dem ersten Bild lesen. Das kann
   nur localStorage. Die Schlüssel (`ueben:*`, `metro:*`, `stimm:*`)
   bleiben, wie sie sind.
+- **Ebenfalls im localStorage, aber Daten** (Entscheidung Marlon, reisen im
+  Kopf der Sicherung mit): Tag-Definitionen (`ueben:tags`), Tonprofile
+  (`ueben:tonprofile`), Grabsteine (`ueben:geloescht`). Dazu der Zeitpunkt
+  der letzten Sicherung (`ueben:letzte-sicherung`). Ein Umzug in die
+  Datenbank wäre ein eigener Versionssprung.
 
 ## Sicherung (.uebe)
 
@@ -146,10 +160,17 @@ aus der heutigen CheatSheet-Fassung laden können.
 | weitere Felder an Noten (Metadaten) | übernommen |
 | `handle` | gibt es in der Datei nicht, entfällt |
 
-Beim Erstellen gilt dieselbe Übersetzung rückwärts. Metadaten reisen als
-zusätzliche Felder an den Noten mit, das kann v1 schon heute. Die
-Zusammenführ-Regeln beim Laden auf ein Gerät mit Daten bleiben
-(`src/domain/einspielen.ts`).
+Beim Erstellen gilt dieselbe Übersetzung rückwärts. Metadaten, Sammlungen,
+Tags, `geaendert`, `entfernt` und `groesse` reisen als zusätzliche Felder
+mit, das kann v1 schon heute. Im Kopf stehen außerdem `geloescht`
+(Grabsteine), `tags` (Tag-Definitionen) und `tonprofile`.
+
+Beim Laden auf ein Gerät mit Daten (`src/domain/einspielen.ts`, Regeln von
+Marlon): Bei gleicher id gilt der **neuere Stand** (`geaendert`);
+Tempo-Verläufe und Striche werden vereinigt, Wegradiertes bleibt weg; die
+PDF kommt nur, wenn sie dort nicht älter ist. Was auf dem anderen Gerät
+gelöscht und hier seitdem unverändert ist, wird hier gelöscht; was hier
+gelöscht wurde, legt eine ältere Sicherung nicht wieder an.
 
 ### Erweiterung: vier optionale Listen im Kopf
 
@@ -195,8 +216,13 @@ Regeln beim Erstellen:
 Regeln beim Laden (rein in `src/domain/einspielen.ts`, wie die
 bestehenden):
 
-- Gleiche `id` auf dem Gerät: Die Sicherung gewinnt. Bei Setlisten gilt das
-  für die ganze Liste samt Reihenfolge, Einträge werden nicht gemischt.
+- Gleiche `id` auf dem Gerät: der neuere Stand gewinnt, wie bei Noten und
+  Stellen. Bei Setlisten gilt das für die ganze Liste samt Reihenfolge,
+  Einträge werden nicht gemischt.
+- Grabsteine gelten auch hier (Arten `lesezeichen`, `merker`, `setliste`;
+  virtuelle Stücke als `noten`). Löscht die Sicherung ein Stück, nimmt es
+  hier alles mit, was daran hängt (virtuelle Stücke, Lesezeichen, Merker,
+  Setlisten-Einträge).
 - Ein virtuelles Stück, dessen Quelle weder in der Datei noch auf dem Gerät
   liegt, wird übersprungen und gezählt (wie heute unlesbare Noten).
 - Lesezeichen, Merker und Setlisten-Einträge, die auf ein Stück zeigen,

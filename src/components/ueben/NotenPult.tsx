@@ -4,13 +4,23 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { istNachladeFehler } from '@/domain/nachladen';
 import type { Anmerkung } from '@/domain/notenpult';
+import { sammlungenUebersicht, sammlungenVon } from '@/domain/sammlungen';
+import { tagsVon, type Tag } from '@/domain/tags';
+import { tempoStand, zielAusText } from '@/domain/stellen';
 import { mitRand } from '@/domain/ueben';
 import { NeueVersion } from '@/components/NeueVersion';
-import { anmerkungenVon, stueckAendern, stueckDatei, stueckHolen, stelleAendern, zuletztMerken, stelleLoeschen, stellenVon, tempoGeschafft, type Stueck, type Stelle } from './lokal';
+import {
+  alleStuecke, anmerkungenVon, stueckAendern, stueckDatei, stueckHolen, sammlungenSetzen, stelleAendern, zuletztMerken, stelleLoeschen, stellenVon,
+  tagsLaden, tagsSetzen, tempoGeschafft, type Stueck, type Stelle,
+} from './lokal';
+import { SammlungWahl } from './Sammlungen';
+import { TagEtikett, TagWahl } from './Tags';
 import { useMetronom } from './MetronomKontext';
 import { NotenBetrachter } from './NotenBetrachter';
 import { NeueVersionFehler, pdfLaden, seiteMitEbene } from './pdf';
 import { ladeFehler, speicherFehler } from './speicherfehler';
+import type { MixSteuerung } from './StellenMix';
+import { TempoKurve } from './TempoKurve';
 import { useDialogFokus, useEscape } from './tasten';
 import { anmerkungenZeichnen, ebeneZeichnen } from './zeichnen';
 
@@ -18,8 +28,9 @@ const RAND = 0.06;
 
 // Ein geöffnetes Stück (B-02): Die Noten füllen die Bühne sofort. Tipp auf
 // den Titel öffnet das Stück-Blatt mit Umbenennen und der Stellen-Übersicht.
-export function NotenPult({ notenId, tastenAktiv, verschwunden }: {
-  notenId: string; tastenAktiv: boolean; verschwunden: () => void;
+// Im Stellen-Mix (mix) zeigt es eine Stelle der Runde.
+export function NotenPult({ notenId, tastenAktiv, verschwunden, mix = null }: {
+  notenId: string; tastenAktiv: boolean; verschwunden: () => void; mix?: MixSteuerung | null;
 }) {
   const { bpm, setBpm } = useMetronom();
   const [noten, setNoten] = useState<Stueck | null>(null);
@@ -29,7 +40,12 @@ export function NotenPult({ notenId, tastenAktiv, verschwunden }: {
   const [stellen, setStellen] = useState<Stelle[]>([]);
   const [blatt, setBlatt] = useState(false);
   const [sprung, setSprung] = useState<{ stelle: string; n: number } | null>(null);
-  const neuLaden = useCallback(() => { stellenVon(notenId).then(setStellen).catch(ladeFehler); }, [notenId]);
+  const mixAbgleichen = mix?.abgleichen;
+  const neuLaden = useCallback(() => {
+    stellenVon(notenId).then(setStellen).catch(ladeFehler);
+    // Neue oder gelöschte Stellen gehören in die laufende Runde.
+    mixAbgleichen?.();
+  }, [notenId, mixAbgleichen]);
 
   useEffect(() => {
     let weg = false;
@@ -56,17 +72,27 @@ export function NotenPult({ notenId, tastenAktiv, verschwunden }: {
   }, [notenId]);
 
   if (neueVersion) return <div className="leer"><NeueVersion /></div>;
-  if (fehler) return <div className="leer"><p className="karte warnung">{fehler}</p></div>;
+  if (fehler) return (
+    <div className="leer">
+      <p className="karte warnung">{fehler}</p>
+      {mix && (
+        <div className="flex gap-2">
+          <button type="button" className="knopf knopf-klein" onClick={mix.weiter}>Nächste Stelle</button>
+          <button type="button" className="knopf knopf-leise knopf-klein" onClick={mix.beenden}>Mix beenden</button>
+        </div>
+      )}
+    </div>
+  );
   if (!noten || !pdf) return <div className="leer"><p className="gedaempft">Noten werden geladen …</p></div>;
 
   return (
     <>
-      <NotenBetrachter noten={noten} pdf={pdf} stellen={stellen} geaendert={neuLaden}
+      <NotenBetrachter noten={noten} pdf={pdf} stellen={stellen} geaendert={neuLaden} mix={mix}
         tastenAktiv={tastenAktiv && !blatt} sprung={sprung} titelTipp={() => setBlatt(true)} />
       {blatt && (
         <StueckBlatt noten={noten} pdf={pdf} stellen={stellen} bpm={bpm} tempoSetzen={setBpm} neuLaden={neuLaden}
           umbenannt={(neu) => setNoten({ ...noten, ...neu })}
-          zeigen={(id) => { setSprung({ stelle: id, n: Date.now() }); setBlatt(false); }}
+          zeigen={(id) => { mix?.beenden(); setSprung({ stelle: id, n: Date.now() }); setBlatt(false); }}
           schliessen={() => setBlatt(false)} />
       )}
     </>
@@ -77,10 +103,15 @@ export function NotenPult({ notenId, tastenAktiv, verschwunden }: {
 
 function StueckBlatt({ noten, pdf, stellen, bpm, tempoSetzen, neuLaden, umbenannt, zeigen, schliessen }: {
   noten: Stueck; pdf: PDFDocumentProxy; stellen: Stelle[]; bpm: number; tempoSetzen: (n: number) => void;
-  neuLaden: () => void; umbenannt: (neu: { titel: string; stimme: string }) => void; zeigen: (id: string) => void; schliessen: () => void;
+  neuLaden: () => void; umbenannt: (neu: Partial<Stueck>) => void; zeigen: (id: string) => void; schliessen: () => void;
 }) {
   const [umbenennen, setUmbenennen] = useState(false);
-  useEscape(schliessen);
+  // Sammlungen des Stücks ändern: alle vorhandenen zur Auswahl (F-13).
+  const [wahl, setWahl] = useState<{ name: string; anzahl: number }[] | null>(null);
+  // Tags des Stücks (F-14)
+  const [tags, setTags] = useState<Tag[]>(() => tagsLaden());
+  const [tagWahl, setTagWahl] = useState(false);
+  useEscape(schliessen, !wahl && !tagWahl);
   const fokus = useDialogFokus<HTMLDivElement>();
 
   return (
@@ -105,6 +136,32 @@ function StueckBlatt({ noten, pdf, stellen, bpm, tempoSetzen, neuLaden, umbenann
             <input className="feld" name="stimme" defaultValue={noten.stimme} placeholder="Stimme" aria-label="Stimme" />
             <button className="knopf knopf-klein" type="submit">Speichern</button>
           </form>
+        )}
+        <p className="text-sm">
+          <span className="gedaempft">Sammlungen: </span>{sammlungenVon(noten).join(', ') || <span className="gedaempft">keine</span>}
+          <button type="button" className="text-knopf gedaempft ml-2 text-sm underline"
+            onClick={() => { alleStuecke().then((l) => setWahl(sammlungenUebersicht(l)), (x) => speicherFehler(x)); }}>ändern</button>
+        </p>
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+          <span className="gedaempft">Tags:</span>
+          {tagsVon(noten, tags).length ? tagsVon(noten, tags).map((id) => <TagEtikett key={id} tag={tags.find((t) => t.id === id)!} />) : <span className="gedaempft">keine</span>}
+          <button type="button" className="text-knopf gedaempft text-sm underline" onClick={() => setTagWahl(true)}>ändern</button>
+        </p>
+        {tagWahl && (
+          <TagWahl noten={[noten]} tags={tags} schliessen={() => { setTagWahl(false); setTags(tagsLaden()); }}
+            speichern={(a) => {
+              setTagWahl(false); setTags(tagsLaden());
+              if (!a.length) return;
+              tagsSetzen(a).then(() => umbenannt({ tags: a[0].tags }), speicherFehler);
+            }} />
+        )}
+        {wahl && (
+          <SammlungWahl noten={[noten]} uebersicht={wahl} schliessen={() => setWahl(null)}
+            speichern={(a) => {
+              setWahl(null);
+              if (!a.length) return;
+              sammlungenSetzen(a).then(() => umbenannt({ sammlungen: a[0].sammlungen }), speicherFehler);
+            }} />
         )}
         <h3 className="abschnitt-titel">Stellen</h3>
         <UebeAnsicht pdf={pdf} notenId={noten.id} stellen={stellen} bpm={bpm} neuLaden={neuLaden} tempoSetzen={tempoSetzen} zeigen={zeigen} />
@@ -183,9 +240,7 @@ function UebeStelle({ stelle, breite, rand, seiteHolen, bpm, tempoSetzen, neuLad
 }) {
   const ziel = useRef<HTMLCanvasElement>(null);
   const [bearbeiten, setBearbeiten] = useState(false);
-  const verlauf = [...stelle.tempi].sort((a, b) => a.am - b.am);
-  const zuletzt = verlauf.at(-1)?.tempo ?? null;
-  const bestes = verlauf.reduce((m, t) => Math.max(m, t.tempo), 0) || null;
+  const { zuletzt, bestes } = tempoStand(stelle.tempi);
 
   useEffect(() => {
     let weg = false;
@@ -214,9 +269,7 @@ function UebeStelle({ stelle, breite, rand, seiteHolen, bpm, tempoSetzen, neuLad
       </div>
       <div className="overflow-hidden rounded bg-white"><canvas ref={ziel} className="mx-auto block" /></div>
       {stelle.notiz && <p className="text-sm">{stelle.notiz}</p>}
-      {verlauf.length > 1 && (
-        <p className="gedaempft text-xs tabular-nums">Verlauf: {verlauf.slice(-8).map((t) => t.tempo).join(' → ')}</p>
-      )}
+      {stelle.tempi.length > 0 && <TempoKurve tempi={stelle.tempi} ziel={stelle.zielTempo} kompakt />}
       <div className="flex flex-wrap gap-2">
         <button className="knopf knopf-leise knopf-klein" type="button" onClick={() => tempoSetzen(zuletzt ?? stelle.zielTempo ?? 60)}>
           ♩ auf {zuletzt ?? stelle.zielTempo ?? 60}
@@ -231,9 +284,8 @@ function UebeStelle({ stelle, breite, rand, seiteHolen, bpm, tempoSetzen, neuLad
         <form className="grid gap-2" onSubmit={async (e) => {
           e.preventDefault();
           const f = new FormData(e.currentTarget);
-          const z = Number(String(f.get('ziel')).replace(/\D/g, ''));
           try {
-            await stelleAendern(stelle.id, { titel: String(f.get('titel') ?? ''), notiz: String(f.get('notiz') ?? ''), zielTempo: z >= 20 && z <= 400 ? z : null });
+            await stelleAendern(stelle.id, { titel: String(f.get('titel') ?? ''), notiz: String(f.get('notiz') ?? ''), zielTempo: zielAusText(String(f.get('ziel') ?? '')) });
           } catch (x) { speicherFehler(x); return; }
           setBearbeiten(false); neuLaden();
         }}>

@@ -46,8 +46,19 @@ describe('Übe-Sicherung', () => {
     await expect(sicherungLesen(gut.slice(0, 20))).rejects.toThrow(/Kopf/);
   });
 
-  it('benennt die Datei mit Datum', () => {
-    expect(sicherungsName(new Date(2026, 9, 9))).toBe('Uebe-Sicherung 2026-10-09.uebe');
+  it('trägt Grabsteine und Tags im Kopf mit — ohne sie bleibt der Kopf wie bisher', async () => {
+    const leer = { noten: [], stellen: [], anmerkungen: [] };
+    const profil = { id: 'p', am: 3, stimmung: 'B', kammerton: 442, toene: [{ midi: 60, cent: 4 }] };
+    const mit = await sicherungLesen(await sicherungPacken(leer, 'test', 1, { geloescht: [{ art: 'noten', id: 'x', am: 5 }], tags: [{ id: 't', name: 'Solo', farbe: 'blau', geaendert: 1 }], tonprofile: [profil] }));
+    expect(mit.kopf.tonprofile).toEqual([profil]);
+    expect(mit.kopf.geloescht).toEqual([{ art: 'noten', id: 'x', am: 5 }]);
+    expect(mit.kopf.tags).toEqual([{ id: 't', name: 'Solo', farbe: 'blau', geaendert: 1 }]);
+    const ohne = await sicherungLesen(await sicherungPacken(leer, 'test', 1));
+    expect('geloescht' in ohne.kopf || 'tags' in ohne.kopf).toBe(false);
+  });
+
+  it('benennt die Datei mit Datum und Uhrzeit', () => {
+    expect(sicherungsName(new Date(2026, 9, 9, 18, 5))).toBe('Uebe-Sicherung 2026-10-09 18.05.uebe');
   });
 });
 
@@ -87,8 +98,9 @@ describe('Übe-Sicherung: optionale Listen (seit „cheatsheet“)', () => {
   it('ohne sie wie bisher (Registerführer, ältere Fassungen)', async () => {
     const { kopf } = await sicherungLesen(await sicherungPacken({ noten, stellen: [], anmerkungen: [] }, 'registerfuehrer', 7));
     for (const k of ['virtuelle', 'lesezeichen', 'merker', 'setlisten'] as const) expect(kopf[k]).toBeUndefined();
+    // Leere Listen schreibt die Sicherung gar nicht erst.
     const leer = await sicherungLesen(await sicherungPacken({ noten: [], stellen: [], anmerkungen: [] }, 'x', 0, keinZusatz()));
-    expect(leer.kopf.setlisten).toEqual([]);
+    expect(leer.kopf.setlisten).toBeUndefined();
   });
 
   it('eine Liste, die keine ist, macht die Sicherung kaputt', async () => {

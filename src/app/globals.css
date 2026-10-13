@@ -25,6 +25,7 @@
   --panel-schatten: 0 -12px 32px rgb(29 27 23 / 5%);
   --schleier: rgb(252 252 251 / 90%);
   --messing-text: #ffffff;  /* Text auf Messing-Flächen (dunkel: Tinte) */
+  --kurve: #a8781f;         /* Datenlinie in Diagrammen (Tempo-Verlauf) */
   --leiste-hoehe: 58px;
 }
 
@@ -57,6 +58,7 @@
   --panel-schatten: 0 -12px 32px rgb(43 29 34 / 7%);
   --schleier: rgb(253 244 242 / 90%);
   --messing-text: #ffffff;
+  --kurve: #b03a66;
 }
 
 /* Dunkelblau: Konzertsaal bei abgedunkeltem Licht — Standard-Dunkelwelt. */
@@ -82,6 +84,7 @@
   --panel-schatten: 0 -12px 32px rgb(0 0 0 / 45%);
   --schleier: rgb(15 23 34 / 88%);
   --messing-text: #16202c;
+  --kurve: #b5873a;
 }
 
 /* Schwarz: echtes OLED-Schwarz, maximale Ruhe. */
@@ -107,6 +110,7 @@
   --panel-schatten: 0 -12px 32px rgb(0 0 0 / 60%);
   --schleier: rgb(0 0 0 / 85%);
   --messing-text: #1a1814;
+  --kurve: #b5873a;
 }
 
 /* No-JS-Fallback: ohne data-thema folgt die Seite dem System (= Dunkelblau).
@@ -134,6 +138,7 @@
     --panel-schatten: 0 -12px 32px rgb(0 0 0 / 45%);
     --schleier: rgb(15 23 34 / 88%);
     --messing-text: #16202c;
+    --kurve: #b5873a;
   }
 }
 
@@ -347,7 +352,7 @@ input.metro-zahl { width: 3ch; background: none; }
 .bib-inhalt { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0.9rem 14px; }
 .bib-fuss { padding: 10px 14px; border-top: 1px solid var(--linie); font-size: 11px; line-height: 1.45; color: var(--leise); }
 .bib-anzahl {
-  margin-left: auto; font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+  margin-left: -4px; font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
   color: var(--leise); font-variant-numeric: tabular-nums;
 }
 
@@ -483,7 +488,7 @@ details[open] > summary::before { transform: rotate(90deg); }
 }
 .nav-titel-schnitt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nav-pfeil { width: 11px; height: 11px; flex: none; color: var(--leise); }
-.nav-untertitel { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.04em; color: var(--gedaempft); }
+.nav-untertitel { max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.04em; color: var(--gedaempft); white-space: nowrap; }
 .nav-rund {
   flex: none; width: 34px; height: 34px; border-radius: 999px;
   display: grid; place-items: center; background: var(--flaeche); color: var(--gedaempft);
@@ -569,6 +574,46 @@ details[open] > summary::before { transform: rotate(90deg); }
   background: var(--messing); border-radius: 2px 0 0 2px;
 }
 
+/* Bibliothek, aufgeräumt (B-07): eine Werkzeugzeile, Stücke als ruhige
+   Liste mit Haarlinien; Häkchen erst im Auswahl-Modus. */
+.panel-zu.bib-zahnrad { margin-right: 0; }
+.bib-werkzeuge { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.bib-auswaehlen, .bib-fertig, .bib-loeschen { padding: 0 2px 0 6px; font-size: 0.9rem; font-weight: 650; color: var(--messing); min-height: 38px; }
+.bib-loeschen { color: var(--warnung); }
+.bib-loeschen:disabled { opacity: 0.4; }
+.bib-liste { border: 1px solid var(--linie); border-radius: 6px; background: var(--karte); overflow: hidden; }
+.bib-zeile { position: relative; display: flex; align-items: center; gap: 6px; padding: 0 12px 0 14px; }
+.bib-zeile + .bib-zeile { border-top: 1px solid var(--linie); }
+.bib-zeile.gewaehlt { background: var(--messing-hell); }
+.bib-zeile.offen-markiert::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--messing); }
+.bib-stueck { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 10px 0; text-align: left; }
+.bib-titel, .bib-unterzeile { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bib-titel { font-weight: 650; }
+.bib-unterzeile { font-size: 0.8rem; color: var(--gedaempft); font-variant-numeric: tabular-nums; }
+.bib-pfeil { flex: none; color: var(--leise); }
+.bib-zeile .auswahl-feld { margin: 0 0 0 -0.6rem; }
+
+/* Stellen-Mix (F-11): Einstieg in der Bibliothek */
+.mix-karte { display: flex; flex-direction: column; border: 1px solid var(--linie-stark); border-radius: 6px; background: var(--karte); overflow: hidden; }
+.mix-zeile { display: flex; align-items: stretch; }
+.mix-offen {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 12px;
+  border-top: 1px solid var(--linie); font-size: 0.8rem; font-weight: 600; cursor: pointer;
+}
+.mix-offen small { display: block; font-size: 0.72rem; font-weight: 500; color: var(--gedaempft); }
+.mix-start { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 10px 12px; text-align: left; }
+.mix-start:active:not(:disabled) { background: var(--flaeche); }
+.mix-symbol {
+  flex: none; width: 36px; height: 36px; border-radius: 8px; display: grid; place-items: center;
+  background: var(--messing); color: var(--messing-text);
+}
+.mix-symbol svg { width: 19px; height: 19px; }
+.mix-start:disabled .mix-symbol { background: var(--flaeche2); color: var(--leise); }
+.mix-symbol.gross { width: 56px; height: 56px; border-radius: 14px; }
+.mix-symbol.gross svg { width: 28px; height: 28px; }
+.mix-neu { flex: none; padding: 0 12px; font-size: 0.8rem; font-weight: 600; color: var(--gedaempft); border-left: 1px solid var(--linie); }
+.mix-neu:active { background: var(--flaeche); }
+
 /* ── Nachbesserungen nach UX-Prüfung ── */
 .knopf:disabled, .knopf-leise:disabled { opacity: 0.4; cursor: not-allowed; }
 .b-umbruch { flex-wrap: wrap; }
@@ -646,3 +691,175 @@ details[open] > summary::before { transform: rotate(90deg); }
   .rund-knopf { min-width: 2.75rem; min-height: 2.75rem; }
   input.regler { height: 2.75rem; }
 }
+
+/* ── Ziel und Tempo-Verlauf einer Stelle (F-12) ── */
+.b-stelleninfo { display: block; text-align: left; border-radius: 6px; padding: 2px 4px; margin: -2px -4px; }
+.b-stelleninfo:active { background: var(--flaeche); }
+.b-stellentitel { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.b-unten .feld.b-ziel { flex: none; width: 5.5rem; }
+.ziel-zeile { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ziel-label { font-weight: 650; }
+.kennzahlen { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.kennzahl { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 8px 10px; border: 1px solid var(--linie); border-radius: 6px; }
+.kennzahl-label { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--leise); }
+.kennzahl-wert { font-size: 1.45rem; font-weight: 750; line-height: 1.15; color: var(--tinte); }
+.kennzahl-unter { font-size: 0.72rem; color: var(--gedaempft); overflow-wrap: anywhere; }
+
+.kurve { position: relative; }
+.kurve-svg { display: block; overflow: visible; touch-action: pan-y; }
+.kurve-gitter { stroke: var(--linie); stroke-width: 1; }
+.kurve-achse { fill: var(--leise); font-size: 10px; font-variant-numeric: tabular-nums; }
+.kurve-reserve { fill: var(--kurve); opacity: 0.12; }
+.kurve-ziel { stroke: var(--gedaempft); stroke-width: 1; stroke-dasharray: 4 3; }
+.kurve-marke { fill: var(--gedaempft); font-size: 10px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.kurve-marke.leise { fill: var(--leise); }
+.kurve-zeiger { stroke: var(--linie-stark); stroke-width: 1; }
+.kurve-punkt { fill: var(--leise); opacity: 0.6; }
+.kurve-linie { fill: none; stroke: var(--kurve); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.kurve-bestes { fill: var(--kurve); stroke: var(--karte); stroke-width: 2; }
+.kurve-wert { fill: var(--tinte); font-size: 11px; font-weight: 700; }
+.kurve-fang { cursor: crosshair; }
+/* Ablesezeile über der Kurve: zeigt den angetippten Tag, verdeckt nichts. */
+.kurve-tipp {
+  min-height: 1.5rem; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 0.75rem; color: var(--gedaempft); font-variant-numeric: tabular-nums;
+}
+.kurve-tipp strong { font-size: 0.95rem; color: var(--tinte); }
+.kurve-tipp-leer { color: var(--leise); }
+.kurve-legende { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 4px; font-size: 0.72rem; color: var(--gedaempft); }
+.kurve-legende span { display: inline-flex; align-items: center; gap: 6px; }
+.schluessel-linie { width: 14px; height: 2px; border-radius: 1px; background: var(--kurve); }
+.schluessel-punkt { width: 6px; height: 6px; border-radius: 50%; background: var(--leise); opacity: 0.7; }
+.schluessel-ziel { width: 14px; height: 8px; background: color-mix(in srgb, var(--kurve) 12%, transparent); border-bottom: 1px dashed var(--gedaempft); }
+.uebetage { width: 100%; margin-top: 6px; border-collapse: collapse; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.uebetage th { padding: 4px 8px 4px 0; text-align: left; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--leise); }
+.uebetage td { padding: 4px 8px 4px 0; border-top: 1px solid var(--linie); }
+.uebetage td:last-child { color: var(--gedaempft); }
+
+/* ── Sammlungen (F-13) ── */
+.sammlungen { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.sammlungen::-webkit-scrollbar { display: none; }
+.sammlung-chip {
+  flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 12px;
+  border: 1px solid var(--linie-stark); border-radius: 999px; background: var(--papier);
+  font-size: 0.85rem; font-weight: 600; color: var(--gedaempft); white-space: nowrap;
+}
+.sammlung-chip[aria-pressed="true"] { background: var(--messing); border-color: var(--messing); color: var(--messing-text); }
+.sammlung-zahl { font-size: 0.72rem; font-weight: 700; opacity: 0.75; font-variant-numeric: tabular-nums; }
+.sammlung-neu { border-style: dashed; color: var(--messing); }
+.sammlung-formular { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.sammlung-formular .feld { flex: 1 1 12rem; }
+.sammlung-kopf { padding: 2px 2px 0; }
+.sammlung-wahl { border: 1px solid var(--linie); border-radius: 6px; overflow: hidden; }
+.sammlung-wahl li + li { border-top: 1px solid var(--linie); }
+.sammlung-wahl label { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 0 12px; cursor: pointer; font-weight: 600; }
+@media (pointer: coarse) { .sammlung-chip { min-height: 2.5rem; } }
+
+/* „+ Noten“ mit Menü; die Zielsammlung steht unübersehbar oben. */
+/* Das Menü klappt im Fluss unter der Werkzeugzeile auf (eigene Zeile) — so
+   schneidet der Rand der Bibliothek nichts ab. */
+.bib-menue-huelle { display: contents; }
+.bib-menue-huelle > .knopf { position: relative; }
+.bib-menue {
+  position: relative; z-index: 2; order: 10; flex: 1 1 100%;
+  display: flex; flex-direction: column; gap: 4px; padding: 8px; border-radius: 10px;
+  background: var(--papier); border: 1px solid var(--linie-stark);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 10%);
+}
+.bib-menue-punkt {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 9px 10px; border-radius: 8px;
+  text-align: left; font-weight: 650;
+}
+.bib-menue-punkt span { font-size: 0.75rem; font-weight: 500; color: var(--gedaempft); }
+.bib-menue-punkt:active, .bib-menue-punkt:hover { background: var(--flaeche); }
+.bib-menue-ziel {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 10px; border-radius: 8px;
+  border: 1px dashed var(--linie-stark); cursor: pointer;
+}
+.bib-menue-ziel.an { border: 1.5px solid var(--messing); background: var(--messing-hell); }
+/* Abzeichen auf „+ Noten“: neue Stücke kommen in die gewählte Sammlung. */
+.ziel-punkt { position: absolute; top: -4px; right: -4px; width: 12px; height: 12px; border-radius: 50%; background: var(--messing); border: 2px solid var(--papier); }
+
+/* Erinnerung an die Sicherung (H-01) */
+.sicherung-erinnerung {
+  display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px;
+  border: 1px solid var(--messing); border-radius: 6px; background: var(--messing-hell);
+  font-size: 0.8rem; text-align: left; color: var(--tinte);
+}
+.sicherung-erinnerung strong { flex: none; color: var(--messing); }
+
+/* ── Tags (F-14) ── Farben aus der geprüften Diagramm-Palette; für dunkle
+   Welten eine Stufe angepasst (Gelb dunkler, damit es sich von Rot abhebt).
+   Ein Tag steht immer mit seinem Namen, nie als Farbe allein. */
+.tag-rot { --tag: #e34948; }
+.tag-orange { --tag: #eb6834; }
+.tag-gelb { --tag: #eda100; }
+.tag-gruen { --tag: #008300; }
+.tag-tuerkis { --tag: #1baf7a; }
+.tag-blau { --tag: #2a78d6; }
+.tag-lila { --tag: #6250d6; }
+.tag-pink { --tag: #e87ba4; }
+.tag-grau { --tag: #8d887c; }
+:is(:root[data-thema='dunkelblau'], :root[data-thema='schwarz']) :is(.tag-orange) { --tag: #d95926; }
+:is(:root[data-thema='dunkelblau'], :root[data-thema='schwarz']) :is(.tag-gelb) { --tag: #bb9300; }
+:is(:root[data-thema='dunkelblau'], :root[data-thema='schwarz']) :is(.tag-tuerkis) { --tag: #199e70; }
+:is(:root[data-thema='dunkelblau'], :root[data-thema='schwarz']) :is(.tag-blau) { --tag: #3987e5; }
+:is(:root[data-thema='dunkelblau'], :root[data-thema='schwarz']) :is(.tag-lila) { --tag: #9085e9; }
+:is(:root[data-thema='dunkelblau'], :root[data-thema='schwarz']) :is(.tag-pink) { --tag: #d55181; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-thema]) .tag-orange { --tag: #d95926; }
+  :root:not([data-thema]) .tag-gelb { --tag: #bb9300; }
+  :root:not([data-thema]) .tag-tuerkis { --tag: #199e70; }
+  :root:not([data-thema]) .tag-blau { --tag: #3987e5; }
+  :root:not([data-thema]) .tag-lila { --tag: #9085e9; }
+  :root:not([data-thema]) .tag-pink { --tag: #d55181; }
+}
+.tag-punkt {
+  display: inline-block; flex: none; width: 12px; height: 12px; border-radius: 50%;
+  background: var(--tag); box-shadow: inset 0 0 0 1px rgb(0 0 0 / 14%);
+}
+.tag-punkt.klein { width: 9px; height: 9px; }
+.tag-etikett { display: inline-flex; align-items: center; gap: 5px; font-size: 0.78rem; font-weight: 600; color: var(--gedaempft); white-space: nowrap; }
+.bib-tags { display: flex; flex-wrap: wrap; gap: 2px 10px; margin-top: 2px; }
+.tag-chip[aria-pressed="true"] { background: var(--flaeche2); border-color: var(--tinte); color: var(--tinte); }
+.tag-chip[aria-pressed="true"] .sammlung-zahl { color: var(--gedaempft); }
+.sammlung-wahl .tag-etikett, .tag-zeile .tag-etikett { font-size: 0.95rem; color: var(--tinte); }
+.tag-zeile { display: flex; align-items: center; width: 100%; min-height: 46px; padding: 0 12px; text-align: left; }
+.tag-formular { display: flex; flex-direction: column; gap: 10px; }
+.farb-wahl { display: flex; flex-wrap: wrap; gap: 8px; }
+.farb-wahl-knopf {
+  width: 32px; height: 32px; border-radius: 50%; background: var(--tag);
+  border: 3px solid var(--papier); box-shadow: 0 0 0 1px var(--linie-stark);
+}
+.farb-wahl-knopf[aria-checked="true"] { box-shadow: 0 0 0 2.5px var(--tinte); }
+
+/* ── Tonprofil (C-04) ── zu hoch warm, zu tief kühl (geprüftes Gegensatzpaar),
+   sauber grau; der Bereich ±5 als Band. */
+:root { --hoch: #eb6834; --tief: #2a78d6; }
+:is(:root[data-thema='dunkelblau'], :root[data-thema='schwarz']) { --hoch: #d95926; --tief: #3987e5; }
+@media (prefers-color-scheme: dark) { :root:not([data-thema]) { --hoch: #d95926; --tief: #3987e5; } }
+.tonprofil-einstieg {
+  display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; text-align: left;
+  border: 1px solid var(--linie-stark); border-radius: 6px; background: var(--karte);
+}
+.tonprofil-einstieg:active { background: var(--flaeche); }
+.umfang { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ton-stepper { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border: 1px solid var(--linie); border-radius: 6px; }
+.mess-ziel { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px 12px; border: 1px solid var(--linie); border-radius: 8px; text-align: center; }
+.mess-ton { font-size: 3.2rem; font-weight: 800; line-height: 1; letter-spacing: -0.02em; }
+.mess-balken { width: min(260px, 100%); height: 8px; border-radius: 4px; background: var(--flaeche2); overflow: hidden; }
+.mess-balken span { display: block; height: 100%; background: var(--messing); transition: width 80ms linear; }
+.profil-null { stroke: var(--linie-stark); stroke-width: 1; }
+.profil-sauber { fill: var(--gut); opacity: 0.1; }
+.profil-hoch { fill: var(--hoch); background: var(--hoch); }
+.profil-tief { fill: var(--tief); background: var(--tief); }
+.profil-sauber-balken { fill: var(--leise); background: var(--leise); }
+.profil-vorher { fill: var(--karte); stroke: var(--tinte); stroke-width: 1.5; }
+.profil-zeiger { fill: var(--tinte); opacity: 0.06; }
+.schluessel-balken { width: 8px; height: 12px; border-radius: 2px; }
+.schluessel-ring { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--tinte); }
+.tonleiter { border: 1px solid var(--linie); border-radius: 6px; overflow: hidden; }
+.tonleiter li { display: flex; align-items: flex-start; gap: 10px; padding: 8px 12px; }
+.tonleiter li + li { border-top: 1px solid var(--linie); }
+.tonleiter-stufe { flex: none; width: 1.4rem; height: 1.4rem; border-radius: 50%; display: grid; place-items: center; font-size: 0.72rem; font-weight: 700; background: var(--flaeche2); color: var(--gedaempft); }
+.tonleiter-ton { flex: none; width: 3rem; font-variant-numeric: tabular-nums; }

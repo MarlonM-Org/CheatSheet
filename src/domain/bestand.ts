@@ -14,8 +14,16 @@ export interface Stueck {
   // „Zuletzt geöffnet“ liegt im localStorage; ältere Datensätze (über die
   // Sicherung aus „ueben“) tragen es noch hier (zuletztAus in ./speicher).
   zuletzt?: number;
+  // Größe der PDF in Bytes (erkennt Doppelte beim Ordner-Import).
+  groesse?: number;
+  // Letzte Änderung: Beim Laden einer Sicherung gilt der neuere Stand.
+  geaendert?: number;
+  // Sammlungen (F-13): Namen, ein Stück kann in mehreren sein.
+  sammlungen?: string[];
+  // Tags (F-14): ids der Tag-Definitionen (@/domain/tags, im localStorage).
+  tags?: string[];
   // Metadaten (F-01)
-  komponist?: string; genre?: string; tags?: string[]; tonart?: string;
+  komponist?: string; genre?: string; tonart?: string;
   schwierigkeit?: 1 | 2 | 3 | 4 | 5; kennung?: string;
   // Virtuelles Stück (F-03): die Seiten von–bis aus der PDF eines echten Stücks.
   quelle?: Quelle;
@@ -25,17 +33,22 @@ export interface Quelle { stueckId: string; von: number; bis: number }
 export interface Stelle {
   id: string; stueckId: string; seite: number; x: number; y: number; b: number; h: number;
   titel: string; notiz: string; zielTempo: number | null; tempi: { tempo: number; am: number }[];
+  geaendert?: number;
 }
-export interface SeitenAnmerkungen { id: string; stueckId: string; seite: number; objekte: Anmerkung[] }
-export interface Lesezeichen { id: string; stueckId: string; seite: number; titel: string; erstellt: number }
-export interface Merker { id: string; stueckId: string; seite: number; gesetzt: number }
+// entfernt: ids weg-radierter Striche — damit sie beim Laden einer Sicherung
+// nicht zurückkehren.
+export interface SeitenAnmerkungen {
+  id: string; stueckId: string; seite: number; objekte: Anmerkung[]; entfernt?: string[]; geaendert?: number;
+}
+export interface Lesezeichen { id: string; stueckId: string; seite: number; titel: string; erstellt: number; geaendert?: number }
+export interface Merker { id: string; stueckId: string; seite: number; gesetzt: number; geaendert?: number }
 
 export type Eintrag =
   | { id: string; art: 'stueck'; stueckId: string }
   | { id: string; art: 'lesezeichen'; lesezeichenId: string }
   // Gewollt leerer Platz („spiele ich auswendig“) — nie der Rest eines gelöschten Stücks.
   | { id: string; art: 'platzhalter'; titel: string };
-export interface Setliste { id: string; titel: string; erstellt: number; aktualisiert?: number; eintraege: Eintrag[] }
+export interface Setliste { id: string; titel: string; erstellt: number; aktualisiert?: number; geaendert?: number; eintraege: Eintrag[] }
 
 // Anmerkungen und Merker: ein Datensatz je Seite.
 export const seitenId = (stueckId: string, seite: number) => `${stueckId}:${seite}`;
@@ -121,7 +134,7 @@ export function setlistenOhne(
     || (e.art === 'lesezeichen' && lesezeichen.has(e.lesezeichenId));
   return setlisten
     .filter((s) => s.eintraege.some(raus))
-    .map((s) => ({ ...s, eintraege: s.eintraege.filter((e) => !raus(e)), aktualisiert: jetzt }));
+    .map((s) => ({ ...s, eintraege: s.eintraege.filter((e) => !raus(e)), aktualisiert: jetzt, geaendert: jetzt }));
 }
 
 // Zusatz zur Rückfrage beim Löschen; leer, wenn nichts mitbetroffen ist.

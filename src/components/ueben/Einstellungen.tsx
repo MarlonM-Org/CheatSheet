@@ -1,8 +1,11 @@
 'use client';
 
+import { useState } from 'react';
 import { DUNKLE_THEMEN, HELLE_THEMEN, MODI, MODUS_NAME, THEMA_NAME, type Thema } from '@/domain/thema';
 import { useThema } from '@/components/thema';
+import { tagsLaden } from './lokal';
 import { Sicherung, useSicherungLaden } from './Sicherung';
+import { TagVerwaltung } from './Tags';
 import { useDialogFokus, useEscape } from './tasten';
 
 // Muster je Farbwelt: Grundton und Akzent — passend zu den Token-Sätzen
@@ -39,6 +42,10 @@ function WeltWahl({ titel, welten, wert, setzen, aktiv }: {
 export function Einstellungen({ schliessen, geaendert }: { schliessen: () => void; geaendert: () => void }) {
   const { modus, setModus, hell, setHell, dunkel, setDunkel, aktiv } = useThema();
   const laden = useSicherungLaden(geaendert);
+  // Tags (F-14) liegen im localStorage; nach jeder Änderung neu lesen und der
+  // Bibliothek Bescheid geben.
+  const [tags, setTags] = useState(() => tagsLaden());
+  const tagsGeaendert = () => { setTags(tagsLaden()); geaendert(); };
   useEscape(schliessen);
   const fokus = useDialogFokus<HTMLDivElement>();
 
@@ -60,6 +67,8 @@ export function Einstellungen({ schliessen, geaendert }: { schliessen: () => voi
         </div>
         <WeltWahl titel="Helle Farbwelt" welten={HELLE_THEMEN} wert={hell} setzen={setHell} aktiv={aktiv} />
         <WeltWahl titel="Dunkle Farbwelt" welten={DUNKLE_THEMEN} wert={dunkel} setzen={setDunkel} aktiv={aktiv} />
+        <hr className="trenner" />
+        <TagVerwaltung tags={tags} geaendert={tagsGeaendert} />
         <hr className="trenner" />
         <Sicherung laden={laden} />
         {laden.meldung && <p className="karte" role="status">{laden.meldung}</p>}

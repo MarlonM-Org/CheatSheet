@@ -1,7 +1,9 @@
 'use client';
 
+import { useState } from 'react';
 import { STIMMUNGEN, type Stimmung } from '@/domain/ueben';
 import { useStimmgeraet } from './StimmgeraetKontext';
+import { TonprofilBlatt } from './Tonprofil';
 
 const TONNAMEN = ['C', 'Cis', 'D', 'Es', 'E', 'F', 'Fis', 'G', 'As', 'A', 'B', 'H'];
 const SAUBER = 5; // ±Cent, die als sauber gelten
@@ -25,6 +27,7 @@ export function Stimmgeraet() {
     kammerton, setKammerton, stimmung, setStimmung,
     refTon, refOktave, refOktaveWechseln, referenzSpielen,
   } = useStimmgeraet();
+  const [profil, setProfil] = useState(false);
 
   const cent = ton?.cent ?? 0;
   const sauber = ton && frisch && Math.abs(cent) <= SAUBER;
@@ -69,6 +72,15 @@ export function Stimmgeraet() {
         </button>
       </div>
       {fehler && <p className="warnung text-center text-sm">{fehler}</p>}
+
+      <button type="button" className="tonprofil-einstieg" onClick={() => setProfil(true)}>
+        <span className="min-w-0 flex-1">
+          <strong className="block">Tonprofil</strong>
+          <span className="gedaempft block text-sm">Ton für Ton messen: Welche Töne liegen auf deinem Instrument zu hoch oder zu tief?</span>
+        </span>
+        <span className="gedaempft" aria-hidden="true">›</span>
+      </button>
+      {profil && <TonprofilBlatt schliessen={() => setProfil(false)} />}
 
       <div className="flex flex-wrap items-center justify-center gap-3 text-sm">
         <span className="flex items-center gap-1">a′
