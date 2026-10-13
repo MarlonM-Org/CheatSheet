@@ -42,11 +42,11 @@ function WeltWahl({ titel, welten, wert, setzen, aktiv }: {
 // `geaendert` meldet eine geladene Sicherung, damit die Bibliothek neu liest.
 export function Einstellungen({ schliessen, geaendert }: { schliessen: () => void; geaendert: () => void }) {
   const { modus, setModus, hell, setHell, dunkel, setDunkel, aktiv } = useThema();
-  const laden = useSicherungLaden(geaendert);
   // Tags (F-14) liegen im localStorage; nach jeder Änderung neu lesen und der
-  // Bibliothek Bescheid geben.
+  // Bibliothek Bescheid geben — auch nach dem Laden einer Sicherung.
   const [tags, setTags] = useState(() => tagsLaden());
   const tagsGeaendert = () => { setTags(tagsLaden()); geaendert(); };
+  const laden = useSicherungLaden(tagsGeaendert);
   useEscape(schliessen);
   const fokus = useDialogFokus<HTMLDivElement>();
 
