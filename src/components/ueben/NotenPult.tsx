@@ -29,8 +29,9 @@ const RAND = 0.06;
 // Ein geöffnetes Stück (B-02): Die Noten füllen die Bühne sofort. Tipp auf
 // den Titel öffnet das Stück-Blatt mit Umbenennen und der Stellen-Übersicht.
 // Im Stellen-Mix (mix) zeigt es eine Stelle der Runde.
-export function NotenPult({ notenId, tastenAktiv, verschwunden, mix = null }: {
+export function NotenPult({ notenId, tastenAktiv, verschwunden, mix = null, leisten }: {
   notenId: string; tastenAktiv: boolean; verschwunden: () => void; mix?: MixSteuerung | null;
+  leisten: { leisteWeg: boolean; setLeisteWeg: (weg: boolean) => void; navDa: boolean };
 }) {
   const { bpm, setBpm } = useMetronom();
   const [noten, setNoten] = useState<LokaleNoten | null>(null);
@@ -87,7 +88,7 @@ export function NotenPult({ notenId, tastenAktiv, verschwunden, mix = null }: {
 
   return (
     <>
-      <NotenBetrachter noten={noten} pdf={pdf} stellen={stellen} geaendert={neuLaden} mix={mix}
+      <NotenBetrachter noten={noten} pdf={pdf} stellen={stellen} geaendert={neuLaden} mix={mix} {...leisten}
         tastenAktiv={tastenAktiv && !blatt} sprung={sprung} titelTipp={() => setBlatt(true)} />
       {blatt && (
         <StueckBlatt noten={noten} pdf={pdf} stellen={stellen} bpm={bpm} tempoSetzen={setBpm} neuLaden={neuLaden}

@@ -99,22 +99,27 @@ function Zentrale() {
   };
 
   const dialogOffen = einstellungen || metroVoll || stimmVoll;
+  // Leisten über den Noten: Tippen in die Mitte blendet oben und unten aus.
+  // Die untere bleibt, solange Bibliothek oder ein Dialog offen ist.
+  const [leisteWeg, setLeisteWeg] = useState(false);
+  const navWeg = leisteWeg && !bibliothek && !dialogOffen;
+  const leisten = { leisteWeg, setLeisteWeg, navDa: !navWeg };
 
   return (
-    <div className="app-schale">
+    <div className={`app-schale ${navWeg ? 'nav-weg' : ''}`}>
       <SpeicherHinweis />
       <main className="buehne">
         {mixAn ? (
           !mix ? <div className="leer"><p className="gedaempft">Stellen werden gemischt …</p></div>
           : mixSteuerung && mixNoten ? (
-            <NotenPult key={`${mixNoten}:${fassung}`} notenId={mixNoten} mix={mixSteuerung}
+            <NotenPult key={`${mixNoten}:${fassung}`} notenId={mixNoten} mix={mixSteuerung} leisten={leisten}
               tastenAktiv={!bibliothek && !dialogOffen} verschwunden={mixAbgleichen} />
           ) : (
             <MixFertig anzahl={mix.runde.reihe.length} titel={mixTitel} neu={() => mixStarten(true, mix.bereich)} beenden={mixAus}
               zurueck={() => { const runde = { ...mix.runde, pos: Math.max(0, mix.runde.reihe.length - 1) }; rundeSpeichern(mix.bereich, runde); setMix({ ...mix, runde }); }} />
           )
         ) : offen ? (
-          <NotenPult key={`${offen}:${fassung}`} notenId={offen}
+          <NotenPult key={`${offen}:${fassung}`} notenId={offen} leisten={leisten}
             tastenAktiv={!bibliothek && !dialogOffen} verschwunden={offenWeg} />
         ) : (
           <div className="leer">
@@ -137,7 +142,7 @@ function Zentrale() {
       )}
       {einstellungen && <Einstellungen schliessen={() => setEinstellungen(false)} geaendert={() => setBibStand((n) => n + 1)} />}
 
-      <UntereLeiste bibliothekOffen={bibliothek} metroAn={metroAn} stimmAn={stimmAn} umschalten={umschalten} />
+      <UntereLeiste weg={navWeg} bibliothekOffen={bibliothek} metroAn={metroAn} stimmAn={stimmAn} umschalten={umschalten} />
     </div>
   );
 }

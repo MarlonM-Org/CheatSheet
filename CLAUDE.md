@@ -22,7 +22,7 @@ anders ist, ist ein Fehler oder gehört dort nachgetragen.
   `geloescht` (Grabsteine), `tags` (Tag-Definitionen, sonst im localStorage
   `ueben:tags`) und `tonprofile` (Tonprofil-Messungen, sonst
   `ueben:tonprofile`). Zusätzliche Felder an Noten/Stellen/Seiten (`sammlungen`,
-  `tags`, `geaendert`, `entfernt`, `groesse`) reisen ohnehin mit.
+  `tags`, `geaendert`, `entfernt`, `groesse`, `ausschnitte`) reisen ohnehin mit.
 - Fachlogik rein und getestet in `src/domain/` — neue Regeln dort zuerst als Test.
 - Die Adresse steht nur in `src/adresse.ts`.
 - Offline: `public/sw.js` + `scripts/precache.mjs`. Neue statische Dateien

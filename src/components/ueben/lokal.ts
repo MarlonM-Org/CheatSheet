@@ -1,5 +1,6 @@
 'use client';
 
+import type { Ausschnitte } from '@/domain/ausschnitt';
 import type { Anmerkung, Blaettermodus } from '@/domain/notenpult';
 import {
   dateiStand, einspielenPlanen, grabsteineLesen, grabsteineVereinigen, notenZusammenfuehren, seiteZusammenfuehren, stand,
@@ -32,6 +33,8 @@ export interface LokaleNoten {
   // Nur Chrome/Edge am Rechner: Verweis auf die Datei, um ohne Dateiauswahl neu zu laden.
   handle?: FileSystemFileHandle;
   blaettern?: { modus: Blaettermodus; linien: Record<number, number> };
+  // Angezeigter Bereich je Seite (Anteile der Seite); ohne Eintrag die ganze Seite.
+  ausschnitte?: Ausschnitte;
   // Sammlungen (F-13): Namen, ein Stück kann in mehreren sein.
   sammlungen?: string[];
   // Tags (F-14): ids der Tag-Definitionen (tagsLaden).
