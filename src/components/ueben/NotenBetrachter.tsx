@@ -205,7 +205,8 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
         const ebene = bilder[i].ebene;
         if (ebene) ebeneZeichnen(ctx, ebene, anm[t.seite] ?? [], 0, 0, W, H, hilfe.current ??= document.createElement('canvas'));
         anmerkungenZeichnen(ctx, anm[t.seite] ?? [], 0, 0, W, H);
-        if (!stelle) for (const st of stellen.filter((x) => x.seite === t.seite)) {
+        // Rahmen der Stellen nur bei offener Stift-Palette (B-11): beim Lesen stören sie.
+        if (!stelle && paletteOffen) for (const st of stellen.filter((x) => x.seite === t.seite)) {
           ctx.strokeStyle = 'rgba(168, 120, 31, 0.55)'; ctx.lineWidth = Math.max(1, W / 600);
           ctx.setLineDash([W / 120, W / 160]); ctx.strokeRect(st.x * W, st.y * H, st.b * W, st.h * H); ctx.setLineDash([]);
         }
@@ -230,7 +231,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     };
     zeichnen().catch((e) => { if (!weg) console.error('Seite ließ sich nicht zeichnen', e); });
     return () => { weg = true; };
-  }, [ansicht, stelle, bearbeitenSeite, anm, stellen, rahmen, px, format, seiteBild]);
+  }, [ansicht, stelle, bearbeitenSeite, anm, stellen, paletteOffen, rahmen, px, format, seiteBild]);
 
   // Nachbarseiten vorab rendern: Blättern ohne Wartezeit.
   useEffect(() => {

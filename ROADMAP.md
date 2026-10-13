@@ -451,6 +451,11 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
   Schalter geht wieder aus. Die „Ansicht der Stelle“ ist entfallen: Etwas
   Rand ist immer an, „Heranzoomen“ ist weg (zoomte bei breiten Stellen kaum
   und war unnötig — geübt wird im großen Notenbild).
+- **B-11 · Stellen-Rahmen nur beim Markieren** (2026-10-13): Wunsch Marlon:
+  Beim Lesen (Schalter „Stellen“ aus) störten die gestrichelten Rahmen der
+  Stellen. Sie erscheinen jetzt nur, solange die Stift-Palette offen ist —
+  dort braucht man sie, um neue Stellen zu setzen. Im Stellen-Modus zeigt
+  ohnehin der helle Ausschnitt die Stelle.
 - **F-15 · Ausschnitt je Seite** (2026-10-13): Wunsch Marlon: je Seite
   einstellen, welcher Bereich angezeigt wird, und das behalten — z. B. ohne
   die breiten Ränder eines Scans. Regeln in `src/domain/ausschnitt.ts`
