@@ -9,7 +9,7 @@ import { tempoStand, zielAusText, zielStand } from '@/domain/stellen';
 import { einstellungPruefen, TEXT_GROESSE, type StiftEinstellung, type ZeichenWerkzeug } from '@/domain/stift';
 import { mitRand, rechteckAus, type Rechteck } from '@/domain/ueben';
 import { AusschnittRahmen } from './Ausschnitt';
-import { gespeichert as gespeicherterWert, speichern } from './klang';
+import { gespeichert as gespeicherterWert, speichern, useEinstellungenGeladen } from './klang';
 import {
   anmerkungenSpeichern, anmerkungenVon, notenAendern, stelleAnlegen, tempoGeschafft,
   type LokaleNoten, type LokaleStelle,
@@ -25,6 +25,12 @@ import { anmerkungenZeichnen, ebeneZeichnen, strichZeichnen } from './zeichnen';
 
 const RAND = 0.06;
 const MAX_PX = 2800;
+
+const stiftEinstellungen = (): Record<ZeichenWerkzeug, StiftEinstellung> => ({
+  stift: einstellungPruefen('stift', gespeicherterWert('ueben:stift', null)),
+  marker: einstellungPruefen('marker', gespeicherterWert('ueben:marker', null)),
+  text: einstellungPruefen('text', gespeicherterWert('ueben:text', null)),
+});
 
 interface Props {
   noten: LokaleNoten; pdf: PDFDocumentProxy; stellen: LokaleStelle[];
@@ -72,11 +78,9 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   const [werkzeug, setWerkzeug] = useState<Werkzeug | null>(null);
   const [paletteOffen, setPaletteOffen] = useState(false);
   // Jedes Werkzeug merkt sich Farbe und Dicke (E-01/E-02, Pencil-Muster).
-  const [einst, setEinst] = useState<Record<ZeichenWerkzeug, StiftEinstellung>>(() => ({
-    stift: einstellungPruefen('stift', gespeicherterWert('ueben:stift', null)),
-    marker: einstellungPruefen('marker', gespeicherterWert('ueben:marker', null)),
-    text: einstellungPruefen('text', gespeicherterWert('ueben:text', null)),
-  }));
+  const [einst, setEinst] = useState<Record<ZeichenWerkzeug, StiftEinstellung>>(stiftEinstellungen);
+  // Aus einer Sicherung übernommen, während das Stück offen ist.
+  useEinstellungenGeladen(useCallback(() => setEinst(stiftEinstellungen()), []));
   const einstellen = (w: ZeichenWerkzeug, e: StiftEinstellung) => {
     setEinst((s) => ({ ...s, [w]: e }));
     speichern(`ueben:${w}`, e);

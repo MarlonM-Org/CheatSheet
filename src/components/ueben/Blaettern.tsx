@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   RAD_ANFANG, radGeste, radWeg, tastenAktion, WISCH_MIN, WISCH_UMKEHREN, zeigerGeste, type Blaetter, type Richtung,
 } from '@/domain/geste';
-import { gespeichert, speichern } from './klang';
+import { gespeichert, speichern, useEinstellungenGeladen } from './klang';
 
 const RICHTUNG: Record<Richtung, string> = { hoch: '↑ nach oben', runter: '↓ nach unten', links: '← nach links', rechts: '→ nach rechts' };
 const ZIEL: Record<Blaetter, string> = { weiter: 'Weiter ›', zurueck: '‹ Zurück' };
@@ -22,6 +22,8 @@ interface Meldung { aktion: Blaetter | null; text: string; n: number }
 // Regeln (@/domain/geste) wie auf den Noten.
 export function BlaetternEinstellung() {
   const [umkehren, setUmkehren] = useState(() => gespeichert(WISCH_UMKEHREN, false));
+  // Aus einer Sicherung übernommen (dieselbe Seite lädt sie): Schalter nachziehen.
+  useEinstellungenGeladen(useCallback(() => setUmkehren(gespeichert(WISCH_UMKEHREN, false)), []));
   const [meldung, setMeldung] = useState<Meldung | null>(null);
   const [zahl, setZahl] = useState({ weiter: 0, zurueck: 0 });
   const zug = useRef<{ x: number; y: number; t: number; typ: string } | null>(null);

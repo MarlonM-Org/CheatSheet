@@ -1,11 +1,13 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { EINSTELLUNG_STANDARD as STANDARD, type Akzent, type Trainer } from '@/domain/einstellungen';
 import { trainerTempo } from '@/domain/ueben';
-import { audioSitzung, gespeichert, klangPuffer, speichern, useBeimVerlassen, verwerfen, wachHalten, type Art, type Klang } from './klang';
+import {
+  audioSitzung, gespeichert, klangPuffer, speichern, useBeimVerlassen, useEinstellungenGeladen, verwerfen, wachHalten, type Art, type Klang,
+} from './klang';
 
-export type Akzent = 'betont' | 'normal' | 'stumm';
-export interface Trainer { an: boolean; schritt: number; takte: number; ziel: number }
+export type { Akzent, Trainer };
 
 const akzenteFuer = (takt: number, alt: Akzent[] = []): Akzent[] =>
   Array.from({ length: takt }, (_, i) => alt[i] ?? (i === 0 ? 'betont' : 'normal'));
@@ -31,13 +33,25 @@ export function MetronomAnbieter({ children }: { children: React.ReactNode }) {
   const [bpm, setBpmRoh] = useState(() => gespeichert('metro:bpm', 80));
   const setBpm = useCallback((n: number) => { const w = Math.min(300, Math.max(20, Math.round(n))); setBpmRoh(w); speichern('metro:bpm', w); }, []);
   const [laeuft, setLaeuft] = useState(false);
-  const [takt, setTakt] = useState(() => gespeichert('metro:takt', 4));
-  const [akzente, setAkzente] = useState<Akzent[]>(() => akzenteFuer(gespeichert('metro:takt', 4), gespeichert('metro:akzente', [])));
-  const [unter, setUnter] = useState(() => gespeichert('metro:unter', 1));
-  const [klang, setKlang] = useState<Klang>(() => gespeichert('metro:klang', 'holz'));
-  const [laut, setLaut] = useState(() => gespeichert('metro:laut', 0.9));
-  const [trainer, setTrainer] = useState(() => gespeichert('metro:trainer', { an: false, schritt: 4, takte: 4, ziel: 120 }));
+  const [takt, setTakt] = useState(() => gespeichert('metro:takt', STANDARD['metro:takt']));
+  const [akzente, setAkzente] = useState<Akzent[]>(() => akzenteFuer(gespeichert('metro:takt', STANDARD['metro:takt']), gespeichert<Akzent[]>('metro:akzente', [])));
+  const [unter, setUnter] = useState(() => gespeichert('metro:unter', STANDARD['metro:unter']));
+  const [klang, setKlang] = useState<Klang>(() => gespeichert('metro:klang', STANDARD['metro:klang']));
+  const [laut, setLaut] = useState(() => gespeichert('metro:laut', STANDARD['metro:laut']));
+  const [trainer, setTrainer] = useState<Trainer>(() => gespeichert('metro:trainer', STANDARD['metro:trainer']));
   const [aktiv, setAktiv] = useState<{ schlag: number; sub: number } | null>(null);
+  // Eine Sicherung hat Einstellungen übernommen: neu lesen, sonst schriebe
+  // der Effekt unten die alten Werte zurück. Das Tempo bleibt am Gerät.
+  const neuLesen = useCallback(() => {
+    const t = gespeichert('metro:takt', STANDARD['metro:takt']);
+    setTakt(t);
+    setAkzente(akzenteFuer(t, gespeichert<Akzent[]>('metro:akzente', [])));
+    setUnter(gespeichert('metro:unter', STANDARD['metro:unter']));
+    setKlang(gespeichert('metro:klang', STANDARD['metro:klang']));
+    setLaut(gespeichert('metro:laut', STANDARD['metro:laut']));
+    setTrainer(gespeichert('metro:trainer', STANDARD['metro:trainer']));
+  }, []);
+  useEinstellungenGeladen(neuLesen);
 
   // Alles, was der Taktgeber liest, als Referenz (er läuft außerhalb von React).
   const r = useRef({ bpm, takt, akzente, unter, klang, laut, trainer, startBpm: bpm });

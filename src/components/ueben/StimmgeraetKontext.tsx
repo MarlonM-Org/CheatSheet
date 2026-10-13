@@ -1,8 +1,9 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { EINSTELLUNG_STANDARD as STANDARD } from '@/domain/einstellungen';
 import { frequenzZuTon, grundfrequenz, median, STIMMUNGEN, tonFrequenz, type Stimmung, type Ton } from '@/domain/ueben';
-import { audioSitzung, gespeichert, speichern, useBeimVerlassen, verwerfen, wachHalten } from './klang';
+import { audioSitzung, gespeichert, speichern, useBeimVerlassen, useEinstellungenGeladen, verwerfen, wachHalten } from './klang';
 
 // Ein Stimmgerät für die ganze App: große Ansicht und schwebendes Widget
 // teilen sich Mikrofon, Messung und Einstellungen — wie beim Metronom.
@@ -46,9 +47,16 @@ export function StimmgeraetAnbieter({ children }: { children: React.ReactNode })
   const [fehler, setFehler] = useState('');
   const [ton, setTon] = useState<Ton | null>(null);
   const [frisch, setFrisch] = useState(false);
-  const [kammerton, setKammertonRoh] = useState(() => gespeichert('stimm:a', 442));
+  const [kammerton, setKammertonRoh] = useState(() => gespeichert('stimm:a', STANDARD['stimm:a']));
   // Standard B (deutsch, = internationales B♭) — gespeicherte Wahl hat Vorrang.
-  const [stimmung, setStimmungRoh] = useState<Stimmung>(() => gespeichert('stimm:st', 'B'));
+  const [stimmung, setStimmungRoh] = useState<Stimmung>(() => gespeichert('stimm:st', STANDARD['stimm:st']));
+  // Eine Sicherung hat Einstellungen übernommen: neu lesen, sonst schriebe
+  // der Effekt unten die alten Werte zurück.
+  const neuLesen = useCallback(() => {
+    setKammertonRoh(gespeichert('stimm:a', STANDARD['stimm:a']));
+    setStimmungRoh(gespeichert('stimm:st', STANDARD['stimm:st']));
+  }, []);
+  useEinstellungenGeladen(neuLesen);
   const [refTon, setRefTon] = useState<number | null>(null);
   const [refOktave, setRefOktave] = useState(4);
   const einst = useRef({ kammerton, stimmung });
