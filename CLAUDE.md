@@ -26,7 +26,7 @@ anders ist, ist ein Fehler oder gehört dort nachgetragen.
   `src/domain/einstellungen.ts`). Neuer localStorage-Schlüssel: dort
   entscheiden, ob er mitreist (Person/Instrument ja, Gerät nein), und über
   `speichern()` aus `klang.ts` schreiben, sonst rückt der Stand nicht vor. Zusätzliche Felder an Noten/Stellen/Seiten (`sammlungen`,
-  `tags`, `geaendert`, `entfernt`, `groesse`, `ausschnitte`) reisen ohnehin mit.
+  `tags`, `geaendert`, `entfernt`, `groesse`, `ausschnitte`, `spruenge`) reisen ohnehin mit.
 - Fachlogik rein und getestet in `src/domain/` — neue Regeln dort zuerst als Test.
 - Die Adresse steht nur in `src/adresse.ts`.
 - Offline: `public/sw.js` + `scripts/precache.mjs`. Neue statische Dateien

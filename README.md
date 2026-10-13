@@ -25,6 +25,9 @@ Früher unter Admin → „Üben (Prototyp)“ in der Registerführer-App.
 - **Ansicht:** je Seite einen Ausschnitt einstellen (z. B. ohne breite Ränder),
   der künftig den Bildschirm füllt; die Leisten legen sich über die Noten und
   verschwinden mit einem Tipp in die Mitte.
+- **Sprünge:** Wiederholung, D.S., D.C. und Coda als Marken setzen;
+  Weiterblättern mit Pedal oder Scroll-Ring folgt ihnen, zurück geht denselben
+  Weg.
 - **Blättern ohne Hände:** Wischen (auch mit einem Bluetooth-Scroll-Ring am
   iPhone), Blätterpedal oder Mausrad; in den Einstellungen ein Feld zum
   Ausprobieren.

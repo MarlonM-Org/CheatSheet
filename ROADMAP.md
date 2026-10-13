@@ -36,7 +36,7 @@ ob das ins Leitbild passt (dann auch CLAUDE.md anpassen: „kein Login“).
 | M2 | **Noten im Zentrum** | UI-Neuaufbau: Noten vollflächig, Werkzeuge als Overlays, drei Knöpfe unten | B-01…B-03 |
 | M3 | **Werkzeuge schärfen** | Stimmgerät- und Metronom-Verbesserungen, Stift-Ausbau | C-01…C-03, D-01, E-01…E-03 |
 | M4 | **Notenmanagement I** | Metadaten, Bookmarks, Flags, Kontextmenüs, Drag & Drop (Sammlungen F-13 erledigt) | F-01, F-03, F-04, F-08, F-09 |
-| M5 | **Üben & Setlisten** | Setlisten, Wiederholungs-Links, Halbseiten-Blättern (Stellen-Mix F-11 und Tonprofil C-04 schon erledigt) | F-02, F-05, F-06 |
+| M5 | **Üben & Setlisten** | Setlisten (Stellen-Mix F-11, Tonprofil C-04, Sprünge F-05 und Halbseiten-Blättern F-06 schon erledigt) | F-02 |
 | M6 | **Design & Extras** | Themes, Stempel/Formen, Kamera-Scan | B-04, B-05, E-04, F-07 |
 | M7 | **Komponieren** (Vision) | Noteneingabe, Rhythmus-/Melodie-Transkription | G-01…G-03 |
 | M8 | **Geräteübergreifend** (Vision, Entscheidung offen) | Noten und Übe-Daten über die eigene Cloud auf mehreren Geräten | H-01…H-05 |
@@ -147,12 +147,7 @@ Inhaltsverzeichnis hat: Bookmarks automatisch daraus erzeugen.
 Flüchtige Merker: Seite markieren, Liste aller Flags (je Stück und global),
 alle auf einmal löschen. Bewusst leichtgewichtiger als Bookmarks.
 
-### F-05 · Wiederholungs-Links
-
-Zwei Punkte im Stück verknüpfen (Wiederholung/Coda): Antippen springt zur
-Zielseite, ein kurzes Blinksignal zeigt die Einstiegsstelle.
-
-*(F-06 Halbseiten-Umblättern am 2026-10-13 abgehakt, siehe unten.)*
+*(F-05 Sprünge und F-06 Halbseiten-Umblättern am 2026-10-13 erledigt, siehe unten.)*
 
 ### F-07 · Kamera-Scan
 
@@ -416,6 +411,26 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
   obwohl sich das Stück öffnen ließ („Nicht lesbar, nicht in der
   Sicherung“). Ist eine PDF wirklich verloren, nennt die Meldung den Weg
   zur Rettung. Ersetzt A-01.
+- **F-05 · Sprünge (Wiederholung, D.S., D.C., Coda)** (2026-10-13): Wunsch
+  Marlon: „Teils keine Pause bei solchen Übergängen und kann nicht besonders
+  wo hinklicken — einfach ‚weiter‘ blättern.“ Regeln in
+  `src/domain/spruenge.ts` und `src/domain/spielfolge.ts` (getestet).
+  - **Setzen:** Ansicht → Sprünge → „Sprung setzen“: Sprungzeichen antippen,
+    zum Ziel blättern und antippen, Art wählen (Wdh., D.S., D.C., Coda). Am
+    Sprungzeichen sitzt eine Marke. Liste mit Löschen im Ansicht-Menü.
+  - **Weiterblättern folgt den Sprüngen (Spielfolge):** Pedal, Scroll-Ring,
+    Tasten, Mausrad und Rand-Tippen gehen das Stück in Spielreihenfolge
+    durch. Wo ein fälliger Sprung zu sehen ist, führt „weiter“ zur
+    Einstiegsstelle (ein Ring blinkt), „zurück“ geht denselben Weg rückwärts.
+    Jeder Sprung einmal; Wdh., D.S., D.C. beim ersten Erreichen, die Coda erst
+    nach einem D.S./D.C.; Reihenfolge des Anlegens egal; Wdh. auf derselben
+    Seite ist ein eigener Schritt. Bei Halb/Linie gilt ein Zeichen unter der
+    Linie erst in der Halb-Ansicht (dort wird es gelesen).
+  - Untertitel zeigt den Abschnitt („Seite 1 von 3 · nach D.S.“, schmal
+    kürzer). Marke antippen springt direkt. Geht mit Ausschnitt je Seite;
+    im Stellen-Modus keine Marken.
+  - **Daten:** am Stück `spruenge` (`{id, von {seite,x,y}, nach {seite,x,y},
+    art}`), reist in der Sicherung mit. Kein Schema-Sprung.
 - **Tags: keine Doppelten** (2026-10-13): Wunsch Marlon. Auf zwei Geräten
   getrennt angelegte Tags (z. B. beide „Diese vier anlegen“) standen nach
   „Sicherung laden“ doppelt da. Jetzt gilt: gleicher Name (Groß/klein egal,
