@@ -167,7 +167,10 @@ Lokal prüfen: `npm run build`, dann `python3 -m http.server 3470 --directory ou
 Unter **Einstellungen (Zahnrad in der Bibliothek) → Daten übertragen** — um
 den Stand auf ein anderes Gerät zu bringen oder als Schutz. Auf einem neuen,
 leeren Gerät steht „Sicherung laden“ auch direkt in der Bibliothek.
-Einstellungen (Tempo, Farbwelt …) reisen nicht mit.
+Persönliche Einstellungen reisen mit (Stimmung, Kammerton, Metronom,
+Stiftfarben, Wischrichtung; der neuere Stand gewinnt als Ganzes); Hell/Dunkel,
+Farbwelt, Tempo und Lage der Fenster bleiben je Gerät. Gleichnamige Tags
+zweier Geräte werden beim Laden ein Tag.
 
 - **Sicherung erstellen** packt eine Datei `Uebe-Sicherung JJJJ-MM-TT HH.MM.uebe`:
   alle Noten-PDFs, markierten Stellen mit Tempo-Verlauf und Anmerkungen

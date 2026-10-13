@@ -20,8 +20,12 @@ anders ist, ist ein Fehler oder gehört dort nachgetragen.
   ändern; eine neue Version nur mit Lesen der alten. Einzige Ergänzungen (weiter
   Version 1, wer sie nicht kennt, überliest sie): optionale Kopf-Felder
   `geloescht` (Grabsteine), `tags` (Tag-Definitionen, sonst im localStorage
-  `ueben:tags`) und `tonprofile` (Tonprofil-Messungen, sonst
-  `ueben:tonprofile`). Zusätzliche Felder an Noten/Stellen/Seiten (`sammlungen`,
+  `ueben:tags`; optional `auch` = weitere ids desselben Tags), `tonprofile`
+  (Tonprofil-Messungen, sonst `ueben:tonprofile`) und `einstellungen`
+  (`{stand, werte}`: persönliche Einstellungen; Liste und Regeln in
+  `src/domain/einstellungen.ts`). Neuer localStorage-Schlüssel: dort
+  entscheiden, ob er mitreist (Person/Instrument ja, Gerät nein), und über
+  `speichern()` aus `klang.ts` schreiben, sonst rückt der Stand nicht vor. Zusätzliche Felder an Noten/Stellen/Seiten (`sammlungen`,
   `tags`, `geaendert`, `entfernt`, `groesse`, `ausschnitte`) reisen ohnehin mit.
 - Fachlogik rein und getestet in `src/domain/` — neue Regeln dort zuerst als Test.
 - Die Adresse steht nur in `src/adresse.ts`.

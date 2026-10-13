@@ -66,7 +66,8 @@ Version 3, Stores `noten` (keyPath `id`), `stellen` (`notenId`-Index),
 `anmerkungen` (ein Datensatz **pro Seite**, zusammengesetzter Schlüssel
 `${notenId}:${seite}`, `notenId`-Index), `dateien` (PDF-Bytes, Schlüssel =
 Noten-id; seit A-06). Einstellungen verstreut in localStorage (`ueben:*`,
-`metro:*`, `stimm:*`, dazu `ueben:zuletzt`).
+`metro:*`, `stimm:*`, dazu `ueben:zuletzt`; Zeitstempel der mitreisenden in
+`ueben:einstellungen-geaendert`, Liste in `src/domain/einstellungen.ts`).
 
 Aufgabe: Schema für das kommende Notenmanagement entwerfen (Version 4) —
 Metadaten an Noten (F-01), Setlisten (F-02), Bookmarks (F-03), Flags (F-04)
@@ -405,7 +406,8 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
   Noten samt Stellen, Tempi, Anmerkungen und Radier-Spuren als eine
   `.uebe`-Datei erstellen (herunterladen oder teilen) und auf dem anderen
   Gerät laden — in den Einstellungen oder direkt in der leeren Bibliothek.
-  Einstellungen (Tempo, Farbwelt …) reisen nicht mit. Beim Laden gehen die
+  Tempo und Farbwelt bleiben je Gerät (seit 2026-10-13 reisen Stimmung,
+  Metronom und Stiftfarben mit). Beim Laden gehen die
   PDFs nie als Blob in die Datenbank: erst einzeln als Bytes vorläufig in
   `dateien`, dann zieht eine Transaktion sie an ihren Platz (alles oder
   nichts). Vor jeder Sicherung — und still im Hintergrund nach dem Laden der
@@ -414,6 +416,28 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
   obwohl sich das Stück öffnen ließ („Nicht lesbar, nicht in der
   Sicherung“). Ist eine PDF wirklich verloren, nennt die Meldung den Weg
   zur Rettung. Ersetzt A-01.
+- **Tags: keine Doppelten** (2026-10-13): Wunsch Marlon. Auf zwei Geräten
+  getrennt angelegte Tags (z. B. beide „Diese vier anlegen“) standen nach
+  „Sicherung laden“ doppelt da. Jetzt gilt: gleicher Name (Groß/klein egal,
+  Leerraum zusammengefasst) = derselbe Tag. Beim Laden bleibt die hiesige id,
+  Name und Farbe vom neueren Stand; die Tag-Listen der Stücke werden in
+  derselben Transaktion umgeschrieben (`geaendert` der Stücke bleibt). Jeder
+  Tag merkt sich die ids, unter denen er auf anderen Geräten läuft (`auch`),
+  damit Umbenennen und Löschen weiter ankommen. Schon vorhandene Doppelte legt
+  das nächste Laden zusammen (es bleibt die id mit den meisten Stücken), ohne
+  Sicherung per „Doppelte zusammenführen“ in Einstellungen → Tags. Anlegen
+  oder Umbenennen auf einen vorhandenen Namen zeigt „Gibt es schon“; beim
+  Markieren wird stattdessen der vorhandene Tag gewählt. Regeln in
+  `src/domain/tags.ts` (`tagsAbgleichen`, getestet). Kein Schema-Sprung.
+- **Einstellungen reisen mit der Sicherung** (2026-10-13): Wunsch Marlon.
+  Stimmung und Kammerton, Metronom (Klang, Lautstärke, Takt, Akzente,
+  Unterteilung, Trainer), Stift-, Marker- und Textfarbe, Wischrichtung und
+  Tonumfang stehen im Kopf der Sicherung (`einstellungen = { stand, werte }`).
+  Beim Laden gilt der neuere Stand als Ganzes; was der Datei fehlt, bleibt.
+  Wirkt sofort (Metronom und Stimmgerät lesen neu), Meldung „Einstellungen
+  übernommen.“ Hell/Dunkel, Farbwelt, Tempo, Lage der Fenster und Filter
+  bleiben je Gerät. Der Zeitstempel rückt nur bei echten Änderungen vor.
+  Regeln in `src/domain/einstellungen.ts` (getestet).
 - **F-06 · Halbseiten-Umblättern** (2026-10-13): von Marlon abgehakt („klappt
   gut“). Im Ansicht-Menü unter „Blättern“: **Ganz**, **Halb** (unten noch die
   aktuelle, oben schon die nächste Seite) und **Linie** (eigene Blätterlinie
@@ -523,7 +547,7 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
   - **Hinzufügen bei gewähltem Tag** genauso deutlich wie bei Sammlungen:
     Abzeichen auf „+ Noten“, im Menü hervorgehoben „Mit ● „Wichtig üben“
     markieren“ mit Schalter, Meldung danach.
-  - **Daten:** Definitionen `{id, name, farbe, geaendert}` im localStorage
+  - **Daten:** Definitionen `{id, name, farbe, geaendert, auch?}` im localStorage
     `ueben:tags` (ein Tag gibt es auch, solange kein Stück ihn trägt), an den
     Stücken nur die ids (`tags`). In der Sicherung als optionales Kopf-Feld
     `tags`; beim Laden je Tag der neuere Stand, gelöschte Tags reisen als
