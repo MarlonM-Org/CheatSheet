@@ -151,12 +151,7 @@ alle auf einmal löschen. Bewusst leichtgewichtiger als Bookmarks.
 Zwei Punkte im Stück verknüpfen (Wiederholung/Coda): Antippen springt zur
 Zielseite, ein kurzes Blinksignal zeigt die Einstiegsstelle.
 
-### F-06 · Halbseiten-Umblättern
-
-Untere Hälfte der aktuellen + obere Hälfte der nächsten Seite gleichzeitig —
-nahtlose Übergänge. Der Betrachter kennt schon Ganz-/Halb-/Linien-Ansichten
-(`ansichten` in `src/domain/notenpult.ts`), das ist die Weiterführung.
-Bluetooth-Pedale funktionieren bereits und bleiben erhalten.
+*(F-06 Halbseiten-Umblättern am 2026-10-13 abgehakt, siehe unten.)*
 
 ### F-07 · Kamera-Scan
 
@@ -419,6 +414,11 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
   obwohl sich das Stück öffnen ließ („Nicht lesbar, nicht in der
   Sicherung“). Ist eine PDF wirklich verloren, nennt die Meldung den Weg
   zur Rettung. Ersetzt A-01.
+- **F-06 · Halbseiten-Umblättern** (2026-10-13): von Marlon abgehakt („klappt
+  gut“). Im Ansicht-Menü unter „Blättern“: **Ganz**, **Halb** (unten noch die
+  aktuelle, oben schon die nächste Seite) und **Linie** (eigene Blätterlinie
+  je Seite); Regeln in `ansichten` (`src/domain/notenpult.ts`). Pedale,
+  Scroll-Ring und Mausrad blättern durch dieselben Ansichten.
 - **B-09 · Leisten liegen über den Noten** (2026-10-13): Wunsch Marlon: Die
   Noten nutzen immer den ganzen Bildschirm (nur Notch und Home-Leiste
   bleiben frei); obere Leiste (Titel, Stellen, Ansicht, Stift) und untere
