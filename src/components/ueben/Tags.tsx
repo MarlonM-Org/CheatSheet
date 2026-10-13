@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  doppelteNamen, FARB_NAMEN, mitTag, ohneTag, TAG_FARBEN, tagMitNamen, tagName, tagsVon, VORSCHLAEGE, type Tag, type TagFarbe,
+  doppelteNamen, FARB_NAMEN, mitTag, ohneTag, TAG_FARBEN, tagMitNamen, tagName, tagSchluessel, tagsVon, VORSCHLAEGE, type Tag, type TagFarbe,
 } from '@/domain/tags';
 import { doppelteZusammenfuehren, tagAendern, tagAnlegen, tagLoeschen, type LokaleNoten } from './lokal';
 import { speicherFehler } from './speicherfehler';
@@ -56,7 +56,9 @@ function TagFormular({ start, knopf, fertig, abbrechen, vorhanden, waehlen }: {
   const [text, setText] = useState(start?.name ?? '');
   const [farbe, setFarbe] = useState<TagFarbe>(start?.farbe ?? 'rot');
   const name = tagName(text);
-  const da = name ? tagMitNamen(vorhanden, name, start?.id) : undefined;
+  // Den eigenen Namen behalten geht immer — auch solange es noch Doppelte gibt (dann nur umfärben).
+  const eigener = !!start && !!name && tagSchluessel(name) === tagSchluessel(start.name);
+  const da = name && !eigener ? tagMitNamen(vorhanden, name, start?.id) : undefined;
   function absenden() {
     if (!name) return;
     if (da) { if (waehlen) { waehlen(da); setText(''); } return; }
@@ -110,7 +112,7 @@ export function TagVerwaltung({ tags, geaendert }: { tags: Tag[]; geaendert: () 
               {bearbeiten === t.id ? (
                 <div className="p-3 space-y-2">
                   <TagFormular start={t} knopf="Speichern" vorhanden={tags} abbrechen={() => setBearbeiten(null)}
-                    fertig={(name, farbe) => { tagAendern(t.id, { name, farbe }); setBearbeiten(null); geaendert(); }} />
+                    fertig={(name, farbe) => { if (!tagAendern(t.id, { name, farbe })) return; setBearbeiten(null); geaendert(); }} />
                   <button type="button" className="text-knopf bib-loeschen" onClick={() => {
                     if (!confirm(`Tag „${t.name}“ löschen? Die Stücke bleiben, nur die Markierung verschwindet.`)) return;
                     tagLoeschen(t.id).then(() => { setBearbeiten(null); geaendert(); }, speicherFehler);

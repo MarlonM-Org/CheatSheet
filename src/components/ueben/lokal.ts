@@ -13,7 +13,7 @@ import {
 import { nurLesbare } from '@/domain/lesbar';
 import { sicherungLesen, sicherungPacken, SicherungsFehler, type SicherungsInhalt } from '@/domain/sicherung';
 import { dateiQuelle, dateiVerloren, ohneDatei, verbindungVerloren } from '@/domain/speicher';
-import { tagMitNamen, tagsAbgleichen, tagsLesen, tagsUmschreiben, tagsVon, type Tag, type TagFarbe } from '@/domain/tags';
+import { tagMitNamen, tagsAbgleichen, tagSchluessel, tagsLesen, tagsUmschreiben, tagsVon, type Tag, type TagFarbe } from '@/domain/tags';
 import { profileLesen, profileVereinigen, type Tonprofil } from '@/domain/tonprofil';
 
 // Ablage nur auf diesem Gerät (IndexedDB): Noten-PDFs, markierte Stellen,
@@ -395,7 +395,9 @@ export function tagAnlegen(name: string, farbe: TagFarbe): Tag {
 // Umbenennen auf einen Namen, den ein anderer Tag trägt: nichts ändern (false).
 export function tagAendern(id: string, felder: { name?: string; farbe?: TagFarbe }): boolean {
   const tags = tagsLaden();
-  if (felder.name !== undefined && tagMitNamen(tags, felder.name, id)) return false;
+  const bisher = tags.find((t) => t.id === id);
+  const umbenannt = felder.name !== undefined && (!bisher || tagSchluessel(felder.name) !== tagSchluessel(bisher.name));
+  if (umbenannt && tagMitNamen(tags, felder.name!, id)) return false;
   tagsSpeichern(tags.map((t) => (t.id === id ? { ...t, ...felder, geaendert: Date.now() } : t)));
   return true;
 }
