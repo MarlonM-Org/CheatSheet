@@ -532,6 +532,9 @@ details[open] > summary::before { transform: rotate(90deg); }
   background: var(--schleier); backdrop-filter: blur(16px);
   border: 1px solid var(--linie);
   box-shadow: 0 8px 20px rgb(0 0 0 / 14%), 0 20px 50px rgb(0 0 0 / 16%);
+  /* Viele Sprünge: das Menü rollt und endet über der unteren Leiste. */
+  max-height: calc(100dvh - var(--leiste-hoehe) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 5.5rem);
+  overflow-y: auto; overscroll-behavior: contain;
 }
 .nav-blase-titel {
   font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
@@ -979,12 +982,19 @@ ol.stichpunkte { list-style: decimal; }
 /* Sprung setzen: geführte Zeile unten */
 .b-sprung { flex-direction: column; align-items: stretch; gap: 0.35rem; }
 .b-sprung-zeile { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
-.b-sprung-hinweis { flex: 1; min-width: 0; font-size: 0.85rem; color: var(--gedaempft); }
+/* Höchstens zwei Zeilen, niedriger als „Abbrechen“: die Zeile wächst nicht. */
+.b-sprung-hinweis {
+  flex: 1; min-width: 0; font-size: 0.85rem; line-height: 1.25; color: var(--gedaempft);
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+}
+/* Zweite Zeile (‹ Seite › oder Arten): in jedem Schritt gleich hoch. */
+.b-sprung-zwei { height: 2.875rem; flex: none; }
 .b-sprung-hinweis strong { color: var(--tinte); }
 .b-sprung-blaettern { justify-content: center; }
 .b-sprung-seite { min-width: 9rem; text-align: center; font-size: 0.85rem; font-weight: 650; }
 .b-sprung-arten { flex: 1; flex-wrap: nowrap; }
-.b-sprung-arten button { flex: 1; min-height: 2.75rem; }
+/* Vier gleich breite Chips, auch auf schmalen Geräten (320 px) ganz zu sehen. */
+.b-sprung-arten button { flex: 1 1 0; min-width: 0; min-height: 2.75rem; padding: 0 0.25rem; }
 /* Liste der Sprünge im Ansicht-Menü */
 .nav-spruenge { display: grid; border-top: 1px solid var(--linie); }
 .nav-spruenge li {
@@ -992,5 +1002,3 @@ ol.stichpunkte { list-style: decimal; }
   min-height: 44px; font-size: 0.85rem; font-weight: 600; border-bottom: 1px solid var(--linie);
 }
 .nav-loeschen { min-height: 44px; padding: 0 2px 0 8px; font-size: 0.8rem; font-weight: 650; color: var(--warnung); }
-/* Viele Sprünge: das Menü rollt, statt aus dem Bildschirm zu laufen. */
-.nav-blase { max-height: calc(100dvh - 7rem - env(safe-area-inset-top, 0px)); overflow-y: auto; overscroll-behavior: contain; }

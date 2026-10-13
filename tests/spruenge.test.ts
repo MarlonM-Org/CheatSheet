@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { ansichten, type Ansicht } from '@/domain/notenpult';
 import {
-  ansichtFinden, artVorschlag, einpassen, KUERZEL, punktSichtbar, seiteAn, setzenTippen, sichtbareMarken, spruengeLesen,
-  sprungHinzufuegen, sprungLoeschen, sprungText, SPRUNG_ARTEN, zielAnsicht, type Sprung,
+  ansichtFinden, artVorschlag, artWaehlen, einpassen, KUERZEL, punktSichtbar, seiteAn, setzenTippen, sichtbareMarken, spruengeLesen,
+  spruengeSchreiben, sprungHinzufuegen, sprungLoeschen, sprungText, SPRUNG_ARTEN, zielAnsicht, type Setzen, type Sprung,
 } from '@/domain/spruenge';
 
 const p = (seite: number, x: number, y: number) => ({ seite, x, y });
@@ -140,12 +140,64 @@ describe('Sprung setzen: Schritt für Schritt', () => {
     expect(z1).toEqual({ schritt: 'nach', von: p(3, 0.5, 0.4) });
     const z2 = setzenTippen(z1, p(1, 0.1, 0.3));
     expect(z2).toEqual({ schritt: 'art', von: p(3, 0.5, 0.4), nach: p(1, 0.1, 0.3), art: 'wdh' });
-    const z3 = setzenTippen({ ...z2, art: 'ds' } as typeof z2, p(1, 0.2, 0.35));
-    expect(z3).toEqual({ schritt: 'art', von: p(3, 0.5, 0.4), nach: p(1, 0.2, 0.35), art: 'ds' });
+    const z3 = setzenTippen(artWaehlen(z2, 'ds'), p(1, 0.2, 0.35));
+    expect(z3).toEqual({ schritt: 'art', von: p(3, 0.5, 0.4), nach: p(1, 0.2, 0.35), art: 'ds', gewaehlt: true });
+  });
+  it('Ziel versetzt: der Vorschlag folgt, bis die Art von Hand gewählt ist', () => {
+    const z2 = setzenTippen({ schritt: 'nach', von: p(2, 0.5, 0.4) }, p(2, 0.5, 0.8));
+    expect(z2).toMatchObject({ art: 'coda' });
+    // nach oben versetzt: jetzt eine Wiederholung
+    const z3 = setzenTippen(z2, p(2, 0.5, 0.1));
+    expect(z3).toMatchObject({ nach: p(2, 0.5, 0.1), art: 'wdh' });
+    // auf eine spätere Seite: wieder Coda
+    expect(setzenTippen(z3, p(3, 0.5, 0.1))).toMatchObject({ art: 'coda' });
+    // von Hand gewählt: bleibt beim Versetzen
+    const hand = artWaehlen(z3, 'dc');
+    expect(setzenTippen(hand, p(3, 0.5, 0.1))).toMatchObject({ nach: p(3, 0.5, 0.1), art: 'dc' });
+  });
+  it('Art wählen nur im letzten Schritt', () => {
+    const z: Setzen = { schritt: 'nach', von: p(1, 0.5, 0.5) };
+    expect(artWaehlen(z, 'ds')).toBe(z);
+    expect(artWaehlen({ schritt: 'von' }, 'ds')).toEqual({ schritt: 'von' });
   });
   it('Tippen neben die Seite zählt nicht', () => {
     const z = { schritt: 'von' } as const;
     expect(setzenTippen(z, p(1, -0.01, 0.5))).toBe(z);
     expect(setzenTippen(z, p(1, 0.5, 1.02))).toBe(z);
+  });
+});
+
+describe('Sprünge einer neueren Version (unbekannte Art)', () => {
+  const eigen = sprung('a', p(3, 0.5, 0.4), p(1, 0.1, 0.3));
+  const fremd = { id: 'f', von: { seite: 2, x: 0.5, y: 0.5 }, nach: { seite: 1, x: 0.5, y: 0.5 }, art: 'fine', farbe: 'rot' };
+  it('werden nicht gezeigt, beim Schreiben aber unverändert mitgeführt', () => {
+    const roh = [eigen, fremd];
+    expect(spruengeLesen(roh)).toEqual([eigen]);
+    const b = sprung('b', p(1, 0.5, 0.5), p(2, 0.5, 0.5), 'coda');
+    expect(spruengeSchreiben([eigen, b], roh)).toEqual([eigen, b, fremd]);
+    // eigenen gelöscht: der fremde bleibt
+    expect(spruengeSchreiben([], roh)).toEqual([fremd]);
+  });
+  it('Kaputtes fällt beim Schreiben weg, auch mit fremder Art', () => {
+    const roh = [
+      eigen, 'x', null,
+      { ...fremd, id: '' },
+      { ...fremd, id: 'g', art: 7 },
+      { ...fremd, id: 'h', art: '' },
+      { ...fremd, id: 'i', von: { seite: 0, x: 0.5, y: 0.5 } },
+      { ...fremd, id: 'j', nach: null },
+      { ...eigen, id: 'k', art: 'ds', von: { seite: 'x' } },
+    ];
+    expect(spruengeSchreiben([eigen], roh)).toEqual([eigen]);
+  });
+  it('je id nur einmal: eigene gehen vor', () => {
+    const roh = [{ ...fremd, id: 'a' }, eigen, fremd, { ...fremd, art: 'segno' }];
+    expect(spruengeSchreiben([eigen], roh)).toEqual([eigen, fremd]);
+    // auch wenn der eigene inzwischen gelöscht ist
+    expect(spruengeSchreiben([], roh)).toEqual([fremd]);
+  });
+  it('ohne Feld oder kaputt: nur die eigenen', () => {
+    expect(spruengeSchreiben([eigen], undefined)).toEqual([eigen]);
+    expect(spruengeSchreiben([eigen], 'kaputt')).toEqual([eigen]);
   });
 });

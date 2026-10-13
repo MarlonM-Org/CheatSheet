@@ -6,8 +6,8 @@ import { ausschnitteLesen, ausschnittFuer, ausschnittSetzen, darstellung, fuerAl
 import { RAD_ANFANG, radGeste, radWeg, tastenAktion, WISCH_UMKEHREN, zeigerGeste, type Blaetter } from '@/domain/geste';
 import { ansichten, ansichtVonSeite, hauptseite, radierZug, type Anmerkung, type Ansicht, type Blaettermodus } from '@/domain/notenpult';
 import {
-  ansichtFinden, einpassen, KUERZEL, punktSichtbar, seiteAn, setzenTippen, sichtbareMarken, spruengeLesen, sprungHinzufuegen,
-  sprungLoeschen, sprungText, SPRUNG_ARTEN, zielAnsicht, type Punkt, type Setzen, type Sprung,
+  ansichtFinden, artWaehlen, einpassen, KUERZEL, punktSichtbar, seiteAn, setzenTippen, sichtbareMarken, spruengeLesen,
+  spruengeSchreiben, sprungHinzufuegen, sprungLoeschen, sprungText, SPRUNG_ARTEN, zielAnsicht, type Punkt, type Setzen, type Sprung,
 } from '@/domain/spruenge';
 import { tempoStand, zielAusText, zielStand } from '@/domain/stellen';
 import { einstellungPruefen, TEXT_GROESSE, type StiftEinstellung, type ZeichenWerkzeug } from '@/domain/stift';
@@ -153,7 +153,8 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   const [spruenge, setSpruenge] = useState(() => spruengeLesen(noten.spruenge));
   const spruengeSpeichern = (neu: Sprung[]) => {
     setSpruenge(neu);
-    notenAendern(noten.id, { spruenge: neu }).catch(speicherFehler);
+    // Einträge einer neueren Version (unbekannte Art) reisen unverändert mit.
+    notenAendern(noten.id, { spruenge: spruengeSchreiben(neu, noten.spruenge) }).catch(speicherFehler);
   };
   // Sprung setzen: geführt in drei Schritten (Zeile unten).
   const [setzen, setSetzen] = useState<Setzen | null>(null);
@@ -350,6 +351,28 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   // marke: der Zug begann auf der Marke dieses Sprungs (Tippen springt, Wischen blättert).
   const zug = useRef<{ art: 'zeichnen' | 'tippen'; punkte: number[]; x: number; y: number; t: number; id: number; marke?: string | null } | null>(null);
   const [rechteckEntwurf, setRechteckEntwurf] = useState<Rechteck | null>(null);
+  // Nach einem Tipp, den die Fläche selbst ausführt (Sprung, Punkt setzen,
+  // Blättern, Leisten), schickt der Browser noch mousedown und click an die
+  // Stelle unter dem Finger. Dort liegt jetzt womöglich „↩ zurück“ oder ein
+  // Knopf der Setzen-Zeile: diesen Nachzügler schlucken. Der nächste Druck
+  // (pointerdown) gehört zu einem neuen Zug und hebt das auf.
+  const nachzueglerBis = useRef(0);
+  useEffect(() => {
+    const druck = () => { nachzueglerBis.current = 0; };
+    const maus = (e: MouseEvent) => {
+      if (e.detail === 0 || performance.now() > nachzueglerBis.current) return; // Tastatur nie
+      e.preventDefault(); // kein Fokus auf dem Knopf darunter
+      if (e.type === 'click') { e.stopPropagation(); nachzueglerBis.current = 0; }
+    };
+    document.addEventListener('pointerdown', druck, true);
+    document.addEventListener('mousedown', maus, true);
+    document.addEventListener('click', maus, true);
+    return () => {
+      document.removeEventListener('pointerdown', druck, true);
+      document.removeEventListener('mousedown', maus, true);
+      document.removeEventListener('click', maus, true);
+    };
+  }, []);
   const neueStelleMerken = useRef<{ seite: number; x: number; y: number } | null>(null);
   // Nach dem Neuladen die gerade angelegte Stelle wählen (Liste ist nach Seite sortiert).
   useEffect(() => {
@@ -468,6 +491,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       const g = zeigerGeste(e.clientX - z.x, e.clientY - z.y, e.timeStamp - z.t, umkehren());
       if (g.art === 'wisch') { blaetternNach(g.aktion); return; }
       if (g.art !== 'tippen') return;
+      nachzueglerBis.current = performance.now() + 1000;
       // Sprung setzen: Tippen setzt den Punkt, auch am Rand (blättern per Wischen, Tasten, ‹ ›).
       if (setzen) {
         if (!imRahmen(z.x, z.y)) return;
@@ -854,24 +878,25 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
         <div className="b-unten b-sprung" role="group" aria-label="Sprung setzen">
           <div className="b-sprung-zeile">
             <p className="b-sprung-hinweis">
-              {setzen.schritt === 'von' ? <><strong>Sprung setzen:</strong> Tippe auf das Sprungzeichen</>
+              {setzen.schritt === 'von' ? 'Tippe auf das Sprungzeichen'
                 : setzen.schritt === 'nach' ? 'Zum Ziel blättern und antippen'
                 : <><strong className="tabular-nums">S. {setzen.von.seite} → S. {setzen.nach.seite}</strong> · Art wählen</>}
             </p>
             <button type="button" className="knopf knopf-leise knopf-klein" onClick={setzenEnde}>Abbrechen</button>
           </div>
-          {setzen.schritt === 'nach' && (
-            <div className="b-sprung-zeile b-sprung-blaettern">
+          {/* Zweite Zeile in jedem Schritt gleich hoch: das Blatt bleibt stehen,
+              nichts rutscht unter den Finger. */}
+          {setzen.schritt !== 'art' ? (
+            <div className="b-sprung-zeile b-sprung-zwei b-sprung-blaettern">
               <button type="button" className="b-knopf gross" onClick={zurueck} disabled={index === 0} aria-label="Seite zurück">‹</button>
               <span className="b-sprung-seite tabular-nums">{anzeige}</span>
               <button type="button" className="b-knopf gross" onClick={weiter} disabled={index >= liste.length - 1} aria-label="Seite weiter">›</button>
             </div>
-          )}
-          {setzen.schritt === 'art' && (
-            <div className="b-sprung-zeile">
+          ) : (
+            <div className="b-sprung-zeile b-sprung-zwei">
               <div className="b-segment b-sprung-arten" role="group" aria-label="Art des Sprungs">
                 {SPRUNG_ARTEN.map((a) => (
-                  <button key={a} type="button" aria-pressed={setzen.art === a} onClick={() => setSetzen({ ...setzen, art: a })}>{KUERZEL[a]}</button>
+                  <button key={a} type="button" aria-pressed={setzen.art === a} onClick={() => setSetzen(artWaehlen(setzen, a))}>{KUERZEL[a]}</button>
                 ))}
               </div>
               <button type="button" className="knopf knopf-klein" onClick={sprungSpeichern}>Speichern</button>

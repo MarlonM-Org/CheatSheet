@@ -46,6 +46,32 @@ export function spruengeLesen(roh: unknown): Sprung[] {
   return aus.sort(vorher);
 }
 
+// Sprünge einer neueren Version (Art hier unbekannt, sonst stimmig) zeigt
+// diese Version nicht. Beim Schreiben reisen sie unverändert mit — sonst
+// gingen sie beim nächsten Setzen oder Löschen auf diesem Gerät verloren.
+function fremde(roh: unknown, belegt: Set<string>): Sprung[] {
+  if (!Array.isArray(roh)) return [];
+  const ids = new Set(belegt);
+  const aus: Sprung[] = [];
+  for (const r of roh) {
+    if (!r || typeof r !== 'object') continue;
+    const { id, von, nach, art } = r as Record<string, unknown>;
+    if (typeof id !== 'string' || !id || ids.has(id)) continue;
+    if (typeof art !== 'string' || !art || SPRUNG_ARTEN.includes(art as SprungArt)) continue;
+    if (!punktLesen(von) || !punktLesen(nach)) continue;
+    ids.add(id);
+    aus.push(r as Sprung); // Art nur nominell: der Eintrag bleibt, wie er war.
+  }
+  return aus;
+}
+
+// Was am Stück gespeichert wird: die eigene Liste, dazu die fremden Einträge
+// aus dem Datensatz (roh). Je id einer; eigene gehen vor.
+export function spruengeSchreiben(neu: Sprung[], roh: unknown): Sprung[] {
+  const belegt = new Set([...neu, ...spruengeLesen(roh)].map((s) => s.id));
+  return [...neu, ...fremde(roh, belegt)];
+}
+
 export function sprungHinzufuegen(liste: Sprung[], s: Omit<Sprung, 'id'>, id: string): Sprung[] {
   const neu: Sprung = { id, art: s.art, von: { seite: s.von.seite, x: z(s.von.x), y: z(s.von.y) }, nach: { seite: s.nach.seite, x: z(s.nach.x), y: z(s.nach.y) } };
   return [...liste, neu].sort(vorher);
@@ -98,10 +124,11 @@ export function einpassen(p: { x: number; y: number }, r: Rechteck): { x: number
 
 // ── Sprung setzen: erst das Sprungzeichen, dann (nach Blättern) das Ziel,
 // dann die Art. Erneutes Tippen im letzten Schritt versetzt das Ziel.
+// gewaehlt: die Art ist von Hand gewählt (sonst folgt sie dem Vorschlag).
 export type Setzen =
   | { schritt: 'von' }
   | { schritt: 'nach'; von: Punkt }
-  | { schritt: 'art'; von: Punkt; nach: Punkt; art: SprungArt };
+  | { schritt: 'art'; von: Punkt; nach: Punkt; art: SprungArt; gewaehlt?: boolean };
 
 const aufSeite = (p: Punkt) => p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1;
 
@@ -109,5 +136,10 @@ export function setzenTippen(zustand: Setzen, p: Punkt): Setzen {
   if (!aufSeite(p)) return zustand;
   if (zustand.schritt === 'von') return { schritt: 'nach', von: p };
   if (zustand.schritt === 'nach') return { schritt: 'art', von: zustand.von, nach: p, art: artVorschlag(zustand.von, p) };
-  return { ...zustand, nach: p };
+  // Ziel versetzt: der Vorschlag zieht mit, solange nichts gewählt ist.
+  return { ...zustand, nach: p, art: zustand.gewaehlt ? zustand.art : artVorschlag(zustand.von, p) };
+}
+
+export function artWaehlen(zustand: Setzen, art: SprungArt): Setzen {
+  return zustand.schritt === 'art' ? { ...zustand, art, gewaehlt: true } : zustand;
 }
