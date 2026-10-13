@@ -720,13 +720,22 @@ export async function sicherungSchreiben(e: Einspielung): Promise<{
     einspielen('lesezeichen', e.zusatz.lesezeichen, eintragZusammenfuehren);
     einspielen('merker', e.zusatz.merker, eintragZusammenfuehren);
     einspielen('setlisten', e.zusatz.setlisten, eintragZusammenfuehren);
-    // Auf dem anderen Gerät gelöscht (und hier seitdem unverändert) — nach
-    // dem Einspielen, damit Setlisten die Einträge auch aus geladenen verlieren.
-    for (const id of e.loeschen.stellen) t.objectStore('stellen').delete(id);
-    for (const id of e.loeschen.lesezeichen ?? []) t.objectStore('lesezeichen').delete(id);
-    for (const id of e.loeschen.merker ?? []) t.objectStore('merker').delete(id);
-    for (const id of e.loeschen.setlisten ?? []) t.objectStore('setlisten').delete(id);
-    if (e.loeschen.noten.length) entfernen(t, e.loeschen.noten, abbrechen, (f) => { folgen = f; });
+    // Auf dem anderen Gerät gelöscht (und hier seitdem unverändert) — erst
+    // nach dem Einspielen. Die Datensätze schreibt jeweils der Erfolg ihres
+    // Lesens; diese Anfrage steht hinter allen Lesezugriffen oben, ihr Erfolg
+    // kommt also erst, wenn alles Geschriebene schon eingereiht ist. So sieht
+    // das Löschen die geladenen Setlisten (und nicht den alten Stand, der sie
+    // sonst überschreiben würde) und nimmt ihnen die Einträge.
+    const eingespielt = t.objectStore('setlisten').count();
+    eingespielt.onsuccess = () => {
+      try {
+        for (const id of e.loeschen.stellen) t.objectStore('stellen').delete(id);
+        for (const id of e.loeschen.lesezeichen ?? []) t.objectStore('lesezeichen').delete(id);
+        for (const id of e.loeschen.merker ?? []) t.objectStore('merker').delete(id);
+        for (const id of e.loeschen.setlisten ?? []) t.objectStore('setlisten').delete(id);
+        if (e.loeschen.noten.length) entfernen(t, e.loeschen.noten, abbrechen, (f) => { folgen = f; });
+      } catch (x) { abbrechen(x); }
+    };
   });
   // Die Löschungen der Sicherung gelten jetzt auch hier — und reisen weiter.
   grabsteineSetzen([...grabsteineHier(), ...e.grabsteine]);

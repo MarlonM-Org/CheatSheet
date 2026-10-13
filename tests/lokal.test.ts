@@ -543,6 +543,28 @@ describe('Zwischen zwei Geräten: neuerer Stand, Grabsteine, Tags, Tonprofile', 
     expect((await g.lokal.setlisteHolen(sl))?.eintraege.map((x) => x.id)).toEqual(['1']);
   });
 
+  it('löscht die Sicherung ein Stück, bekommt eine dort neuere Setliste trotzdem deren Stand', async () => {
+    const pomp = await anlegen('Pomp');
+    const band = await anlegen('Sammelband');
+    const sl = await g.lokal.setlisteAnlegen('Konzert');
+    await g.lokal.setlisteAendern(sl, { eintraege: [{ id: '1', art: 'stueck', stueckId: pomp }, { id: '2', art: 'stueck', stueckId: band }] });
+    const erste = (await g.lokal.sicherungErstellen()).datei;
+    // A löscht den Sammelband und hängt danach eine Zugabe an die Setliste.
+    await new Promise((ok) => setTimeout(ok, 5));
+    await g.lokal.stueckeLoeschen([band]);
+    await new Promise((ok) => setTimeout(ok, 5));
+    const aufA = await g.lokal.setlisteHolen(sl);
+    await g.lokal.setlisteAendern(sl, { eintraege: [...aufA!.eintraege, { id: '3', art: 'platzhalter', titel: 'Zugabe' }] });
+    const zweite = (await g.lokal.sicherungErstellen()).datei;
+
+    g = await neuesGeraet(); // B hat noch den alten Stand samt Sammelband
+    await g.lokal.sicherungSchreiben(await g.lokal.sicherungPruefen(erste));
+    const e = await g.lokal.sicherungPruefen(zweite);
+    expect(e.loeschen.noten).toEqual([band]);
+    await g.lokal.sicherungSchreiben(e);
+    expect((await g.lokal.setlisteHolen(sl))?.eintraege.map((x) => x.id)).toEqual(['1', '3']);
+  });
+
   it('der neuere Stand gewinnt: eine ältere Sicherung überschreibt nichts Neueres', async () => {
     const id = await anlegen('Alt');
     const alt = (await g.lokal.sicherungErstellen()).datei;
