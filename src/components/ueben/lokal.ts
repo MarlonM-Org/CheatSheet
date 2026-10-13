@@ -2,6 +2,7 @@
 
 import type { Ausschnitte } from '@/domain/ausschnitt';
 import type { Anmerkung, Blaettermodus } from '@/domain/notenpult';
+import type { Sprung } from '@/domain/spruenge';
 import {
   dateiStand, einspielenPlanen, grabsteineLesen, grabsteineVereinigen, notenZusammenfuehren, seiteZusammenfuehren, stand,
   stelleZusammenfuehren, type Einspielplan, type Grabstein, type Staende, type Vorhanden,
@@ -39,6 +40,8 @@ export interface LokaleNoten {
   blaettern?: { modus: Blaettermodus; linien: Record<number, number> };
   // Angezeigter Bereich je Seite (Anteile der Seite); ohne Eintrag die ganze Seite.
   ausschnitte?: Ausschnitte;
+  // Sprünge (F-05): Wiederholung, D.S., D.C., Coda — vom Sprungzeichen zur Einstiegsstelle.
+  spruenge?: Sprung[];
   // Sammlungen (F-13): Namen, ein Stück kann in mehreren sein.
   sammlungen?: string[];
   // Tags (F-14): ids der Tag-Definitionen (tagsLaden).

@@ -5,6 +5,13 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { ausschnitteLesen, ausschnittFuer, ausschnittSetzen, darstellung, fuerAlleSeiten, VOLL } from '@/domain/ausschnitt';
 import { RAD_ANFANG, radGeste, radWeg, tastenAktion, WISCH_UMKEHREN, zeigerGeste, type Blaetter } from '@/domain/geste';
 import { ansichten, ansichtVonSeite, hauptseite, radierZug, type Anmerkung, type Ansicht, type Blaettermodus } from '@/domain/notenpult';
+import {
+  ankunftSchritt, nachSprung, spielfolge, standUebertragen, standZu, weiterGehen, zurueckGehen, type Stand,
+} from '@/domain/spielfolge';
+import {
+  artWaehlen, einpassen, KUERZEL, punktSichtbar, seiteAn, setzenTippen, sichtbareMarken, spruengeLesen,
+  spruengeSchreiben, sprungHinzufuegen, sprungLoeschen, sprungText, SPRUNG_ARTEN, zielAnsicht, type Punkt, type Setzen, type Sprung,
+} from '@/domain/spruenge';
 import { tempoStand, zielAusText, zielStand } from '@/domain/stellen';
 import { einstellungPruefen, TEXT_GROESSE, type StiftEinstellung, type ZeichenWerkzeug } from '@/domain/stift';
 import { mitRand, rechteckAus, type Rechteck } from '@/domain/ueben';
@@ -51,15 +58,40 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   const seiten = pdf.numPages;
   const { bpm, setBpm } = useMetronom();
 
-  // ── Blättern ──
+  // ── Blättern ── Die Position ist ein Schritt der Spielfolge: Weiterblättern
+  // (Pedal, Ring, Tasten, Rand-Tippen) folgt den Sprüngen, zurück denselben Weg.
   const [blaettern, setBlaettern] = useState(noten.blaettern ?? { modus: 'ganz' as Blaettermodus, linien: {} as Record<number, number> });
   const liste = useMemo(() => ansichten(seiten, blaettern.modus, blaettern.linien), [seiten, blaettern]);
-  const [index, setIndex] = useState(0);
-  const ansicht: Ansicht = liste[Math.min(index, liste.length - 1)];
+  // Sprünge (F-05): Marke am Sprungzeichen, Weiterblättern und Antippen führen zur Einstiegsstelle.
+  const [spruenge, setSpruenge] = useState(() => spruengeLesen(noten.spruenge));
+  const folge = useMemo(() => spielfolge(liste, spruenge), [liste, spruenge]);
+  // Sprung setzen: geführt in drei Schritten (Zeile unten). Dabei blättert man
+  // durch die Ansichten selbst (frei: zeige wandert), nicht durch die Spielfolge.
+  const [setzen, setSetzen] = useState<Setzen | null>(null);
+  const setzenAktiv = setzen !== null;
+  // zeige: eine Ansicht außer der Reihe (siehe Stand in spielfolge.ts).
+  const [pos, setPos] = useState(() => ({ schritt: 0, zeige: null as number | null, frei: false, liste, folge }));
+  // Zustand im Rendern nachziehen (React-Muster): Sprünge oder Blättern
+  // geändert, Setzen vorbei → dieselbe Ansicht im selben Durchgang; hat er
+  // sie nicht, bleibt sie außer der Reihe zu sehen.
+  const folgeNeu = pos.folge !== folge, setzenVorbei = pos.frei && !setzen;
+  const nachgezogen: Stand = folgeNeu || setzenVorbei ? standUebertragen(pos.liste, pos.folge, pos, liste, folge) : pos;
+  const frei = pos.frei && !setzenVorbei;
+  if (folgeNeu || setzenVorbei) setPos({ schritt: nachgezogen.schritt, zeige: nachgezogen.zeige, frei, liste, folge });
+  const schritt = Math.max(0, Math.min(nachgezogen.schritt, folge.length - 1));
+  const zeige = nachgezogen.zeige === null ? null : Math.min(nachgezogen.zeige, liste.length - 1);
+  const ansichtNr = zeige ?? folge[schritt]?.ansicht ?? 0;
+  const ansicht: Ansicht = liste[ansichtNr];
+  const zuStand = (st: Stand) => setPos({ schritt: st.schritt, zeige: st.zeige, frei: false, liste, folge });
+  // Ganze Seite zeigen (zum Anmerken): im selben Durchgang, sonst außer der Reihe.
+  const ganzeSeite = () => zuStand(standUebertragen(liste, folge, { schritt, zeige }, liste, folge, ansichtVonSeite(liste, hauptseite(ansicht))));
   const blaetternSpeichern = (b: typeof blaettern) => {
-    const seite = hauptseite(ansicht);
+    // Auf die ganze Seite, die gerade gilt — im selben Durchgang; hat er sie
+    // nicht, bleibt sie außer der Reihe zu sehen (z. B. zum Linie-Ziehen).
+    const l = ansichten(seiten, b.modus, b.linien), f = spielfolge(l, spruenge);
+    const st = standUebertragen(liste, folge, { schritt, zeige }, l, f, ansichtVonSeite(l, hauptseite(ansicht)));
+    setPos({ schritt: st.schritt, zeige: st.zeige, frei, liste: l, folge: f });
     setBlaettern(b);
-    setIndex(ansichtVonSeite(ansichten(seiten, b.modus, b.linien), seite));
     notenAendern(noten.id, { blaettern: b }).catch(speicherFehler);
   };
 
@@ -70,7 +102,8 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   const stelle = mix ? stellen.find((s) => s.id === mix.stelle)
     : modus === 'stellen' ? stellen[Math.min(stelleNr, stellen.length - 1)] : undefined;
   const zumLesen = () => {
-    if (stelle) setIndex(ansichtVonSeite(liste, stelle.seite));
+    // Die Seite der Stelle: der nächstliegende Schritt mit ihr.
+    if (stelle) zuStand(standZu(folge, ansichtVonSeite(liste, stelle.seite), schritt));
     setModus('lesen');
   };
 
@@ -148,6 +181,50 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     return darstellung({ b: platz.b - rand, h: platz.h - rand }, format, ausschnitt);
   }, [platz, format, ausschnitt, bearbeitenSeite]);
   const rahmen = darst?.rahmen ?? null;
+
+  // ── Sprünge ── Gespeichert am Stück; die Spielfolge rechnet sich neu.
+  const spruengeSpeichern = (neu: Sprung[]) => {
+    setSpruenge(neu);
+    // Einträge einer neueren Version (unbekannte Art) reisen unverändert mit.
+    notenAendern(noten.id, { spruenge: spruengeSchreiben(neu, noten.spruenge) }).catch(speicherFehler);
+  };
+  // Ring an der Einstiegsstelle nach einem Sprung (am Sprungzeichen, wenn es zurückgeht).
+  const [blink, setBlink] = useState<(Punkt & { n: number }) | null>(null);
+  // n zählt hoch: ein neuer Ring beginnt sein Blinken von vorn.
+  const blinken = useCallback((p: Punkt) => setBlink((b) => ({ ...p, n: (b?.n ?? 0) + 1 })), []);
+  useEffect(() => {
+    if (!blink) return;
+    const t = window.setTimeout(() => setBlink(null), 1600);
+    return () => window.clearTimeout(t);
+  }, [blink]);
+  // Marke antippen: zur Ankunft dieses Sprungs in der Spielfolge (die nächste
+  // ab hier, sonst die erste); nimmt die Folge ihn nie (Coda ohne D.S.), zur
+  // Zielseite.
+  function springen(s: Sprung) {
+    const ziel = zielAnsicht(liste, s.nach);
+    if (ziel === null) return;
+    const ankunft = ankunftSchritt(folge, s.id, schritt);
+    zuStand(ankunft !== null ? { schritt: ankunft, zeige: null } : standZu(folge, ziel, schritt));
+    blinken(s.nach);
+  }
+  function setzenStarten() {
+    setSetzen({ schritt: 'von' });
+    setPos({ schritt, zeige: ansichtNr, frei: true, liste, folge });
+    setWerkzeug(null); setPaletteOffen(false); setLinieEinstellen(false); setAnsichtOffen(false);
+    // Leisten weg: die ganze Seite ist antippbar, auch ganz oben.
+    setLeisteWeg(true);
+  }
+  // Danach zurück in die Spielfolge (siehe oben, im Rendern).
+  const setzenEnde = () => { setSetzen(null); setLeisteWeg(false); };
+  function sprungSpeichern() {
+    if (setzen?.schritt !== 'art') return;
+    const { von, nach, art } = setzen;
+    spruengeSpeichern(sprungHinzufuegen(spruenge, { von, nach, art }, crypto.randomUUID()));
+    // Zurück zum Sprungzeichen: die neue Marke blinkt kurz.
+    if (!punktSichtbar(ansicht, von)) setPos({ schritt, zeige: ansichtVonSeite(liste, von.seite), frei: true, liste, folge });
+    setzenEnde();
+    blinken(von);
+  }
 
   // ── Seiten einmal rendern, dann aus dem Zwischenspeicher zusammensetzen ──
   const dpr = typeof window === 'undefined' ? 1 : Math.min(window.devicePixelRatio || 1, 2.5);
@@ -236,24 +313,44 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     return () => { weg = true; };
   }, [ansicht, stelle, bearbeitenSeite, anm, stellen, rahmen, px, format, seiteBild]);
 
-  // Nachbarseiten vorab rendern: Blättern ohne Wartezeit.
+  // Nachbarseiten vorab rendern: Blättern ohne Wartezeit — auch die Zielseite,
+  // wenn Weiterblättern als Nächstes springt.
+  const naechster = folge[schritt + 1];
+  const sprungSeite = naechster?.ankunft ? hauptseite(liste[naechster.ansicht]) : 0;
   useEffect(() => {
     if (!px) return;
     const s = sichtbareSeite;
-    for (const n of [s + 1, s + 2, s - 1]) if (n >= 1 && n <= seiten) void seiteBild(n);
-  }, [sichtbareSeite, seiten, px, seiteBild]);
+    for (const n of [s + 1, s + 2, s - 1, sprungSeite]) if (n >= 1 && n <= seiten) void seiteBild(n);
+  }, [sichtbareSeite, sprungSeite, seiten, px, seiteBild]);
 
-  // ── Navigation ──
+  // ── Navigation ── Lesen: Schritt für Schritt durch die Spielfolge; beim
+  // Sprung-Setzen durch die Ansichten selbst.
   const weiter = useCallback(() => {
     if (mix) mix.weiter();
     else if (modus === 'stellen') setStelleNr((n) => Math.min(stellen.length - 1, n + 1));
-    else setIndex((i) => Math.min(liste.length - 1, i + 1));
-  }, [mix, modus, stellen.length, liste.length]);
+    else if (frei) setPos({ schritt, zeige: Math.min(liste.length - 1, ansichtNr + 1), frei, liste, folge });
+    else {
+      const neu = weiterGehen(folge, { schritt, zeige });
+      if (neu.schritt === schritt && neu.zeige === zeige) return;
+      setPos({ schritt: neu.schritt, zeige: neu.zeige, frei, liste, folge });
+      // Per Sprung angekommen: Ring an der Einstiegsstelle.
+      const s = neu.schritt > schritt ? spruenge.find((x) => x.id === folge[neu.schritt].ankunft) : undefined;
+      if (s) blinken(s.nach);
+    }
+  }, [mix, modus, stellen.length, frei, schritt, zeige, ansichtNr, liste, folge, spruenge, blinken]);
   const zurueck = useCallback(() => {
     if (mix) { if (mix.nr > 1) mix.zurueck(); }
     else if (modus === 'stellen') setStelleNr((n) => Math.max(0, n - 1));
-    else setIndex((i) => Math.max(0, i - 1));
-  }, [mix, modus]);
+    else if (frei) setPos({ schritt, zeige: Math.max(0, ansichtNr - 1), frei, liste, folge });
+    else {
+      const neu = zurueckGehen(folge, { schritt, zeige });
+      if (neu.schritt === schritt && neu.zeige === zeige) return;
+      setPos({ schritt: neu.schritt, zeige: neu.zeige, frei, liste, folge });
+      // Über den Sprung zurück: Ring am Sprungzeichen.
+      const s = neu.schritt < schritt ? spruenge.find((x) => x.id === folge[schritt].ankunft) : undefined;
+      if (s) blinken(s.von);
+    }
+  }, [mix, modus, frei, schritt, zeige, ansichtNr, liste, folge, spruenge, blinken]);
 
   const blaetternNach = useCallback((a: Blaetter) => { if (a === 'weiter') weiter(); else zurueck(); }, [weiter, zurueck]);
   // Wischrichtung (Einstellungen): beim Wischen frisch gelesen, ändert sich selten.
@@ -281,16 +378,40 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       const a = tastenAktion(e.key);
       if (a) { e.preventDefault(); blaetternNach(a); }
       if (e.key === 'Escape' && werkzeug) setWerkzeug(null);
+      if (e.key === 'Escape' && setzenAktiv) { setSetzen(null); setLeisteWeg(false); }
     };
     window.addEventListener('keydown', taste);
     return () => window.removeEventListener('keydown', taste);
-  }, [blaetternNach, werkzeug, tastenAktiv, stelleBlatt, bearbeitenSeite]);
+  }, [blaetternNach, werkzeug, tastenAktiv, stelleBlatt, bearbeitenSeite, setzenAktiv, setLeisteWeg]);
 
   // ── Zeiger: zeichnen oder blättern ──
   const blatt = useRef<HTMLDivElement>(null);
   const live = useRef<HTMLCanvasElement>(null);
-  const zug = useRef<{ art: 'zeichnen' | 'tippen'; punkte: number[]; x: number; y: number; t: number; id: number } | null>(null);
+  // marke: der Zug begann auf der Marke dieses Sprungs (Tippen springt, Wischen blättert).
+  const zug = useRef<{ art: 'zeichnen' | 'tippen'; punkte: number[]; x: number; y: number; t: number; id: number; marke?: string | null } | null>(null);
   const [rechteckEntwurf, setRechteckEntwurf] = useState<Rechteck | null>(null);
+  // Nach einem Tipp, den die Fläche selbst ausführt (Sprung, Punkt setzen,
+  // Blättern, Leisten), schickt der Browser noch mousedown und click an die
+  // Stelle unter dem Finger. Dort liegt jetzt womöglich eine Marke oder ein
+  // Knopf der Setzen-Zeile: diesen Nachzügler schlucken. Der nächste Druck
+  // (pointerdown) gehört zu einem neuen Zug und hebt das auf.
+  const nachzueglerBis = useRef(0);
+  useEffect(() => {
+    const druck = () => { nachzueglerBis.current = 0; };
+    const maus = (e: MouseEvent) => {
+      if (e.detail === 0 || performance.now() > nachzueglerBis.current) return; // Tastatur nie
+      e.preventDefault(); // kein Fokus auf dem Knopf darunter
+      if (e.type === 'click') { e.stopPropagation(); nachzueglerBis.current = 0; }
+    };
+    document.addEventListener('pointerdown', druck, true);
+    document.addEventListener('mousedown', maus, true);
+    document.addEventListener('click', maus, true);
+    return () => {
+      document.removeEventListener('pointerdown', druck, true);
+      document.removeEventListener('mousedown', maus, true);
+      document.removeEventListener('click', maus, true);
+    };
+  }, []);
   const neueStelleMerken = useRef<{ seite: number; x: number; y: number } | null>(null);
   // Nach dem Neuladen die gerade angelegte Stelle wählen (Liste ist nach Seite sortiert).
   useEffect(() => {
@@ -379,9 +500,15 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       // Festhalten: Auch ein Wisch als Maus-Zeiger (Scroll-Ring über
       // AssistiveTouch), der über den Rand hinausläuft, endet hier.
       e.currentTarget.setPointerCapture(e.pointerId);
-      zug.current = { art: 'tippen', punkte: [], x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId };
+      const marke = (e.target as Element).closest?.('[data-sprung]')?.getAttribute('data-sprung') ?? null;
+      zug.current = { art: 'tippen', punkte: [], x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId, marke };
     }
   }
+  // Liegt der Punkt im sichtbaren Rahmen (beim Ausschnitt ragt das Blatt darüber hinaus)?
+  const imRahmen = (x: number, y: number) => {
+    const r = blatt.current?.parentElement?.getBoundingClientRect();
+    return !!r && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+  };
   function bewegen(e: React.PointerEvent) {
     const z = zug.current;
     if (!z || z.art !== 'zeichnen' || e.pointerId !== z.id) return;
@@ -403,6 +530,16 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       const g = zeigerGeste(e.clientX - z.x, e.clientY - z.y, e.timeStamp - z.t, umkehren());
       if (g.art === 'wisch') { blaetternNach(g.aktion); return; }
       if (g.art !== 'tippen') return;
+      nachzueglerBis.current = performance.now() + 1000;
+      // Sprung setzen: Tippen setzt den Punkt, auch am Rand (blättern per Wischen, Tasten, ‹ ›).
+      if (setzen) {
+        if (!imRahmen(z.x, z.y)) return;
+        const q = relativ({ clientX: z.x, clientY: z.y });
+        setSetzen(setzenTippen(setzen, { seite: seiteAn(ansicht, q.y), x: q.x, y: q.y }));
+        return;
+      }
+      const sprungHier = z.marke && modus === 'lesen' ? spruenge.find((s) => s.id === z.marke) : undefined;
+      if (sprungHier) { springen(sprungHier); return; }
       const b = window.innerWidth, x = e.clientX;
       if (x < b * 0.3) zurueck(); else if (x > b * 0.7) weiter(); else { setAnsichtOffen(false); setLeisteWeg(leiste); }
       return;
@@ -534,10 +671,38 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     tempoFuer.current = id;
     if (zuletzt) setBpm(zuletzt);
   }, [stelle?.id, zuletzt, setBpm]);
+  const seitenText = ansicht.art === 'ganz' ? `${ansicht.seite}` : `${ansicht.unten} → ${ansicht.oben}`;
   const anzeige = mix ? `Mix${mix.titel ? ` ${mix.titel}` : ''} · ${mix.nr} von ${mix.anzahl}`
     : modus === 'stellen'
     ? `Stelle ${stelleNr + 1} von ${stellen.length}`
-    : ansicht.art === 'ganz' ? `Seite ${ansicht.seite} von ${seiten}` : `Seite ${ansicht.unten} → ${ansicht.oben} von ${seiten}`;
+    : `Seite ${seitenText} von ${seiten}`;
+  // Per Sprung erreichter Teil (nicht beim Setzen): „Seite 1 von 3 · nach D.S.“,
+  // wird es eng „S. 1 · nach D.S.“, dann „S. 1 · D.S.“ — die längste Form,
+  // die neben den Knöpfen ganz passt (gemessen: Schrift und Knöpfe je Gerät).
+  const seit = !mix && modus === 'lesen' && !frei ? nachSprung(folge, schritt, spruenge, zeige) : null;
+  const formen = seit ? [
+    `Seite ${seitenText} von ${seiten} · nach ${KUERZEL[seit.art]}`,
+    `S. ${seitenText} · nach ${KUERZEL[seit.art]}`,
+    `S. ${seitenText} · ${KUERZEL[seit.art]}`,
+  ] : null;
+  const titelPlatz = useRef<HTMLDivElement>(null);
+  const formMessung = useRef<HTMLSpanElement>(null);
+  const [formNr, setFormNr] = useState(1);
+  const mitFormen = formen !== null;
+  useEffect(() => {
+    const platz = titelPlatz.current, messung = formMessung.current, knopf = platz?.firstElementChild;
+    if (!platz || !messung || !knopf) return;
+    const ro = new ResizeObserver(() => {
+      const k = getComputedStyle(knopf);
+      const raum = platz.clientWidth - parseFloat(k.paddingLeft) - parseFloat(k.paddingRight) - parseFloat(k.marginLeft) - parseFloat(k.marginRight);
+      const breiten = [...messung.children].map((e) => e.getBoundingClientRect().width);
+      const i = breiten.findIndex((b) => b <= raum + 0.5);
+      setFormNr(i < 0 ? breiten.length - 1 : i);
+    });
+    ro.observe(platz);
+    for (const e of messung.children) ro.observe(e);
+    return () => ro.disconnect();
+  }, [mitFormen]);
   const ladeTempo = stelle ? (zuletzt ?? stelle.zielTempo) : null;
   // Linien-Hinweis schwebt über dem Blatt; Werkzeug-Hinweise stehen in der Palette.
   const linieHinweis = linieEinstellen && modus === 'lesen'
@@ -558,7 +723,15 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     return () => ro.disconnect();
   }, []);
   // Unten eine Zeile der Noten selbst (Stelle, neue Stelle, Ausschnitt)?
-  const zeileUnten = !!(neueStelle || stelle || bearbeiten);
+  const zeileUnten = !!(neueStelle || stelle || bearbeiten || setzen);
+  // Marken der Sprünge: nur beim Lesen, nicht beim Zuschneiden und nicht beim
+  // Ziehen der Blätterlinie. Außerhalb des Ausschnitts rücken sie an dessen
+  // Rand (sichtbar und antippbar).
+  const marken = modus === 'lesen' && !bearbeiten && !linieEinstellen ? sichtbareMarken(spruenge, ansicht) : [];
+  const lage = (p: { x: number; y: number }) => {
+    const q = einpassen(p, ausschnitt);
+    return { left: `${q.x * 100}%`, top: `${q.y * 100}%` };
+  };
   const paletteWechsel = (offen: boolean) => {
     setPaletteOffen(offen);
     setWerkzeug(offen ? 'stift' : null);
@@ -569,14 +742,20 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     <div className={`betrachter ${navDa ? 'nav-da' : ''}`} role="region" aria-label={`Noten: ${noten.titel}`}>
       <div ref={oben} className={`betrachter-leiste ${leiste ? '' : 'weg'}`} inert={!leiste}>
         <div className="nav-zeile">
-          <button type="button" className="nav-titel" onClick={titelTipp} title="Stück-Details und Stellen-Übersicht">
-            <span className="nav-titel-text">
-              <span className="nav-titel-schnitt">{noten.titel}{noten.stimme && <span className="b-leise"> · {noten.stimme}</span>}</span>
-              <svg className="nav-pfeil" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
-            </span>
-            <span className="nav-untertitel tabular-nums">{anzeige}</span>
-          </button>
-          <span className="flex-1" />
+          <div ref={titelPlatz} className="nav-titel-platz">
+            <button type="button" className="nav-titel" onClick={titelTipp} title="Stück-Details und Stellen-Übersicht">
+              <span className="nav-titel-text">
+                <span className="nav-titel-schnitt">{noten.titel}{noten.stimme && <span className="b-leise"> · {noten.stimme}</span>}</span>
+                <svg className="nav-pfeil" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              </span>
+              <span className="nav-untertitel tabular-nums">{formen ? formen[Math.min(formNr, formen.length - 1)] : anzeige}</span>
+            </button>
+            {formen && (
+              <span ref={formMessung} className="nav-messung tabular-nums" aria-hidden="true">
+                {formen.map((f, i) => <span key={i}>{f}</span>)}
+              </span>
+            )}
+          </div>
           {/* Immer da, auch ohne Stellen: so findet man sie. Das „i“ erklärt sie. */}
           <div className="nav-schalter">
             <label htmlFor={schalterId} className="nav-schalter-label" title="Stelle für Stelle üben">Stellen</label>
@@ -633,6 +812,24 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
                 Seite {seiteJetzt} {ausschnitte[seiteJetzt] ? 'anders zuschneiden' : 'zuschneiden'}
               </button>
               <p className="gedaempft text-xs">Nur den Bereich zeigen, den du brauchst — z. B. ohne breite Ränder. Gilt künftig für diese Seite.</p>
+              {modus === 'lesen' && (
+                <>
+                  <p className="nav-blase-titel">Sprünge</p>
+                  <button type="button" className="knopf knopf-leise knopf-klein" onClick={setzenStarten} disabled={!!neueStelle}>Sprung setzen</button>
+                  <p className="gedaempft text-xs">Weiterblättern folgt den Sprüngen.</p>
+                  {spruenge.length > 0 && (
+                    <ul className="nav-spruenge" aria-label="Sprünge">
+                      {spruenge.map((s) => (
+                        <li key={s.id}>
+                          <span className="tabular-nums">{sprungText(s)}</span>
+                          <button type="button" className="nav-loeschen" aria-label={`Sprung ${sprungText(s)} löschen`}
+                            onClick={() => spruengeSpeichern(sprungLoeschen(spruenge, s.id))}>Löschen</button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              )}
             </div>
           </>
         )}
@@ -649,6 +846,25 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
             <div ref={blatt} className="betrachter-blatt" style={{ width: darst.blatt.b, height: darst.blatt.h, left: darst.blatt.x, top: darst.blatt.y }}>
               <canvas ref={leinwand} className="betrachter-leinwand" />
               <canvas ref={live} className="betrachter-leinwand betrachter-live" />
+              {marken.map((s) => (
+                <button key={s.id} type="button" data-sprung={s.id} className={`b-marke ${setzen ? 'leise' : ''}`} style={lage(s.von)}
+                  tabIndex={setzen ? -1 : undefined} aria-label={`${KUERZEL[s.art]}: zu Seite ${s.nach.seite}`} title={`${KUERZEL[s.art]} → Seite ${s.nach.seite}`}
+                  // Finger und Zeiger laufen über die Fläche (hoch); hier nur Tastatur (detail 0).
+                  onClick={(e) => { if (e.detail === 0) springen(s); }}>
+                  <span>{KUERZEL[s.art]}</span>
+                </button>
+              ))}
+              {setzen && setzen.schritt !== 'von' && punktSichtbar(ansicht, setzen.von) && (
+                <span className="b-marke vorschau" style={lage(setzen.von)} aria-hidden="true">
+                  <span>{setzen.schritt === 'art' ? KUERZEL[setzen.art] : '?'}</span>
+                </span>
+              )}
+              {setzen?.schritt === 'art' && punktSichtbar(ansicht, setzen.nach) && (
+                <span className="b-zielring" style={lage(setzen.nach)} aria-hidden="true" />
+              )}
+              {blink && modus === 'lesen' && !bearbeiten && punktSichtbar(ansicht, blink) && (
+                <span key={blink.n} className="b-zielring b-blink" style={lage(blink)} aria-hidden="true" />
+              )}
               {rechteckEntwurf && <span className="b-rechteck" style={prozent(rechteckEntwurf)} />}
               {bearbeiten && <AusschnittRahmen r={bearbeiten.r} blatt={blatt} setzen={(r) => setBearbeiten({ ...bearbeiten, r })} />}
               {neueStelle && <span className="b-rechteck fest" style={prozent(neueStelle)} />}
@@ -668,7 +884,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
             </div>
           </div>
         )}
-        {!werkzeug && !linieEinstellen && !bearbeiten && (
+        {!werkzeug && !linieEinstellen && !bearbeiten && !setzen && (
           <>
             <span className="b-tippzone links" aria-hidden="true">‹</span>
             <span className="b-tippzone rechts" aria-hidden="true">›</span>
@@ -681,7 +897,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
               <>
                 <span>Anmerken geht auf einer ganzen Seite.</span>
                 <button type="button" className="b-knopf b-greifbar" onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()}
-                  onClick={() => setIndex(ansichtVonSeite(liste, hauptseite(ansicht)))}>Ganze Seite zeigen</button>
+                  onClick={ganzeSeite}>Ganze Seite zeigen</button>
               </>
             ) : (
               <>
@@ -725,6 +941,37 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
           <span className="flex-1" />
           <button type="button" className="knopf knopf-leise knopf-klein" onClick={ausschnittEnde}>Abbrechen</button>
           <button type="button" className="knopf knopf-klein" onClick={ausschnittSpeichern}>Fertig</button>
+        </div>
+      )}
+
+      {setzen && (
+        <div className="b-unten b-sprung" role="group" aria-label="Sprung setzen">
+          <div className="b-sprung-zeile">
+            <p className="b-sprung-hinweis">
+              {setzen.schritt === 'von' ? 'Tippe auf das Sprungzeichen'
+                : setzen.schritt === 'nach' ? 'Zum Ziel blättern und antippen'
+                : <><strong className="tabular-nums">S. {setzen.von.seite} → S. {setzen.nach.seite}</strong> · Art wählen</>}
+            </p>
+            <button type="button" className="knopf knopf-leise knopf-klein" onClick={setzenEnde}>Abbrechen</button>
+          </div>
+          {/* Zweite Zeile in jedem Schritt gleich hoch: das Blatt bleibt stehen,
+              nichts rutscht unter den Finger. */}
+          {setzen.schritt !== 'art' ? (
+            <div className="b-sprung-zeile b-sprung-zwei b-sprung-blaettern">
+              <button type="button" className="b-knopf gross" onClick={zurueck} disabled={ansichtNr === 0} aria-label="Seite zurück">‹</button>
+              <span className="b-sprung-seite tabular-nums">{anzeige}</span>
+              <button type="button" className="b-knopf gross" onClick={weiter} disabled={ansichtNr >= liste.length - 1} aria-label="Seite weiter">›</button>
+            </div>
+          ) : (
+            <div className="b-sprung-zeile b-sprung-zwei">
+              <div className="b-segment b-sprung-arten" role="group" aria-label="Art des Sprungs">
+                {SPRUNG_ARTEN.map((a) => (
+                  <button key={a} type="button" aria-pressed={setzen.art === a} onClick={() => setSetzen(artWaehlen(setzen, a))}>{KUERZEL[a]}</button>
+                ))}
+              </div>
+              <button type="button" className="knopf knopf-klein" onClick={sprungSpeichern}>Speichern</button>
+            </div>
+          )}
         </div>
       )}
 
