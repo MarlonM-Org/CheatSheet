@@ -10,7 +10,7 @@ import { tagsLaden } from './lokal';
 import { NotenPult } from './NotenPult';
 import { ladeFehler, SpeicherHinweis } from './speicherfehler';
 import { mixBereichLesen, type MixBereich } from '@/domain/stellen';
-import { MixFertig, mixLaden, rundeSpeichern, type MixStand, type MixSteuerung } from './StellenMix';
+import { MixFertig, mixLaden, mixTitel, rundeSpeichern, type MixStand, type MixSteuerung } from './StellenMix';
 import { StimmgeraetAnbieter, useStimmgeraetApi } from './StimmgeraetKontext';
 import { StimmgeraetWidget } from './StimmgeraetWidget';
 import { UntereLeiste } from './UntereLeiste';
@@ -58,7 +58,8 @@ function Zentrale() {
     mixLaden(bereich, neu).then((m) => { setMix(m); setMixBereich(bereich); speichern('ueben:mix-an', bereich); setBibliothek(false); }, ladeFehler);
   };
   // „Märsche · Wichtig üben“: Sammlung und Tag, aus denen gemischt wird.
-  const mixTitel = mix ? [mix.bereich.sammlung, tagsLaden().find((t) => t.id === mix.bereich.tag)?.name].filter(Boolean).join(' · ') || null : null;
+  const mixTag = mix?.bereich.tag ? tagsLaden().find((t) => t.id === mix.bereich.tag) ?? null : null;
+  const titel = mix ? mixTitel(mix.bereich.sammlung, mixTag?.name ?? null) : null;
   const mixSteuerung = useMemo<MixSteuerung | null>(() => {
     if (!mix || !mixStelle) return null;
     const gehen = (d: number) => {
@@ -67,13 +68,13 @@ function Zentrale() {
       setMix({ ...mix, runde });
     };
     return {
-      stelle: mixStelle, nr: mix.runde.pos + 1, anzahl: mix.runde.reihe.length, titel: mixTitel,
+      stelle: mixStelle, nr: mix.runde.pos + 1, anzahl: mix.runde.reihe.length, titel, bereich: mix.bereich,
       weiter: () => gehen(1), zurueck: () => gehen(-1),
       // Das Stück der Stelle bleibt offen, zum Weiterlesen.
       beenden: () => { mixAus(); if (mixNoten) { setOffen(mixNoten); speichern('ueben:offen', mixNoten); } },
       abgleichen: mixAbgleichen,
     };
-  }, [mix, mixStelle, mixNoten, mixTitel, mixAus, mixAbgleichen]);
+  }, [mix, mixStelle, mixNoten, titel, mixAus, mixAbgleichen]);
   // Was gerade auf der Bühne liegt.
   const angezeigt = mixAn ? (mixNoten ?? null) : offen;
 
@@ -115,7 +116,7 @@ function Zentrale() {
             <NotenPult key={`${mixNoten}:${fassung}`} notenId={mixNoten} mix={mixSteuerung} leisten={leisten}
               tastenAktiv={!bibliothek && !dialogOffen} verschwunden={mixAbgleichen} />
           ) : (
-            <MixFertig anzahl={mix.runde.reihe.length} titel={mixTitel} neu={() => mixStarten(true, mix.bereich)} beenden={mixAus}
+            <MixFertig anzahl={mix.runde.reihe.length} bereich={mix.bereich} tag={mixTag} starten={mixStarten} beenden={mixAus}
               zurueck={() => { const runde = { ...mix.runde, pos: Math.max(0, mix.runde.reihe.length - 1) }; rundeSpeichern(mix.bereich, runde); setMix({ ...mix, runde }); }} />
           )
         ) : offen ? (

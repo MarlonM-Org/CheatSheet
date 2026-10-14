@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   mischen, mixAuswahl, mixBereichLesen, mixSchluessel, neueRunde, reserveVon, rundeAbgleichen, rundeLesen, rundeStand, steigerung, stelleFavorit, stelleOffen,
+  mixMenge, mixLeer, mixFertigText, mixKopf,
   tagesbeste, tempoAchse, tempoStand, zielAusText, zielStand, type MixStelle,
 } from '@/domain/stellen';
 
@@ -248,5 +249,49 @@ describe('Stellen-Mix: Bereich (Sammlung, nur offene, nur Favoriten)', () => {
     expect(mixBereichLesen({ sammlung: '2026', favoriten: true })).toEqual({ sammlung: '2026', tag: null, offen: false, favoriten: true });
     expect(mixBereichLesen(false)).toBeNull();
     expect(mixBereichLesen({ sammlung: 3, favoriten: 'ja' })).toEqual({ sammlung: null, tag: null, offen: false, favoriten: false });
+  });
+});
+
+describe('Stellen-Mix: Texte je Auswahl', () => {
+  const alle = { offen: false, favoriten: false };
+  const offen = { offen: true, favoriten: false };
+  const fav = { offen: false, favoriten: true };
+  const beide = { offen: true, favoriten: true };
+  it('Menge: Stellen, offene, Favoriten — Einzahl und kurz', () => {
+    expect(mixMenge(9, alle)).toBe('9 Stellen');
+    expect(mixMenge(1, alle)).toBe('1 Stelle');
+    expect(mixMenge(5, offen)).toBe('5 offene Stellen');
+    expect(mixMenge(4, fav)).toBe('4 Favoriten');
+    expect(mixMenge(1, fav)).toBe('1 Favorit');
+    expect(mixMenge(3, beide)).toBe('3 offene Favoriten');
+    expect(mixMenge(1, beide)).toBe('1 offener Favorit');
+    // kurz (Zeile in der Bibliothek): „Stellen“ darf bei „offene“ fehlen
+    expect(mixMenge(5, offen, true)).toBe('5 offene');
+    expect(mixMenge(9, alle, true)).toBe('9 Stellen');
+    expect(mixMenge(3, beide, true)).toBe('3 offene Favoriten');
+  });
+  it('leer: was fehlt, kurz und mit Hinweis', () => {
+    expect(mixLeer(alle, '2026', 0)).toEqual({ kurz: 'noch keine Stellen', lang: 'In „2026“ sind noch keine Stellen markiert.' });
+    expect(mixLeer(fav, null, 0).lang).toBe('In deinen Noten sind noch keine Stellen markiert.');
+    expect(mixLeer(fav, '2026', 6)).toEqual({ kurz: 'keine Favoriten', lang: 'Keine Favoriten in „2026“. Beim Üben auf ☆ vor dem Namen der Stelle tippen.' });
+    expect(mixLeer(offen, '2026', 6)).toEqual({ kurz: 'keine offenen', lang: 'Keine offenen Stellen in „2026“ – alles mit Reserve geschafft.' });
+    expect(mixLeer(beide, null, 6)).toEqual({ kurz: 'keine offenen Favoriten', lang: 'Keine offenen Favoriten.' });
+  });
+  it('fertig: wer einmal dran war', () => {
+    expect(mixFertigText(4, fav, '2026')).toBe('Alle 4 Favoriten aus „2026“ waren einmal dran.');
+    expect(mixFertigText(5, offen, null)).toBe('Alle 5 offenen Stellen waren einmal dran.');
+    expect(mixFertigText(3, beide, '2026')).toBe('Alle 3 offenen Favoriten aus „2026“ waren einmal dran.');
+    expect(mixFertigText(1, alle, '2026')).toBe('Die eine Stelle aus „2026“ war einmal dran.');
+    expect(mixFertigText(1, beide, null)).toBe('Der eine offene Favorit war einmal dran.');
+  });
+  it('Kopf beim Üben: Kürzel vor der Zählung, wird es eng, fällt erst der Bereich, dann die Kürzel', () => {
+    expect(mixKopf('2026', alle, 3, 9)).toEqual({ formen: ['Mix 2026 · 3 von 9', 'Mix · 3 von 9'], aria: 'Stellen-Mix aus 2026, Stelle 3 von 9' });
+    expect(mixKopf('2026', beide, 3, 9)).toEqual({
+      formen: ['Mix 2026 · ★ offen · 3 von 9', 'Mix ★ offen · 3 von 9', 'Mix · 3 von 9'],
+      aria: 'Stellen-Mix aus 2026, nur offene Favoriten, Stelle 3 von 9',
+    });
+    expect(mixKopf(null, fav, 1, 4)).toEqual({ formen: ['Mix ★ · 1 von 4', 'Mix · 1 von 4'], aria: 'Stellen-Mix, nur Favoriten, Stelle 1 von 4' });
+    expect(mixKopf(null, offen, 2, 5).formen[0]).toBe('Mix offen · 2 von 5');
+    expect(mixKopf(null, alle, 2, 5)).toEqual({ formen: ['Mix · 2 von 5'], aria: 'Stellen-Mix, Stelle 2 von 5' });
   });
 });

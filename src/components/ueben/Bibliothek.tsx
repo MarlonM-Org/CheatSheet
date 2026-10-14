@@ -8,7 +8,7 @@ import {
   dateiSchluessel, gleicheSammlung, imFilter, mitSammlung, ohneSammlung, ordnerPlanen, sammlungenUebersicht, sammlungenVon,
   sammlungUmbenennen, sicherungFaellig,
 } from '@/domain/sammlungen';
-import type { MixBereich } from '@/domain/stellen';
+import { stelleFavorit, type MixBereich } from '@/domain/stellen';
 import { imTagFilter, mitTag, tagsVon, tagUebersicht, type Tag } from '@/domain/tags';
 import { gespeichert, speichern } from './klang';
 import { zuletztAus } from '@/domain/speicher';
@@ -18,7 +18,7 @@ import {
 } from './lokal';
 import { HinzufuegenMenue, SammlungenLeiste, SammlungKopf, SammlungWahl } from './Sammlungen';
 import { useSicherungLaden } from './Sicherung';
-import { MixKarte } from './StellenMix';
+import { MixZeile } from './StellenMix';
 import { TagEtikett, TagFilter, TagWahl } from './Tags';
 import { fehlerGrund } from './speicherfehler';
 import { useEscape } from './tasten';
@@ -153,7 +153,6 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
   const [sammlungNeu, setSammlungNeu] = useState<string | null>(null);
   const [einsortieren, setEinsortieren] = useState(true);
   const [sammlungBlatt, setSammlungBlatt] = useState<string[] | null>(null);
-  const [nurOffen, setNurOffen] = useState(() => gespeichert('ueben:mix-offen', false));
   // Tags (F-14): Definitionen, gewählter Tag-Filter (gemerkt), ob neue
   // Stücke damit markiert werden, Markier-Blatt.
   const [tags, setTags] = useState<Tag[]>([]);
@@ -199,10 +198,13 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
   const tagUeber = useMemo(() => tagUebersicht(tags, noten ?? []), [tags, noten]);
   const gefiltert = useMemo(() => sortiert.filter((n) => imFilter(n, aktiv) && imTagFilter(n, aktivTag)), [sortiert, aktiv, aktivTag]);
   const alleGewaehlt = gefiltert.length > 0 && gefiltert.every((n) => auswahl.has(n.id));
-  const stellenJe = useMemo(() => {
-    const je: Record<string, number> = {};
-    for (const s of stellen) je[s.stueckId] = (je[s.stueckId] ?? 0) + 1;
-    return je;
+  const [stellenJe, favoritenJe] = useMemo(() => {
+    const je: Record<string, number> = {}, fav: Record<string, number> = {};
+    for (const s of stellen) {
+      je[s.stueckId] = (je[s.stueckId] ?? 0) + 1;
+      if (stelleFavorit(s)) fav[s.stueckId] = (fav[s.stueckId] ?? 0) + 1;
+    }
+    return [je, fav];
   }, [stellen]);
 
   // Dateien oder einen Ordner hinzufügen. Was schon in der Bibliothek liegt
@@ -388,8 +390,7 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
       {!!noten?.length && tags.length > 0 && <TagFilter uebersicht={tagUeber} aktiv={aktivTag} waehlen={tagWaehlen} />}
 
       {!!noten?.length && (
-        <MixKarte bereich={{ sammlung: aktiv, tag: aktivTag, offen: nurOffen, favoriten: false }} tagName={zielTag?.name ?? null} noten={noten} stellen={stellen} starten={mixStarten}
-          nurOffen={(an) => { setNurOffen(an); speichern('ueben:mix-offen', an); }} />
+        <MixZeile sammlung={aktiv} tag={zielTag} noten={noten} stellen={stellen} starten={mixStarten} />
       )}
 
       {/* Leere Liste: Hinzufügen und Laden stehen in der Hinweis-Karte, Sortieren gibt es noch nichts. */}
@@ -506,6 +507,7 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
                   <span className="bib-unterzeile">
                     {[n.stimme, z ? `zuletzt ${zeitpunkt(z)}` : 'noch nicht geöffnet',
                       anzahlStellen ? `${anzahlStellen} ${anzahlStellen === 1 ? 'Stelle' : 'Stellen'}` : '',
+                      favoritenJe[n.id] ? `${favoritenJe[n.id]} ★` : '',
                       !aktiv ? sammlungenVon(n).join(', ') : '',
                       n.aktualisiert ? `aktualisiert ${datum(n.aktualisiert)}` : ''].filter(Boolean).join(' · ')}
                   </span>
