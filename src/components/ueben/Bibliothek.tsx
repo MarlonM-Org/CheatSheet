@@ -8,7 +8,7 @@ import {
   dateiSchluessel, gleicheSammlung, imFilter, mitSammlung, ohneSammlung, ordnerPlanen, sammlungenUebersicht, sammlungenVon,
   sammlungUmbenennen, sicherungFaellig,
 } from '@/domain/sammlungen';
-import { stelleFavorit, type MixBereich } from '@/domain/stellen';
+import type { MixBereich } from '@/domain/stellen';
 import { imTagFilter, mitTag, tagsVon, tagUebersicht, type Tag } from '@/domain/tags';
 import { gespeichert, speichern } from './klang';
 import { zuletztAus } from '@/domain/speicher';
@@ -26,7 +26,7 @@ import { useEscape } from './tasten';
 // Bibliothek (B-02): Overlay über den Noten — Sammlungen (F-13), Stellen-Mix,
 // Liste, Hinzufügen (Dateien oder Ordner); Einsortieren, Aktualisieren und
 // Löschen im Auswahl-Modus. Tipp auf ein Stück öffnet es vollflächig.
-export function Bibliothek({ offen, oeffnen, schliessen, einstellungen, offenEntfernt, aktualisiert, escapeAktiv, stand, mixStarten }: {
+export function Bibliothek({ offen, oeffnen, schliessen, einstellungen, offenEntfernt, aktualisiert, escapeAktiv, stand, mixStarten, mixAktiv }: {
   offen: string | null;
   oeffnen: (id: string) => void;
   schliessen: () => void;
@@ -37,6 +37,8 @@ export function Bibliothek({ offen, oeffnen, schliessen, einstellungen, offenEnt
   // Ändert sich, wenn anderswo (Einstellungen) eine Sicherung geladen wurde.
   stand: number;
   mixStarten: (neu: boolean, bereich: MixBereich) => void;
+  // Der gerade laufende Mix (null: keiner) — seine Runde heißt „Weiter bei …“.
+  mixAktiv: MixBereich | null;
 }) {
   const [anzahl, setAnzahl] = useState<number | null>(null);
   const [gewaehlt, setGewaehlt] = useState<number | null>(null);
@@ -60,7 +62,7 @@ export function Bibliothek({ offen, oeffnen, schliessen, einstellungen, offenEnt
         </button>
       </div>
       <div className="bib-inhalt">
-        <NotenListe offen={offen} oeffnen={oeffnen} anzahlMelden={setAnzahl} auswahlMelden={setGewaehlt} offenEntfernt={offenEntfernt} aktualisiert={aktualisiert} stand={stand} mixStarten={mixStarten} einstellungen={einstellungen} />
+        <NotenListe offen={offen} oeffnen={oeffnen} anzahlMelden={setAnzahl} auswahlMelden={setGewaehlt} offenEntfernt={offenEntfernt} aktualisiert={aktualisiert} stand={stand} mixStarten={mixStarten} mixAktiv={mixAktiv} einstellungen={einstellungen} />
       </div>
       <div className="bib-fuss">Alles bleibt auf diesem Gerät. Kein Konto, kein Server.</div>
     </section>
@@ -127,12 +129,12 @@ async function ausVerweis(n: Stueck): Promise<File | null> {
   } catch { return null; }
 }
 
-function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt, aktualisiert, stand: bibStand, mixStarten, einstellungen }: {
+function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt, aktualisiert, stand: bibStand, mixStarten, mixAktiv, einstellungen }: {
   offen: string | null; oeffnen: (id: string) => void; anzahlMelden: (n: number) => void;
   // Im Auswahl-Modus: wie viele gewählt sind (für den Kopf), sonst null.
   auswahlMelden: (n: number | null) => void;
   offenEntfernt: () => void; aktualisiert: (ids: string[]) => void; stand: number;
-  mixStarten: (neu: boolean, bereich: MixBereich) => void; einstellungen: () => void;
+  mixStarten: (neu: boolean, bereich: MixBereich) => void; mixAktiv: MixBereich | null; einstellungen: () => void;
 }) {
   const [noten, setNoten] = useState<Stueck[] | null>(null);
   const [stellen, setStellen] = useState<Stelle[]>([]);
@@ -198,13 +200,10 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
   const tagUeber = useMemo(() => tagUebersicht(tags, noten ?? []), [tags, noten]);
   const gefiltert = useMemo(() => sortiert.filter((n) => imFilter(n, aktiv) && imTagFilter(n, aktivTag)), [sortiert, aktiv, aktivTag]);
   const alleGewaehlt = gefiltert.length > 0 && gefiltert.every((n) => auswahl.has(n.id));
-  const [stellenJe, favoritenJe] = useMemo(() => {
-    const je: Record<string, number> = {}, fav: Record<string, number> = {};
-    for (const s of stellen) {
-      je[s.stueckId] = (je[s.stueckId] ?? 0) + 1;
-      if (stelleFavorit(s)) fav[s.stueckId] = (fav[s.stueckId] ?? 0) + 1;
-    }
-    return [je, fav];
+  const stellenJe = useMemo(() => {
+    const je: Record<string, number> = {};
+    for (const s of stellen) je[s.stueckId] = (je[s.stueckId] ?? 0) + 1;
+    return je;
   }, [stellen]);
 
   // Dateien oder einen Ordner hinzufügen. Was schon in der Bibliothek liegt
@@ -390,7 +389,7 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
       {!!noten?.length && tags.length > 0 && <TagFilter uebersicht={tagUeber} aktiv={aktivTag} waehlen={tagWaehlen} />}
 
       {!!noten?.length && (
-        <MixZeile sammlung={aktiv} tag={zielTag} noten={noten} stellen={stellen} starten={mixStarten} />
+        <MixZeile sammlung={aktiv} tag={zielTag} noten={noten} stellen={stellen} starten={mixStarten} aktiv={mixAktiv} />
       )}
 
       {/* Leere Liste: Hinzufügen und Laden stehen in der Hinweis-Karte, Sortieren gibt es noch nichts. */}
@@ -507,7 +506,6 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
                   <span className="bib-unterzeile">
                     {[n.stimme, z ? `zuletzt ${zeitpunkt(z)}` : 'noch nicht geöffnet',
                       anzahlStellen ? `${anzahlStellen} ${anzahlStellen === 1 ? 'Stelle' : 'Stellen'}` : '',
-                      favoritenJe[n.id] ? `${favoritenJe[n.id]} ★` : '',
                       !aktiv ? sammlungenVon(n).join(', ') : '',
                       n.aktualisiert ? `aktualisiert ${datum(n.aktualisiert)}` : ''].filter(Boolean).join(' · ')}
                   </span>

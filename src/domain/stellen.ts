@@ -211,13 +211,15 @@ export function mixFertigText(n: number, nur: Nur, titel: string | null): string
 }
 
 // Kopf beim Üben: „Mix 2026 · ★ offen · 3 von 9“. Die Zählung bleibt immer;
-// wird es eng, fällt erst der Bereich weg, dann die Kürzel.
+// wird es eng, fällt erst der Bereich weg, dann „offen“, dann der Stern
+// (zuletzt noch ohne Mittelpunkt: „Mix ★ 3 von 9“ passt aufs iPhone).
 export function mixKopf(titel: string | null, nur: Nur, nr: number, anzahl: number): { formen: string[]; aria: string } {
   const kuerzel = [nur.favoriten ? '★' : '', nur.offen ? 'offen' : ''].filter(Boolean).join(' ');
   const zaehlung = `${nr} von ${anzahl}`;
   const formen = [
     `Mix${titel ? ` ${titel}` : ''}${titel && kuerzel ? ' ·' : ''}${kuerzel ? ` ${kuerzel}` : ''} · ${zaehlung}`,
     `Mix${kuerzel ? ` ${kuerzel}` : ''} · ${zaehlung}`,
+    ...(nur.favoriten ? [`Mix ★ · ${zaehlung}`, `Mix ★ ${zaehlung}`] : []),
     `Mix · ${zaehlung}`,
   ].filter((f, i, l) => l.indexOf(f) === i);
   const filter = nur.offen || nur.favoriten ? `, nur ${nur.offen ? 'offene ' : ''}${nur.favoriten ? 'Favoriten' : 'Stellen'}` : '';

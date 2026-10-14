@@ -73,23 +73,26 @@ type Nur = { offen: boolean; favoriten: boolean };
 const nurLesen = (): Nur => ({ offen: gespeichert('ueben:mix-offen', false), favoriten: gespeichert('ueben:mix-favoriten', false) });
 const nurMerken = (n: Nur) => { speichern('ueben:mix-offen', n.offen); speichern('ueben:mix-favoriten', n.favoriten); };
 
-// Stand eines Bereichs: Stellen mit und ohne die Schalter, Runde.
-function mixInfo(bereich: MixBereich, noten: Stueck[], stellen: Stelle[]) {
+// Stand eines Bereichs: Stellen mit und ohne die Schalter, Runde. Sie läuft,
+// wenn schon Stellen dran waren — oder wenn genau dieser Mix gerade offen ist
+// (dann heißt es „Weiter bei 1 von 3“, nicht „Mix starten“).
+function mixInfo(bereich: MixBereich, noten: Stueck[], stellen: Stelle[], aktiv: MixBereich | null) {
   const runde = rundeLaden(bereich);
   const stand = rundeStand(runde, bereichsStellen(bereich, noten, stellen, runde));
   const gesamt = bereichsStellen({ ...bereich, offen: false, favoriten: false }, noten, stellen).length;
-  return { ...stand, gesamt, laeuft: stand.geuebt > 0 && !stand.fertig };
+  const offen = aktiv !== null && mixSchluessel(aktiv) === mixSchluessel(bereich);
+  return { ...stand, gesamt, laeuft: stand.anzahl > 0 && !stand.fertig && (stand.geuebt > 0 || offen) };
 }
 
 // Einstieg in der Bibliothek: eine Zeile („Stellen-Mix · Weiter bei 4 von 9 ›“).
 // Tippen öffnet die Optionen; gemischt wird, was gerade gefiltert ist.
-export function MixZeile({ sammlung, tag, noten, stellen, starten }: {
+export function MixZeile({ sammlung, tag, noten, stellen, starten, aktiv }: {
   sammlung: string | null; tag: Tag | null; noten: Stueck[]; stellen: Stelle[];
-  starten: (neu: boolean, bereich: MixBereich) => void;
+  starten: (neu: boolean, bereich: MixBereich) => void; aktiv: MixBereich | null;
 }) {
   const [blatt, setBlatt] = useState(false);
   const [nur, setNur] = useState(nurLesen);
-  const info = mixInfo({ sammlung, tag: tag?.id ?? null, ...nur }, noten, stellen);
+  const info = mixInfo({ sammlung, tag: tag?.id ?? null, ...nur }, noten, stellen, aktiv);
   const stand = !info.gesamt || !info.anzahl ? mixLeer(nur, mixTitel(sammlung, tag?.name ?? null), info.gesamt).kurz
     : info.fertig ? 'Runde geschafft'
     : info.laeuft ? `Weiter bei ${info.geuebt + 1} von ${info.anzahl}`
@@ -103,7 +106,7 @@ export function MixZeile({ sammlung, tag, noten, stellen, starten }: {
         <span className="bib-pfeil" aria-hidden="true">›</span>
       </button>
       {blatt && (
-        <MixBlatt sammlung={sammlung} tag={tag} noten={noten} stellen={stellen} nur={nur}
+        <MixBlatt sammlung={sammlung} tag={tag} noten={noten} stellen={stellen} nur={nur} aktiv={aktiv}
           setNur={(n) => { setNur(n); nurMerken(n); }} starten={starten} schliessen={() => setBlatt(false)} />
       )}
     </>
@@ -113,16 +116,16 @@ export function MixZeile({ sammlung, tag, noten, stellen, starten }: {
 // Optionen des Mix: woraus (nur Anzeige — gewählt wird in der Bibliothek),
 // nur offene, nur Favoriten, wie viele das sind, und los. Jede Kombination
 // hat ihre eigene Runde — der Knopf zeigt ihren Stand.
-export function MixBlatt({ sammlung, tag, noten, stellen, nur, setNur, starten, schliessen }: {
+export function MixBlatt({ sammlung, tag, noten, stellen, nur, setNur, aktiv, starten, schliessen }: {
   sammlung: string | null; tag: Tag | null; noten: Stueck[]; stellen: Stelle[];
-  nur: Nur; setNur: (n: Nur) => void;
+  nur: Nur; setNur: (n: Nur) => void; aktiv: MixBereich | null;
   starten: (neu: boolean, bereich: MixBereich) => void; schliessen: () => void;
 }) {
   useEscape(schliessen);
   const fokus = useDialogFokus<HTMLDivElement>();
   const kopf = useId();
   const bereich: MixBereich = { sammlung, tag: tag?.id ?? null, ...nur };
-  const info = mixInfo(bereich, noten, stellen);
+  const info = mixInfo(bereich, noten, stellen, aktiv);
   const titel = mixTitel(sammlung, tag?.name ?? null);
   const los = (neu: boolean) => { starten(neu, bereich); schliessen(); };
 
@@ -156,8 +159,7 @@ export function MixBlatt({ sammlung, tag, noten, stellen, nur, setNur, starten, 
               </li>
               <li>
                 <label>
-                  <Stern an={nur.favoriten} />
-                  <span className="min-w-0 flex-1">Nur Favoriten<small>Stellen mit Stern</small></span>
+                  <span className="min-w-0 flex-1">Nur Favoriten<small>Stellen mit <Stern an /></small></span>
                   <input type="checkbox" role="switch" className="ios-schalter" checked={nur.favoriten} onChange={(e) => setNur({ ...nur, favoriten: e.target.checked })} />
                 </label>
               </li>
@@ -203,8 +205,9 @@ export function MixFertig({ anzahl, bereich, tag, starten, zurueck, beenden }: {
   const naechste = daten ? bereichsStellen(bereich, daten.noten, daten.stellen).length : null;
   const gesamt = daten ? bereichsStellen({ ...bereich, offen: false, favoriten: false }, daten.noten, daten.stellen).length : 0;
   const alles = naechste === 0 && bereich.offen;
-  const optionenKnopf = daten && (
-    <button type="button" className="knopf knopf-leise knopf-klein" aria-haspopup="dialog" onClick={() => setOptionen({ offen: bereich.offen, favoriten: bereich.favoriten })}>Optionen …</button>
+  const optionenKnopf = (
+    <button type="button" className="knopf knopf-leise" aria-haspopup="dialog" disabled={!daten}
+      onClick={() => setOptionen({ offen: bereich.offen, favoriten: bereich.favoriten })}>Optionen …</button>
   );
   return (
     <div className="leer">
@@ -213,15 +216,22 @@ export function MixFertig({ anzahl, bereich, tag, starten, zurueck, beenden }: {
         <>
           <p className="titel">{alles ? 'Alles mit Reserve geschafft' : 'Runde geschafft'}</p>
           <p className="gedaempft max-w-xs">{mixFertigText(anzahl, bereich, titel)}</p>
-          {naechste ? (
-            <button type="button" className="knopf" onClick={() => starten(true, bereich)}>Neue Runde · {mixMenge(naechste, bereich)}</button>
-          ) : (
-            <button type="button" className="knopf" onClick={beenden}>Fertig</button>
-          )}
-          <div className="flex flex-wrap justify-center gap-2">
-            <button type="button" className="knopf knopf-leise knopf-klein" onClick={zurueck}>‹ Letzte Stelle</button>
-            {optionenKnopf}
-            {!!naechste && <button type="button" className="knopf knopf-leise knopf-klein" onClick={beenden}>Fertig</button>}
+          <div className="mix-fertig-knoepfe">
+            {naechste ? (
+              <>
+                <button type="button" className="knopf" onClick={() => starten(true, bereich)}>Neue Runde · {mixMenge(naechste, { offen: false, favoriten: false })}</button>
+                <div className="mix-fertig-zeile">
+                  {optionenKnopf}
+                  <button type="button" className="knopf knopf-leise" onClick={beenden}>Fertig</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <button type="button" className="knopf" onClick={beenden}>Fertig</button>
+                {optionenKnopf}
+              </>
+            )}
+            <button type="button" className="text-knopf gedaempft" onClick={zurueck}>‹ Letzte Stelle</button>
           </div>
         </>
       ) : (
@@ -231,12 +241,14 @@ export function MixFertig({ anzahl, bereich, tag, starten, zurueck, beenden }: {
             {gesamt ? mixLeer(bereich, titel, gesamt).lang
               : `${mixLeer(bereich, titel, 0).lang} In den Noten mit dem Werkzeug „Stelle“ einen Rahmen um schwierige Takte ziehen — dann kommen sie hier in den Mix.`}
           </p>
-          <button type="button" className="knopf" onClick={beenden}>Fertig</button>
-          {optionenKnopf}
+          <div className="mix-fertig-knoepfe">
+            <button type="button" className="knopf" onClick={beenden}>Fertig</button>
+            {optionenKnopf}
+          </div>
         </>
       )}
       {optionen && daten && (
-        <MixBlatt sammlung={bereich.sammlung} tag={tag} noten={daten.noten} stellen={daten.stellen} nur={optionen}
+        <MixBlatt sammlung={bereich.sammlung} tag={tag} noten={daten.noten} stellen={daten.stellen} nur={optionen} aktiv={null}
           setNur={(n) => { setOptionen(n); nurMerken(n); }} starten={starten} schliessen={() => setOptionen(null)} />
       )}
     </div>

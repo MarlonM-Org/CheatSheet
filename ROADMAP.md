@@ -6,7 +6,7 @@ Punkt ein; wer etwas fertigstellt, hakt ab und verschiebt den Punkt nach
 „Erledigt“ (unten). Größere Richtungsentscheidungen bitte als kurzen Absatz
 hier dokumentieren, nicht nur im Chat.
 
-Stand: 2026-10-13.
+Stand: 2026-10-14.
 
 ## Leitbild
 
@@ -578,6 +578,37 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
     Wischen rät, die Zeiger-Geschwindigkeit am iPhone höher zu stellen.
   - Ring-Modi, die nur Lautstärke- oder Kamera-Tasten senden, kommen bei
     einer Web-App nicht an.
+- **F-16 · Stellen als Favorit, Stellen-Mix mit Optionen** (2026-10-14):
+  Wunsch Marlon: Stellen als Favoriten markieren und im Mix einer Sammlung
+  (z. B. „2026“, „Deutsche Märchen“) nur Favoriten und/oder nur offene
+  Stellen üben; die große Mix-Karte war ihm zu groß — erst antippen, dann
+  Optionen, dann starten. Entwurf und Abnahme durch einen UI/UX-Agenten.
+  Regeln in `src/domain/stellen.ts` (getestet).
+  - **Favorit (★):** Stern links neben dem Namen in der Stellen-Leiste (ein
+    Tipp, Rückmeldung „★ Favorit gesetzt“ / „Kein Favorit mehr“, im
+    Favoriten-Mix „Ab nächster Runde nicht dabei“), Schalterzeile „Favorit“
+    im Stellen-Blatt, Stern vor jeder Stelle in der Übersicht des
+    Stück-Blatts. Gefüllt in Messing = Favorit, Umriss = keiner.
+  - **Einstieg in der Bibliothek:** statt der Karte eine Zeile „Stellen-Mix ·
+    9 Stellen ›“ (bzw. „Weiter bei 4 von 9“, „Runde geschafft“, „keine
+    Favoriten“, „noch keine Stellen“). Tippen öffnet ein Blatt: woraus
+    gemischt wird (nur Anzeige — gewählt wird über Sammlung und Tag der
+    Bibliothek), Schalter **„Nur offene Stellen“** und **„Nur Favoriten“**
+    (kombinierbar, gemerkt je Gerät: `ueben:mix-offen`,
+    `ueben:mix-favoriten`), die Zahl der passenden Stellen und „Mix starten“ /
+    „Weiter bei …“ / „Neue Runde“, dazu „Neu mischen“. Ohne Treffer ein
+    Hinweis, wie man Favoriten bzw. Stellen setzt. Jede Kombination hat ihre
+    eigene Runde; der gerade laufende Mix heißt immer „Weiter bei …“.
+  - **Beim Üben:** Kopf „Mix 2026 · ★ offen · 3 von 9“; wird es eng, fällt
+    erst der Bereich weg, dann „offen“, dann der Stern („Mix ★ 1 von 3“ passt
+    aufs iPhone). Eine Stelle, die ihren Stern verliert oder geschafft wird,
+    bleibt in der laufenden Runde. Der Fertig-Bildschirm nennt die Auswahl
+    („Alle 4 Favoriten aus „2026“ waren einmal dran.“) und die Größe der
+    nächsten Runde; „Optionen …“ öffnet dasselbe Blatt.
+  - **Daten:** an der Stelle `favorit` (Boolean); abgewählt bleibt `false`
+    stehen, damit eine ältere Sicherung den Stern nicht zurückbringt (beim
+    Laden gilt der neuere Stand). Reist in der Sicherung mit, kein
+    Schema-Sprung.
 - **C-04 · Tonprofil** (2026-10-12): Wunsch Marlon: die Töne des eigenen
   Instruments kennenlernen — welche zu hoch, welche zu tief liegen. Name
   entschieden: **Tonprofil** (aus den Vorschlägen; funktioniert als Knopf).

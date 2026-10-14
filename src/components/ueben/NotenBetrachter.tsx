@@ -557,12 +557,12 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     if (i >= 0) { neueStelleMerken.current = null; if (modus === 'stellen') setStelleNr(i); }
   }, [stellen, modus]);
   const [gespeichert, setGespeichert] = useState<string | null>(null);
-  // Kurze Rückmeldung in der Unterzeile der Stellen-Leiste (1,6 s).
+  // Kurze Rückmeldung in der Unterzeile der Stellen-Leiste.
   const meldungsUhr = useRef(0);
-  const melden = (text: string) => {
+  const melden = (text: string, dauer = 1600) => {
     setGespeichert(text);
     window.clearTimeout(meldungsUhr.current);
-    meldungsUhr.current = window.setTimeout(() => setGespeichert(null), 1600);
+    meldungsUhr.current = window.setTimeout(() => setGespeichert(null), dauer);
   };
   const zuletztGespeichert = useRef<{ id: string; tempo: number; t: number } | null>(null);
   async function geschafft(id: string) {
@@ -586,7 +586,8 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     const an = !stelleFavorit(s);
     try { await stelleAendern(s.id, { favorit: an }); } catch (x) { speicherFehler(x); return; }
     geaendert();
-    melden(an ? '★ Favorit – kommt in „Nur Favoriten“' : mix?.bereich.favoriten ? 'Kein Favorit mehr – bleibt in dieser Runde' : 'Kein Favorit mehr');
+    // Kurz genug für die Unterzeile auf dem iPhone (höchstens 30 Zeichen).
+    melden(an ? '★ Favorit gesetzt' : mix?.bereich.favoriten ? 'Ab nächster Runde nicht dabei' : 'Kein Favorit mehr', 2500);
   }
   const [neueStelle, setNeueStelle] = useState<Rechteck | null>(null);
   const [stelleTitel, setStelleTitel] = useState('');
@@ -943,7 +944,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     if (zuletzt) setBpm(zuletzt);
   }, [stelle?.id, zuletzt, setBpm]);
   const seitenText = ansicht.art === 'ganz' ? `${ansicht.seite}` : `${ansicht.unten} → ${ansicht.oben}`;
-  // Im Mix: „Mix 2026 · ★ offen · 3 von 9“, wird es eng, erst ohne Bereich, dann ohne Kürzel.
+  // Im Mix: „Mix 2026 · ★ offen · 3 von 9“, wird es eng, kürzer (mixKopf).
   const kopf = mix ? mixKopf(mix.titel, mix.bereich, mix.nr, mix.anzahl) : null;
   const anzeige = kopf ? kopf.formen[0]
     : modus === 'stellen'

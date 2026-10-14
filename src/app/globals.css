@@ -742,9 +742,17 @@ details[open] > summary::before { transform: rotate(90deg); }
 .mix-los { width: 100%; min-height: 50px; justify-content: center; }
 .mix-neu-mischen { width: 100%; min-height: 44px; justify-content: center; }
 
+/* Fertig-Bildschirm des Mix: eine Spalte, Neue Runde über die ganze Breite. */
+.mix-fertig-knoepfe { display: flex; flex-direction: column; gap: 8px; width: min(100%, 20rem); }
+.mix-fertig-knoepfe > .knopf, .mix-fertig-zeile > .knopf { width: 100%; }
+.mix-fertig-zeile { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mix-fertig-knoepfe > .text-knopf { align-self: center; min-height: 44px; padding: 0 8px; font-weight: 600; }
+
 /* Favorit (★) einer Stelle: gefüllt in Messing = Favorit, Umriss = keiner. */
 .stern { width: 20px; height: 20px; flex: none; color: var(--gedaempft); }
 .stern.an { color: var(--messing); }
+/* Als Erklärung im Text („Stellen mit ★“): immer gefüllt, so groß wie die Schrift. */
+small .stern { display: inline-block; width: 0.95em; height: 0.95em; vertical-align: -0.12em; }
 .stern-knopf { flex: none; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 6px; }
 .stern-knopf:active { background: var(--flaeche); }
 .stern-knopf > span { display: grid; place-items: center; }

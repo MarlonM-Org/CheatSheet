@@ -284,14 +284,14 @@ describe('Stellen-Mix: Texte je Auswahl', () => {
     expect(mixFertigText(1, alle, '2026')).toBe('Die eine Stelle aus „2026“ war einmal dran.');
     expect(mixFertigText(1, beide, null)).toBe('Der eine offene Favorit war einmal dran.');
   });
-  it('Kopf beim Üben: Kürzel vor der Zählung, wird es eng, fällt erst der Bereich, dann die Kürzel', () => {
+  it('Kopf beim Üben: Kürzel vor der Zählung, wird es eng, fällt erst der Bereich, dann „offen“, dann der Stern', () => {
     expect(mixKopf('2026', alle, 3, 9)).toEqual({ formen: ['Mix 2026 · 3 von 9', 'Mix · 3 von 9'], aria: 'Stellen-Mix aus 2026, Stelle 3 von 9' });
     expect(mixKopf('2026', beide, 3, 9)).toEqual({
-      formen: ['Mix 2026 · ★ offen · 3 von 9', 'Mix ★ offen · 3 von 9', 'Mix · 3 von 9'],
+      formen: ['Mix 2026 · ★ offen · 3 von 9', 'Mix ★ offen · 3 von 9', 'Mix ★ · 3 von 9', 'Mix ★ 3 von 9', 'Mix · 3 von 9'],
       aria: 'Stellen-Mix aus 2026, nur offene Favoriten, Stelle 3 von 9',
     });
-    expect(mixKopf(null, fav, 1, 4)).toEqual({ formen: ['Mix ★ · 1 von 4', 'Mix · 1 von 4'], aria: 'Stellen-Mix, nur Favoriten, Stelle 1 von 4' });
-    expect(mixKopf(null, offen, 2, 5).formen[0]).toBe('Mix offen · 2 von 5');
+    expect(mixKopf(null, fav, 1, 4)).toEqual({ formen: ['Mix ★ · 1 von 4', 'Mix ★ 1 von 4', 'Mix · 1 von 4'], aria: 'Stellen-Mix, nur Favoriten, Stelle 1 von 4' });
+    expect(mixKopf('2026', offen, 2, 5).formen).toEqual(['Mix 2026 · offen · 2 von 5', 'Mix offen · 2 von 5', 'Mix · 2 von 5']);
     expect(mixKopf(null, alle, 2, 5)).toEqual({ formen: ['Mix · 2 von 5'], aria: 'Stellen-Mix, Stelle 2 von 5' });
   });
 });

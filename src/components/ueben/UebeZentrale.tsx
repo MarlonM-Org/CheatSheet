@@ -139,7 +139,7 @@ function Zentrale() {
       {bibliothek && (
         <Bibliothek offen={angezeigt} oeffnen={oeffnen} schliessen={() => setBibliothek(false)}
           einstellungen={() => setEinstellungen(true)} offenEntfernt={angezeigtWeg}
-          aktualisiert={aktualisiert} escapeAktiv={!dialogOffen} stand={bibStand} mixStarten={mixStarten} />
+          aktualisiert={aktualisiert} escapeAktiv={!dialogOffen} stand={bibStand} mixStarten={mixStarten} mixAktiv={mixBereich} />
       )}
       {einstellungen && <Einstellungen schliessen={() => setEinstellungen(false)} geaendert={() => setBibStand((n) => n + 1)} />}
 
