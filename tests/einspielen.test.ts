@@ -140,6 +140,15 @@ describe('Sicherung zusammenführen ohne Verlust', () => {
     expect(r.tempi).toEqual([{ tempo: 84, am: 10 }, { tempo: 96, am: 50 }]);
   });
 
+  it('Stelle: Favorit folgt dem neueren Stand — auch abgewählt (false) gewinnt', () => {
+    const an = { ...stelle('s1', 'a'), favorit: true };
+    const aus = { ...stelle('s1', 'a'), favorit: false };
+    expect(stelleZusammenfuehren({ ...aus, geaendert: 90 }, { ...an, geaendert: 40 }).favorit).toBe(false);
+    expect(stelleZusammenfuehren({ ...aus, geaendert: 40 }, { ...an, geaendert: 90 }).favorit).toBe(true);
+    // Ältere Sicherung ohne das Feld: der Stern auf dem Gerät bleibt.
+    expect(stelleZusammenfuehren({ ...an, geaendert: 90 }, { ...stelle('s1', 'a'), geaendert: 40 })).toMatchObject({ favorit: true });
+  });
+
   it('Stand eines Eintrags: geändert, sonst aktualisiert/erstellt, sonst letztes Tempo', () => {
     expect(stand({ geaendert: 9, erstellt: 20 })).toBe(9);
     expect(stand({ erstellt: 5, aktualisiert: 12 })).toBe(12);

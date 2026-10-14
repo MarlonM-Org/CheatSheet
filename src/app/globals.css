@@ -705,26 +705,61 @@ details[open] > summary::before { transform: rotate(90deg); }
 .bib-pfeil { flex: none; color: var(--leise); }
 .bib-zeile .auswahl-feld { margin: 0 0 0 -0.6rem; }
 
-/* Stellen-Mix (F-11): Einstieg in der Bibliothek */
-.mix-karte { display: flex; flex-direction: column; border: 1px solid var(--linie-stark); border-radius: 6px; background: var(--karte); overflow: hidden; }
-.mix-zeile { display: flex; align-items: stretch; }
-.mix-offen {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 12px;
-  border-top: 1px solid var(--linie); font-size: 0.8rem; font-weight: 600; cursor: pointer;
+/* Stellen-Mix (F-11): Einstieg in der Bibliothek — eine Zeile, Tippen öffnet die Optionen. */
+.mix-einstieg {
+  width: 100%; min-height: 48px; display: flex; align-items: center; gap: 10px; padding: 0 12px;
+  border: 1px solid var(--linie-stark); border-radius: 6px; background: var(--karte); text-align: left;
 }
-.mix-offen small { display: block; font-size: 0.72rem; font-weight: 500; color: var(--gedaempft); }
-.mix-start { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 10px 12px; text-align: left; }
-.mix-start:active:not(:disabled) { background: var(--flaeche); }
+.mix-einstieg:active { background: var(--flaeche); }
+.mix-einstieg-titel { flex: none; font-size: 0.95rem; font-weight: 650; }
+.mix-einstieg-stand {
+  flex: 1; min-width: 0; text-align: right; font-size: 0.85rem; color: var(--gedaempft);
+  font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .mix-symbol {
   flex: none; width: 36px; height: 36px; border-radius: 8px; display: grid; place-items: center;
   background: var(--messing); color: var(--messing-text);
 }
 .mix-symbol svg { width: 19px; height: 19px; }
-.mix-start:disabled .mix-symbol { background: var(--flaeche2); color: var(--leise); }
+.mix-symbol.klein { width: 28px; height: 28px; border-radius: 6px; }
+.mix-symbol.klein svg { width: 16px; height: 16px; }
+.mix-einstieg.ohne .mix-symbol { background: var(--flaeche2); color: var(--gedaempft); }
 .mix-symbol.gross { width: 56px; height: 56px; border-radius: 14px; }
 .mix-symbol.gross svg { width: 28px; height: 28px; }
-.mix-neu { flex: none; padding: 0 12px; font-size: 0.8rem; font-weight: 600; color: var(--gedaempft); border-left: 1px solid var(--linie); }
-.mix-neu:active { background: var(--flaeche); }
+
+/* Optionen des Mix: Blatt von unten (iPad: mittig, schmaler). */
+.mix-blatt { display: flex; flex-direction: column; gap: 14px; padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px)); }
+@media (min-width: 640px) { .mix-blatt { max-width: 26rem; } }
+.mix-blatt-kopf { display: flex; align-items: center; gap: 12px; }
+.mix-blatt-kopf .panel-zu { align-self: flex-start; }
+.mix-schalter, .favorit-zeile { border: 1px solid var(--linie); border-radius: 6px; overflow: hidden; }
+.mix-schalter li + li { border-top: 1px solid var(--linie); }
+.mix-schalter label, .favorit-zeile {
+  display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 6px 12px; cursor: pointer; font-weight: 600;
+}
+.mix-schalter small, .favorit-zeile small { display: block; font-size: 0.75rem; font-weight: 500; color: var(--gedaempft); }
+.mix-blatt-zahl { text-align: center; font-size: 0.9rem; color: var(--gedaempft); font-variant-numeric: tabular-nums; }
+.mix-blatt-knoepfe { display: flex; flex-direction: column; gap: 8px; }
+.mix-los { width: 100%; min-height: 50px; justify-content: center; }
+.mix-neu-mischen { width: 100%; min-height: 44px; justify-content: center; }
+
+/* Fertig-Bildschirm des Mix: eine Spalte, Neue Runde über die ganze Breite. */
+.mix-fertig-knoepfe { display: flex; flex-direction: column; gap: 8px; width: min(100%, 20rem); }
+.mix-fertig-knoepfe > .knopf, .mix-fertig-zeile > .knopf { width: 100%; }
+.mix-fertig-zeile { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mix-fertig-knoepfe > .text-knopf { align-self: center; min-height: 44px; padding: 0 8px; font-weight: 600; }
+
+/* Favorit (★) einer Stelle: gefüllt in Messing = Favorit, Umriss = keiner. */
+.stern { width: 20px; height: 20px; flex: none; color: var(--gedaempft); }
+.stern.an { color: var(--messing); }
+/* Als Erklärung im Text („Stellen mit ★“): immer gefüllt, so groß wie die Schrift. */
+small .stern { display: inline-block; width: 0.95em; height: 0.95em; vertical-align: -0.12em; }
+.stern-knopf { flex: none; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 6px; }
+.stern-knopf:active { background: var(--flaeche); }
+.stern-knopf > span { display: grid; place-items: center; }
+.stern-plopp { animation: stern-plopp 180ms ease-out; }
+@keyframes stern-plopp { 50% { transform: scale(1.2); } }
+@media (prefers-reduced-motion: reduce) { .stern-plopp { animation: none; } }
 
 /* ── Nachbesserungen nach UX-Prüfung ── */
 .knopf:disabled, .knopf-leise:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -761,8 +796,9 @@ details[open] > summary::before { transform: rotate(90deg); }
 @media (max-width: 520px) {
   .b-stellenleiste { flex-wrap: wrap; row-gap: 0.4rem; }
   /* schmal: Titel und −1/+1 in der ersten Zeile, direkt über „geschafft“ */
-  .b-stellenleiste .b-stelleninfo { order: -1; flex-basis: calc(100% - 7rem); }
-  .b-stellenleiste .b-schritte { order: -1; }
+  .b-stellenleiste .b-stelleninfo { order: -1; flex-basis: calc(100% - 10rem); }
+  .b-stellenleiste .b-stern, .b-stellenleiste .b-schritte { order: -1; }
+  .b-stellenleiste .b-stern { margin: 0 -0.25rem 0 -0.5rem; }
   .b-stellenleiste .b-geschafft { flex: 1; }
 }
 .mini-knopf { min-width: 2.75rem; }

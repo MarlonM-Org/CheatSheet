@@ -6,7 +6,7 @@ import { istNachladeFehler } from '@/domain/nachladen';
 import type { Anmerkung } from '@/domain/notenpult';
 import { sammlungenUebersicht, sammlungenVon } from '@/domain/sammlungen';
 import { tagsVon, type Tag } from '@/domain/tags';
-import { tempoStand, zielAusText } from '@/domain/stellen';
+import { stelleFavorit, tempoStand, zielAusText } from '@/domain/stellen';
 import { mitRand } from '@/domain/ueben';
 import { NeueVersion } from '@/components/NeueVersion';
 import {
@@ -20,6 +20,7 @@ import { NotenBetrachter } from './NotenBetrachter';
 import { NeueVersionFehler, pdfLaden, seiteMitEbene } from './pdf';
 import { ladeFehler, speicherFehler } from './speicherfehler';
 import type { MixSteuerung } from './StellenMix';
+import { SternKnopf } from './Stern';
 import { TempoKurve } from './TempoKurve';
 import { useDialogFokus, useEscape } from './tasten';
 import { anmerkungenZeichnen, ebeneZeichnen } from './zeichnen';
@@ -262,8 +263,12 @@ function UebeStelle({ stelle, breite, rand, seiteHolen, bpm, tempoSetzen, neuLad
 
   return (
     <div className="karte space-y-3">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p className="font-bold">{stelle.titel || `Stelle auf Seite ${stelle.seite}`}</p>
+      <div className="flex flex-wrap items-center justify-between gap-x-2">
+        <p className="flex min-w-0 items-center gap-1 font-bold">
+          <SternKnopf an={stelleFavorit(stelle)} className="-my-2 -ml-3"
+            umschalten={() => { stelleAendern(stelle.id, { favorit: !stelleFavorit(stelle) }).then(neuLaden, speicherFehler); }} />
+          <span className="min-w-0">{stelle.titel || `Stelle auf Seite ${stelle.seite}`}</span>
+        </p>
         <p className="gedaempft text-sm tabular-nums">
           {zuletzt ? `zuletzt ${zuletzt}` : 'noch kein Tempo'}{bestes && bestes !== zuletzt ? ` · bestes ${bestes}` : ''}{stelle.zielTempo ? ` · Ziel ${stelle.zielTempo}` : ''}
         </p>

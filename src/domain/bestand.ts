@@ -40,6 +40,8 @@ export interface Quelle { stueckId: string; von: number; bis: number }
 export interface Stelle {
   id: string; stueckId: string; seite: number; x: number; y: number; b: number; h: number;
   titel: string; notiz: string; zielTempo: number | null; tempi: { tempo: number; am: number }[];
+  // Favorit (★): für den Stellen-Mix „nur Favoriten“. Abgewählt bleibt `false` stehen.
+  favorit?: boolean;
   geaendert?: number;
 }
 // entfernt: ids weg-radierter Striche — damit sie beim Laden einer Sicherung

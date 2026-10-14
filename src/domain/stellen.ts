@@ -141,8 +141,8 @@ export function mischen(stellen: MixStelle[], zufall: () => number = Math.random
 
 // Bereich eines Mix: alle Stellen oder die einer Sammlung (F-13) bzw. eines
 // Tags (F-14), auf Wunsch nur offene — die ihr Ziel samt Reserve noch nicht
-// geschafft haben.
-export interface MixBereich { sammlung: string | null; tag: string | null; offen: boolean }
+// geschafft haben — und/oder nur Favoriten.
+export interface MixBereich { sammlung: string | null; tag: string | null; offen: boolean; favoriten: boolean }
 
 // Offen: noch kein Ziel gesetzt, oder Ziel + Reserve noch nicht geschafft.
 export function stelleOffen(s: { zielTempo: number | null; tempi: Tempo[] }): boolean {
@@ -150,26 +150,80 @@ export function stelleOffen(s: { zielTempo: number | null; tempi: Tempo[] }): bo
   return (tempoStand(s.tempi).bestes ?? 0) < reserveVon(s.zielTempo);
 }
 
+// Favorit: nur ausdrücklich markierte Stellen. Abgewählt heißt `false`, nicht
+// „kein Feld“ — sonst brächte eine ältere Sicherung den Stern zurück.
+export const stelleFavorit = (s: { favorit?: boolean }) => s.favorit === true;
+
 // Die Stellen eines Bereichs. `behalten`: schon geübte und die aktuelle Stelle
-// der laufenden Runde — sie bleiben, auch wenn sie inzwischen geschafft sind,
-// damit Zählung und Platz in der Runde nicht springen.
-export function mixAuswahl<S extends MixStelle & { zielTempo: number | null; tempi: Tempo[] }>(
-  stellen: S[], imBereich: (stueckId: string) => boolean, nurOffen: boolean, behalten: ReadonlySet<string> = new Set(),
+// der laufenden Runde — sie bleiben, auch wenn sie inzwischen geschafft sind
+// (oder ihren Stern verloren haben), damit Zählung und Platz in der Runde
+// nicht springen.
+export function mixAuswahl<S extends MixStelle & { zielTempo: number | null; tempi: Tempo[]; favorit?: boolean }>(
+  stellen: S[], imBereich: (stueckId: string) => boolean, nur: { offen: boolean; favoriten: boolean }, behalten: ReadonlySet<string> = new Set(),
 ): S[] {
-  return stellen.filter((s) => imBereich(s.stueckId) && (behalten.has(s.id) || !nurOffen || stelleOffen(s)));
+  return stellen.filter((s) => imBereich(s.stueckId)
+    && (behalten.has(s.id) || ((!nur.offen || stelleOffen(s)) && (!nur.favoriten || stelleFavorit(s)))));
 }
 
 // Speicherplatz der Runde je Bereich; „alle“ behält den bisherigen.
 export const mixSchluessel = (b: MixBereich) =>
-  !b.sammlung && !b.tag && !b.offen ? 'ueben:mix' : `ueben:mix:${b.offen ? 'offen:' : ''}${b.sammlung ?? '*'}${b.tag ? `#${b.tag}` : ''}`;
+  !b.sammlung && !b.tag && !b.offen && !b.favoriten ? 'ueben:mix'
+    : `ueben:mix:${b.offen ? 'offen:' : ''}${b.favoriten ? 'fav:' : ''}${b.sammlung ?? '*'}${b.tag ? `#${b.tag}` : ''}`;
 
 // Gespeicherter Bereich des laufenden Mix (bis 2026-10-12 nur true/false).
 export function mixBereichLesen(roh: unknown): MixBereich | null {
-  if (roh === true) return { sammlung: null, tag: null, offen: false };
+  if (roh === true) return { sammlung: null, tag: null, offen: false, favoriten: false };
   if (!roh || typeof roh !== 'object') return null;
-  const { sammlung, tag, offen } = roh as { sammlung?: unknown; tag?: unknown; offen?: unknown };
+  const { sammlung, tag, offen, favoriten } = roh as { sammlung?: unknown; tag?: unknown; offen?: unknown; favoriten?: unknown };
   const text = (x: unknown) => (typeof x === 'string' && x ? x : null);
-  return { sammlung: text(sammlung), tag: text(tag), offen: offen === true };
+  return { sammlung: text(sammlung), tag: text(tag), offen: offen === true, favoriten: favoriten === true };
+}
+
+// ── Texte je Auswahl (Bibliothek, Optionen, Kopf beim Üben, Fertig) ──
+type Nur = { offen: boolean; favoriten: boolean };
+const nomen = (n: number, nur: Nur) => (nur.favoriten ? (n === 1 ? 'Favorit' : 'Favoriten') : n === 1 ? 'Stelle' : 'Stellen');
+
+// „9 Stellen“, „5 offene Stellen“, „4 Favoriten“, „1 offener Favorit“;
+// kurz (Zeile in der Bibliothek) „5 offene“.
+export function mixMenge(n: number, nur: Nur, kurz = false): string {
+  if (kurz && nur.offen && !nur.favoriten) return `${n} offene`;
+  const adjektiv = nur.offen ? (n === 1 && nur.favoriten ? 'offener ' : 'offene ') : '';
+  return `${n} ${adjektiv}${nomen(n, nur)}`;
+}
+
+// Nichts zu mischen: `gesamt` = Stellen im Bereich ohne die Filter.
+export function mixLeer(nur: Nur, titel: string | null, gesamt: number): { kurz: string; lang: string } {
+  if (!gesamt) return { kurz: 'noch keine Stellen', lang: `${titel ? `In „${titel}“` : 'In deinen Noten'} sind noch keine Stellen markiert.` };
+  const wo = titel ? ` in „${titel}“` : '';
+  if (nur.offen && nur.favoriten) return { kurz: 'keine offenen Favoriten', lang: `Keine offenen Favoriten${wo}.` };
+  if (nur.favoriten) return { kurz: 'keine Favoriten', lang: `Keine Favoriten${wo}. Beim Üben auf ☆ vor dem Namen der Stelle tippen.` };
+  return { kurz: 'keine offenen', lang: `Keine offenen Stellen${wo} – alles mit Reserve geschafft.` };
+}
+
+// Nach der letzten Stelle: „Alle 4 Favoriten aus „2026“ waren einmal dran.“
+export function mixFertigText(n: number, nur: Nur, titel: string | null): string {
+  const aus = titel ? ` aus „${titel}“` : '';
+  if (n === 1) {
+    const art = nur.favoriten ? 'Der' : 'Die';
+    return `${art} eine ${nur.offen ? 'offene ' : ''}${nomen(1, nur)}${aus} war einmal dran.`;
+  }
+  return `Alle ${n} ${nur.offen ? 'offenen ' : ''}${nomen(n, nur)}${aus} waren einmal dran.`;
+}
+
+// Kopf beim Üben: „Mix 2026 · ★ offen · 3 von 9“. Die Zählung bleibt immer;
+// wird es eng, fällt erst der Bereich weg, dann „offen“, dann der Stern
+// (zuletzt noch ohne Mittelpunkt: „Mix ★ 3 von 9“ passt aufs iPhone).
+export function mixKopf(titel: string | null, nur: Nur, nr: number, anzahl: number): { formen: string[]; aria: string } {
+  const kuerzel = [nur.favoriten ? '★' : '', nur.offen ? 'offen' : ''].filter(Boolean).join(' ');
+  const zaehlung = `${nr} von ${anzahl}`;
+  const formen = [
+    `Mix${titel ? ` ${titel}` : ''}${titel && kuerzel ? ' ·' : ''}${kuerzel ? ` ${kuerzel}` : ''} · ${zaehlung}`,
+    `Mix${kuerzel ? ` ${kuerzel}` : ''} · ${zaehlung}`,
+    ...(nur.favoriten ? [`Mix ★ · ${zaehlung}`, `Mix ★ ${zaehlung}`] : []),
+    `Mix · ${zaehlung}`,
+  ].filter((f, i, l) => l.indexOf(f) === i);
+  const filter = nur.offen || nur.favoriten ? `, nur ${nur.offen ? 'offene ' : ''}${nur.favoriten ? 'Favoriten' : 'Stellen'}` : '';
+  return { formen, aria: `Stellen-Mix${titel ? ` aus ${titel}` : ''}${filter}, Stelle ${zaehlung}` };
 }
 
 export const neueRunde = (stellen: MixStelle[], zufall: () => number = Math.random): Runde =>

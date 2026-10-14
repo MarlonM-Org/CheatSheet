@@ -36,7 +36,7 @@ ob das ins Leitbild passt (dann auch CLAUDE.md anpassen: „kein Login“).
 | M2 | **Noten im Zentrum** | UI-Neuaufbau: Noten vollflächig, Werkzeuge als Overlays, drei Knöpfe unten | B-01…B-03 |
 | M3 | **Werkzeuge schärfen** | Stimmgerät- und Metronom-Verbesserungen, Stift-Ausbau | C-01…C-03, D-01, E-01…E-03 |
 | M4 | **Notenmanagement I** | Metadaten, Bookmarks, Flags, Kontextmenüs, Drag & Drop (Sammlungen F-13 erledigt) | F-01, F-03, F-04, F-08, F-09 |
-| M5 | **Üben & Setlisten** | Setlisten (Stellen-Mix F-11, Tonprofil C-04, Sprünge F-05, Halbseiten-Blättern F-06 und Blättern je Seite F-16 schon erledigt) | F-02 |
+| M5 | **Üben & Setlisten** | Setlisten (Stellen-Mix F-11, Tonprofil C-04, Sprünge F-05, Halbseiten-Blättern F-06, Blättern je Seite F-16 und Favoriten im Mix F-17 schon erledigt) | F-02 |
 | M6 | **Design & Extras** | Themes, Stempel/Formen, Kamera-Scan | B-04, B-05, E-04, F-07 |
 | M7 | **Komponieren** (Vision) | Noteneingabe, Rhythmus-/Melodie-Transkription | G-01…G-03 |
 | M8 | **Geräteübergreifend** (Vision, Entscheidung offen) | Noten und Übe-Daten über die eigene Cloud auf mehreren Geräten | H-01…H-05 |
@@ -624,6 +624,37 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
     Wischen rät, die Zeiger-Geschwindigkeit am iPhone höher zu stellen.
   - Ring-Modi, die nur Lautstärke- oder Kamera-Tasten senden, kommen bei
     einer Web-App nicht an.
+- **F-17 · Stellen als Favorit, Stellen-Mix mit Optionen** (2026-10-14):
+  Wunsch Marlon: Stellen als Favoriten markieren und im Mix einer Sammlung
+  (z. B. „2026“, „Deutsche Märchen“) nur Favoriten und/oder nur offene
+  Stellen üben; die große Mix-Karte war ihm zu groß — erst antippen, dann
+  Optionen, dann starten. Entwurf und Abnahme durch einen UI/UX-Agenten.
+  Regeln in `src/domain/stellen.ts` (getestet).
+  - **Favorit (★):** Stern links neben dem Namen in der Stellen-Leiste (ein
+    Tipp, Rückmeldung „★ Favorit gesetzt“ / „Kein Favorit mehr“, im
+    Favoriten-Mix „Ab nächster Runde nicht dabei“), Schalterzeile „Favorit“
+    im Stellen-Blatt, Stern vor jeder Stelle in der Übersicht des
+    Stück-Blatts. Gefüllt in Messing = Favorit, Umriss = keiner.
+  - **Einstieg in der Bibliothek:** statt der Karte eine Zeile „Stellen-Mix ·
+    9 Stellen ›“ (bzw. „Weiter bei 4 von 9“, „Runde geschafft“, „keine
+    Favoriten“, „noch keine Stellen“). Tippen öffnet ein Blatt: woraus
+    gemischt wird (nur Anzeige — gewählt wird über Sammlung und Tag der
+    Bibliothek), Schalter **„Nur offene Stellen“** und **„Nur Favoriten“**
+    (kombinierbar, gemerkt je Gerät: `ueben:mix-offen`,
+    `ueben:mix-favoriten`), die Zahl der passenden Stellen und „Mix starten“ /
+    „Weiter bei …“ / „Neue Runde“, dazu „Neu mischen“. Ohne Treffer ein
+    Hinweis, wie man Favoriten bzw. Stellen setzt. Jede Kombination hat ihre
+    eigene Runde; der gerade laufende Mix heißt immer „Weiter bei …“.
+  - **Beim Üben:** Kopf „Mix 2026 · ★ offen · 3 von 9“; wird es eng, fällt
+    erst der Bereich weg, dann „offen“, dann der Stern („Mix ★ 1 von 3“ passt
+    aufs iPhone). Eine Stelle, die ihren Stern verliert oder geschafft wird,
+    bleibt in der laufenden Runde. Der Fertig-Bildschirm nennt die Auswahl
+    („Alle 4 Favoriten aus „2026“ waren einmal dran.“) und die Größe der
+    nächsten Runde; „Optionen …“ öffnet dasselbe Blatt.
+  - **Daten:** an der Stelle `favorit` (Boolean); abgewählt bleibt `false`
+    stehen, damit eine ältere Sicherung den Stern nicht zurückbringt (beim
+    Laden gilt der neuere Stand). Reist in der Sicherung mit, kein
+    Schema-Sprung.
 - **C-04 · Tonprofil** (2026-10-12): Wunsch Marlon: die Töne des eigenen
   Instruments kennenlernen — welche zu hoch, welche zu tief liegen. Name
   entschieden: **Tonprofil** (aus den Vorschlägen; funktioniert als Knopf).

@@ -28,7 +28,7 @@ anders ist, ist ein Fehler oder gehört dort nachgetragen.
   `src/domain/einstellungen.ts`) und, im Zuschnitt des Geräts (`stueckId`),
   `virtuelle`, `lesezeichen`, `merker`, `setlisten`. Zusätzliche Felder an
   Noten/Stellen/Seiten (`sammlungen`, `tags`, `geaendert`, `entfernt`,
-  `groesse`, `ausschnitte`, `spruenge`, Metadaten) reisen ohnehin mit. Nicht
+  `groesse`, `ausschnitte`, `spruenge`, `favorit`, Metadaten) reisen ohnehin mit. Nicht
   weiter ändern; eine neue Version nur mit Lesen der alten.
 - Neuer localStorage-Schlüssel: in `src/domain/einstellungen.ts` entscheiden,
   ob er mit der Sicherung reist (Person/Instrument ja, Gerät nein), und über

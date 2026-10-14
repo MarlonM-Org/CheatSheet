@@ -18,7 +18,7 @@ import {
 } from './lokal';
 import { HinzufuegenMenue, SammlungenLeiste, SammlungKopf, SammlungWahl } from './Sammlungen';
 import { useSicherungLaden } from './Sicherung';
-import { MixKarte } from './StellenMix';
+import { MixZeile } from './StellenMix';
 import { TagEtikett, TagFilter, TagWahl } from './Tags';
 import { fehlerGrund } from './speicherfehler';
 import { useEscape } from './tasten';
@@ -26,7 +26,7 @@ import { useEscape } from './tasten';
 // Bibliothek (B-02): Overlay über den Noten — Sammlungen (F-13), Stellen-Mix,
 // Liste, Hinzufügen (Dateien oder Ordner); Einsortieren, Aktualisieren und
 // Löschen im Auswahl-Modus. Tipp auf ein Stück öffnet es vollflächig.
-export function Bibliothek({ offen, oeffnen, schliessen, einstellungen, offenEntfernt, aktualisiert, escapeAktiv, stand, mixStarten }: {
+export function Bibliothek({ offen, oeffnen, schliessen, einstellungen, offenEntfernt, aktualisiert, escapeAktiv, stand, mixStarten, mixAktiv }: {
   offen: string | null;
   oeffnen: (id: string) => void;
   schliessen: () => void;
@@ -37,6 +37,8 @@ export function Bibliothek({ offen, oeffnen, schliessen, einstellungen, offenEnt
   // Ändert sich, wenn anderswo (Einstellungen) eine Sicherung geladen wurde.
   stand: number;
   mixStarten: (neu: boolean, bereich: MixBereich) => void;
+  // Der gerade laufende Mix (null: keiner) — seine Runde heißt „Weiter bei …“.
+  mixAktiv: MixBereich | null;
 }) {
   const [anzahl, setAnzahl] = useState<number | null>(null);
   const [gewaehlt, setGewaehlt] = useState<number | null>(null);
@@ -60,7 +62,7 @@ export function Bibliothek({ offen, oeffnen, schliessen, einstellungen, offenEnt
         </button>
       </div>
       <div className="bib-inhalt">
-        <NotenListe offen={offen} oeffnen={oeffnen} anzahlMelden={setAnzahl} auswahlMelden={setGewaehlt} offenEntfernt={offenEntfernt} aktualisiert={aktualisiert} stand={stand} mixStarten={mixStarten} einstellungen={einstellungen} />
+        <NotenListe offen={offen} oeffnen={oeffnen} anzahlMelden={setAnzahl} auswahlMelden={setGewaehlt} offenEntfernt={offenEntfernt} aktualisiert={aktualisiert} stand={stand} mixStarten={mixStarten} mixAktiv={mixAktiv} einstellungen={einstellungen} />
       </div>
       <div className="bib-fuss">Alles bleibt auf diesem Gerät. Kein Konto, kein Server.</div>
     </section>
@@ -127,12 +129,12 @@ async function ausVerweis(n: Stueck): Promise<File | null> {
   } catch { return null; }
 }
 
-function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt, aktualisiert, stand: bibStand, mixStarten, einstellungen }: {
+function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt, aktualisiert, stand: bibStand, mixStarten, mixAktiv, einstellungen }: {
   offen: string | null; oeffnen: (id: string) => void; anzahlMelden: (n: number) => void;
   // Im Auswahl-Modus: wie viele gewählt sind (für den Kopf), sonst null.
   auswahlMelden: (n: number | null) => void;
   offenEntfernt: () => void; aktualisiert: (ids: string[]) => void; stand: number;
-  mixStarten: (neu: boolean, bereich: MixBereich) => void; einstellungen: () => void;
+  mixStarten: (neu: boolean, bereich: MixBereich) => void; mixAktiv: MixBereich | null; einstellungen: () => void;
 }) {
   const [noten, setNoten] = useState<Stueck[] | null>(null);
   const [stellen, setStellen] = useState<Stelle[]>([]);
@@ -153,7 +155,6 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
   const [sammlungNeu, setSammlungNeu] = useState<string | null>(null);
   const [einsortieren, setEinsortieren] = useState(true);
   const [sammlungBlatt, setSammlungBlatt] = useState<string[] | null>(null);
-  const [nurOffen, setNurOffen] = useState(() => gespeichert('ueben:mix-offen', false));
   // Tags (F-14): Definitionen, gewählter Tag-Filter (gemerkt), ob neue
   // Stücke damit markiert werden, Markier-Blatt.
   const [tags, setTags] = useState<Tag[]>([]);
@@ -388,8 +389,7 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
       {!!noten?.length && tags.length > 0 && <TagFilter uebersicht={tagUeber} aktiv={aktivTag} waehlen={tagWaehlen} />}
 
       {!!noten?.length && (
-        <MixKarte bereich={{ sammlung: aktiv, tag: aktivTag, offen: nurOffen }} tagName={zielTag?.name ?? null} noten={noten} stellen={stellen} starten={mixStarten}
-          nurOffen={(an) => { setNurOffen(an); speichern('ueben:mix-offen', an); }} />
+        <MixZeile sammlung={aktiv} tag={zielTag} noten={noten} stellen={stellen} starten={mixStarten} aktiv={mixAktiv} />
       )}
 
       {/* Leere Liste: Hinzufügen und Laden stehen in der Hinweis-Karte, Sortieren gibt es noch nichts. */}

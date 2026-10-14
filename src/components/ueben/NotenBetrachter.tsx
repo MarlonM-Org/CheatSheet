@@ -14,7 +14,7 @@ import {
   artWaehlen, einpassen, KUERZEL, punktSichtbar, seiteAn, setzenTippen, sichtbareMarken, spruengeSchreiben, sprungLoeschen,
   sprungNeu, sprungText, sprungVerschieben, SPRUNG_ARTEN, zielAnsicht, type Punkt as SprungPunkt, type Setzen, type Sprung,
 } from '@/domain/spruenge';
-import { tempoStand, zielAusText, zielStand } from '@/domain/stellen';
+import { mixKopf, stelleFavorit, tempoStand, zielAusText, zielStand } from '@/domain/stellen';
 import {
   einstellungPruefen, pipettenFarbe, pipettenPruefen, radiererPruefen, TEXT_GROESSE,
   type Pipetten, type StiftEinstellung, type ZeichenWerkzeug,
@@ -26,7 +26,7 @@ import {
 import { AusschnittRahmen } from './Ausschnitt';
 import { gespeichert as gespeicherterWert, speichern, useEinstellungenGeladen } from './klang';
 import {
-  anmerkungenSpeichern, anmerkungenVon, stueckAendern, stelleAnlegen, tempoGeschafft,
+  anmerkungenSpeichern, anmerkungenVon, stelleAendern, stueckAendern, stelleAnlegen, tempoGeschafft,
   type Stueck, type Stelle,
 } from './lokal';
 import { useMetronom } from './MetronomKontext';
@@ -37,6 +37,7 @@ import { StelleBlatt } from './StelleBlatt';
 import { StellenInfo } from './StellenInfo';
 import { SprungZeichen } from './SprungZeichen';
 import type { MixSteuerung } from './StellenMix';
+import { SternKnopf } from './Stern';
 import { blattZeichnen, strichZeichnen, type BlattTeil } from './zeichnen';
 
 const RAND = 0.06;
@@ -567,6 +568,13 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     if (i >= 0) { neueStelleMerken.current = null; if (modus === 'stellen') setStelleNr(i); }
   }, [stellen, modus]);
   const [gespeichert, setGespeichert] = useState<string | null>(null);
+  // Kurze Rückmeldung in der Unterzeile der Stellen-Leiste.
+  const meldungsUhr = useRef(0);
+  const melden = (text: string, dauer = 1600) => {
+    setGespeichert(text);
+    window.clearTimeout(meldungsUhr.current);
+    meldungsUhr.current = window.setTimeout(() => setGespeichert(null), dauer);
+  };
   const zuletztGespeichert = useRef<{ id: string; tempo: number; t: number } | null>(null);
   async function geschafft(id: string) {
     const jetzt = performance.now(), z = zuletztGespeichert.current;
@@ -581,8 +589,16 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       geaendert();
     }
     const amZiel = zielStand(bpm, stellen.find((s) => s.id === id)?.zielTempo ?? null)?.stufe;
-    setGespeichert(`Gespeichert: ${bpm} geschafft${amZiel === 'reserve' ? ' — Ziel mit Reserve!' : amZiel === 'ziel' ? ' — Ziel erreicht!' : ''}`);
-    window.setTimeout(() => setGespeichert(null), 1600);
+    melden(`Gespeichert: ${bpm} geschafft${amZiel === 'reserve' ? ' — Ziel mit Reserve!' : amZiel === 'ziel' ? ' — Ziel erreicht!' : ''}`);
+  }
+  // Favorit (★) setzen oder nehmen. Abgewählt bleibt `false` stehen (siehe
+  // stelleFavorit). Im Mix mit „nur Favoriten“ bleibt die Stelle in der Runde.
+  async function favoritUmschalten(s: Stelle) {
+    const an = !stelleFavorit(s);
+    try { await stelleAendern(s.id, { favorit: an }); } catch (x) { speicherFehler(x); return; }
+    geaendert();
+    // Kurz genug für die Unterzeile auf dem iPhone (höchstens 30 Zeichen).
+    melden(an ? '★ Favorit gesetzt' : mix?.bereich.favoriten ? 'Ab nächster Runde nicht dabei' : 'Kein Favorit mehr', 2500);
   }
   const [neueStelle, setNeueStelle] = useState<Rechteck | null>(null);
   const [stelleTitel, setStelleTitel] = useState('');
@@ -974,7 +990,9 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     if (zuletzt) setBpm(zuletzt);
   }, [stelle?.id, zuletzt, setBpm]);
   const seitenText = ansicht.art === 'ganz' ? `${ansicht.seite}` : `${ansicht.unten} → ${ansicht.oben}`;
-  const anzeige = mix ? `Mix${mix.titel ? ` ${mix.titel}` : ''} · ${mix.nr} von ${mix.anzahl}`
+  // Im Mix: „Mix 2026 · ★ offen · 3 von 9“, wird es eng, kürzer (mixKopf).
+  const kopf = mix ? mixKopf(mix.titel, mix.bereich, mix.nr, mix.anzahl) : null;
+  const anzeige = kopf ? kopf.formen[0]
     : modus === 'stellen'
     ? `Stelle ${stelleNr + 1} von ${stellen.length}`
     : `Seite ${seitenText} von ${seiten}`;
@@ -982,7 +1000,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   // wird es eng „S. 1 · nach D.S.“, dann „S. 1 · D.S.“ — die längste Form,
   // die neben den Knöpfen ganz passt (gemessen: Schrift und Knöpfe je Gerät).
   const seit = !mix && modus === 'lesen' && !frei ? nachSprung(folge, schritt, spruenge, zeige) : null;
-  const formen = seit ? [
+  const formen = kopf ? (kopf.formen.length > 1 ? kopf.formen : null) : seit ? [
     `Seite ${seitenText} von ${seiten} · nach ${KUERZEL[seit.art]}`,
     `S. ${seitenText} · nach ${KUERZEL[seit.art]}`,
     `S. ${seitenText} · ${KUERZEL[seit.art]}`,
@@ -1053,7 +1071,8 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
                 <span className="nav-titel-schnitt">{noten.titel}{noten.stimme && <span className="b-leise"> · {noten.stimme}</span>}</span>
                 <svg className="nav-pfeil" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
               </span>
-              <span className="nav-untertitel tabular-nums">{formen ? formen[Math.min(formNr, formen.length - 1)] : anzeige}</span>
+              <span className="nav-untertitel tabular-nums" aria-hidden={kopf ? true : undefined}>{formen ? formen[Math.min(formNr, formen.length - 1)] : anzeige}</span>
+              {kopf && <span className="sr-only">{kopf.aria}</span>}
             </button>
             {formen && (
               <span ref={formMessung} className="nav-messung tabular-nums" aria-hidden="true">
@@ -1337,12 +1356,13 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       {stelle && !neueStelle && !bearbeiten && (
         <div className="b-unten b-stellenleiste">
           <button type="button" className="b-knopf gross" onClick={zurueck} disabled={mix ? mix.nr <= 1 : stelleNr === 0} aria-label="Vorige Stelle">‹</button>
+          <SternKnopf an={stelleFavorit(stelle)} umschalten={() => void favoritUmschalten(stelle)} className="b-stern" />
           <button type="button" className="b-stelleninfo min-w-0 flex-1" onClick={() => setStelleBlatt(true)} title="Ziel und Tempo-Verlauf der Stelle">
             <span className="b-stellentitel">
               <span className="truncate font-bold">{stelle.titel || `Stelle auf Seite ${stelle.seite}`}</span>
               <svg className="nav-pfeil" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </span>
-            <span className="b-leise block truncate text-xs tabular-nums">
+            <span className="b-leise block truncate text-xs tabular-nums" aria-live="polite">
               {gespeichert ?? <>
                 {zuletzt ? `zuletzt geschafft ${zuletzt}` : 'noch kein Tempo geschafft'}{bestes && bestes !== zuletzt ? ` · bestes ${bestes}` : ''}{stelle.zielTempo ? ` · Ziel ${stelle.zielTempo}` : ' · Ziel setzen'}
                 {stelle.notiz ? ` · ${stelle.notiz}` : ''}

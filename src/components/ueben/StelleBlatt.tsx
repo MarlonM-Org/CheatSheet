@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { reserveVon, steigerung, tagesbeste, tempoStand, zielAusText, zielStand } from '@/domain/stellen';
+import { reserveVon, stelleFavorit, steigerung, tagesbeste, tempoStand, zielAusText, zielStand } from '@/domain/stellen';
 import { stelleAendern, type Stelle } from './lokal';
 import { speicherFehler } from './speicherfehler';
+import { Stern } from './Stern';
 import { useDialogFokus, useEscape } from './tasten';
 import { TempoKurve } from './TempoKurve';
 
@@ -20,6 +21,8 @@ export function StelleBlatt({ stelle, stueck, geaendert, schliessen }: {
   const [jetzt] = useState(() => Date.now());
   const [eingabe, setEingabe] = useState(stelle.zielTempo ? String(stelle.zielTempo) : '');
   const [hinweis, setHinweis] = useState('');
+  // Sofort umschalten; die Stelle selbst kommt nach dem Speichern neu.
+  const [favorit, setFavorit] = useState(() => stelleFavorit(stelle));
 
   const { bestes } = tempoStand(stelle.tempi);
   const ziel = stelle.zielTempo;
@@ -35,6 +38,12 @@ export function StelleBlatt({ stelle, stueck, geaendert, schliessen }: {
     if (neu === ziel) { setHinweis(''); return; }
     try { await stelleAendern(stelle.id, { zielTempo: neu }); } catch (x) { speicherFehler(x); return; }
     setHinweis(neu ? `Ziel ${neu} gespeichert.` : 'Ziel entfernt.');
+    geaendert();
+  }
+
+  async function favoritSetzen(an: boolean) {
+    setFavorit(an);
+    try { await stelleAendern(stelle.id, { favorit: an }); } catch (x) { setFavorit(!an); speicherFehler(x); return; }
     geaendert();
   }
 
@@ -59,6 +68,12 @@ export function StelleBlatt({ stelle, stueck, geaendert, schliessen }: {
           {hinweis || (ziel ? `Mit Reserve (+10 %): ${reserveVon(ziel)} — so sitzt die Stelle, auch wenn es im Konzert flotter wird.`
             : 'Das Tempo, bei dem die Stelle sitzen soll (Schläge pro Minute wie im Metronom).')}
         </p>
+
+        <label className="favorit-zeile">
+          <Stern an={favorit} />
+          <span className="min-w-0 flex-1">Favorit<small>Im Stellen-Mix unter „Nur Favoriten“</small></span>
+          <input type="checkbox" role="switch" className="ios-schalter" checked={favorit} onChange={(e) => void favoritSetzen(e.target.checked)} />
+        </label>
 
         <div className="kennzahlen">
           <div className="kennzahl">
