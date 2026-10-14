@@ -67,6 +67,9 @@ interface Stueck {
   handle?: FileSystemFileHandle;          // nur Chrome/Edge am Rechner
   blaettern?: { modus: Blaettermodus; linien: Record<number, number> };
   ausschnitte?: Record<number, Rechteck>; // angezeigter Bereich je Seite
+  // F-05 Sprünge, in der Reihenfolge, in der gesprungen wird (nr ab 1; ältere
+  // Stände ohne nr: Reihenfolge wie gespielt, src/domain/spielfolge.ts); x, y in Anteilen der Seite
+  spruenge?: { id: string; von: { seite: number; x: number; y: number }; nach: { seite: number; x: number; y: number }; art: 'wdh' | 'ds' | 'dc' | 'coda'; nr: number }[];
   groesse?: number;                       // Bytes der PDF (Doppelte beim Ordner-Import)
   geaendert?: number;                     // letzte Änderung: beim Laden gilt der neuere Stand
   sammlungen?: string[];                  // F-13: Namen

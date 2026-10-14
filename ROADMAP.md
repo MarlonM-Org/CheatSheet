@@ -6,7 +6,7 @@ Punkt ein; wer etwas fertigstellt, hakt ab und verschiebt den Punkt nach
 „Erledigt“ (unten). Größere Richtungsentscheidungen bitte als kurzen Absatz
 hier dokumentieren, nicht nur im Chat.
 
-Stand: 2026-10-13.
+Stand: 2026-10-14.
 
 ## Leitbild
 
@@ -436,14 +436,33 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
     durch. Wo ein fälliger Sprung zu sehen ist, führt „weiter“ zur
     Einstiegsstelle (ein Ring blinkt), „zurück“ geht denselben Weg rückwärts.
     Jeder Sprung einmal; Wdh., D.S., D.C. beim ersten Erreichen, die Coda erst
-    nach einem D.S./D.C.; Reihenfolge des Anlegens egal; Wdh. auf derselben
-    Seite ist ein eigener Schritt. Bei Halb/Linie gilt ein Zeichen unter der
-    Linie erst in der Halb-Ansicht (dort wird es gelesen).
+    nach einem D.S./D.C.; Wdh. auf derselben Seite ist ein eigener Schritt.
+    Bei Halb/Linie gilt ein Zeichen unter der Linie erst in der Halb-Ansicht
+    (dort wird es gelesen).
+  - **Reihenfolge verschieben** (2026-10-14, Wunsch Marlon: „Ich möchte die
+    Sprünge in ihrer Reihenfolge auch schieben können“ — die Liste stand nach
+    Seiten, Coda S. 1→2 vor D.S. S. 2→1): Die Liste im Ansicht-Menü ist die
+    Reihenfolge, in der gesprungen wird, nummeriert, mit ↑ ↓ umzustellen.
+    Dran ist immer der erste noch nicht genommene; eine Coda wartet auf ein
+    D.S./D.C. über ihr. Was der Weg nicht erreicht, steht grau (mit Hinweis).
+    Ein neuer Sprung reiht sich dort ein, wo man ihn spielt — solange nichts
+    verschoben ist, ordnet sich die ganze Liste so (dann gelten genau die
+    Regeln oben, Reihenfolge des Anlegens egal). Verschieben macht z. B.
+    1./2. Haus möglich: Sprung ins 2. Haus unter die Wiederholung, dann erst
+    beim zweiten Mal.
+  - **Notenzeichen** (2026-10-14, Wunsch Marlon): neben dem Kürzel das Segno
+    (D.S.), das Coda-Zeichen und das Wiederholungszeichen — auf den
+    Art-Knöpfen, den Marken und in der Liste (D.C. hat keins). Als SVG, die
+    Unicode-Zeichen fehlen vielen Schriften. Auf schmalen Telefonen steht das
+    Zeichen auf den Art-Knöpfen über dem Kürzel.
   - Untertitel zeigt den Abschnitt („Seite 1 von 3 · nach D.S.“, schmal
     kürzer). Marke antippen springt direkt. Geht mit Ausschnitt je Seite;
     im Stellen-Modus keine Marken.
   - **Daten:** am Stück `spruenge` (`{id, von {seite,x,y}, nach {seite,x,y},
-    art}`), reist in der Sicherung mit. Kein Schema-Sprung.
+    art, nr}`), reist in der Sicherung mit. `nr` (ab 1) ist der Platz in der
+    Reihenfolge; ältere Stände ohne `nr` bekommen beim Öffnen die
+    Reihenfolge, in der man sie spielt (geschrieben erst beim nächsten
+    Ändern). Kein Schema-Sprung.
 - **Tags: keine Doppelten** (2026-10-13): Wunsch Marlon. Auf zwei Geräten
   getrennt angelegte Tags (z. B. beide „Diese vier anlegen“) standen nach
   „Sicherung laden“ doppelt da. Jetzt gilt: gleicher Name (Groß/klein egal,
