@@ -36,7 +36,7 @@ ob das ins Leitbild passt (dann auch CLAUDE.md anpassen: „kein Login“).
 | M2 | **Noten im Zentrum** | UI-Neuaufbau: Noten vollflächig, Werkzeuge als Overlays, drei Knöpfe unten | B-01…B-03 |
 | M3 | **Werkzeuge schärfen** | Stimmgerät- und Metronom-Verbesserungen, Stift-Ausbau | C-01…C-03, D-01, E-01…E-03 |
 | M4 | **Notenmanagement I** | Metadaten, Bookmarks, Flags, Kontextmenüs, Drag & Drop (Sammlungen F-13 erledigt) | F-01, F-03, F-04, F-08, F-09 |
-| M5 | **Üben & Setlisten** | Setlisten (Stellen-Mix F-11, Tonprofil C-04, Sprünge F-05, Halbseiten-Blättern F-06 und Blättern je Seite F-16 schon erledigt) | F-02 |
+| M5 | **Üben & Setlisten** | Setlisten (Stellen-Mix F-11, Tonprofil C-04, Sprünge F-05, Halbseiten-Blättern F-06, Blättern je Seite F-16 und Favoriten im Mix F-17 schon erledigt) | F-02 |
 | M6 | **Design & Extras** | Themes, Stempel/Formen, Kamera-Scan | B-04, B-05, E-04, F-07 |
 | M7 | **Komponieren** (Vision) | Noteneingabe, Rhythmus-/Melodie-Transkription | G-01…G-03 |
 | M8 | **Geräteübergreifend** (Vision, Entscheidung offen) | Noten und Übe-Daten über die eigene Cloud auf mehreren Geräten | H-01…H-05 |
@@ -624,7 +624,7 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
     Wischen rät, die Zeiger-Geschwindigkeit am iPhone höher zu stellen.
   - Ring-Modi, die nur Lautstärke- oder Kamera-Tasten senden, kommen bei
     einer Web-App nicht an.
-- **F-16 · Stellen als Favorit, Stellen-Mix mit Optionen** (2026-10-14):
+- **F-17 · Stellen als Favorit, Stellen-Mix mit Optionen** (2026-10-14):
   Wunsch Marlon: Stellen als Favoriten markieren und im Mix einer Sammlung
   (z. B. „2026“, „Deutsche Märchen“) nur Favoriten und/oder nur offene
   Stellen üben; die große Mix-Karte war ihm zu groß — erst antippen, dann
