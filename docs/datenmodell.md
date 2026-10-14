@@ -65,7 +65,8 @@ interface Stueck {
   aktualisiert?: number;
   dateiname?: string;
   handle?: FileSystemFileHandle;          // nur Chrome/Edge am Rechner
-  blaettern?: { modus: Blaettermodus; linien: Record<number, number> };
+  blaettern?: { modus: Blaettermodus; linien: Record<number, number>; jeSeite?: Record<number, Blaettermodus> };
+                                          // modus für alle Seiten, jeSeite weicht ab (F-16)
   ausschnitte?: Record<number, Rechteck>; // angezeigter Bereich je Seite
   groesse?: number;                       // Bytes der PDF (Doppelte beim Ordner-Import)
   geaendert?: number;                     // letzte Änderung: beim Laden gilt der neuere Stand

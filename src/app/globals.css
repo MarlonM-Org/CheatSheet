@@ -508,6 +508,7 @@ details[open] > summary::before { transform: rotate(90deg); }
 .segment button { white-space: nowrap; padding: 0.45rem 0.75rem; font-size: 0.85rem; font-weight: 600; color: var(--gedaempft); text-align: center; }
 .segment button + button { border-left: 1px solid var(--linie-stark); }
 .segment button[aria-pressed="true"], .segment button[aria-selected="true"] { background: var(--flaeche2); color: var(--tinte); }
+.segment button:disabled { opacity: 0.4; cursor: not-allowed; }
 .ton-name { font-size: clamp(3.5rem, 16vw, 4.75rem); font-weight: 800; line-height: 1; transition: color 120ms; }
 .ton-oktave { font-size: 1.25rem; font-weight: 600; margin-left: 0.1rem; }
 .ton-taste { padding: 0.6rem 0; border-radius: 4px; font-weight: 700; border: 1px solid var(--linie-stark); background: var(--karte); }
@@ -750,8 +751,6 @@ details[open] > summary::before { transform: rotate(90deg); }
 /* ── Zweite Nachbesserung ── */
 .b-schwebend { top: 0.6rem; bottom: auto; pointer-events: none; padding: 0.3rem 0.6rem; gap: 0.4rem; }
 .b-greifbar { pointer-events: auto; }
-.b-verblassen { animation: verblassen 0.4s ease 3.2s forwards; }
-@keyframes verblassen { to { opacity: 0; } }
 @media (max-width: 760px) {
   .b-segment button { padding: 0.3rem 0.5rem; }
 }

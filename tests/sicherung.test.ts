@@ -7,7 +7,7 @@ const pdf = (inhalt: string) => new Blob([`%PDF-1.4 ${inhalt}`], { type: 'applic
 describe('Übe-Sicherung', () => {
   const inhalt = {
     noten: [
-      { id: 'a', titel: 'Pomp', stimme: 'Klar 1', erstellt: 1, datei: pdf('eins'), handle: { nicht: 'übertragbar' }, blaettern: { modus: 'halb', linien: { 1: 0.3 } },
+      { id: 'a', titel: 'Pomp', stimme: 'Klar 1', erstellt: 1, datei: pdf('eins'), handle: { nicht: 'übertragbar' }, blaettern: { modus: 'halb', linien: { 1: 0.3 }, jeSeite: { 2: 'ganz' } },
         spruenge: [{ id: 'j1', von: { seite: 3, x: 0.5, y: 0.4 }, nach: { seite: 1, x: 0.1, y: 0.3 }, art: 'ds' }] },
       { id: 'b', titel: 'Ärger mit Ümlauten', stimme: '', erstellt: 2, datei: pdf('zwei, etwas länger') },
     ],
@@ -23,7 +23,7 @@ describe('Übe-Sicherung', () => {
     expect(kopf.stellen).toEqual(inhalt.stellen);
     expect(kopf.anmerkungen).toEqual(inhalt.anmerkungen);
     expect(noten.map((n) => n.titel)).toEqual(['Pomp', 'Ärger mit Ümlauten']);
-    expect(noten[0].blaettern).toEqual({ modus: 'halb', linien: { 1: 0.3 } });
+    expect(noten[0].blaettern).toEqual({ modus: 'halb', linien: { 1: 0.3 }, jeSeite: { 2: 'ganz' } });
     // Sprünge (F-05) reisen als Feld am Stück mit.
     expect(noten[0].spruenge).toEqual([{ id: 'j1', von: { seite: 3, x: 0.5, y: 0.4 }, nach: { seite: 1, x: 0.1, y: 0.3 }, art: 'ds' }]);
     expect(await noten[0].datei.text()).toBe('%PDF-1.4 eins');

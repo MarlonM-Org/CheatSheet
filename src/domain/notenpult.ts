@@ -10,19 +10,78 @@ export type Ansicht =
   | { art: 'ganz'; seite: number }
   | { art: 'halb'; oben: number; unten: number; schnitt: number };
 
+// Wie ein Stück blättert (gespeichert am Stück): modus gilt für alle Seiten,
+// jeSeite weicht für einzelne davon ab (F-16) — z. B. eigene Linie, aber
+// Seite 2 ganz. Die Linien bleiben je Seite stehen, auch wenn die Seite
+// gerade anders blättert: Wechselt sie zurück auf Linie, ist sie wieder da.
+export interface Blaettern {
+  modus: Blaettermodus;
+  linien: Record<number, number>;
+  jeSeite?: Record<number, Blaettermodus>;
+}
+
+const MODI: readonly string[] = ['ganz', 'halb', 'linie'];
+const gueltig = (m: unknown): m is Blaettermodus => typeof m === 'string' && MODI.includes(m);
+
 // Liegt die Linie zu nah am Rand, wird ganz geblättert.
 const sinnvoll = (s: number) => s > 0.05 && s < 0.95;
 
-export function ansichten(seiten: number, modus: Blaettermodus, linien: Record<number, number> = {}): Ansicht[] {
+export function ansichten(seiten: number, modus: Blaettermodus, linien: Record<number, number> = {}, jeSeite: Record<number, Blaettermodus> = {}): Ansicht[] {
   const liste: Ansicht[] = [];
   for (let p = 1; p <= seiten; p++) {
     liste.push({ art: 'ganz', seite: p });
-    if (p < seiten && modus !== 'ganz') {
-      const s = modus === 'halb' ? 0.5 : (linien[p] ?? 0.5);
+    const m = gueltig(jeSeite[p]) ? jeSeite[p] : modus;
+    if (p < seiten && m !== 'ganz') {
+      const s = m === 'halb' ? 0.5 : (linien[p] ?? 0.5);
       if (sinnvoll(s)) liste.push({ art: 'halb', oben: p + 1, unten: p, schnitt: s });
     }
   }
   return liste;
+}
+
+export function seitenModus(b: Blaettern, seite: number): Blaettermodus {
+  const m = b.jeSeite?.[seite];
+  return gueltig(m) ? m : b.modus;
+}
+
+// Geblättert wird an Seite 1 bis zur vorletzten.
+const blaetterSeiten = (seiten: number) => Array.from({ length: Math.max(0, seiten - 1) }, (_, i) => i + 1);
+
+// Blättern alle Seiten gleich? (Die letzte zählt nicht, dort wird nicht geblättert.)
+export function einheitlich(b: Blaettern, seiten: number): boolean {
+  const modi = blaetterSeiten(seiten).map((p) => seitenModus(b, p));
+  return modi.every((m) => m === modi[0]);
+}
+
+// Abweichungen nur, wo sie etwas ändern; blättern alle gleich, ist das der Modus.
+function ordnen(modus: Blaettermodus, linien: Record<number, number>, jeSeite: Record<number, unknown>, seiten: number): Blaettern {
+  const p = blaetterSeiten(seiten);
+  const modi = p.map((s) => (gueltig(jeSeite[s]) ? jeSeite[s] : modus));
+  if (modi.every((m) => m === modi[0])) return { modus: modi[0] ?? modus, linien };
+  const je: Record<number, Blaettermodus> = {};
+  p.forEach((s, i) => { if (modi[i] !== modus) je[s] = modi[i]; });
+  return { modus, linien, jeSeite: je };
+}
+
+// Blättern einer Seite setzen — oder für alle: dann fallen die Abweichungen
+// weg. Die letzte Seite blättert nicht, dort ändert sich nichts.
+export function modusSetzen(b: Blaettern, seiten: number, seite: number | 'alle', m: Blaettermodus): Blaettern {
+  if (seite === 'alle') return { modus: m, linien: b.linien };
+  if (seite < 1 || seite >= seiten) return b;
+  return ordnen(b.modus, b.linien, { ...b.jeSeite, [seite]: m }, seiten);
+}
+
+// Gespeicherten Wert lesen (auch aus einer Sicherung): Fehlendes heißt ganz,
+// Unsinn fällt weg, Abweichungen werden geordnet.
+export function blaetternLesen(roh: unknown, seiten: number): Blaettern {
+  const r = roh && typeof roh === 'object' ? roh as Record<string, unknown> : {};
+  const modus = gueltig(r.modus) ? r.modus : 'ganz';
+  const linien: Record<number, number> = {};
+  if (r.linien && typeof r.linien === 'object') {
+    for (const [k, v] of Object.entries(r.linien)) if (typeof v === 'number' && Number.isFinite(v)) linien[Number(k)] = v;
+  }
+  const je = r.jeSeite && typeof r.jeSeite === 'object' ? r.jeSeite as Record<number, unknown> : {};
+  return ordnen(modus, linien, je, seiten);
 }
 
 // Index der Ansicht, die eine Seite ganz zeigt (für Sprünge und Moduswechsel).
