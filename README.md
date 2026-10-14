@@ -16,7 +16,8 @@ funktioniert danach auch offline.
   oder Bluetooth-Scroll-Ring. Je Seite ein Ausschnitt (z. B. ohne breite
   Ränder); die Leisten verschwinden mit einem Tipp in die Mitte.
 - **Sprünge:** Wiederholung, D.S., D.C. und Coda als Marken; Weiterblättern
-  folgt ihnen, zurück geht denselben Weg.
+  folgt ihnen in der Reihenfolge der Liste (umstellbar), zurück geht
+  denselben Weg.
 - **Schwierige Stellen:** markieren, gezielt üben, Zieltempo setzen und den
   Fortschritt verfolgen. Der Stellen-Mix übt Stellen aus mehreren Stücken
   gemischt.

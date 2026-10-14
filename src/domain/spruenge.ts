@@ -2,7 +2,8 @@
 // D.C., Coda. Weiterblättern folgt ihnen (spielfolge.ts); am Sprungzeichen
 // („von“) sitzt eine Marke, Antippen springt zur Einstiegsstelle („nach“).
 // Gespeichert am Stück (`spruenge`), Koordinaten in Anteilen der Seite wie
-// Stellen, Anmerkungen und Ausschnitte. Rein, getestet.
+// Stellen, Anmerkungen und Ausschnitte. Die Liste ist die Reihenfolge, in der
+// gesprungen wird (`nr` beim Speichern). Rein, getestet.
 
 import { hauptseite, type Ansicht } from './notenpult';
 import type { Rechteck } from './ueben';
@@ -46,23 +47,39 @@ export function lesereihenfolge(liste: Sprung[]): Sprung[] {
     .map((e) => e.x);
 }
 
-// Prüft und säubert (Sicherung, ältere Stände): Kaputtes fällt weg, Anteile
-// bleiben in 0..1, je id ein Sprung.
-export function spruengeLesen(roh: unknown): Sprung[] {
+// Die eigenen Einträge, geprüft und gesäubert; nr: Platz in der Reihenfolge,
+// falls gespeichert.
+function eigene(roh: unknown): { s: Sprung; nr: number | null }[] {
   if (!Array.isArray(roh)) return [];
   const ids = new Set<string>();
-  const aus: Sprung[] = [];
+  const aus: { s: Sprung; nr: number | null }[] = [];
   for (const r of roh) {
     if (!r || typeof r !== 'object') continue;
-    const { id, von, nach, art } = r as Record<string, unknown>;
+    const { id, von, nach, art, nr } = r as Record<string, unknown>;
     if (typeof id !== 'string' || !id || ids.has(id)) continue;
     if (!SPRUNG_ARTEN.includes(art as SprungArt)) continue;
     const v = punktLesen(von), n = punktLesen(nach);
     if (!v || !n) continue;
     ids.add(id);
-    aus.push({ id, von: v, nach: n, art: art as SprungArt });
+    aus.push({ s: { id, von: v, nach: n, art: art as SprungArt }, nr: typeof nr === 'number' && Number.isFinite(nr) ? nr : null });
   }
-  return lesereihenfolge(aus);
+  return aus;
+}
+
+// Trägt jeder Eintrag seinen Platz (nr)? Ältere Stände nicht: deren
+// Reihenfolge rechnet spruengeLaden (spielfolge.ts) aus.
+export function reihenfolgeGespeichert(roh: unknown): boolean {
+  const e = eigene(roh);
+  return e.length > 0 && e.every((x) => x.nr !== null);
+}
+
+// Prüft und säubert (Sicherung, ältere Stände): Kaputtes fällt weg, Anteile
+// bleiben in 0..1, je id ein Sprung. In der gespeicherten Reihenfolge (nr);
+// ohne sie in Lesereihenfolge.
+export function spruengeLesen(roh: unknown): Sprung[] {
+  const e = eigene(roh);
+  if (!reihenfolgeGespeichert(roh)) return lesereihenfolge(e.map((x) => x.s));
+  return e.map((x, i) => ({ ...x, i })).sort((a, b) => a.nr! - b.nr! || a.i - b.i).map((x) => x.s);
 }
 
 // Sprünge einer neueren Version (Art hier unbekannt, sonst stimmig) zeigt
@@ -84,19 +101,28 @@ function fremde(roh: unknown, belegt: Set<string>): Sprung[] {
   return aus;
 }
 
-// Was am Stück gespeichert wird: die eigene Liste, dazu die fremden Einträge
-// aus dem Datensatz (roh). Je id einer; eigene gehen vor.
+// Was am Stück gespeichert wird: die eigene Liste mit ihrem Platz (nr, ab 1),
+// dazu die fremden Einträge aus dem Datensatz (roh). Je id einer; eigene gehen vor.
 export function spruengeSchreiben(neu: Sprung[], roh: unknown): Sprung[] {
   const belegt = new Set([...neu, ...spruengeLesen(roh)].map((s) => s.id));
-  return [...neu, ...fremde(roh, belegt)];
+  return [...neu.map((s, i) => ({ ...s, nr: i + 1 })), ...fremde(roh, belegt)];
 }
 
-export function sprungHinzufuegen(liste: Sprung[], s: Omit<Sprung, 'id'>, id: string): Sprung[] {
-  const neu: Sprung = { id, art: s.art, von: { seite: s.von.seite, x: z(s.von.x), y: z(s.von.y) }, nach: { seite: s.nach.seite, x: z(s.nach.x), y: z(s.nach.y) } };
-  return lesereihenfolge([...liste, neu]);
+// Ein neuer Sprung, gerundet. Wo er in der Liste steht: sprungEinordnen (spielfolge.ts).
+export function sprungNeu(s: Omit<Sprung, 'id'>, id: string): Sprung {
+  return { id, art: s.art, von: { seite: s.von.seite, x: z(s.von.x), y: z(s.von.y) }, nach: { seite: s.nach.seite, x: z(s.nach.x), y: z(s.nach.y) } };
 }
 
 export const sprungLoeschen = (liste: Sprung[], id: string) => liste.filter((s) => s.id !== id);
+
+// Einen Platz nach oben (-1) oder unten (1); am Rand bleibt alles.
+export function sprungVerschieben(liste: Sprung[], id: string, um: -1 | 1): Sprung[] {
+  const i = liste.findIndex((s) => s.id === id), j = i + um;
+  if (i < 0 || j < 0 || j >= liste.length) return liste;
+  const neu = [...liste];
+  [neu[i], neu[j]] = [neu[j], neu[i]];
+  return neu;
+}
 
 // „S. 3 → S. 1 · D.S.“
 export const sprungText = (s: Sprung) => `S. ${s.von.seite} → S. ${s.nach.seite} · ${KUERZEL[s.art]}`;

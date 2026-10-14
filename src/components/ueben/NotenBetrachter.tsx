@@ -7,11 +7,12 @@ import { pipettenPunkt } from '@/domain/farbe';
 import { RAD_ANFANG, radGeste, radWeg, tastenAktion, WISCH_UMKEHREN, zeigerGeste, type Blaetter } from '@/domain/geste';
 import { ansichten, ansichtVonSeite, hauptseite, radierWeg, radierZug, type Anmerkung, type Ansicht, type Blaettermodus } from '@/domain/notenpult';
 import {
-  ankunftSchritt, nachSprung, spielfolge, standUebertragen, standZu, weiterGehen, zurueckGehen, type Stand,
+  ankunftSchritt, genommeneSpruenge, nachSprung, spielfolge, spruengeLaden, sprungEinordnen, standUebertragen, standZu,
+  weiterGehen, zurueckGehen, type Stand,
 } from '@/domain/spielfolge';
 import {
-  artWaehlen, einpassen, KUERZEL, punktSichtbar, seiteAn, setzenTippen, sichtbareMarken, spruengeLesen,
-  spruengeSchreiben, sprungHinzufuegen, sprungLoeschen, sprungText, SPRUNG_ARTEN, zielAnsicht, type Punkt as SprungPunkt, type Setzen, type Sprung,
+  artWaehlen, einpassen, KUERZEL, punktSichtbar, seiteAn, setzenTippen, sichtbareMarken, spruengeSchreiben, sprungLoeschen,
+  sprungNeu, sprungText, sprungVerschieben, SPRUNG_ARTEN, zielAnsicht, type Punkt as SprungPunkt, type Setzen, type Sprung,
 } from '@/domain/spruenge';
 import { tempoStand, zielAusText, zielStand } from '@/domain/stellen';
 import {
@@ -34,6 +35,7 @@ import { StiftPalette, type Werkzeug } from './StiftPalette';
 import { ausschnittRendern, seiteMitEbene, type SeitenBild } from './pdf';
 import { StelleBlatt } from './StelleBlatt';
 import { StellenInfo } from './StellenInfo';
+import { SprungZeichen } from './SprungZeichen';
 import type { MixSteuerung } from './StellenMix';
 import { blattZeichnen, strichZeichnen, type BlattTeil } from './zeichnen';
 
@@ -73,8 +75,9 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   // (Pedal, Ring, Tasten, Rand-Tippen) folgt den Sprüngen, zurück denselben Weg.
   const [blaettern, setBlaettern] = useState(noten.blaettern ?? { modus: 'ganz' as Blaettermodus, linien: {} as Record<number, number> });
   const liste = useMemo(() => ansichten(seiten, blaettern.modus, blaettern.linien), [seiten, blaettern]);
-  // Sprünge (F-05): Marke am Sprungzeichen, Weiterblättern und Antippen führen zur Einstiegsstelle.
-  const [spruenge, setSpruenge] = useState(() => spruengeLesen(noten.spruenge));
+  // Sprünge (F-05): Marke am Sprungzeichen, Weiterblättern und Antippen führen
+  // zur Einstiegsstelle — in der Reihenfolge der Liste.
+  const [spruenge, setSpruenge] = useState(() => spruengeLaden(noten.spruenge, liste));
   const folge = useMemo(() => spielfolge(liste, spruenge), [liste, spruenge]);
   // Sprung setzen: geführt in drei Schritten (Zeile unten). Dabei blättert man
   // durch die Ansichten selbst (frei: zeige wandert), nicht durch die Spielfolge.
@@ -206,6 +209,8 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     // Einträge einer neueren Version (unbekannte Art) reisen unverändert mit.
     stueckAendern(noten.id, { spruenge: spruengeSchreiben(neu, noten.spruenge) }).catch(speicherFehler);
   };
+  // Welche der Weg nimmt — die übrigen stehen in der Liste grau.
+  const genommen = useMemo(() => genommeneSpruenge(folge), [folge]);
   // Ring an der Einstiegsstelle nach einem Sprung (am Sprungzeichen, wenn es zurückgeht).
   const [blink, setBlink] = useState<(SprungPunkt & { n: number }) | null>(null);
   // n zählt hoch: ein neuer Ring beginnt sein Blinken von vorn.
@@ -237,7 +242,8 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   function sprungSpeichern() {
     if (setzen?.schritt !== 'art') return;
     const { von, nach, art } = setzen;
-    spruengeSpeichern(sprungHinzufuegen(spruenge, { von, nach, art }, crypto.randomUUID()));
+    // Eingereiht, wo man ihn spielt (verschieben geht im Ansicht-Menü).
+    spruengeSpeichern(sprungEinordnen(liste, spruenge, sprungNeu({ von, nach, art }, crypto.randomUUID())));
     // Zurück zum Sprungzeichen: die neue Marke blinkt kurz.
     if (!punktSichtbar(ansicht, von)) setPos({ schritt, zeige: ansichtVonSeite(liste, von.seite), frei: true, liste, folge });
     setzenEnde();
@@ -1078,17 +1084,37 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
                 <>
                   <p className="nav-blase-titel">Sprünge</p>
                   <button type="button" className="knopf knopf-leise knopf-klein" onClick={setzenStarten} disabled={!!neueStelle}>Sprung setzen</button>
-                  <p className="gedaempft text-xs">Weiterblättern folgt den Sprüngen.</p>
+                  <p className="gedaempft text-xs">
+                    {spruenge.length > 1 ? 'Weiterblättern folgt den Sprüngen in dieser Reihenfolge — mit ↑ ↓ umstellen.' : 'Weiterblättern folgt den Sprüngen.'}
+                  </p>
                   {spruenge.length > 0 && (
-                    <ul className="nav-spruenge" aria-label="Sprünge">
-                      {spruenge.map((s) => (
-                        <li key={s.id}>
-                          <span className="tabular-nums">{sprungText(s)}</span>
+                    <ol className="nav-spruenge" aria-label="Sprünge in Spielreihenfolge">
+                      {spruenge.map((s, i) => (
+                        <li key={s.id} className={genommen.has(s.id) ? undefined : 'aus'}>
+                          <span className="nav-sprung-nr tabular-nums" aria-hidden="true">{i + 1}</span>
+                          <span className="nav-sprung" title={genommen.has(s.id) ? undefined : 'Wird beim Weiterblättern nicht erreicht'}>
+                            <span className="nav-sprung-art"><SprungZeichen art={s.art} />{KUERZEL[s.art]}</span>
+                            <span className="nav-sprung-weg tabular-nums">S. {s.von.seite} → {s.nach.seite}</span>
+                          </span>
+                          <button type="button" className="nav-schieben" aria-label={`Sprung ${sprungText(s)} nach oben`} disabled={i === 0}
+                            onClick={() => spruengeSpeichern(sprungVerschieben(spruenge, s.id, -1))}>
+                            <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 7.5l3-3 3 3" /></svg>
+                          </button>
+                          <button type="button" className="nav-schieben" aria-label={`Sprung ${sprungText(s)} nach unten`} disabled={i === spruenge.length - 1}
+                            onClick={() => spruengeSpeichern(sprungVerschieben(spruenge, s.id, 1))}>
+                            <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" /></svg>
+                          </button>
                           <button type="button" className="nav-loeschen" aria-label={`Sprung ${sprungText(s)} löschen`}
                             onClick={() => spruengeSpeichern(sprungLoeschen(spruenge, s.id))}>Löschen</button>
                         </li>
                       ))}
-                    </ul>
+                    </ol>
+                  )}
+                  {spruenge.some((s) => !genommen.has(s.id)) && (
+                    <p className="gedaempft text-xs">
+                      Grau: wird beim Weiterblättern nicht erreicht.
+                      {spruenge.some((s) => s.art === 'coda' && !genommen.has(s.id)) && ' Eine Coda kommt erst nach einem D.S. oder D.C.'}
+                    </p>
                   )}
                 </>
               )}
@@ -1116,12 +1142,12 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
                   tabIndex={setzen ? -1 : undefined} aria-label={`${KUERZEL[s.art]}: zu Seite ${s.nach.seite}`} title={`${KUERZEL[s.art]} → Seite ${s.nach.seite}`}
                   // Finger und Zeiger laufen über die Fläche (hoch); hier nur Tastatur (detail 0).
                   onClick={(e) => { if (e.detail === 0) springen(s); }}>
-                  <span>{KUERZEL[s.art]}</span>
+                  <span><SprungZeichen art={s.art} />{KUERZEL[s.art]}</span>
                 </button>
               ))}
               {setzen && setzen.schritt !== 'von' && punktSichtbar(ansicht, setzen.von) && (
                 <span className="b-marke vorschau" style={lage(setzen.von)} aria-hidden="true">
-                  <span>{setzen.schritt === 'art' ? KUERZEL[setzen.art] : '?'}</span>
+                  <span>{setzen.schritt === 'art' ? <><SprungZeichen art={setzen.art} />{KUERZEL[setzen.art]}</> : '?'}</span>
                 </span>
               )}
               {setzen?.schritt === 'art' && punktSichtbar(ansicht, setzen.nach) && (
@@ -1239,7 +1265,9 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
             <div className="b-sprung-zeile b-sprung-zwei">
               <div className="b-segment b-sprung-arten" role="group" aria-label="Art des Sprungs">
                 {SPRUNG_ARTEN.map((a) => (
-                  <button key={a} type="button" aria-pressed={setzen.art === a} onClick={() => setSetzen(artWaehlen(setzen, a))}>{KUERZEL[a]}</button>
+                  <button key={a} type="button" aria-pressed={setzen.art === a} onClick={() => setSetzen(artWaehlen(setzen, a))}>
+                    <SprungZeichen art={a} />{KUERZEL[a]}
+                  </button>
                 ))}
               </div>
               <button type="button" className="knopf knopf-klein" onClick={sprungSpeichern}>Speichern</button>

@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { ansichten, type Ansicht } from '@/domain/notenpult';
 import {
-  ansichtFinden, artVorschlag, artWaehlen, einpassen, KUERZEL, lesereihenfolge, punktSichtbar, seiteAn, setzenTippen, sichtbareMarken, spruengeLesen,
-  spruengeSchreiben, sprungHinzufuegen, sprungLoeschen, sprungText, SPRUNG_ARTEN, zielAnsicht, type Setzen, type Sprung,
+  ansichtFinden, artVorschlag, artWaehlen, einpassen, KUERZEL, lesereihenfolge, punktSichtbar, reihenfolgeGespeichert, seiteAn, setzenTippen,
+  sichtbareMarken, spruengeLesen, spruengeSchreiben, sprungLoeschen, sprungNeu, sprungText, sprungVerschieben, SPRUNG_ARTEN, zielAnsicht,
+  type Setzen, type Sprung,
 } from '@/domain/spruenge';
 
 const p = (seite: number, x: number, y: number) => ({ seite, x, y });
@@ -37,7 +38,7 @@ describe('Sprünge lesen (Sicherung, ältere Stände)', () => {
     ]);
     expect(liste).toEqual([sprung('a', p(2, 1, 0), p(1, 0.1235, 0.5), 'wdh')]);
   });
-  it('sortiert nach Seite und Lage des Sprungzeichens', () => {
+  it('ohne gespeicherte Reihenfolge (ältere Stände): nach Seite und Lage des Sprungzeichens', () => {
     const liste = spruengeLesen([
       sprung('c', p(3, 0.5, 0.2), p(1, 0, 0)),
       sprung('a', p(1, 0.5, 0.9), p(2, 0, 0), 'coda'),
@@ -54,6 +55,24 @@ describe('Sprünge lesen (Sicherung, ältere Stände)', () => {
     ]);
     expect(liste.map((s) => s.id)).toEqual(['oben', 'links', 'rechts', 'tiefer']);
     expect(lesereihenfolge([]).length).toBe(0);
+  });
+  it('mit gespeicherter Reihenfolge (nr): in dieser, nr fällt beim Lesen weg', () => {
+    const a = sprung('a', p(1, 0.5, 0.9), p(2, 0, 0), 'coda'), b = sprung('b', p(2, 0.5, 0.5), p(1, 0, 0));
+    const roh = [{ ...a, nr: 2 }, { ...b, nr: 1 }];
+    expect(reihenfolgeGespeichert(roh)).toBe(true);
+    expect(spruengeLesen(roh)).toEqual([b, a]);
+    // gleiche nr: wie gespeichert
+    expect(spruengeLesen([{ ...a, nr: 1 }, { ...b, nr: 1 }]).map((s) => s.id)).toEqual(['a', 'b']);
+  });
+  it('fehlt nr bei einem (älterer Stand dazwischen): nicht gespeichert', () => {
+    const a = sprung('a', p(1, 0.5, 0.9), p(2, 0, 0), 'coda'), b = sprung('b', p(2, 0.5, 0.5), p(1, 0, 0));
+    expect(reihenfolgeGespeichert([{ ...b, nr: 1 }, a])).toBe(false);
+    expect(reihenfolgeGespeichert([{ ...b, nr: 'x' }, { ...a, nr: 2 }])).toBe(false);
+    expect(reihenfolgeGespeichert([b, a])).toBe(false);
+    expect(reihenfolgeGespeichert([])).toBe(false);
+    expect(spruengeLesen([{ ...b, nr: 1 }, a]).map((s) => s.id)).toEqual(['a', 'b']);
+    // kaputte und fremde Einträge zählen nicht mit
+    expect(reihenfolgeGespeichert([{ ...b, nr: 1 }, { ...a, art: 'fine' }, 'x'])).toBe(true);
   });
 });
 
@@ -74,16 +93,32 @@ describe('Arten', () => {
   });
 });
 
-describe('Hinzufügen und Löschen', () => {
+describe('Anlegen, Löschen, Verschieben', () => {
   const a = sprung('a', p(3, 0.5, 0.4), p(1, 0.1, 0.3));
-  it('hängt an, rundet, hält die Liste sortiert', () => {
-    const neu = sprungHinzufuegen([a], { von: p(1, 0.333333, 0.5), nach: p(3, 0.2, 0.1), art: 'coda' }, 'b');
-    expect(neu).toEqual([sprung('b', p(1, 0.3333, 0.5), p(3, 0.2, 0.1), 'coda'), a]);
+  const b = sprung('b', p(1, 0.5, 0.5), p(2, 0.5, 0.5), 'coda');
+  const c = sprung('c', p(2, 0.5, 0.5), p(2, 0.1, 0.1), 'wdh');
+  it('neu: gerundet', () => {
+    expect(sprungNeu({ von: p(1, 0.333333, 0.5), nach: p(3, 0.2, 0.1), art: 'coda' }, 'b'))
+      .toEqual(sprung('b', p(1, 0.3333, 0.5), p(3, 0.2, 0.1), 'coda'));
   });
   it('löscht nach id, andere bleiben', () => {
-    const b = sprung('b', p(1, 0.5, 0.5), p(2, 0.5, 0.5), 'coda');
     expect(sprungLoeschen([a, b], 'a')).toEqual([b]);
     expect(sprungLoeschen([a, b], 'x')).toEqual([a, b]);
+  });
+  it('verschiebt um einen Platz; am Rand und ohne Treffer bleibt alles', () => {
+    expect(sprungVerschieben([a, b, c], 'b', -1)).toEqual([b, a, c]);
+    expect(sprungVerschieben([a, b, c], 'b', 1)).toEqual([a, c, b]);
+    const l = [a, b, c];
+    expect(sprungVerschieben(l, 'a', -1)).toBe(l);
+    expect(sprungVerschieben(l, 'c', 1)).toBe(l);
+    expect(sprungVerschieben(l, 'x', 1)).toBe(l);
+  });
+  it('gespeichert mit Platz (nr ab 1), gelesen in derselben Reihenfolge', () => {
+    const roh = spruengeSchreiben([b, a, c], undefined);
+    expect(roh).toEqual([{ ...b, nr: 1 }, { ...a, nr: 2 }, { ...c, nr: 3 }]);
+    expect(spruengeLesen(roh)).toEqual([b, a, c]);
+    // verschoben und wieder gespeichert: der neue Platz gilt
+    expect(spruengeLesen(spruengeSchreiben(sprungVerschieben([b, a, c], 'c', -1), roh))).toEqual([b, c, a]);
   });
 });
 
@@ -184,7 +219,7 @@ describe('Sprünge einer neueren Version (unbekannte Art)', () => {
     const roh = [eigen, fremd];
     expect(spruengeLesen(roh)).toEqual([eigen]);
     const b = sprung('b', p(1, 0.5, 0.5), p(2, 0.5, 0.5), 'coda');
-    expect(spruengeSchreiben([eigen, b], roh)).toEqual([eigen, b, fremd]);
+    expect(spruengeSchreiben([eigen, b], roh)).toEqual([{ ...eigen, nr: 1 }, { ...b, nr: 2 }, fremd]);
     // eigenen gelöscht: der fremde bleibt
     expect(spruengeSchreiben([], roh)).toEqual([fremd]);
   });
@@ -198,16 +233,16 @@ describe('Sprünge einer neueren Version (unbekannte Art)', () => {
       { ...fremd, id: 'j', nach: null },
       { ...eigen, id: 'k', art: 'ds', von: { seite: 'x' } },
     ];
-    expect(spruengeSchreiben([eigen], roh)).toEqual([eigen]);
+    expect(spruengeSchreiben([eigen], roh)).toEqual([{ ...eigen, nr: 1 }]);
   });
   it('je id nur einmal: eigene gehen vor', () => {
     const roh = [{ ...fremd, id: 'a' }, eigen, fremd, { ...fremd, art: 'segno' }];
-    expect(spruengeSchreiben([eigen], roh)).toEqual([eigen, fremd]);
+    expect(spruengeSchreiben([eigen], roh)).toEqual([{ ...eigen, nr: 1 }, fremd]);
     // auch wenn der eigene inzwischen gelöscht ist
     expect(spruengeSchreiben([], roh)).toEqual([fremd]);
   });
   it('ohne Feld oder kaputt: nur die eigenen', () => {
-    expect(spruengeSchreiben([eigen], undefined)).toEqual([eigen]);
-    expect(spruengeSchreiben([eigen], 'kaputt')).toEqual([eigen]);
+    expect(spruengeSchreiben([eigen], undefined)).toEqual([{ ...eigen, nr: 1 }]);
+    expect(spruengeSchreiben([eigen], 'kaputt')).toEqual([{ ...eigen, nr: 1 }]);
   });
 });

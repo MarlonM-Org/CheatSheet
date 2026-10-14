@@ -3,18 +3,26 @@
 // das Stück spielt — Pedal, Ring, Tasten und Rand-Tippen gehen sie Schritt für
 // Schritt, vor und zurück. Rein, getestet.
 //
-// Regeln: Start bei der ersten Ansicht, sonst immer eine weiter. Zeigt die
-// Ansicht das Sprungzeichen eines fälligen Sprungs, führt „weiter“ zur ganzen
-// Zielseite (Schritt mit Ankunft); mehrere fällige: der in Lesereihenfolge
-// erste. Jeder Sprung höchstens einmal. Coda ist erst nach einem D.S. oder
-// D.C. fällig (im ersten Durchgang übergeht man das ⊕).
+// Regeln: Start bei der ersten Ansicht, sonst immer eine weiter. Die Liste der
+// Sprünge ist die Reihenfolge, in der gesprungen wird: dran ist der erste noch
+// nicht genommene. Zeigt die Ansicht sein Sprungzeichen, führt „weiter“ zur
+// ganzen Zielseite (Schritt mit Ankunft), danach ist der nächste dran. Jeder
+// Sprung höchstens einmal. Coda erst nach einem D.S. oder D.C. (im ersten
+// Durchgang übergeht man das ⊕); bis dahin wartet die Liste.
 // Halb/Linie: Auf der ganzen Seite blättert man an der Linie weiter; ein
 // Zeichen darunter ist erst in der Halb-Ansicht danach fällig (dort steht der
 // Rest der Seite noch) — außer man ist per Sprung schon unter der Linie
 // eingestiegen.
+//
+// Die Reihenfolge legt man selbst fest (verschieben). Ein neuer Sprung reiht
+// sich dort ein, wo man ihn spielt (sprungEinordnen); ältere Stände ohne
+// gespeicherte Reihenfolge bekommen die, in der man sie spielt
+// (automatischeReihenfolge: jeder fällige, mehrere in Lesereihenfolge).
 
 import type { Ansicht } from './notenpult';
-import { ansichtFinden, lesereihenfolge, punktSichtbar, zielAnsicht, type Punkt, type Sprung } from './spruenge';
+import {
+  ansichtFinden, lesereihenfolge, punktSichtbar, reihenfolgeGespeichert, spruengeLesen, zielAnsicht, type Punkt, type Sprung,
+} from './spruenge';
 
 // ansicht: Index in die Ansichten-Liste. ankunft: per Sprung (id) erreicht.
 export interface Schritt { ansicht: number; ankunft?: string }
@@ -31,35 +39,97 @@ function erreicht(liste: Ansicht[], i: number, p: Punkt, einstieg: number | null
   return p.y < n.schnitt || (einstieg !== null && einstieg >= n.schnitt);
 }
 
-export function spielfolge(liste: Ansicht[], spruenge: Sprung[]): Schritt[] {
-  if (!liste.length) return [];
-  // Lesereihenfolge: Seite, Zeile, links vor rechts — in der Halb-Ansicht
-  // damit erst die untere (alte) Seite, dann die obere (neue).
-  const kandidaten = lesereihenfolge(spruenge)
+interface Kandidat { s: Sprung; ziel: number }
+// Ein Halt auf dem Weg: Ansicht i; naechster: der dran ist (nur der Reihe
+// nach); k: der hier genommen wird.
+interface Halt { i: number; einstieg: number | null; nachDsDc: boolean; naechster?: Kandidat; k?: Kandidat }
+
+// Der Weg durchs Stück, Halt für Halt. reihe: die Sprünge der Reihe nach
+// (Liste); sonst jeder fällige, mehrere in Lesereihenfolge (Seite, Zeile,
+// links vor rechts — in der Halb-Ansicht damit erst die untere, alte Seite).
+// Sprünge auf eine Seite, die es nicht gibt, fallen weg.
+function* weg(liste: Ansicht[], spruenge: Sprung[], reihe: boolean): Generator<Halt> {
+  if (!liste.length) return;
+  const kandidaten = (reihe ? spruenge : lesereihenfolge(spruenge))
     .map((s) => ({ s, ziel: zielAnsicht(liste, s.nach) }))
-    .filter((k): k is { s: Sprung; ziel: number } => k.ziel !== null);
+    .filter((k): k is Kandidat => k.ziel !== null);
   const verbraucht = new Set<string>();
   let nachDsDc = false;
   // Zwischen zwei Sprüngen geht es nur vorwärts: höchstens so viele Schritte.
   const grenze = Math.min(HOECHSTENS, liste.length * (kandidaten.length + 1) + kandidaten.length);
-  const folge: Schritt[] = [{ ansicht: 0 }];
   let i = 0, einstieg: number | null = null;
-  while (folge.length < grenze) {
-    const k = kandidaten.find(({ s }) => !verbraucht.has(s.id) && (s.art !== 'coda' || nachDsDc) && erreicht(liste, i, s.von, einstieg));
+  for (let n = 0; n < grenze; n++) {
+    const offen = kandidaten.filter(({ s }) => !verbraucht.has(s.id));
+    const naechster = reihe ? offen[0] : undefined;
+    const k = (reihe ? offen.slice(0, 1) : offen)
+      .find(({ s }) => (s.art !== 'coda' || nachDsDc) && erreicht(liste, i, s.von, einstieg));
+    yield { i, einstieg, nachDsDc, naechster, k };
     if (k) {
       verbraucht.add(k.s.id);
       if (k.s.art === 'ds' || k.s.art === 'dc') nachDsDc = true;
       i = k.ziel;
       einstieg = k.s.nach.y;
-      folge.push({ ansicht: i, ankunft: k.s.id });
     } else if (i + 1 < liste.length) {
       i += 1;
       einstieg = null;
-      folge.push({ ansicht: i });
-    } else break;
+    } else return;
+  }
+}
+
+function folgeAus(halte: Iterable<Halt>): Schritt[] {
+  const folge: Schritt[] = [];
+  let ankunft: string | undefined;
+  for (const h of halte) {
+    folge.push(ankunft ? { ansicht: h.i, ankunft } : { ansicht: h.i });
+    ankunft = h.k?.s.id;
   }
   return folge;
 }
+
+export function spielfolge(liste: Ansicht[], spruenge: Sprung[]): Schritt[] {
+  return folgeAus(weg(liste, spruenge, true));
+}
+
+// Die Reihenfolge, in der man die Sprünge spielt, wenn jeder fällige genommen
+// wird (mehrere in Lesereihenfolge); nie genommene danach in Lesereihenfolge.
+// Der Reihe nach gespielt ergibt sie genau diesen Weg.
+export function automatischeReihenfolge(liste: Ansicht[], spruenge: Sprung[]): Sprung[] {
+  const genommen: Sprung[] = [];
+  for (const h of weg(liste, spruenge, false)) if (h.k) genommen.push(h.k.s);
+  const ids = new Set(genommen.map((s) => s.id));
+  return [...genommen, ...lesereihenfolge(spruenge.filter((s) => !ids.has(s.id)))];
+}
+
+// Am Stück gespeichert (roh): in der festgelegten Reihenfolge; ältere Stände
+// (ohne) in der, in der man sie spielt.
+export function spruengeLaden(roh: unknown, liste: Ansicht[]): Sprung[] {
+  const s = spruengeLesen(roh);
+  return reihenfolgeGespeichert(roh) ? s : automatischeReihenfolge(liste, s);
+}
+
+const gleicheFolge = (a: Sprung[], b: Sprung[]) => a.length === b.length && a.every((s, i) => s.id === b[i].id);
+
+// Ein neuer Sprung reiht sich dort ein, wo man ihn spielt. Steht die Liste
+// noch so, wie man sie spielt (nicht verschoben), ordnet sie sich neu
+// (automatischeReihenfolge). Sonst behalten die übrigen ihre Reihenfolge und
+// der neue kommt dorthin, wo er auf dem Weg der Liste zuerst erreicht wird
+// (Coda nach einem D.S./D.C.); ist dort auch der nächste der Liste fällig,
+// gilt die Lesereihenfolge. Nie erreicht: ans Ende.
+export function sprungEinordnen(liste: Ansicht[], spruenge: Sprung[], neu: Sprung): Sprung[] {
+  const ende = [...spruenge, neu];
+  if (gleicheFolge(spruenge, automatischeReihenfolge(liste, spruenge))) return automatischeReihenfolge(liste, ende);
+  if (zielAnsicht(liste, neu.nach) === null) return ende;
+  for (const h of weg(liste, spruenge, true)) {
+    if ((neu.art === 'coda' && !h.nachDsDc) || !erreicht(liste, h.i, neu.von, h.einstieg)) continue;
+    if (h.k && lesereihenfolge([h.k.s, neu])[0] !== neu) continue;
+    const n = h.naechster ? spruenge.indexOf(h.naechster.s) : spruenge.length;
+    return [...spruenge.slice(0, n), neu, ...spruenge.slice(n)];
+  }
+  return ende;
+}
+
+// Welche Sprünge der Weg nimmt (die übrigen erreicht er nicht).
+export const genommeneSpruenge = (folge: Schritt[]) => new Set(folge.flatMap((s) => (s.ankunft ? [s.ankunft] : [])));
 
 const klemmen = (folge: Schritt[], s: number) => Math.max(0, Math.min(folge.length - 1, Math.round(s) || 0));
 
