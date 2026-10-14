@@ -36,7 +36,7 @@ ob das ins Leitbild passt (dann auch CLAUDE.md anpassen: „kein Login“).
 | M2 | **Noten im Zentrum** | UI-Neuaufbau: Noten vollflächig, Werkzeuge als Overlays, drei Knöpfe unten | B-01…B-03 |
 | M3 | **Werkzeuge schärfen** | Stimmgerät- und Metronom-Verbesserungen, Stift-Ausbau | C-01…C-03, D-01, E-01…E-03 |
 | M4 | **Notenmanagement I** | Metadaten, Bookmarks, Flags, Kontextmenüs, Drag & Drop (Sammlungen F-13 erledigt) | F-01, F-03, F-04, F-08, F-09 |
-| M5 | **Üben & Setlisten** | Setlisten (Stellen-Mix F-11, Tonprofil C-04, Sprünge F-05 und Halbseiten-Blättern F-06 schon erledigt) | F-02 |
+| M5 | **Üben & Setlisten** | Setlisten (Stellen-Mix F-11, Tonprofil C-04, Sprünge F-05, Halbseiten-Blättern F-06 und Blättern je Seite F-16 schon erledigt) | F-02 |
 | M6 | **Design & Extras** | Themes, Stempel/Formen, Kamera-Scan | B-04, B-05, E-04, F-07 |
 | M7 | **Komponieren** (Vision) | Noteneingabe, Rhythmus-/Melodie-Transkription | G-01…G-03 |
 | M8 | **Geräteübergreifend** (Vision, Entscheidung offen) | Noten und Übe-Daten über die eigene Cloud auf mehreren Geräten | H-01…H-05 |
@@ -436,14 +436,33 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
     durch. Wo ein fälliger Sprung zu sehen ist, führt „weiter“ zur
     Einstiegsstelle (ein Ring blinkt), „zurück“ geht denselben Weg rückwärts.
     Jeder Sprung einmal; Wdh., D.S., D.C. beim ersten Erreichen, die Coda erst
-    nach einem D.S./D.C.; Reihenfolge des Anlegens egal; Wdh. auf derselben
-    Seite ist ein eigener Schritt. Bei Halb/Linie gilt ein Zeichen unter der
-    Linie erst in der Halb-Ansicht (dort wird es gelesen).
+    nach einem D.S./D.C.; Wdh. auf derselben Seite ist ein eigener Schritt.
+    Bei Halb/Linie gilt ein Zeichen unter der Linie erst in der Halb-Ansicht
+    (dort wird es gelesen).
+  - **Reihenfolge verschieben** (2026-10-14, Wunsch Marlon: „Ich möchte die
+    Sprünge in ihrer Reihenfolge auch schieben können“ — die Liste stand nach
+    Seiten, Coda S. 1→2 vor D.S. S. 2→1): Die Liste im Ansicht-Menü ist die
+    Reihenfolge, in der gesprungen wird, nummeriert, mit ↑ ↓ umzustellen.
+    Dran ist immer der erste noch nicht genommene; eine Coda wartet auf ein
+    D.S./D.C. über ihr. Was der Weg nicht erreicht, steht grau (mit Hinweis).
+    Ein neuer Sprung reiht sich dort ein, wo man ihn spielt — solange nichts
+    verschoben ist, ordnet sich die ganze Liste so (dann gelten genau die
+    Regeln oben, Reihenfolge des Anlegens egal). Verschieben macht z. B.
+    1./2. Haus möglich: Sprung ins 2. Haus unter die Wiederholung, dann erst
+    beim zweiten Mal.
+  - **Notenzeichen** (2026-10-14, Wunsch Marlon): neben dem Kürzel das Segno
+    (D.S.), das Coda-Zeichen und das Wiederholungszeichen — auf den
+    Art-Knöpfen, den Marken und in der Liste (D.C. hat keins). Als SVG, die
+    Unicode-Zeichen fehlen vielen Schriften. Auf schmalen Telefonen steht das
+    Zeichen auf den Art-Knöpfen über dem Kürzel.
   - Untertitel zeigt den Abschnitt („Seite 1 von 3 · nach D.S.“, schmal
     kürzer). Marke antippen springt direkt. Geht mit Ausschnitt je Seite;
     im Stellen-Modus keine Marken.
   - **Daten:** am Stück `spruenge` (`{id, von {seite,x,y}, nach {seite,x,y},
-    art}`), reist in der Sicherung mit. Kein Schema-Sprung.
+    art, nr}`), reist in der Sicherung mit. `nr` (ab 1) ist der Platz in der
+    Reihenfolge; ältere Stände ohne `nr` bekommen beim Öffnen die
+    Reihenfolge, in der man sie spielt (geschrieben erst beim nächsten
+    Ändern). Kein Schema-Sprung.
 - **Tags: keine Doppelten** (2026-10-13): Wunsch Marlon. Auf zwei Geräten
   getrennt angelegte Tags (z. B. beide „Diese vier anlegen“) standen nach
   „Sicherung laden“ doppelt da. Jetzt gilt: gleicher Name (Groß/klein egal,
@@ -466,6 +485,32 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
   übernommen.“ Hell/Dunkel, Farbwelt, Tempo, Lage der Fenster und Filter
   bleiben je Gerät. Der Zeitstempel rückt nur bei echten Änderungen vor.
   Regeln in `src/domain/einstellungen.ts` (getestet).
+- **F-16 · Blättern je Seite** (2026-10-14): Wunsch Marlon: Die eigene
+  Blätterlinie ist gut, aber nicht jede Seite will sie — mal ganz blättern,
+  mal ab der Linie, je nach Seite. Jetzt blättert jede Seite **Ganz**,
+  **Halb** oder mit **Linie**, oder alle gleich. Regeln in `src/domain/notenpult.ts`
+  (`modusSetzen`, `einheitlich`, `blaetternLesen`; getestet).
+  - **Ansicht → Blättern:** Ganz | Halb | Linie zeigt, wie die Seite blättert,
+    die man sieht (in der Halb-Ansicht die untere). Darunter der Schalter
+    **„Für alle n Seiten“** (ab drei Seiten): an, solange alle gleich blättern
+    — dann gilt die Wahl für alle (wie bisher). Aus: nur für diese Seite.
+    Wieder einschalten lässt alle Seiten wie diese blättern. Auf der letzten
+    Seite wird nicht geblättert; bei ausgeschaltetem Schalter ist die Wahl
+    dort gesperrt.
+  - **„Seite für Seite einstellen“** (ersetzt „Blätterlinie einstellen“):
+    Leiste unten mit ‹ › (vorige/nächste ganze Seite), Ganz | Halb | Linie,
+    demselben Schalter und „Fertig“; auf Linie-Seiten die goldene Linie zum
+    Ziehen. Die Leisten weichen, solange man einstellt. Der verblassende
+    Hinweis oben (B-11) ist dafür entfallen. „Linie“ wählen öffnet sie
+    weiterhin direkt.
+  - **Linien bleiben:** Blättert eine Seite ganz oder halb, behält sie ihre
+    Linie; zurück auf Linie ist sie wieder da. „Für alle“ setzt nur die Art,
+    nie die Linien der anderen Seiten.
+  - **Daten:** am Stück `blaettern.jeSeite` (je Seitennummer der abweichende
+    Modus; nur Seiten, die anders als `modus` blättern — blättern alle
+    gleich, gibt es kein `jeSeite`). Alte Stände ohne `jeSeite` gelten
+    unverändert; ältere App-Stände überlesen es (blättern dann überall nach
+    `modus`). Reist in der Sicherung mit. Kein Schema-Sprung.
 - **F-06 · Halbseiten-Umblättern** (2026-10-13): von Marlon abgehakt („klappt
   gut“). Im Ansicht-Menü unter „Blättern“: **Ganz**, **Halb** (unten noch die
   aktuelle, oben schon die nächste Seite) und **Linie** (eigene Blätterlinie
@@ -498,7 +543,8 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
   nach drei Sekunden und ließ ein leeres Kästchen zurück; er bleibt jetzt
   stehen, bis man die Stelle benennt bzw. den Text schreibt oder das
   Werkzeug wechselt. Nur der Hinweis zur Blätterlinie verblasst weiter —
-  dort bleibt „Fertig“ im Kästchen.
+  dort bleibt „Fertig“ im Kästchen. *(Seit F-16 steht beides in der Leiste
+  unten.)*
 - **E-06 · Zoomen beim Anmerken** (2026-10-13): Wunsch Marlon: Notizen
   mit dem Stift fielen schwer — bei offener Stift-Palette lässt sich jetzt
   heranzoomen. Regeln in `src/domain/zoom.ts` (getestet).

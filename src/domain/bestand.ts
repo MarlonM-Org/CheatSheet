@@ -3,7 +3,7 @@
 // und Setlisten. Hier stehen die Typen und die Regeln, die nicht vom
 // Gerätespeicher abhängen — rein, getestet.
 import type { Ausschnitte } from './ausschnitt';
-import type { Anmerkung, Blaettermodus } from './notenpult';
+import type { Anmerkung, Blaettern } from './notenpult';
 import type { Sprung } from './spruenge';
 
 export interface Stueck {
@@ -12,7 +12,8 @@ export interface Stueck {
   dateiname?: string;
   // Nur Chrome/Edge am Rechner: Verweis auf die Datei, um ohne Dateiauswahl neu zu laden.
   handle?: FileSystemFileHandle;
-  blaettern?: { modus: Blaettermodus; linien: Record<number, number> };
+  // Blättern: Modus für alle Seiten, Abweichungen und Linien je Seite (F-06, F-16).
+  blaettern?: Blaettern;
   // Angezeigter Bereich je Seite (Anteile der Seite); ohne Eintrag die ganze Seite.
   ausschnitte?: Ausschnitte;
   // Sprünge (F-05): Wiederholung, D.S., D.C., Coda — vom Sprungzeichen zur Einstiegsstelle.

@@ -12,11 +12,13 @@ funktioniert danach auch offline.
 
 - **Noten:** PDFs hinzufügen (auch ganze Ordner), im Vollbild lesen, mit
   Stift, Marker und Text anmerken.
-- **Blättern:** ganze oder halbe Seiten, per Wischen, Blätterpedal, Mausrad
+- **Blättern:** ganze oder halbe Seiten oder ab einer eigenen Linie — für
+  alle Seiten gleich oder je Seite anders; per Wischen, Blätterpedal, Mausrad
   oder Bluetooth-Scroll-Ring. Je Seite ein Ausschnitt (z. B. ohne breite
   Ränder); die Leisten verschwinden mit einem Tipp in die Mitte.
 - **Sprünge:** Wiederholung, D.S., D.C. und Coda als Marken; Weiterblättern
-  folgt ihnen, zurück geht denselben Weg.
+  folgt ihnen in der Reihenfolge der Liste (umstellbar), zurück geht
+  denselben Weg.
 - **Schwierige Stellen:** markieren, gezielt üben, Zieltempo setzen und den
   Fortschritt verfolgen. Der Stellen-Mix übt Stellen aus mehreren Stücken
   gemischt.
