@@ -12,7 +12,8 @@
 // `geloescht`, `tags`, `tonprofile` (siehe unten) und, so wie sie im
 // Gerätespeicher „cheatsheet“ liegen (`stueckId`), `virtuelle` (Stücke ohne
 // eigene PDF, tragen nichts zum Datenteil bei), `lesezeichen`, `merker`,
-// `setlisten`.
+// `setlisten`; dazu `einstellungen` (persönliche Einstellungen,
+// @/domain/einstellungen).
 
 export const SICHERUNG_ENDUNG = '.uebe';
 const MAGIE = [0x55, 0x45, 0x42, 0x45]; // "UEBE"
@@ -39,6 +40,16 @@ export interface Sicherungskopf {
   lesezeichen?: Eintrag[];
   merker?: Eintrag[];
   setlisten?: Eintrag[];
+  // Ergänzung 2026-10-13, ebenso optional: persönliche Einstellungen
+  // { stand, werte } — Stimmung, Metronom, Stiftfarben … (@/domain/einstellungen).
+  einstellungen?: unknown;
+}
+
+export interface Sicherungszusatz {
+  geloescht?: unknown[];
+  tags?: unknown[];
+  tonprofile?: unknown[];
+  einstellungen?: { stand: number; werte: Record<string, unknown> };
 }
 
 export interface SicherungsInhalt<N, S, A> { noten: N[]; stellen: S[]; anmerkungen: A[] }
@@ -56,7 +67,7 @@ export async function sicherungPacken<
   A extends { id: string; notenId: string },
 >(
   inhalt: SicherungsInhalt<N, S, A>, quelle: string, erstellt: number,
-  zusatz: { geloescht?: unknown[]; tags?: unknown[]; tonprofile?: unknown[] } & Partial<Zusatz> = {},
+  zusatz: Sicherungszusatz & Partial<Zusatz> = {},
 ): Promise<Blob> {
   const kopf: Sicherungskopf = {
     version: VERSION,
@@ -76,6 +87,7 @@ export async function sicherungPacken<
     ...(zusatz.lesezeichen?.length ? { lesezeichen: zusatz.lesezeichen } : {}),
     ...(zusatz.merker?.length ? { merker: zusatz.merker } : {}),
     ...(zusatz.setlisten?.length ? { setlisten: zusatz.setlisten } : {}),
+    ...(zusatz.einstellungen && Object.keys(zusatz.einstellungen.werte).length ? { einstellungen: zusatz.einstellungen } : {}),
   };
   const json = new TextEncoder().encode(JSON.stringify(kopf));
   const vorspann = new Uint8Array(9);

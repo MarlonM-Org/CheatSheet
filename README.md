@@ -13,7 +13,10 @@ funktioniert danach auch offline.
 - **Noten:** PDFs hinzufügen (auch ganze Ordner), im Vollbild lesen, mit
   Stift, Marker und Text anmerken.
 - **Blättern:** ganze oder halbe Seiten, per Wischen, Blätterpedal, Mausrad
-  oder Bluetooth-Scroll-Ring.
+  oder Bluetooth-Scroll-Ring. Je Seite ein Ausschnitt (z. B. ohne breite
+  Ränder); die Leisten verschwinden mit einem Tipp in die Mitte.
+- **Sprünge:** Wiederholung, D.S., D.C. und Coda als Marken; Weiterblättern
+  folgt ihnen, zurück geht denselben Weg.
 - **Schwierige Stellen:** markieren, gezielt üben, Zieltempo setzen und den
   Fortschritt verfolgen. Der Stellen-Mix übt Stellen aus mehreren Stücken
   gemischt.
@@ -22,7 +25,8 @@ funktioniert danach auch offline.
 - **Stimmgerät:** über das Mikrofon, mit Referenztönen. Das Tonprofil zeigt,
   welche Töne auf deinem Instrument zu hoch oder zu tief liegen.
 - **Sicherung:** alles in eine `.uebe`-Datei packen und auf einem anderen
-  Gerät laden (Einstellungen → Daten übertragen).
+  Gerät laden (Einstellungen → Daten übertragen). Stimmung, Metronom und
+  Stiftfarben reisen mit, Hell/Dunkel bleibt je Gerät.
 
 ## Deine Daten
 

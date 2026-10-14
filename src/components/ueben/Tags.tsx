@@ -2,8 +2,10 @@
 
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { FARB_NAMEN, mitTag, ohneTag, TAG_FARBEN, tagName, tagsVon, VORSCHLAEGE, type Tag, type TagFarbe } from '@/domain/tags';
-import { tagAendern, tagAnlegen, tagLoeschen, type Stueck } from './lokal';
+import {
+  doppelteNamen, FARB_NAMEN, mitTag, ohneTag, TAG_FARBEN, tagMitNamen, tagName, tagSchluessel, tagsVon, VORSCHLAEGE, type Tag, type TagFarbe,
+} from '@/domain/tags';
+import { doppelteZusammenfuehren, tagAendern, tagAnlegen, tagLoeschen, type Stueck } from './lokal';
 import { speicherFehler } from './speicherfehler';
 import { useDialogFokus, useEscape } from './tasten';
 
@@ -44,22 +46,34 @@ function FarbWahl({ farbe, setFarbe }: { farbe: TagFarbe; setFarbe: (f: TagFarbe
   );
 }
 
-// Neuer Tag oder Tag ändern: Name und Farbe.
-function TagFormular({ start, knopf, fertig, abbrechen }: {
-  start?: { name: string; farbe: TagFarbe }; knopf: string; fertig: (name: string, farbe: TagFarbe) => void; abbrechen?: () => void;
+// Neuer Tag oder Tag ändern: Name und Farbe. Keine Doppelten: Trägt ein
+// anderer Tag den Namen schon (Groß/klein egal), wird nicht angelegt — mit
+// `waehlen` wird stattdessen der vorhandene gewählt.
+function TagFormular({ start, knopf, fertig, abbrechen, vorhanden, waehlen }: {
+  start?: Tag; knopf: string; fertig: (name: string, farbe: TagFarbe) => void; abbrechen?: () => void;
+  vorhanden: Tag[]; waehlen?: (t: Tag) => void;
 }) {
   const [text, setText] = useState(start?.name ?? '');
   const [farbe, setFarbe] = useState<TagFarbe>(start?.farbe ?? 'rot');
   const name = tagName(text);
+  // Den eigenen Namen behalten geht immer — auch solange es noch Doppelte gibt (dann nur umfärben).
+  const eigener = !!start && !!name && tagSchluessel(name) === tagSchluessel(start.name);
+  const da = name && !eigener ? tagMitNamen(vorhanden, name, start?.id) : undefined;
+  function absenden() {
+    if (!name) return;
+    if (da) { if (waehlen) { waehlen(da); setText(''); } return; }
+    fertig(name, farbe);
+    if (!start) setText('');
+  }
   return (
-    <form className="tag-formular" onSubmit={(e) => { e.preventDefault(); if (name) { fertig(name, farbe); if (!start) setText(''); } }}>
+    <form className="tag-formular" onSubmit={(e) => { e.preventDefault(); absenden(); }}>
       <div className="sammlung-formular">
-        <TagPunkt farbe={farbe} />
+        <TagPunkt farbe={da ? da.farbe : farbe} />
         <input className="feld" value={text} onChange={(e) => setText(e.target.value)} placeholder="Name, z. B. Wichtig üben" aria-label="Name des Tags" maxLength={40} />
       </div>
-      <FarbWahl farbe={farbe} setFarbe={setFarbe} />
+      {da ? <p className="tag-gibt-es text-sm" role="status">Gibt es schon: <TagEtikett tag={da} /></p> : <FarbWahl farbe={farbe} setFarbe={setFarbe} />}
       <div className="flex gap-2">
-        <button type="submit" className="knopf knopf-klein" disabled={!name}>{knopf}</button>
+        <button type="submit" className="knopf knopf-klein" disabled={!name || (!!da && !waehlen)}>{da && waehlen ? 'Auswählen' : knopf}</button>
         {abbrechen && <button type="button" className="text-knopf bib-fertig" onClick={abbrechen}>Abbrechen</button>}
       </div>
     </form>
@@ -70,18 +84,35 @@ function TagFormular({ start, knopf, fertig, abbrechen }: {
 export function TagVerwaltung({ tags, geaendert }: { tags: Tag[]; geaendert: () => void }) {
   const [bearbeiten, setBearbeiten] = useState<string | null>(null);
   const [neu, setNeu] = useState(false);
+  const [meldung, setMeldung] = useState('');
+  const [laeuft, setLaeuft] = useState(false);
+  // Gleichnamige Tags (etwa getrennt auf zwei Geräten angelegt) — beim
+  // Laden einer Sicherung werden sie ohnehin eins, hier auch ohne.
+  const doppelt = doppelteNamen(tags);
+  function zusammenfuehren() {
+    setLaeuft(true);
+    doppelteZusammenfuehren().then((n) => { setMeldung(`${n} ${n === 1 ? 'Doppelter' : 'Doppelte'} zusammengeführt.`); geaendert(); }, speicherFehler)
+      .finally(() => setLaeuft(false));
+  }
   return (
     <section className="space-y-2" aria-label="Tags">
       <p className="text-sm font-semibold">Tags</p>
       <p className="gedaempft text-sm">Farbige Markierungen für Stücke, z. B. „Wichtig üben“ oder „Kann ich“. Ein Stück kann mehrere tragen; in der Bibliothek nach Tag filtern und gezielt mischen.</p>
+      {doppelt.length > 0 && (
+        <div className="tag-doppelt">
+          <p className="text-sm"><span className="warnung">Doppelt:</span> {doppelt.join(', ')}</p>
+          <button type="button" className="knopf knopf-klein" disabled={laeuft} onClick={zusammenfuehren}>Doppelte zusammenführen</button>
+        </div>
+      )}
+      {meldung && !doppelt.length && <p className="gedaempft text-sm" role="status">{meldung}</p>}
       {tags.length > 0 && (
         <ul className="sammlung-wahl">
           {tags.map((t) => (
             <li key={t.id}>
               {bearbeiten === t.id ? (
                 <div className="p-3 space-y-2">
-                  <TagFormular start={t} knopf="Speichern" abbrechen={() => setBearbeiten(null)}
-                    fertig={(name, farbe) => { tagAendern(t.id, { name, farbe }); setBearbeiten(null); geaendert(); }} />
+                  <TagFormular start={t} knopf="Speichern" vorhanden={tags} abbrechen={() => setBearbeiten(null)}
+                    fertig={(name, farbe) => { if (!tagAendern(t.id, { name, farbe })) return; setBearbeiten(null); geaendert(); }} />
                   <button type="button" className="text-knopf bib-loeschen" onClick={() => {
                     if (!confirm(`Tag „${t.name}“ löschen? Die Stücke bleiben, nur die Markierung verschwindet.`)) return;
                     tagLoeschen(t.id).then(() => { setBearbeiten(null); geaendert(); }, speicherFehler);
@@ -104,7 +135,7 @@ export function TagVerwaltung({ tags, geaendert }: { tags: Tag[]; geaendert: () 
         </div>
       )}
       {neu ? (
-        <TagFormular knopf="Tag anlegen" abbrechen={() => setNeu(false)} fertig={(name, farbe) => { tagAnlegen(name, farbe); setNeu(false); geaendert(); }} />
+        <TagFormular knopf="Tag anlegen" vorhanden={tags} abbrechen={() => setNeu(false)} fertig={(name, farbe) => { tagAnlegen(name, farbe); setNeu(false); geaendert(); }} />
       ) : (
         <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => setNeu(true)}>+ Tag</button>
       )}
@@ -167,10 +198,13 @@ export function TagWahl({ noten, tags: start, speichern, schliessen }: {
           ))}
         </ul>
         {neu ? (
-          <TagFormular knopf="Anlegen" abbrechen={() => setNeu(false)} fertig={(name, farbe) => {
-            const t = tagAnlegen(name, farbe);
-            setTags([...tags, t]); setStand({ ...stand, [t.id]: 'alle' }); setNeu(false);
-          }} />
+          <TagFormular knopf="Anlegen" vorhanden={tags} abbrechen={() => setNeu(false)}
+            waehlen={(t) => { setStand({ ...stand, [t.id]: 'alle' }); setNeu(false); }}
+            fertig={(name, farbe) => {
+              const t = tagAnlegen(name, farbe);
+              if (!tags.some((x) => x.id === t.id)) setTags([...tags, t]);
+              setStand({ ...stand, [t.id]: 'alle' }); setNeu(false);
+            }} />
         ) : (
           <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => setNeu(true)}>+ Neuer Tag</button>
         )}

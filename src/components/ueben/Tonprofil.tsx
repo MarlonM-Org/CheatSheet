@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { EINSTELLUNG_STANDARD, type Tonumfang } from '@/domain/einstellungen';
 import { zeitpunkt } from '@/domain/notenpult';
 import {
   kennzahlen, MESS_ANZAHL, messen, neigung, SAUBER, tonleiterHinweise, tonName, tonReihe, vergleich, type ProfilTon, type Tonprofil,
@@ -23,7 +24,7 @@ const datum = (t: number) => zeitpunkt(t);
 const zahl = (c: number) => `${c > 0 ? '+' : c < 0 ? '−' : ''}${Math.abs(c)}`;
 const richtung = (c: number) => (Math.abs(c) <= SAUBER ? 'sauber' : c > 0 ? 'zu hoch' : 'zu tief');
 
-interface Umfang { von: number; bis: number; stamm: boolean }
+type Umfang = Tonumfang;
 const UMFANG = 'ueben:tonprofil-umfang';
 
 export function TonprofilBlatt({ schliessen }: { schliessen: () => void }) {
@@ -32,7 +33,7 @@ export function TonprofilBlatt({ schliessen }: { schliessen: () => void }) {
   const [profile, setProfile] = useState<Tonprofil[]>(() => tonprofileLaden());
   const [ansicht, setAnsicht] = useState<'start' | 'messen' | 'ergebnis'>(() => (tonprofileLaden().length ? 'ergebnis' : 'start'));
   const [gewaehlt, setGewaehlt] = useState<string | null>(() => tonprofileLaden()[0]?.id ?? null);
-  const [umfang, setUmfang] = useState<Umfang>(() => gespeichert<Umfang>(UMFANG, { von: 55, bis: 79, stamm: false }));
+  const [umfang, setUmfang] = useState<Umfang>(() => gespeichert<Umfang>(UMFANG, EINSTELLUNG_STANDARD[UMFANG]));
   // Mikrofon nur für die Messung eingeschaltet? Dann danach wieder aus.
   const selbstGestartet = useRef(false);
   const reihe = tonReihe(umfang.von, umfang.bis).filter((m) => !umfang.stamm || STAMM.has(((m % 12) + 12) % 12));

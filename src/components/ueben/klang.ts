@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect } from 'react';
+import { EINSTELLUNGEN_GELADEN, EINSTELLUNGEN_STAND, istAenderung, neuerStand, standLesen, type MetronomKlang } from '@/domain/einstellungen';
 
 // Klänge für das Metronom, einmal synthetisiert und als Puffer abgelegt —
 // kurz, trocken und mit klarem Anschlag, damit man sie im Ensemble-Lärm hört.
-export type Klang = 'holz' | 'klick' | 'glocke';
+export type Klang = MetronomKlang;
 export type Art = 'betont' | 'normal' | 'unter';
 
 const DAUER = { holz: 0.09, klick: 0.03, glocke: 0.35 };
@@ -80,4 +81,22 @@ export function gespeichert<T>(k: string, standard: T): T {
   if (typeof window === 'undefined') return standard;
   try { const v = localStorage.getItem(k); return v === null ? standard : (JSON.parse(v) as T); } catch { return standard; }
 }
-export function speichern(k: string, v: unknown) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* egal */ } }
+// Ändert sich dabei ein Wert, der mit der Sicherung reist, wirklich, rückt
+// der Zeitstempel der Einstellungen vor (@/domain/einstellungen). Dieselben
+// Werte noch einmal — so schreiben die Anbieter beim Start — bewegen ihn nicht.
+export function speichern(k: string, v: unknown) {
+  try {
+    const geaendert = istAenderung(k, localStorage.getItem(k), v);
+    localStorage.setItem(k, JSON.stringify(v));
+    if (geaendert) localStorage.setItem(EINSTELLUNGEN_STAND, String(neuerStand(standLesen(localStorage.getItem(EINSTELLUNGEN_STAND)), Date.now())));
+  } catch { /* egal */ }
+}
+
+// Ruft `tun` auf, nachdem eine Sicherung Einstellungen übernommen hat — wer
+// Werte im Speicher hält, liest sie dann neu. `tun` sollte stabil sein.
+export function useEinstellungenGeladen(tun: () => void) {
+  useEffect(() => {
+    window.addEventListener(EINSTELLUNGEN_GELADEN, tun);
+    return () => window.removeEventListener(EINSTELLUNGEN_GELADEN, tun);
+  }, [tun]);
+}

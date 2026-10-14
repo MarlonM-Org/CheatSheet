@@ -8,11 +8,15 @@ import {
   dateiStand, einspielenPlanen, eintragZusammenfuehren, grabsteineLesen, grabsteineVereinigen, notenZusammenfuehren,
   nurGueltige, seiteZusammenfuehren, stand, stelleZusammenfuehren, type Einspielplan, type Grabstein, type Staende, type Vorhanden,
 } from '@/domain/einspielen';
+import {
+  EINSTELLUNGEN_GELADEN, EINSTELLUNGEN_STAND, einstellungenFuerSicherung, einstellungenLesen, einstellungenSammeln, standHier, uebernehmen,
+  type EinstellungsStand,
+} from '@/domain/einstellungen';
 import { nurLesbare } from '@/domain/lesbar';
 import type { Anmerkung } from '@/domain/notenpult';
 import { sicherungLesen, sicherungPacken, SicherungsFehler, type Zusatz } from '@/domain/sicherung';
 import { verbindungVerloren } from '@/domain/speicher';
-import { tagsLesen, tagsVereinigen, type Tag, type TagFarbe } from '@/domain/tags';
+import { tagMitNamen, tagsAbgleichen, tagSchluessel, tagsLesen, tagsUmschreiben, tagsVon, type Tag, type TagFarbe } from '@/domain/tags';
 import { profileLesen, profileVereinigen, type Tonprofil } from '@/domain/tonprofil';
 import { ohneFehlende, vonSicherung, zurSicherung } from '@/domain/uebersetzen';
 import { dateiQuelle, ohneDatei, VORGAENGER_SPEICHER } from '@/domain/vorgaenger';
@@ -319,20 +323,89 @@ export function tagsLaden(): Tag[] {
 function tagsSpeichern(tags: Tag[]) {
   try { localStorage.setItem(TAGS, JSON.stringify(tags)); } catch { /* egal */ }
 }
+// Gibt es den Namen schon (Groß/klein egal), kommt der vorhandene Tag zurück
+// — keine Doppelten.
 export function tagAnlegen(name: string, farbe: TagFarbe): Tag {
+  const tags = tagsLaden();
+  const da = tagMitNamen(tags, name);
+  if (da) return da;
   const tag = { id: crypto.randomUUID(), name, farbe, geaendert: Date.now() };
-  tagsSpeichern([...tagsLaden(), tag]);
+  tagsSpeichern([...tags, tag]);
   return tag;
 }
-export function tagAendern(id: string, felder: { name?: string; farbe?: TagFarbe }) {
-  tagsSpeichern(tagsLaden().map((t) => (t.id === id ? { ...t, ...felder, geaendert: Date.now() } : t)));
+// Umbenennen auf einen Namen, den ein anderer Tag trägt: nichts ändern (false).
+// Der eigene, unveränderte Name geht immer (Umfärben, auch solange es Doppelte gibt).
+export function tagAendern(id: string, felder: { name?: string; farbe?: TagFarbe }): boolean {
+  const tags = tagsLaden();
+  const bisher = tags.find((t) => t.id === id);
+  const umbenannt = felder.name !== undefined && (!bisher || tagSchluessel(felder.name) !== tagSchluessel(bisher.name));
+  if (umbenannt && tagMitNamen(tags, felder.name!, id)) return false;
+  tagsSpeichern(tags.map((t) => (t.id === id ? { ...t, ...felder, geaendert: Date.now() } : t)));
+  return true;
 }
-// Tag löschen: von allen Stücken nehmen, Grabstein für die anderen Geräte.
+// Tag löschen: von allen Stücken nehmen, Grabstein für die anderen Geräte —
+// auch unter seinen weiteren ids (dort heißt er womöglich anders).
 export async function tagLoeschen(id: string) {
   const betroffen = (await alleStuecke()).filter((n) => n.tags?.includes(id));
   await tagsSetzen(betroffen.map((n) => ({ id: n.id, tags: (n.tags ?? []).filter((x) => x !== id) })));
-  tagsSpeichern(tagsLaden().filter((t) => t.id !== id));
-  begraben('tag', [id]);
+  const tags = tagsLaden();
+  tagsSpeichern(tags.filter((t) => t.id !== id));
+  begraben('tag', [id, ...(tags.find((t) => t.id === id)?.auch ?? [])]);
+}
+
+// Ein Datensatz mit umgeschriebenen Tag-ids; null, wenn sich nichts ändert.
+// `geaendert` bleibt: Nur die ids ändern sich, nicht das Stück — sonst gälte
+// es beim nächsten Laden als neuer als Änderungen vom anderen Gerät.
+function mitTagTabelle<N extends object>(n: N, tabelle: Record<string, string>): N | null {
+  const alt = (n as { tags?: unknown }).tags;
+  if (!Array.isArray(alt)) return null;
+  const neu = tagsUmschreiben(tagsVon({ tags: alt }), tabelle);
+  return neu.length === alt.length && neu.every((x, i) => x === alt[i]) ? null : { ...n, tags: neu };
+}
+
+// Gemerkter Tag-Filter der Bibliothek und Bereich des laufenden Mix: zeigt
+// er auf eine zusammengelegte id, auf die bleibende umstellen.
+function tagVerweiseUmschreiben(tabelle: Record<string, string>) {
+  const neu = (id: unknown) => (typeof id === 'string' && Object.hasOwn(tabelle, id) ? tabelle[id] : null);
+  try {
+    const filter = neu(JSON.parse(localStorage.getItem('ueben:tag') ?? 'null'));
+    if (filter) localStorage.setItem('ueben:tag', JSON.stringify(filter));
+    const mix = JSON.parse(localStorage.getItem('ueben:mix-an') ?? 'null') as { tag?: unknown } | null;
+    const mixTag = mix && typeof mix === 'object' ? neu(mix.tag) : null;
+    if (mixTag) localStorage.setItem('ueben:mix-an', JSON.stringify({ ...mix, tag: mixTag }));
+  } catch { /* egal */ }
+}
+
+// Die Tag-Listen hiesiger Stücke umschreiben (in der laufenden Transaktion).
+function stueckeUmschreiben(s: IDBObjectStore, stuecke: Stueck[], tabelle: Record<string, string>) {
+  for (const n of stuecke) {
+    const neu = mitTagTabelle(n, tabelle);
+    if (neu) s.put(neu);
+  }
+}
+
+// Gleichnamige Tags auf diesem Gerät zu einem zusammenlegen (Regeln in
+// tagsAbgleichen): die Stücke in EINER Transaktion umschreiben, dann die
+// Tags. Liefert, wie viele Tags dabei wegfielen.
+type Abgleich = ReturnType<typeof tagsAbgleichen>;
+export async function doppelteZusammenfuehren(): Promise<number> {
+  const vorher = tagsLaden();
+  const abgleich = await transaktion<Abgleich | null>('stuecke', 'readwrite', (t, abbrechen) => {
+    const s = t.objectStore('stuecke');
+    const alle = s.getAll() as IDBRequest<Stueck[]>;
+    let a: Abgleich | null = null;
+    alle.onsuccess = () => {
+      try {
+        a = tagsAbgleichen(vorher, [], [], { hier: alle.result });
+        stueckeUmschreiben(s, alle.result, a.tabelle);
+      } catch (x) { abbrechen(x); }
+    };
+    return () => a;
+  });
+  if (!abgleich) return 0;
+  tagsSpeichern(abgleich.tags);
+  tagVerweiseUmschreiben(abgleich.tabelle);
+  return vorher.length - abgleich.tags.length;
 }
 
 // Tonprofile (C-04) auf dem Gerät, neueste zuerst; sie reisen im Kopf der Sicherung mit.
@@ -579,6 +652,25 @@ const allesLesen = () => transaktion(ALLE, 'readonly', (t) => {
   };
 });
 
+// Persönliche Einstellungen (Stimmung, Metronom, Stiftfarben …) im
+// localStorage; sie reisen im Kopf der Sicherung mit, der neuere Stand
+// gewinnt als Ganzes (Regeln in @/domain/einstellungen).
+const merkzettel = (k: string) => { try { return localStorage.getItem(k); } catch { return null; } };
+
+// Setzt die Einstellungen einer Sicherung, wenn sie neuer sind als die hier;
+// was der Datei fehlt, bleibt. Danach lesen Metronom, Stimmgerät & Co. neu.
+function einstellungenUebernehmen(dort: EinstellungsStand | null): boolean {
+  if (!uebernehmen(standHier(merkzettel(EINSTELLUNGEN_STAND), einstellungenSammeln(merkzettel)), dort)) return false;
+  let gesetzt = true;
+  try {
+    for (const [k, v] of Object.entries(dort.werte)) localStorage.setItem(k, JSON.stringify(v));
+    localStorage.setItem(EINSTELLUNGEN_STAND, String(dort.stand));
+  } catch { gesetzt = false; }
+  // Auch wenn nur ein Teil ankam: Was jetzt gespeichert ist, gilt überall.
+  window.dispatchEvent(new Event(EINSTELLUNGEN_GELADEN));
+  return gesetzt;
+}
+
 // Nicht lesbare Stücke (kaputter, verlorener oder nicht ganz lesbarer
 // PDF-Inhalt — jede Datei wird dafür einmal komplett gelesen) kommen samt
 // allem, was an ihnen hängt, nicht mit; `fehlen` nennt sie. Grabsteine,
@@ -591,6 +683,7 @@ export async function sicherungErstellen(): Promise<{ datei: Blob; noten: number
   const noten = bestand.noten as (Stueck & { datei: Blob })[];
   const datei = await sicherungPacken({ ...bestand, noten }, 'cheatsheet', Date.now(), {
     ...(zusatz as unknown as Zusatz), geloescht: grabsteineHier(), tags: tagsLaden(), tonprofile: tonprofileLaden(),
+    einstellungen: einstellungenFuerSicherung(merkzettel),
   });
   return { datei, noten: noten.length + zusatz.virtuelle.length, fehlen: [...fehlen, ...fehlenVirtuelle] };
 }
@@ -605,6 +698,8 @@ export interface Einspielung extends Einspielplan<Record<string, unknown> & { id
   grabsteine: Grabstein[];
   tags: Tag[];
   tonprofile: Tonprofil[];
+  // Persönliche Einstellungen aus der Sicherung (nicht bei der Übernahme aus „ueben“).
+  einstellungen: EinstellungsStand | null;
   // Nur bei der Übernahme aus „ueben“: Titel der Stücke ohne lesbare PDF,
   // weggelassene kaputte Einträge, Dateiverweise (gehören zu diesem Gerät).
   ohnePdf?: string[];
@@ -635,7 +730,7 @@ export async function sicherungPruefen(datei: Blob): Promise<Einspielung> {
 // (für „neuer gewinnt“ und Grabsteine).
 async function planen(
   inhalt: { noten: (Record<string, unknown> & { id: string; datei?: Blob })[]; stellen: unknown[]; anmerkungen: unknown[] } & Partial<Zusatz>,
-  kopf: { erstellt: number; geloescht?: unknown; tags?: unknown; tonprofile?: unknown },
+  kopf: { erstellt: number; geloescht?: unknown; tags?: unknown; tonprofile?: unknown; einstellungen?: unknown },
 ): Promise<Einspielung> {
   const namen: Speicher[] = ['stuecke', 'stellen', 'anmerkungen', 'lesezeichen', 'merker', 'setlisten'];
   const { vorhanden, staende } = await transaktion<{ vorhanden: Vorhanden; staende: Staende }>(namen, 'readonly', (t) => {
@@ -658,7 +753,10 @@ async function planen(
   });
   const grabsteine = grabsteineLesen(kopf.geloescht);
   const plan = einspielenPlanen(inhalt, vorhanden, { grabsteine, geraetGrabsteine: grabsteineHier(), staende });
-  return { ...plan, erstellt: kopf.erstellt, grabsteine, tags: tagsLesen(kopf.tags), tonprofile: profileLesen(kopf.tonprofile) };
+  return {
+    ...plan, erstellt: kopf.erstellt, grabsteine, tags: tagsLesen(kopf.tags), tonprofile: profileLesen(kopf.tonprofile),
+    einstellungen: einstellungenLesen(kopf.einstellungen),
+  };
 }
 
 // ── Übernahme aus der Vorgängerin „ueben“ ── nur lesend.
@@ -758,7 +856,7 @@ export async function vorgaengerPruefen(): Promise<Einspielung> {
 const VORLAEUFIG = 'einspielen:';
 export async function sicherungSchreiben(e: Einspielung): Promise<{
   neu: number; aktualisiert: number; stellen: number; anmerkungen: number; uebersprungen: number; geloescht: number;
-  lesezeichen: number; merker: number; setlisten: number;
+  lesezeichen: number; merker: number; setlisten: number; einstellungen: boolean;
 }> {
   const vorlaeufig = () => IDBKeyRange.bound(VORLAEUFIG, `${VORLAEUFIG}￿`);
   await tx('dateien', 'readwrite', (s) => { s.delete(vorlaeufig()); });
@@ -774,6 +872,9 @@ export async function sicherungSchreiben(e: Einspielung): Promise<{
   }
   const ids = [...new Set(e.noten.filter((n) => dateiNehmen.has(n.id)).map((n) => n.id))];
   let folgen: Loeschfolgen | null = null;
+  const tagsVorher = tagsLaden();
+  const grabsteine = [...grabsteineHier(), ...e.grabsteine];
+  let abgleich: Abgleich | null = null;
   await transaktion<void>(ALLE, 'readwrite', (t, abbrechen) => {
     const dateien = t.objectStore('dateien');
     // Nacheinander, damit nicht alle Dateien zugleich gelesen im Speicher liegen.
@@ -807,45 +908,68 @@ export async function sicherungSchreiben(e: Einspielung): Promise<{
         };
       }
     };
-    // Datensätze ohne Blob — die Datei liegt in „dateien“. Kam sie aus der
-    // Sicherung, gelten deren Zeitpunkt und Größe der Datei. Bei der
-    // Übernahme aus „ueben“ kommt der Dateiverweis mit, wenn hier keiner ist.
-    einspielen('stuecke', e.noten, (g, n) => {
-      const { datei, ...zusammen } = notenZusammenfuehren(g, n);
-      const verweis = zusammen.handle === undefined ? e.verweise?.get(n.id) : undefined;
-      const z = verweis ? { ...zusammen, handle: verweis } : zusammen;
-      if (!dateiNehmen.has(n.id) || !datei) return z as typeof n;
-      return { ...z, groesse: datei.size, ...(typeof n.aktualisiert === 'number' ? { aktualisiert: n.aktualisiert } : {}) } as unknown as typeof n;
-    });
-    einspielen('stuecke', e.zusatz.virtuelle, notenZusammenfuehren);
-    einspielen('stellen', e.stellen.map(vonSicherung), stelleZusammenfuehren);
-    einspielen('anmerkungen', e.anmerkungen.map(vonSicherung), seiteZusammenfuehren);
-    einspielen('lesezeichen', e.zusatz.lesezeichen, eintragZusammenfuehren);
-    einspielen('merker', e.zusatz.merker, eintragZusammenfuehren);
-    einspielen('setlisten', e.zusatz.setlisten, eintragZusammenfuehren);
-    // Auf dem anderen Gerät gelöscht (und hier seitdem unverändert) — erst
-    // nach dem Einspielen. Die Datensätze schreibt jeweils der Erfolg ihres
-    // Lesens; diese Anfrage steht hinter allen Lesezugriffen oben, ihr Erfolg
-    // kommt also erst, wenn alles Geschriebene schon eingereiht ist. So sieht
-    // das Löschen die geladenen Setlisten (und nicht den alten Stand, der sie
-    // sonst überschreiben würde) und nimmt ihnen die Einträge.
-    const eingespielt = t.objectStore('setlisten').count();
-    eingespielt.onsuccess = () => {
+    // Tags (Regeln in tagsAbgleichen): gleichnamige werden EIN Tag mit der
+    // hiesigen id. Dafür erst alle Stücke hier lesen (für Doppelte auf dem
+    // Gerät zählt, welche id die meisten Stücke trägt); dann die Tag-Listen
+    // umschreiben — die aus der Sicherung vor dem Zusammenführen, die übrigen
+    // hiesigen direkt. Alles Weitere wird erst danach eingereiht, damit die
+    // Reihenfolge unten (Löschen nach allem Einspielen) erhalten bleibt.
+    const stuecke = t.objectStore('stuecke');
+    const alle = stuecke.getAll() as IDBRequest<Stueck[]>;
+    alle.onsuccess = () => {
       try {
-        for (const id of e.loeschen.stellen) t.objectStore('stellen').delete(id);
-        for (const id of e.loeschen.lesezeichen ?? []) t.objectStore('lesezeichen').delete(id);
-        for (const id of e.loeschen.merker ?? []) t.objectStore('merker').delete(id);
-        for (const id of e.loeschen.setlisten ?? []) t.objectStore('setlisten').delete(id);
-        if (e.loeschen.noten.length) entfernen(t, e.loeschen.noten, abbrechen, (f) => { folgen = f; });
+        const a = tagsAbgleichen(tagsVorher, e.tags, grabsteine, { hier: alle.result, dort: [...e.noten, ...e.zusatz.virtuelle] });
+        abgleich = a;
+        const umschreiben = <N extends object>(n: N) => mitTagTabelle(n, a.tabelle) ?? n;
+        // Datensätze ohne Blob — die Datei liegt in „dateien“. Kam sie aus der
+        // Sicherung, gelten deren Zeitpunkt und Größe der Datei. Bei der
+        // Übernahme aus „ueben“ kommt der Dateiverweis mit, wenn hier keiner ist.
+        einspielen('stuecke', e.noten.map(umschreiben), (g, n) => {
+          const { datei, ...zusammen } = notenZusammenfuehren(g && umschreiben(g), n);
+          const verweis = zusammen.handle === undefined ? e.verweise?.get(n.id) : undefined;
+          const z = verweis ? { ...zusammen, handle: verweis } : zusammen;
+          if (!dateiNehmen.has(n.id) || !datei) return z as typeof n;
+          return { ...z, groesse: datei.size, ...(typeof n.aktualisiert === 'number' ? { aktualisiert: n.aktualisiert } : {}) } as unknown as typeof n;
+        });
+        einspielen('stuecke', e.zusatz.virtuelle.map(umschreiben), (g, n) => notenZusammenfuehren(g && umschreiben(g), n));
+        // Die schon zusammengeführten und die gleich gelöschten nicht anfassen.
+        const anders = new Set([...e.noten, ...e.zusatz.virtuelle].map((n) => n.id).concat(e.loeschen.noten));
+        stueckeUmschreiben(stuecke, alle.result.filter((n) => !anders.has(n.id)), a.tabelle);
+        einspielen('stellen', e.stellen.map(vonSicherung), stelleZusammenfuehren);
+        einspielen('anmerkungen', e.anmerkungen.map(vonSicherung), seiteZusammenfuehren);
+        einspielen('lesezeichen', e.zusatz.lesezeichen, eintragZusammenfuehren);
+        einspielen('merker', e.zusatz.merker, eintragZusammenfuehren);
+        einspielen('setlisten', e.zusatz.setlisten, eintragZusammenfuehren);
+        // Auf dem anderen Gerät gelöscht (und hier seitdem unverändert) — erst
+        // nach dem Einspielen. Die Datensätze schreibt jeweils der Erfolg ihres
+        // Lesens; diese Anfrage steht hinter allen Lesezugriffen oben, ihr Erfolg
+        // kommt also erst, wenn alles Geschriebene schon eingereiht ist. So sieht
+        // das Löschen die geladenen Setlisten (und nicht den alten Stand, der sie
+        // sonst überschreiben würde) und nimmt ihnen die Einträge.
+        const eingespielt = t.objectStore('setlisten').count();
+        eingespielt.onsuccess = () => {
+          try {
+            for (const id of e.loeschen.stellen) t.objectStore('stellen').delete(id);
+            for (const id of e.loeschen.lesezeichen ?? []) t.objectStore('lesezeichen').delete(id);
+            for (const id of e.loeschen.merker ?? []) t.objectStore('merker').delete(id);
+            for (const id of e.loeschen.setlisten ?? []) t.objectStore('setlisten').delete(id);
+            if (e.loeschen.noten.length) entfernen(t, e.loeschen.noten, abbrechen, (f) => { folgen = f; });
+          } catch (x) { abbrechen(x); }
+        };
       } catch (x) { abbrechen(x); }
     };
   });
-  // Die Löschungen der Sicherung gelten jetzt auch hier — und reisen weiter.
-  grabsteineSetzen([...grabsteineHier(), ...e.grabsteine]);
+  // Die Löschungen der Sicherung gelten jetzt auch hier — und reisen weiter;
+  // dazu die Grabsteine gelöschter Tags unter ihren hiesigen ids.
+  const ergebnis = abgleich as Abgleich | null;
+  grabsteineSetzen([...grabsteineHier(), ...e.grabsteine, ...(ergebnis?.grabsteine ?? [])]);
   if (folgen) folgenBegraben(folgen);
-  // Tags: je Tag der neuere Stand, gelöschte bleiben weg.
-  tagsSpeichern(tagsVereinigen(tagsLaden(), e.tags, grabsteineHier()));
+  if (ergebnis) {
+    tagsSpeichern(ergebnis.tags);
+    tagVerweiseUmschreiben(ergebnis.tabelle);
+  }
   tonprofileSpeichern(profileVereinigen(tonprofileLaden(), e.tonprofile, grabsteineHier()));
+  const einstellungen = einstellungenUebernehmen(e.einstellungen);
   dauerhaftAnfragen();
   const l = e.loeschen;
   return {
@@ -853,5 +977,6 @@ export async function sicherungSchreiben(e: Einspielung): Promise<{
     uebersprungen: e.uebersprungen,
     geloescht: l.noten.length + l.stellen.length + (l.lesezeichen?.length ?? 0) + (l.merker?.length ?? 0) + (l.setlisten?.length ?? 0),
     lesezeichen: e.zusatz.lesezeichen.length, merker: e.zusatz.merker.length, setlisten: e.zusatz.setlisten.length,
+    einstellungen,
   };
 }

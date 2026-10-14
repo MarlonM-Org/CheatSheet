@@ -36,7 +36,7 @@ ob das ins Leitbild passt (dann auch CLAUDE.md anpassen: „kein Login“).
 | M2 | **Noten im Zentrum** | UI-Neuaufbau: Noten vollflächig, Werkzeuge als Overlays, drei Knöpfe unten | B-01…B-03 |
 | M3 | **Werkzeuge schärfen** | Stimmgerät- und Metronom-Verbesserungen, Stift-Ausbau | C-01…C-03, D-01, E-01…E-03 |
 | M4 | **Notenmanagement I** | Metadaten, Bookmarks, Flags, Kontextmenüs, Drag & Drop (Sammlungen F-13 erledigt) | F-01, F-03, F-04, F-08, F-09 |
-| M5 | **Üben & Setlisten** | Setlisten, Wiederholungs-Links, Halbseiten-Blättern (Stellen-Mix F-11 und Tonprofil C-04 schon erledigt) | F-02, F-05, F-06 |
+| M5 | **Üben & Setlisten** | Setlisten (Stellen-Mix F-11, Tonprofil C-04, Sprünge F-05 und Halbseiten-Blättern F-06 schon erledigt) | F-02 |
 | M6 | **Design & Extras** | Themes, Stempel/Formen, Kamera-Scan | B-04, B-05, E-04, F-07 |
 | M7 | **Komponieren** (Vision) | Noteneingabe, Rhythmus-/Melodie-Transkription | G-01…G-03 |
 | M8 | **Geräteübergreifend** (Vision, Entscheidung offen) | Noten und Übe-Daten über die eigene Cloud auf mehreren Geräten | H-01…H-05 |
@@ -131,17 +131,7 @@ Flüchtige Merker: Seite markieren, Liste aller Flags (je Stück und global),
 alle auf einmal löschen. Bewusst leichtgewichtiger als Bookmarks.
 Speicher steht (A-02): `merker`, einer je Seite.
 
-### F-05 · Wiederholungs-Links
-
-Zwei Punkte im Stück verknüpfen (Wiederholung/Coda): Antippen springt zur
-Zielseite, ein kurzes Blinksignal zeigt die Einstiegsstelle.
-
-### F-06 · Halbseiten-Umblättern
-
-Untere Hälfte der aktuellen + obere Hälfte der nächsten Seite gleichzeitig —
-nahtlose Übergänge. Der Betrachter kennt schon Ganz-/Halb-/Linien-Ansichten
-(`ansichten` in `src/domain/notenpult.ts`), das ist die Weiterführung.
-Bluetooth-Pedale funktionieren bereits und bleiben erhalten.
+*(F-05 Sprünge und F-06 Halbseiten-Umblättern am 2026-10-13 erledigt, siehe unten.)*
 
 ### F-07 · Kamera-Scan
 
@@ -424,7 +414,8 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
   Noten samt Stellen, Tempi, Anmerkungen und Radier-Spuren als eine
   `.uebe`-Datei erstellen (herunterladen oder teilen) und auf dem anderen
   Gerät laden — in den Einstellungen oder direkt in der leeren Bibliothek.
-  Einstellungen (Tempo, Farbwelt …) reisen nicht mit. Beim Laden gehen die
+  Tempo und Farbwelt bleiben je Gerät (seit 2026-10-13 reisen Stimmung,
+  Metronom und Stiftfarben mit). Beim Laden gehen die
   PDFs nie als Blob in die Datenbank: erst einzeln als Bytes vorläufig in
   `dateien`, dann zieht eine Transaktion sie an ihren Platz (alles oder
   nichts). Vor jeder Sicherung — und still im Hintergrund nach dem Laden der
@@ -433,6 +424,53 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
   obwohl sich das Stück öffnen ließ („Nicht lesbar, nicht in der
   Sicherung“). Ist eine PDF wirklich verloren, nennt die Meldung den Weg
   zur Rettung. Ersetzt A-01.
+- **F-05 · Sprünge (Wiederholung, D.S., D.C., Coda)** (2026-10-13): Wunsch
+  Marlon: „Teils keine Pause bei solchen Übergängen und kann nicht besonders
+  wo hinklicken — einfach ‚weiter‘ blättern.“ Regeln in
+  `src/domain/spruenge.ts` und `src/domain/spielfolge.ts` (getestet).
+  - **Setzen:** Ansicht → Sprünge → „Sprung setzen“: Sprungzeichen antippen,
+    zum Ziel blättern und antippen, Art wählen (Wdh., D.S., D.C., Coda). Am
+    Sprungzeichen sitzt eine Marke. Liste mit Löschen im Ansicht-Menü.
+  - **Weiterblättern folgt den Sprüngen (Spielfolge):** Pedal, Scroll-Ring,
+    Tasten, Mausrad und Rand-Tippen gehen das Stück in Spielreihenfolge
+    durch. Wo ein fälliger Sprung zu sehen ist, führt „weiter“ zur
+    Einstiegsstelle (ein Ring blinkt), „zurück“ geht denselben Weg rückwärts.
+    Jeder Sprung einmal; Wdh., D.S., D.C. beim ersten Erreichen, die Coda erst
+    nach einem D.S./D.C.; Reihenfolge des Anlegens egal; Wdh. auf derselben
+    Seite ist ein eigener Schritt. Bei Halb/Linie gilt ein Zeichen unter der
+    Linie erst in der Halb-Ansicht (dort wird es gelesen).
+  - Untertitel zeigt den Abschnitt („Seite 1 von 3 · nach D.S.“, schmal
+    kürzer). Marke antippen springt direkt. Geht mit Ausschnitt je Seite;
+    im Stellen-Modus keine Marken.
+  - **Daten:** am Stück `spruenge` (`{id, von {seite,x,y}, nach {seite,x,y},
+    art}`), reist in der Sicherung mit. Kein Schema-Sprung.
+- **Tags: keine Doppelten** (2026-10-13): Wunsch Marlon. Auf zwei Geräten
+  getrennt angelegte Tags (z. B. beide „Diese vier anlegen“) standen nach
+  „Sicherung laden“ doppelt da. Jetzt gilt: gleicher Name (Groß/klein egal,
+  Leerraum zusammengefasst) = derselbe Tag. Beim Laden bleibt die hiesige id,
+  Name und Farbe vom neueren Stand; die Tag-Listen der Stücke werden in
+  derselben Transaktion umgeschrieben (`geaendert` der Stücke bleibt). Jeder
+  Tag merkt sich die ids, unter denen er auf anderen Geräten läuft (`auch`),
+  damit Umbenennen und Löschen weiter ankommen. Schon vorhandene Doppelte legt
+  das nächste Laden zusammen (es bleibt die id mit den meisten Stücken), ohne
+  Sicherung per „Doppelte zusammenführen“ in Einstellungen → Tags. Anlegen
+  oder Umbenennen auf einen vorhandenen Namen zeigt „Gibt es schon“; beim
+  Markieren wird stattdessen der vorhandene Tag gewählt. Regeln in
+  `src/domain/tags.ts` (`tagsAbgleichen`, getestet). Kein Schema-Sprung.
+- **Einstellungen reisen mit der Sicherung** (2026-10-13): Wunsch Marlon.
+  Stimmung und Kammerton, Metronom (Klang, Lautstärke, Takt, Akzente,
+  Unterteilung, Trainer), Stift-, Marker- und Textfarbe, Wischrichtung und
+  Tonumfang stehen im Kopf der Sicherung (`einstellungen = { stand, werte }`).
+  Beim Laden gilt der neuere Stand als Ganzes; was der Datei fehlt, bleibt.
+  Wirkt sofort (Metronom und Stimmgerät lesen neu), Meldung „Einstellungen
+  übernommen.“ Hell/Dunkel, Farbwelt, Tempo, Lage der Fenster und Filter
+  bleiben je Gerät. Der Zeitstempel rückt nur bei echten Änderungen vor.
+  Regeln in `src/domain/einstellungen.ts` (getestet).
+- **F-06 · Halbseiten-Umblättern** (2026-10-13): von Marlon abgehakt („klappt
+  gut“). Im Ansicht-Menü unter „Blättern“: **Ganz**, **Halb** (unten noch die
+  aktuelle, oben schon die nächste Seite) und **Linie** (eigene Blätterlinie
+  je Seite); Regeln in `ansichten` (`src/domain/notenpult.ts`). Pedale,
+  Scroll-Ring und Mausrad blättern durch dieselben Ansichten.
 - **B-09 · Leisten liegen über den Noten** (2026-10-13): Wunsch Marlon: Die
   Noten nutzen immer den ganzen Bildschirm (nur Notch und Home-Leiste
   bleiben frei); obere Leiste (Titel, Stellen, Ansicht, Stift) und untere
@@ -589,7 +627,7 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
   - **Hinzufügen bei gewähltem Tag** genauso deutlich wie bei Sammlungen:
     Abzeichen auf „+ Noten“, im Menü hervorgehoben „Mit ● „Wichtig üben“
     markieren“ mit Schalter, Meldung danach.
-  - **Daten:** Definitionen `{id, name, farbe, geaendert}` im localStorage
+  - **Daten:** Definitionen `{id, name, farbe, geaendert, auch?}` im localStorage
     `ueben:tags` (ein Tag gibt es auch, solange kein Stück ihn trägt), an den
     Stücken nur die ids (`tags`). In der Sicherung als optionales Kopf-Feld
     `tags`; beim Laden je Tag der neuere Stand, gelöschte Tags reisen als

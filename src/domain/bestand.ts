@@ -4,6 +4,7 @@
 // Gerätespeicher abhängen — rein, getestet.
 import type { Ausschnitte } from './ausschnitt';
 import type { Anmerkung, Blaettermodus } from './notenpult';
+import type { Sprung } from './spruenge';
 
 export interface Stueck {
   id: string; titel: string; stimme: string; erstellt: number;
@@ -14,6 +15,8 @@ export interface Stueck {
   blaettern?: { modus: Blaettermodus; linien: Record<number, number> };
   // Angezeigter Bereich je Seite (Anteile der Seite); ohne Eintrag die ganze Seite.
   ausschnitte?: Ausschnitte;
+  // Sprünge (F-05): Wiederholung, D.S., D.C., Coda — vom Sprungzeichen zur Einstiegsstelle.
+  spruenge?: Sprung[];
   // „Zuletzt geöffnet“ liegt im localStorage; ältere Datensätze (über die
   // Sicherung aus „ueben“) tragen es noch hier (zuletztAus in ./speicher).
   zuletzt?: number;
