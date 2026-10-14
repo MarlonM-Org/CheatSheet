@@ -388,7 +388,7 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
       {!!noten?.length && tags.length > 0 && <TagFilter uebersicht={tagUeber} aktiv={aktivTag} waehlen={tagWaehlen} />}
 
       {!!noten?.length && (
-        <MixKarte bereich={{ sammlung: aktiv, tag: aktivTag, offen: nurOffen }} tagName={zielTag?.name ?? null} noten={noten} stellen={stellen} starten={mixStarten}
+        <MixKarte bereich={{ sammlung: aktiv, tag: aktivTag, offen: nurOffen, favoriten: false }} tagName={zielTag?.name ?? null} noten={noten} stellen={stellen} starten={mixStarten}
           nurOffen={(an) => { setNurOffen(an); speichern('ueben:mix-offen', an); }} />
       )}
 

@@ -48,7 +48,7 @@ Stimme und Metadaten, dazu genau eine PDF. Alles andere hängt über
 |---|---|---|---|
 | `stuecke` | `id` (UUID) | — | siehe unten |
 | `dateien` | `id` = `stueckId` | — | `daten: ArrayBuffer`, `typ`. Nie ein Blob. |
-| `stellen` | `id` (UUID) | `stueckId` | `seite`, `x`, `y`, `b`, `h` (relativ zur Seite), `titel`, `notiz`, `zielTempo: number \| null`, `tempi: { tempo, am }[]` |
+| `stellen` | `id` (UUID) | `stueckId` | `seite`, `x`, `y`, `b`, `h` (relativ zur Seite), `titel`, `notiz`, `zielTempo: number \| null`, `tempi: { tempo, am }[]`, `favorit?: boolean` (★ für den Stellen-Mix; abgewählt bleibt `false` stehen, damit eine ältere Sicherung den Stern nicht zurückbringt) |
 | `anmerkungen` | `id` = `<stueckId>:<seite>` | `stueckId` | `seite`, `objekte: Anmerkung[]` (Stift, Marker, Text, Radier-Spur). Ein Datensatz **je Seite**: Speichern schreibt nur die eine Seite. |
 | `lesezeichen` | `id` (UUID) | `stueckId` | `seite`, `titel`, `erstellt` (F-03) |
 | `merker` | `id` = `<stueckId>:<seite>` | `stueckId` | `seite`, `gesetzt` (F-04, „Flags“). Pro Seite höchstens einer. |

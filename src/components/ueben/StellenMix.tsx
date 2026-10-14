@@ -22,7 +22,7 @@ export interface MixStand { bereich: MixBereich; runde: Runde; stueckVon: Record
 export function bereichsStellen(b: MixBereich, noten: Stueck[], stellen: Stelle[], runde: Runde | null = null) {
   const drin = new Set(noten.filter((n) => imFilter(n, b.sammlung) && imTagFilter(n, b.tag)).map((n) => n.id));
   const behalten = new Set(runde ? runde.reihe.slice(0, runde.pos + 1) : []);
-  return mixAuswahl(stellen, (notenId) => drin.has(notenId), b.offen, behalten);
+  return mixAuswahl(stellen, (notenId) => drin.has(notenId), b, behalten);
 }
 
 // Die gespeicherte Runde an die Stellen auf dem Gerät angleichen (oder, ohne

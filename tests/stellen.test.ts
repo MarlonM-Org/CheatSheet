@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  mischen, mixAuswahl, mixBereichLesen, mixSchluessel, neueRunde, reserveVon, rundeAbgleichen, rundeLesen, rundeStand, steigerung, stelleOffen,
+  mischen, mixAuswahl, mixBereichLesen, mixSchluessel, neueRunde, reserveVon, rundeAbgleichen, rundeLesen, rundeStand, steigerung, stelleFavorit, stelleOffen,
   tagesbeste, tempoAchse, tempoStand, zielAusText, zielStand, type MixStelle,
 } from '@/domain/stellen';
 
@@ -196,32 +196,57 @@ describe('Achse der Tempo-Kurve', () => {
   });
 });
 
-describe('Stellen-Mix: Bereich (Sammlung, nur offene)', () => {
-  const s = (id: string, stueckId: string, zielTempo: number | null = null, tempi: { tempo: number; am: number }[] = []) => ({ id, stueckId, zielTempo, tempi });
+describe('Stellen-Mix: Bereich (Sammlung, nur offene, nur Favoriten)', () => {
+  const s = (id: string, stueckId: string, zielTempo: number | null = null, tempi: { tempo: number; am: number }[] = [], favorit?: boolean) =>
+    ({ id, stueckId, zielTempo, tempi, ...(favorit === undefined ? {} : { favorit }) });
+  const alle = { offen: false, favoriten: false };
+  const offen = { offen: true, favoriten: false };
   it('offen: ohne Ziel, oder Ziel samt Reserve noch nicht geschafft', () => {
     expect(stelleOffen(s('a', 'n'))).toBe(true);
     expect(stelleOffen(s('a', 'n', 120, [{ tempo: 125, am: 1 }]))).toBe(true);
     expect(stelleOffen(s('a', 'n', 120, [{ tempo: 132, am: 1 }]))).toBe(false);
   });
+  it('Favorit: nur wer ausdrücklich markiert ist', () => {
+    expect(stelleFavorit(s('a', 'n', null, [], true))).toBe(true);
+    expect(stelleFavorit(s('a', 'n', null, [], false))).toBe(false);
+    expect(stelleFavorit(s('a', 'n'))).toBe(false);
+  });
   it('wählt die Stellen der Sammlung, auf Wunsch nur offene — Behaltenes bleibt drin', () => {
-    const alle = [s('a1', 'A'), s('a2', 'A', 100, [{ tempo: 110, am: 1 }]), s('b1', 'B'), s('c1', 'C', 100, [{ tempo: 111, am: 1 }])];
+    const liste = [s('a1', 'A'), s('a2', 'A', 100, [{ tempo: 110, am: 1 }]), s('b1', 'B'), s('c1', 'C', 100, [{ tempo: 111, am: 1 }])];
     const inSammlung = (stueckId: string) => stueckId !== 'B';
-    expect(mixAuswahl(alle, inSammlung, false).map((x) => x.id)).toEqual(['a1', 'a2', 'c1']);
-    expect(mixAuswahl(alle, inSammlung, true).map((x) => x.id)).toEqual(['a1']);
+    expect(mixAuswahl(liste, inSammlung, alle).map((x) => x.id)).toEqual(['a1', 'a2', 'c1']);
+    expect(mixAuswahl(liste, inSammlung, offen).map((x) => x.id)).toEqual(['a1']);
     // schon geübt bzw. gerade dran: bleibt in der Runde, auch wenn jetzt geschafft
-    expect(mixAuswahl(alle, inSammlung, true, new Set(['c1'])).map((x) => x.id)).toEqual(['a1', 'c1']);
+    expect(mixAuswahl(liste, inSammlung, offen, new Set(['c1'])).map((x) => x.id)).toEqual(['a1', 'c1']);
+  });
+  it('nur Favoriten, auch zusammen mit nur offenen — Behaltenes bleibt drin', () => {
+    const liste = [
+      s('a1', 'A', null, [], true), s('a2', 'A', 100, [{ tempo: 110, am: 1 }], true), s('a3', 'A'),
+      s('b1', 'B', null, [], true), s('c1', 'C', null, [], false),
+    ];
+    const inSammlung = (stueckId: string) => stueckId !== 'B';
+    expect(mixAuswahl(liste, inSammlung, { offen: false, favoriten: true }).map((x) => x.id)).toEqual(['a1', 'a2']);
+    expect(mixAuswahl(liste, inSammlung, { offen: true, favoriten: true }).map((x) => x.id)).toEqual(['a1']);
+    // Stern inzwischen weg, aber schon dran gewesen: bleibt in der Runde
+    expect(mixAuswahl(liste, inSammlung, { offen: false, favoriten: true }, new Set(['a3'])).map((x) => x.id)).toEqual(['a1', 'a2', 'a3']);
   });
   it('jeder Bereich hat seine eigene Runde; „alle“ behält den bisherigen Speicherplatz', () => {
-    expect(mixSchluessel({ sammlung: null, tag: null, offen: false })).toBe('ueben:mix');
-    expect(mixSchluessel({ sammlung: 'Märsche', tag: null, offen: false })).toBe('ueben:mix:Märsche');
-    expect(mixSchluessel({ sammlung: null, tag: null, offen: true })).toBe('ueben:mix:offen:*');
-    expect(mixSchluessel({ sammlung: 'Märsche', tag: 't1', offen: false })).toBe('ueben:mix:Märsche#t1');
+    const b = (sammlung: string | null, tag: string | null, offen: boolean, favoriten = false) => ({ sammlung, tag, offen, favoriten });
+    expect(mixSchluessel(b(null, null, false))).toBe('ueben:mix');
+    expect(mixSchluessel(b('Märsche', null, false))).toBe('ueben:mix:Märsche');
+    expect(mixSchluessel(b(null, null, true))).toBe('ueben:mix:offen:*');
+    expect(mixSchluessel(b('Märsche', 't1', false))).toBe('ueben:mix:Märsche#t1');
+    // Favoriten: eigener Platz, die bisherigen bleiben unverändert
+    expect(mixSchluessel(b(null, null, false, true))).toBe('ueben:mix:fav:*');
+    expect(mixSchluessel(b('2026', null, true, true))).toBe('ueben:mix:offen:fav:2026');
+    expect(mixSchluessel(b('2026', 't1', false, true))).toBe('ueben:mix:fav:2026#t1');
   });
-  it('gespeicherter Bereich: alt „true“ heißt alle, ohne Tag heißt kein Tag', () => {
-    expect(mixBereichLesen(true)).toEqual({ sammlung: null, tag: null, offen: false });
-    expect(mixBereichLesen({ sammlung: 'Jazz', offen: true })).toEqual({ sammlung: 'Jazz', tag: null, offen: true });
-    expect(mixBereichLesen({ sammlung: null, tag: 't1', offen: false })).toEqual({ sammlung: null, tag: 't1', offen: false });
+  it('gespeicherter Bereich: alt „true“ heißt alle, ohne Tag heißt kein Tag, ohne Favoriten heißt alle Stellen', () => {
+    expect(mixBereichLesen(true)).toEqual({ sammlung: null, tag: null, offen: false, favoriten: false });
+    expect(mixBereichLesen({ sammlung: 'Jazz', offen: true })).toEqual({ sammlung: 'Jazz', tag: null, offen: true, favoriten: false });
+    expect(mixBereichLesen({ sammlung: null, tag: 't1', offen: false })).toEqual({ sammlung: null, tag: 't1', offen: false, favoriten: false });
+    expect(mixBereichLesen({ sammlung: '2026', favoriten: true })).toEqual({ sammlung: '2026', tag: null, offen: false, favoriten: true });
     expect(mixBereichLesen(false)).toBeNull();
-    expect(mixBereichLesen({ sammlung: 3 })).toEqual({ sammlung: null, tag: null, offen: false });
+    expect(mixBereichLesen({ sammlung: 3, favoriten: 'ja' })).toEqual({ sammlung: null, tag: null, offen: false, favoriten: false });
   });
 });
