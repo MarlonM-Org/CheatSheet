@@ -65,7 +65,8 @@ interface Stueck {
   aktualisiert?: number;
   dateiname?: string;
   handle?: FileSystemFileHandle;          // nur Chrome/Edge am Rechner
-  blaettern?: { modus: Blaettermodus; linien: Record<number, number> };
+  blaettern?: { modus: Blaettermodus; linien: Record<number, number>; jeSeite?: Record<number, Blaettermodus> };
+                                          // modus für alle Seiten, jeSeite weicht ab (F-16)
   ausschnitte?: Record<number, Rechteck>; // angezeigter Bereich je Seite
   // F-05 Sprünge, in der Reihenfolge, in der gesprungen wird (nr ab 1; ältere
   // Stände ohne nr: Reihenfolge wie gespielt, src/domain/spielfolge.ts); x, y in Anteilen der Seite

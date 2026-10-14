@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ansichten, ansichtVonSeite, ausDateiname, getroffen, hauptseite, radierWeg, strichKappen, zuordnen, type Anmerkung } from '@/domain/notenpult';
+import { ansichten, ansichtVonSeite, ausDateiname, blaetternLesen, einheitlich, getroffen, hauptseite, modusSetzen, radierWeg, seitenModus, strichKappen, zuordnen, type Anmerkung, type Blaettermodus, type Blaettern } from '@/domain/notenpult';
 
 describe('Blättern', () => {
   it('ganze Seiten: eine Ansicht je Seite', () => {
@@ -18,6 +18,72 @@ describe('Blättern', () => {
       { art: 'ganz', seite: 2 }, { art: 'ganz', seite: 3 },
     ]);
     expect(ansichtVonSeite(a, 3)).toBe(3);
+  });
+});
+
+describe('Blättern je Seite (F-16)', () => {
+  const b = (modus: Blaettermodus, linien: Record<number, number> = {}, jeSeite?: Record<number, Blaettermodus>): Blaettern =>
+    jeSeite ? { modus, linien, jeSeite } : { modus, linien };
+
+  it('einzelne Seiten weichen vom Modus ab: ganz und eigene Linie gemischt', () => {
+    const a = ansichten(4, 'linie', { 1: 0.7, 2: 0.4, 3: 0.6 }, { 2: 'ganz' });
+    expect(a).toEqual([
+      { art: 'ganz', seite: 1 }, { art: 'halb', oben: 2, unten: 1, schnitt: 0.7 },
+      { art: 'ganz', seite: 2 },
+      { art: 'ganz', seite: 3 }, { art: 'halb', oben: 4, unten: 3, schnitt: 0.6 },
+      { art: 'ganz', seite: 4 },
+    ]);
+    // Umgekehrt: ganz für alle, eine Seite halb.
+    expect(ansichten(3, 'ganz', {}, { 2: 'halb' }).map((x) => x.art)).toEqual(['ganz', 'ganz', 'halb', 'ganz']);
+  });
+  it('Unsinn je Seite zählt nicht', () => {
+    expect(ansichten(2, 'ganz', {}, { 1: 'quer' as Blaettermodus })).toEqual(ansichten(2, 'ganz'));
+  });
+  it('liest den Modus einer Seite', () => {
+    expect(seitenModus(b('linie', {}, { 2: 'ganz' }), 2)).toBe('ganz');
+    expect(seitenModus(b('linie', {}, { 2: 'ganz' }), 1)).toBe('linie');
+  });
+
+  it('für eine Seite setzen: nur diese weicht ab, die Linien bleiben', () => {
+    const neu = modusSetzen(b('linie', { 1: 0.7, 2: 0.4 }), 4, 2, 'ganz');
+    expect(neu).toEqual(b('linie', { 1: 0.7, 2: 0.4 }, { 2: 'ganz' }));
+    // Zurück auf den Modus: keine Abweichung mehr, die Linie ist wieder da.
+    expect(modusSetzen(neu, 4, 2, 'linie')).toEqual(b('linie', { 1: 0.7, 2: 0.4 }));
+  });
+  it('blättern danach alle gleich, gilt das als Modus für alle', () => {
+    let x = modusSetzen(b('ganz'), 3, 1, 'linie');
+    expect(x).toEqual(b('ganz', {}, { 1: 'linie' }));
+    x = modusSetzen(x, 3, 2, 'linie');
+    expect(x).toEqual(b('linie'));
+    expect(einheitlich(x, 3)).toBe(true);
+  });
+  it('die letzte Seite blättert nicht: setzen ändert nichts, sie zählt nicht mit', () => {
+    const x = b('linie', { 1: 0.5 });
+    expect(modusSetzen(x, 3, 3, 'ganz')).toBe(x);
+    // Bei zwei Seiten blättert nur die erste — sie bestimmt alles.
+    expect(modusSetzen(b('ganz'), 2, 1, 'halb')).toEqual(b('halb'));
+  });
+  it('für alle: ein Modus, Abweichungen fallen weg, Linien bleiben', () => {
+    expect(modusSetzen(b('linie', { 1: 0.7 }, { 2: 'ganz', 3: 'halb' }), 5, 'alle', 'ganz')).toEqual(b('ganz', { 1: 0.7 }));
+  });
+  it('einheitlich: alle Seiten, an denen geblättert wird, gleich', () => {
+    expect(einheitlich(b('linie'), 4)).toBe(true);
+    expect(einheitlich(b('linie', {}, { 2: 'ganz' }), 4)).toBe(false);
+    // Abweichung nur auf der letzten Seite: zählt nicht.
+    expect(einheitlich(b('linie', {}, { 4: 'ganz' }), 4)).toBe(true);
+    expect(einheitlich(b('ganz', {}, { 1: 'halb' }), 1)).toBe(true);
+  });
+
+  it('liest gespeicherte Werte: alte ohne jeSeite unverändert, fehlende als ganz', () => {
+    expect(blaetternLesen({ modus: 'linie', linien: { 2: 0.4 } }, 3)).toEqual(b('linie', { 2: 0.4 }));
+    expect(blaetternLesen(undefined, 3)).toEqual(b('ganz'));
+    expect(blaetternLesen({ modus: 'quer', linien: 'x' }, 3)).toEqual(b('ganz'));
+  });
+  it('räumt beim Lesen auf: Unsinn, letzte Seite und Gleiches wie der Modus fallen weg', () => {
+    expect(blaetternLesen({ modus: 'linie', linien: { 1: 0.3, 2: 'x' }, jeSeite: { 1: 'ganz', 2: 'linie', 3: 'halb', 4: 'quer' } }, 4))
+      .toEqual(b('linie', { 1: 0.3 }, { 1: 'ganz', 3: 'halb' }));
+    // Alle Seiten weichen gleich ab: das ist der Modus.
+    expect(blaetternLesen({ modus: 'ganz', linien: {}, jeSeite: { 1: 'linie', 2: 'linie' } }, 3)).toEqual(b('linie'));
   });
 });
 
