@@ -11,7 +11,7 @@ import {
   weiterGehen, zurueckGehen, type Stand,
 } from '@/domain/spielfolge';
 import {
-  artWaehlen, einpassen, KUERZEL, punktSichtbar, seiteAn, setzenTippen, sichtbareMarken, spruengeSchreiben, sprungLoeschen,
+  artWaehlen, einpassen, KUERZEL, punktSichtbar, setzenTippen, sichtbareMarken, spruengeSchreiben, sprungLoeschen,
   sprungNeu, sprungText, sprungVerschieben, SPRUNG_ARTEN, zielAnsicht, type Punkt as SprungPunkt, type Setzen, type Sprung,
 } from '@/domain/spruenge';
 import { mixKopf, stelleFavorit, tempoStand, zielAusText, zielStand } from '@/domain/stellen';
@@ -19,6 +19,10 @@ import {
   einstellungPruefen, pipettenFarbe, pipettenPruefen, radiererPruefen, TEXT_GROESSE,
   type Pipetten, type StiftEinstellung, type ZeichenWerkzeug,
 } from '@/domain/stift';
+import {
+  dehnung, istSticker, luecken, rechteckGedehnt, schnittEntfernen, schnittSetzen, schnitteVon, stickerAus, stickerBewegen,
+  stickerGetroffen, stickerRechteck, stickerSkalieren, teilstuecke, type Sticker,
+} from '@/domain/schnitte';
 import { mitRand, rechteckAus, type Rechteck } from '@/domain/ueben';
 import {
   begrenzen, einrasten, OHNE_ZOOM, sichtbarerTeil, ZOOM_IMMER, ZOOM_MAX, zoomenUm, zweiFinger, type Punkt, type Zoom,
@@ -31,14 +35,14 @@ import {
 } from './lokal';
 import { useMetronom } from './MetronomKontext';
 import { ladeFehler, speicherFehler } from './speicherfehler';
-import { StiftPalette, type Werkzeug } from './StiftPalette';
+import { StiftPalette, type SchereModus, type Werkzeug } from './StiftPalette';
 import { ausschnittRendern, seiteMitEbene, type SeitenBild } from './pdf';
 import { StelleBlatt } from './StelleBlatt';
 import { StellenInfo } from './StellenInfo';
 import { SprungZeichen } from './SprungZeichen';
 import type { MixSteuerung } from './StellenMix';
 import { SternKnopf } from './Stern';
-import { blattZeichnen, strichZeichnen, type BlattTeil, type Lage } from './zeichnen';
+import { blattZeichnen, strichZeichnen, type BlattTeil } from './zeichnen';
 
 const RAND = 0.06;
 const MAX_PX = 2800;
@@ -88,7 +92,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   const [zweiSeiten, setZweiSeiten] = useState(() => gespeicherterWert(ZWEI_SEITEN, false));
   const zweiSeitenSetzen = (an: boolean) => { setZweiSeiten(an); speichern(ZWEI_SEITEN, an); };
   const quer = platz.b > platz.h;
-  const doppel = zweiSeiten && quer && !paletteOffen && !linieEinstellen && modus === 'lesen';
+  const doppel = zweiSeiten && quer && !linieEinstellen && modus === 'lesen';
   const liste = useMemo(() => ansichten(seiten, blaettern.modus, blaettern.linien, blaettern.jeSeite, doppel), [seiten, blaettern, doppel]);
   // Sprünge (F-05): Marke am Sprungzeichen, Weiterblättern und Antippen führen
   // zur Einstiegsstelle — in der Reihenfolge der Liste.
@@ -185,6 +189,9 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   const sichtbareSeite = stelle ? stelle.seite : hauptseite(ansicht);
   // Zeichnen geht nur auf einer ganz sichtbaren Seite.
   const zeichenSeite = stelle ? stelle.seite : ansicht.art === 'ganz' ? ansicht.seite : null;
+  // Anmerken und Zoomen gehen auf ganzen Seiten — auch auf der Doppelseite
+  // (B-13): jeder Strich gehört der Seite, auf der er beginnt.
+  const zeichenbar = zeichenSeite !== null || ansicht.art === 'doppel';
 
   // ── Größe: Seite so groß wie möglich in den freien Platz ──
   const flaeche = useRef<HTMLDivElement>(null);
@@ -207,20 +214,67 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     : ausschnittFuer(ausschnitte, stelle ? [stelle.seite] : seitenVon(ansicht)),
   [ausschnitte, bearbeitenSeite, stelle, ansicht]);
   // Beim Einstellen etwas kleiner: die Griffe an den Ecken bleiben greifbar.
+  // Schnitte (E-12) gelten auf einer einzeln gezeigten ganzen Seite: Das Blatt
+  // wird um die Lücken länger, die Seite behält ihre Koordinaten.
+  const schnitte = useMemo(() => (zeichenSeite !== null && bearbeitenSeite === null ? schnitteVon(anm[zeichenSeite] ?? []) : []), [zeichenSeite, bearbeitenSeite, anm]);
+  const dehn = dehnung(schnitte);
   // Doppelseite (B-13): beide Seiten nebeneinander auf einem Blatt, lagen sagt, wo jede liegt.
   const darst = useMemo(() => {
     if (!platz.b || !platz.h) return null;
     const rand = bearbeitenSeite !== null ? 40 : 0;
     const p = { b: platz.b - rand, h: platz.h - rand };
     if (ansicht.art === 'doppel' && !stelle && bearbeitenSeite === null) return doppelDarstellung(p, format, ausschnitt);
-    return { ...darstellung(p, format, ausschnitt), lagen: null, luecke: null };
-  }, [platz, format, ausschnitt, bearbeitenSeite, ansicht, stelle]);
+    return { ...darstellung(p, format * dehn, schnitte.length ? rechteckGedehnt(schnitte, ausschnitt) : ausschnitt), lagen: null, luecke: null };
+  }, [platz, format, ausschnitt, bearbeitenSeite, ansicht, stelle, schnitte, dehn]);
   const rahmen = darst?.rahmen ?? null;
-  // Wo eine Seite auf dem Blatt liegt (Anteile): allein das ganze Blatt, sonst ihre Hälfte.
-  const seitenLage = useCallback((seite: number): SeitenLage => {
-    if (!darst?.lagen || ansicht.art !== 'doppel') return GANZES_BLATT;
-    return seite === ansicht.rechts ? darst.lagen.rechts : darst.lagen.links;
-  }, [darst, ansicht]);
+
+  // ── Teilstücke des Blatts ── Jedes weiß, welche Seite (oder welche Lücke
+  // eines Schnitts) es zeigt, welchen Höhenbereich davon, und wo die ganze
+  // Seite auf dem Blatt läge (lage, Anteile des Blatts) bzw. wo es selbst zu
+  // sehen ist (sicht). Zeichnen, Tippen, Marken — alles rechnet nur darüber.
+  const stuecke = useMemo((): BlattStueck[] => {
+    if (!darst) return [];
+    const ganz = GANZES_BLATT;
+    if (bearbeitenSeite !== null) return [{ seite: bearbeitenSeite, luecke: null, y0: 0, y1: 1, lage: ganz, sicht: ganz }];
+    if (zeichenSeite !== null) {
+      const seite = zeichenSeite, liste: BlattStueck[] = [];
+      for (const t of teilstuecke(schnitte)) {
+        liste.push({ seite, luecke: null, y0: t.y0, y1: t.y1, lage: { x: 0, y: t.versatz / dehn, b: 1, h: 1 / dehn }, sicht: { x: 0, y: (t.y0 + t.versatz) / dehn, b: 1, h: (t.y1 - t.y0) / dehn } });
+      }
+      for (const l of luecken(schnitte)) {
+        liste.push({ seite, luecke: l.id, y0: 0, y1: l.abstand, lage: { x: 0, y: l.oben / dehn, b: 1, h: 1 / dehn }, sicht: { x: 0, y: l.oben / dehn, b: 1, h: l.abstand / dehn } });
+      }
+      return liste;
+    }
+    if (ansicht.art === 'doppel' && darst.lagen) {
+      return [{ seite: ansicht.links, luecke: null, y0: 0, y1: 1, lage: darst.lagen.links, sicht: darst.lagen.links },
+        { seite: ansicht.rechts, luecke: null, y0: 0, y1: 1, lage: darst.lagen.rechts, sicht: darst.lagen.rechts }];
+    }
+    if (ansicht.art === 'halb') {
+      return [{ seite: ansicht.oben, luecke: null, y0: 0, y1: ansicht.schnitt, lage: ganz, sicht: { x: 0, y: 0, b: 1, h: ansicht.schnitt } },
+        { seite: ansicht.unten, luecke: null, y0: ansicht.schnitt, y1: 1, lage: ganz, sicht: { x: 0, y: ansicht.schnitt, b: 1, h: 1 - ansicht.schnitt } }];
+    }
+    return [];
+  }, [darst, bearbeitenSeite, zeichenSeite, schnitte, dehn, ansicht]);
+  const hauptLage = stuecke[0]?.lage ?? GANZES_BLATT;
+  // Ein Punkt des Blatts (Anteile) → Seite und Koordinaten dort (bzw. in der Lücke).
+  const ortVon = useCallback((p: { x: number; y: number }): Ort | null => {
+    const st = stuecke.find((q) => p.x >= q.sicht.x && p.x <= q.sicht.x + q.sicht.b && p.y >= q.sicht.y && p.y <= q.sicht.y + q.sicht.h);
+    return st ? { stueck: st, seite: st.seite, luecke: st.luecke, x: (p.x - st.lage.x) / st.lage.b, y: (p.y - st.lage.y) / st.lage.h } : null;
+  }, [stuecke]);
+  // Umgekehrt: ein Punkt einer Seite (oder einer Lücke) aufs Blatt. Ein Punkt
+  // genau auf einem Schnitt gehört zum Teil darüber.
+  const stueckFuer = useCallback((seite: number, y: number, luecke: string | null) =>
+    stuecke.find((q) => q.seite === seite && q.luecke === luecke && (luecke !== null || (y >= q.y0 && y <= q.y1)))
+    ?? stuecke.find((q) => q.seite === seite && q.luecke === luecke), [stuecke]);
+  const aufBlatt = useCallback((seite: number, x: number, y: number, luecke: string | null = null) => {
+    const q = stueckFuer(seite, y, luecke);
+    return q ? { x: q.lage.x + x * q.lage.b, y: q.lage.y + y * q.lage.h } : null;
+  }, [stueckFuer]);
+  const rechteckAufBlatt = useCallback((seite: number, r: Rechteck, luecke: string | null = null): Rechteck | null => {
+    const q = stueckFuer(seite, r.y, luecke);
+    return q ? blattRechteck(q.lage, r) : null;
+  }, [stueckFuer]);
 
   // ── Sprünge ── Gespeichert am Stück; die Spielfolge rechnet sich neu.
   const spruengeSpeichern = (neu: Sprung[]) => {
@@ -274,7 +328,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   // Gerendert wird die ganze Seite in Blattgröße (beim Ausschnitt größer als der Rahmen).
   const px = darst ? Math.min(MAX_PX, Math.round(darst.blatt.b * dpr)) : 0;
   // Doppelseite: jede Seite nur so breit wie ihre Hälfte.
-  const doppelBreite = darst?.lagen ? Math.round(darst.lagen.links.b * px) : null;
+  const seitenBreite = Math.round(hauptLage.b * px);
   // Je Seite die nackte Seite und, stecken Markierungen im PDF, deren Ebene
   // (seiteMitEbene). Welche Seiten eine Ebene haben, merkt sich mitEbene —
   // nur dort hinterlässt der Radierer eine Radier-Spur.
@@ -313,38 +367,36 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     // Rahmen der Stellen nur bei offener Stift-Palette (B-11): beim Lesen stören sie.
     stellen: !stelle && paletteOffen ? stellen : [],
     schnitt: ansicht.art === 'halb' && !stelle ? ansicht.schnitt : null,
-    hervor: stelle && bearbeitenSeite === null ? mitRand(stelle, RAND) : null,
-  }), [stelle, paletteOffen, stellen, ansicht, bearbeitenSeite]);
+    hervor: stelle && bearbeitenSeite === null ? (rechteckAufBlatt(stelle.seite, mitRand(stelle, RAND)) ?? mitRand(stelle, RAND)) : null,
+    // Palette offen: Lücken und Sticker mit Rand (zum Anfassen).
+    bearbeitbar: paletteOffen,
+  }), [stelle, paletteOffen, stellen, ansicht, bearbeitenSeite, rechteckAufBlatt]);
+  // Quellbilder der Sticker (je Quellseite), auch für den scharfen Ausschnitt beim Zoomen.
+  const quellenRef = useRef<Map<number, SeitenBild>>(new Map());
   useEffect(() => {
     const c = leinwand.current;
-    if (!c || !rahmen || !px || !darst) return;
+    if (!c || !rahmen || !px || !darst || !stuecke.length) return;
     let weg = false;
-    const lagen = darst.lagen;
-    const W = px, H = Math.round(px * (lagen ? darst.blatt.h / darst.blatt.b : format));
+    const W = px, H = Math.round(px * darst.blatt.h / darst.blatt.b);
     const inPx = (l: SeitenLage) => ({ x: Math.round(l.x * W), y: Math.round(l.y * H), b: Math.round(l.b * W), h: Math.round(l.h * H) });
     const zeichnen = async () => {
       const ganz = { x: 0, y: 0, b: W, h: H };
-      // Je Teil: welche Seite, welcher Höhenbereich, wo sein Bild liegt und wo die ganze Seite liegt.
-      const teile: { seite: number; y0: number; y1: number; lage: Lage; blattLage: Lage }[] = bearbeitenSeite !== null
-        ? [{ seite: bearbeitenSeite, y0: 0, y1: 1, lage: ganz, blattLage: ganz }]
-        : stelle ? [{ seite: stelle.seite, y0: 0, y1: 1, lage: ganz, blattLage: ganz }]
-        : ansicht.art === 'ganz' ? [{ seite: ansicht.seite, y0: 0, y1: 1, lage: ganz, blattLage: ganz }]
-        : ansicht.art === 'doppel' && lagen
-          ? [{ seite: ansicht.links, y0: 0, y1: 1, lage: inPx(lagen.links), blattLage: inPx(lagen.links) },
-            { seite: ansicht.rechts, y0: 0, y1: 1, lage: inPx(lagen.rechts), blattLage: inPx(lagen.rechts) }]
-        : ansicht.art === 'halb'
-          ? [{ seite: ansicht.oben, y0: 0, y1: ansicht.schnitt, lage: ganz, blattLage: ganz }, { seite: ansicht.unten, y0: ansicht.schnitt, y1: 1, lage: ganz, blattLage: ganz }]
-          : [{ seite: ansicht.links, y0: 0, y1: 1, lage: ganz, blattLage: ganz }];
-      const bilder = await Promise.all(teile.map((t) => seiteBild(t.seite, t.lage.b)));
+      // Je Teilstück: Seite oder Lücke, Höhenbereich, wo die ganze Seite liegt (dort auch ihr Bild).
+      const teile = stuecke.map((q) => ({ seite: q.seite, luecke: q.luecke, y0: q.y0, y1: q.y1, lage: inPx(q.lage), blattLage: inPx(q.lage) }));
+      const bilder = await Promise.all(teile.map((t) => (t.luecke ? null : seiteBild(t.seite, t.lage.b))));
+      // Sticker holen ihr Bild von der Quellseite (in der Breite der gezeigten Seiten).
+      const quellSeiten = new Set(stuecke.flatMap((q) => (anm[q.seite] ?? []).filter(istSticker).map((st) => st.von.seite)));
+      const quellen = new Map(await Promise.all([...quellSeiten].map(async (n) => [n, await seiteBild(n, Math.round(hauptLage.b * W))] as const)));
       if (weg) return;
+      quellenRef.current = quellen;
       c.width = W; c.height = H;
       blattZeichnen(c.getContext('2d')!, ganz,
-        teile.map((t, i): BlattTeil => ({ ...t, bild: bilder[i].seite, ebene: bilder[i].ebene })),
-        anm, { ...extras, luecke: lagen ? inPx(darst.luecke) : null }, () => (hilfe.current ??= document.createElement('canvas')));
+        teile.map((t, i): BlattTeil => ({ ...t, bild: bilder[i]?.seite ?? null, ebene: bilder[i]?.ebene ?? null })),
+        anm, { ...extras, luecke: darst.lagen ? inPx(darst.luecke) : null, quellen }, () => (hilfe.current ??= document.createElement('canvas')));
     };
     zeichnen().catch((e) => { if (!weg) console.error('Seite ließ sich nicht zeichnen', e); });
     return () => { weg = true; };
-  }, [ansicht, stelle, bearbeitenSeite, anm, extras, rahmen, px, format, seiteBild, darst]);
+  }, [stuecke, anm, extras, rahmen, px, seiteBild, darst, hauptLage]);
 
   // ── Zoom beim Anmerken (E-06) ── Bei offener Stift-Palette auf einer ganzen
   // Seite — oder immer (E-10, Ansicht → „Immer zoomen“), auch beim Lesen.
@@ -355,8 +407,8 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   const [zoomImmer, setZoomImmer] = useState(() => gespeicherterWert(ZOOM_IMMER, false));
   useEinstellungenGeladen(useCallback(() => setZoomImmer(gespeicherterWert(ZOOM_IMMER, false)), []));
   const zoomImmerSetzen = (an: boolean) => { setZoomImmer(an); speichern(ZOOM_IMMER, an); };
-  const zoomSchluessel = (paletteOffen || zoomImmer) && zeichenSeite !== null && bearbeitenSeite === null && rahmen
-    ? `${zeichenSeite}:${stelle?.id ?? ''}:${rahmen.b}x${rahmen.h}` : null;
+  const zoomSchluessel = (paletteOffen || zoomImmer) && zeichenbar && bearbeitenSeite === null && rahmen
+    ? `${stelle?.seite ?? hauptseite(ansicht)}:${stelle?.id ?? ''}:${rahmen.b}x${rahmen.h}` : null;
   const zoomAktiv = zoomSchluessel !== null;
   const [zoom, setZoom] = useState<Zoom>(OHNE_ZOOM);
   const [zoomFuer, setZoomFuer] = useState(zoomSchluessel);
@@ -433,14 +485,15 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   // Kurz nach dem Zoomen wird der sichtbare Teil (mit etwas Rand) in
   // Bildschirmschärfe gerendert und über das Blatt gelegt.
   const [nah, setNah] = useState<{ seite: number; r: Rechteck; bild: SeitenBild } | null>(null);
-  const nahGilt = !!nah && zoomAktiv && zoom.z > 1 && nah.seite === zeichenSeite;
+  // Nur für eine einzelne Seite ohne Schnitte (Doppelseite und Lücken bleiben in Blattschärfe).
+  const nahGilt = !!nah && zoomAktiv && zoom.z > 1 && nah.seite === zeichenSeite && !schnitte.length;
   if (nah && !nahGilt) setNah(null);
   useEffect(() => () => {
     // Abgelöst oder nicht mehr gebraucht: Leinwand-Speicher gleich freigeben (Safari).
     if (nah) for (const c of [nah.bild.seite, nah.bild.ebene]) if (c) { c.width = 0; c.height = 0; }
   }, [nah]);
   useEffect(() => {
-    if (!zoomAktiv || zoom.z <= 1 || !darst || zeichenSeite === null || !px) return;
+    if (!zoomAktiv || zoom.z <= 1 || !darst || zeichenSeite === null || !px || schnitte.length) return;
     const r = sichtbarerTeil(zoom, platz, darst.rahmen, darst.blatt, 0.15);
     if (!r) return;
     let seitenPx = darst.blatt.b * zoom.z * Math.min(dpr, 2);
@@ -458,7 +511,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       }, (x) => { if (!weg) console.error('Ausschnitt ließ sich nicht schärfen', x); });
     }, 120);
     return () => { weg = true; window.clearTimeout(t); abbrechen(); };
-  }, [zoomAktiv, zoom, platz, darst, zeichenSeite, px, dpr, format, pdf]);
+  }, [zoomAktiv, zoom, platz, darst, zeichenSeite, px, dpr, format, pdf, schnitte]);
   const nahLeinwand = useRef<HTMLCanvasElement>(null);
   const nahHilfe = useRef<HTMLCanvasElement | null>(null);
   useEffect(() => {
@@ -474,7 +527,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     const W = seite.width / r.b, H = seite.height / r.h;
     blattZeichnen(c.getContext('2d')!, { x: -r.x * W, y: -r.y * H, b: W, h: H },
       [{ seite: nah.seite, y0: 0, y1: 1, bild: seite, ebene, lage: { x: 0, y: 0, b: seite.width, h: seite.height } }],
-      anm, extras, () => (nahHilfe.current ??= document.createElement('canvas')));
+      anm, { ...extras, quellen: quellenRef.current }, () => (nahHilfe.current ??= document.createElement('canvas')));
   }, [nah, nahGilt, anm, extras]);
 
   // Nachbarseiten vorab rendern: Blättern ohne Wartezeit — auch die Zielseite,
@@ -484,8 +537,8 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   useEffect(() => {
     if (!px) return;
     const s = sichtbareSeite;
-    for (const n of [s + 1, s + 2, s - 1, sprungSeite]) if (n >= 1 && n <= seiten) void seiteBild(n, doppelBreite ?? px);
-  }, [sichtbareSeite, sprungSeite, seiten, px, doppelBreite, seiteBild]);
+    for (const n of [s + 1, s + 2, s - 1, sprungSeite]) if (n >= 1 && n <= seiten) void seiteBild(n, seitenBreite || px);
+  }, [sichtbareSeite, sprungSeite, seiten, px, seitenBreite, seiteBild]);
 
   // ── Navigation ── Lesen: Schritt für Schritt durch die Spielfolge; beim
   // Sprung-Setzen durch die Ansichten selbst.
@@ -558,7 +611,13 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   const live = useRef<HTMLCanvasElement>(null);
   // zeichnen, tippen/wischen (blättern) oder — gezoomt — das Blatt schieben.
   // marke: der Zug begann auf der Marke dieses Sprungs (Tippen springt, Wischen blättert).
-  const zug = useRef<{ art: 'zeichnen' | 'tippen' | 'schieben'; punkte: number[]; x: number; y: number; t: number; id: number; start: Zoom; marke?: string | null } | null>(null);
+  // seite/luecke/lage: wo ein Strich begann — alle seine Punkte werden darüber umgerechnet.
+  // schnitt/sticker (Schere, E-12): vorher = Stand der Seite vor dem Zug (für Rückgängig).
+  const zug = useRef<{
+    art: 'zeichnen' | 'tippen' | 'schieben' | 'schnitt' | 'sticker'; punkte: number[]; x: number; y: number; t: number; id: number; start: Zoom; marke?: string | null;
+    seite?: number; luecke?: string | null; lage?: SeitenLage; vorher?: Anmerkung[]; objektId?: string; abstand0?: number; jetzt?: Anmerkung[];
+    sticker?: Sticker; griff?: 'bewegen' | 'groesse';
+  } | null>(null);
   // Zwei Finger beim Zoomen: wo sie aufsetzten (von der Rahmenmitte aus).
   const zweiGriff = useRef<{ ids: [number, number]; a: Punkt; b: Punkt; start: Zoom; mitte: Punkt } | null>(null);
   // Die Leinwand des laufenden Strichs: gezoomt nur der sichtbare Teil, in
@@ -631,10 +690,16 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     // Kurz genug für die Unterzeile auf dem iPhone (höchstens 30 Zeichen).
     melden(an ? '★ Favorit gesetzt' : mix?.bereich.favoriten ? 'Ab nächster Runde nicht dabei' : 'Kein Favorit mehr', 2500);
   }
-  const [neueStelle, setNeueStelle] = useState<Rechteck | null>(null);
+  const [neueStelle, setNeueStelle] = useState<(Rechteck & { seite: number }) | null>(null);
+  // Schere (E-12): Sticker oder Schnitt; der gewählte Sticker (zum Verschieben, Größe, Löschen, Seite wechseln).
+  const [schereModus, setSchereModus] = useState<SchereModus>('sticker');
+  const [stickerWahlRoh, setStickerWahl] = useState<{ seite: number; id: string } | null>(null);
+  // Gewählt nur, solange die Schere das Werkzeug ist.
+  const stickerWahl = werkzeug === 'schere' ? stickerWahlRoh : null;
+  const gewaehlterSticker = stickerWahl ? (anm[stickerWahl.seite] ?? []).find((o): o is Sticker => o.id === stickerWahl.id && o.art === 'sticker') : undefined;
   const [stelleTitel, setStelleTitel] = useState('');
   const [stelleZiel, setStelleZiel] = useState('');
-  const [textEingabe, setTextEingabe] = useState<{ x: number; y: number; text: string; seit: number } | null>(null);
+  const [textEingabe, setTextEingabe] = useState<{ seite: number; luecke: string | null; x: number; y: number; text: string; seit: number } | null>(null);
   const [linieZiehen, setLinieZiehen] = useState(false);
 
   // Sprung aus der Stellen-Übersicht (Stück-Blatt): Zustand noch im Rendern
@@ -651,7 +716,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height };
   };
   const darfZeichnen = (e: React.PointerEvent) =>
-    werkzeug !== null && zeichenSeite !== null && (e.pointerType !== 'touch' || fingerZeichnen || werkzeug === 'stelle' || werkzeug === 'text');
+    werkzeug !== null && zeichenbar && (e.pointerType !== 'touch' || fingerZeichnen || werkzeug === 'stelle' || werkzeug === 'text' || werkzeug === 'schere');
 
   // Rückgängig/Wiederholen je Aktion (auch Radier-Wische), nicht je Strich.
   const verlaufAnm = useRef<{ seite: number; vorher: Anmerkung[] }[]>([]);
@@ -685,17 +750,19 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     c.width = Math.round(r.b * W); c.height = Math.round(r.h * H);
     const ctx = c.getContext('2d')!;
     ctx.clearRect(0, 0, c.width, c.height);
-    if (werkzeug === 'stift') strichZeichnen(ctx, z.punkte, einst.stift.farbe, einst.stift.breite * W, -r.x * W, -r.y * H, W, H);
-    if (werkzeug === 'marker') strichZeichnen(ctx, z.punkte, einst.marker.farbe, einst.marker.breite * W, -r.x * W, -r.y * H, W, H, true);
+    // Die Seite des Strichs liegt bei z.lage auf dem Blatt (Doppelseite, Teilstück, Lücke).
+    const L = z.lage ?? GANZES_BLATT, b = W * L.b, h = H * L.h, x0 = -r.x * W + L.x * W, y0 = -r.y * H + L.y * H;
+    if (werkzeug === 'stift') strichZeichnen(ctx, z.punkte, einst.stift.farbe, einst.stift.breite * b, x0, y0, b, h);
+    if (werkzeug === 'marker') strichZeichnen(ctx, z.punkte, einst.marker.farbe, einst.marker.breite * b, x0, y0, b, h, true);
   }
   const liveLeeren = () => { const c = live.current; if (c) c.getContext('2d')!.clearRect(0, 0, c.width, c.height); };
 
   function kreisZeigen(e: React.PointerEvent | null) {
     const k = radierKreis.current;
     if (!k) return;
-    if (!e || werkzeug !== 'radierer' || zeichenSeite === null) { k.style.display = 'none'; return; }
+    if (!e || werkzeug !== 'radierer' || !zeichenbar) { k.style.display = 'none'; return; }
     const p = relativ(e);
-    Object.assign(k.style, { display: 'block', left: `${p.x * 100}%`, top: `${p.y * 100}%`, width: `${radierBreite * 100}%` });
+    Object.assign(k.style, { display: 'block', left: `${p.x * 100}%`, top: `${p.y * 100}%`, width: `${radierBreite * hauptLage.b * 100}%` });
   }
 
   // Pipette (E-08): die Farbe unter dem Finger aus der schärfsten Leinwand —
@@ -738,7 +805,8 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   function zugAbbrechen() {
     const z = zug.current;
     zug.current = null;
-    if (z?.art === 'zeichnen' && werkzeug === 'radierer' && zeichenSeite !== null) radierEnde(zeichenSeite);
+    if (z?.art === 'zeichnen' && werkzeug === 'radierer' && z.seite !== undefined) radierEnde(z.seite);
+    if ((z?.art === 'schnitt' || z?.art === 'sticker') && z.seite !== undefined && z.vorher) { const { seite, vorher } = z; setAnm((a) => ({ ...a, [seite]: vorher })); }
     if (z?.art === 'schieben') setZoom(einrasten(zoomLive.current));
     liveLeeren();
     setRechteckEntwurf(null);
@@ -760,14 +828,33 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     radierWisch.current = false;
     radierSpur.current = null;
     radierLetzter.current = null;
-    const aufSeite = p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1;
-    if (darfZeichnen(e) && aufSeite) {
+    const o = darfZeichnen(e) ? ortVon(p) : null;
+    if (o && werkzeug === 'schere') {
       e.preventDefault();
       e.currentTarget.setPointerCapture(e.pointerId);
-      zug.current = { art: 'zeichnen', punkte: [p.x, p.y], x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId, start: zoomLive.current };
+      const start = { x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId, start: zoomLive.current, seite: o.seite, lage: o.stueck.lage, vorher: anm[o.seite] ?? [] };
+      // Auf einen Sticker getippt: anfassen und verschieben.
+      const getroffen = o.luecke ? undefined : (anm[o.seite] ?? []).filter(istSticker).find((st) => stickerGetroffen(st, o.x, o.y));
+      if (getroffen) {
+        setStickerWahl({ seite: o.seite, id: getroffen.id });
+        zug.current = { ...start, art: 'sticker', punkte: [], objektId: getroffen.id, sticker: getroffen, griff: 'bewegen' };
+      } else if (schereModus === 'sticker') {
+        setStickerWahl(null);
+        if (!o.luecke) zug.current = { ...start, art: 'zeichnen', punkte: [o.x, o.y], luecke: null };
+      } else {
+        // Schnitt: in einer Lücke deren Abstand ziehen, sonst einen neuen Schnitt setzen.
+        setStickerWahl(null);
+        const schnitt = o.luecke ? schnitte.find((x) => x.id === o.luecke) : undefined;
+        zug.current = { ...start, art: 'schnitt', punkte: [o.x, schnitt ? schnitt.y : o.y], objektId: schnitt?.id ?? crypto.randomUUID(), abstand0: schnitt?.abstand ?? 0 };
+      }
+    } else if (o && !(werkzeug === 'stelle' && o.luecke)) {
+      e.preventDefault();
+      e.currentTarget.setPointerCapture(e.pointerId);
+      zug.current = { art: 'zeichnen', punkte: [o.x, o.y], x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId, start: zoomLive.current, seite: o.seite, luecke: o.luecke, lage: o.stueck.lage };
       if (werkzeug === 'stift' || werkzeug === 'marker') liveVorbereiten();
-      if (werkzeug === 'radierer') { kreisZeigen(e); radieren(p.x, p.y); }
+      if (werkzeug === 'radierer') { kreisZeigen(e); radieren(o.seite, o.luecke, o.x, o.y); }
     } else {
+      if (werkzeug === 'schere') setStickerWahl(null);
       // Festhalten: Auch ein Wisch als Maus-Zeiger (Scroll-Ring über
       // AssistiveTouch), der über den Rand hinausläuft, endet hier.
       e.currentTarget.setPointerCapture(e.pointerId);
@@ -801,12 +888,14 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       if (rahmen) zoomZeigen(begrenzen({ ...z.start, x: z.start.x + e.clientX - z.x, y: z.start.y + e.clientY - z.y }, rahmen));
       return;
     }
+    if (z.art === 'schnitt') { schnittZiehen(z, e.clientY); return; }
+    if (z.art === 'sticker') { stickerZiehen(z, e.clientX, e.clientY); return; }
     if (z.art !== 'zeichnen') return;
     const ereignisse = (e.nativeEvent as PointerEvent).getCoalescedEvents?.() ?? [e.nativeEvent];
     for (const ev of ereignisse) {
-      const p = relativ(ev);
-      if (werkzeug === 'radierer') radieren(p.x, p.y);
-      else if (werkzeug === 'stelle') setRechteckEntwurf(rechteckAus(z.punkte[0], z.punkte[1], p.x, p.y));
+      const p = aufSeiteVon(z.lage ?? GANZES_BLATT, relativ(ev));
+      if (werkzeug === 'radierer') radieren(z.seite!, z.luecke ?? null, p.x, p.y);
+      else if (werkzeug === 'stelle' || werkzeug === 'schere') setRechteckEntwurf(blattRechteck(z.lage ?? GANZES_BLATT, rechteckAus(z.punkte[0], z.punkte[1], p.x, p.y)));
       else z.punkte.push(p.x, p.y);
     }
     if (werkzeug === 'radierer') kreisZeigen(e);
@@ -837,10 +926,10 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       // Sprung setzen: Tippen setzt den Punkt, auch am Rand (blättern per Wischen, Tasten, ‹ ›).
       if (setzen) {
         if (!imRahmen(z.x, z.y)) return;
-        const q = relativ({ clientX: z.x, clientY: z.y });
-        const seite = seiteAn(ansicht, q.y, q.x), L = seitenLage(seite);
+        const o = ortVon(relativ({ clientX: z.x, clientY: z.y }));
+        if (!o || o.luecke) return;
         const k = (v: number) => Math.max(0, Math.min(1, v));
-        setSetzen(setzenTippen(setzen, { seite, x: k((q.x - L.x) / L.b), y: k((q.y - L.y) / L.h) }));
+        setSetzen(setzenTippen(setzen, { seite: o.seite, x: k(o.x), y: k(o.y) }));
         return;
       }
       const sprungHier = z.marke && modus === 'lesen' ? spruenge.find((s) => s.id === z.marke) : undefined;
@@ -849,23 +938,38 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       if (x < b * 0.3) zurueck(); else if (x > b * 0.7) weiter(); else { setAnsichtOffen(false); setLeisteWeg(leiste); }
       return;
     }
-    const seite = zeichenSeite!;
+    const seite = z.seite!;
+    if (z.art === 'schnitt' || z.art === 'sticker') {
+      // Schere: Was der Zug verändert hat, als eine Aktion festlegen (Rückgängig geht auf z.vorher).
+      if (z.jetzt && z.vorher && JSON.stringify(z.jetzt) !== JSON.stringify(z.vorher)) festlegen(seite, z.vorher, z.jetzt);
+      else if (z.vorher) setAnm((a) => ({ ...a, [seite]: z.vorher! }));
+      return;
+    }
     if (werkzeug === 'radierer') radierEnde(seite);
     if (werkzeug === 'stift' || werkzeug === 'marker') {
+      const luecke = z.luecke ? { luecke: z.luecke } : {};
       const neu: Anmerkung = werkzeug === 'stift'
-        ? { id: crypto.randomUUID(), art: 'stift', farbe: einst.stift.farbe, breite: einst.stift.breite, punkte: z.punkte }
-        : { id: crypto.randomUUID(), art: 'marker', farbe: einst.marker.farbe, breite: einst.marker.breite, punkte: z.punkte };
+        ? { id: crypto.randomUUID(), art: 'stift', farbe: einst.stift.farbe, breite: einst.stift.breite, punkte: z.punkte, ...luecke }
+        : { id: crypto.randomUUID(), art: 'marker', farbe: einst.marker.farbe, breite: einst.marker.breite, punkte: z.punkte, ...luecke };
       anmerkungenSetzen(seite, [...(anm[seite] ?? []), neu]);
       liveLeeren();
     }
     if (werkzeug === 'text') {
-      setTextEingabe({ x: z.punkte[0], y: z.punkte[1], text: '', seit: e.timeStamp });
+      setTextEingabe({ seite, luecke: z.luecke ?? null, x: z.punkte[0], y: z.punkte[1], text: '', seit: e.timeStamp });
     }
-    if (werkzeug === 'stelle') {
-      const p = relativ(e);
+    if (werkzeug === 'stelle' || werkzeug === 'schere') {
+      const p = aufSeiteVon(z.lage ?? GANZES_BLATT, relativ(e));
       const r = rechteckAus(z.punkte[0], z.punkte[1], p.x, p.y);
       setRechteckEntwurf(null);
-      if (r.b > 0.02 && r.h > 0.01) { setNeueStelle(r); setStelleTitel(''); setStelleZiel(''); }
+      if (r.b > 0.02 && r.h > 0.01) {
+        if (werkzeug === 'stelle') { setNeueStelle({ seite, ...r }); setStelleTitel(''); setStelleZiel(''); }
+        else {
+          // Sticker aus dem Ausschnitt: liegt etwas versetzt darüber und ist gewählt.
+          const st = stickerAus(crypto.randomUUID(), seite, r);
+          anmerkungenSetzen(seite, [...(anm[seite] ?? []), st]);
+          setStickerWahl({ seite, id: st.id });
+        }
+      }
     }
   }
   function abgebrochen(e: React.PointerEvent) {
@@ -879,15 +983,17 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   // Schnelle Wische werden lückenlos nachgezogen (radierWeg).
   const radierSpur = useRef<string | null>(null);
   const radierLetzter = useRef<{ x: number; y: number } | null>(null);
-  function radieren(x: number, y: number) {
-    const seite = zeichenSeite!;
-    const ebene = mitEbene.current.has(seite);
+  // luecke: Der Wisch läuft in der Lücke eines Schnitts — dann trifft er nur,
+  // was darin steht (Koordinaten ab Oberkante), sonst nur die Seite selbst.
+  function radieren(seite: number, luecke: string | null, x: number, y: number) {
+    const ebene = mitEbene.current.has(seite) && luecke === null;
     const radius = radierBreite / 2;
     const punkte = radierWeg(radierLetzter.current, x, y, radius, format);
     radierLetzter.current = { x, y };
     setAnm((alleAnm) => {
       const alt = alleAnm[seite] ?? [];
-      let objekte = alt, geaendert = false;
+      const drin = (o: Anmerkung) => ('luecke' in o && o.luecke ? o.luecke : null) === luecke;
+      let objekte = alt.filter(drin), geaendert = false;
       for (const q of punkte) {
         const r = radierZug(objekte, q.x, q.y, radius, format, radierSpur.current, ebene, () => crypto.randomUUID());
         radierSpur.current = r.spur;
@@ -895,8 +1001,70 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       }
       if (!geaendert) return alleAnm;
       if (!radierWisch.current) { verlaufAnm.current = [...verlaufAnm.current.slice(-49), { seite, vorher: alt }]; wiederholenAnm.current = []; radierWisch.current = true; }
-      return { ...alleAnm, [seite]: objekte };
+      return { ...alleAnm, [seite]: [...alt.filter((o) => !drin(o)), ...objekte] };
     });
+  }
+  // Eine Änderung der Schere als eine Aktion: Rückgängig geht auf `vorher`.
+  function festlegen(seite: number, vorher: Anmerkung[], neu: Anmerkung[]) {
+    verlaufAnm.current = [...verlaufAnm.current.slice(-49), { seite, vorher }];
+    wiederholenAnm.current = [];
+    anmerkungenSetzen(seite, neu, false);
+  }
+  // Schnitt ziehen (E-12): Der Abstand folgt dem Finger, in Seitenhöhen.
+  function schnittZiehen(z: NonNullable<typeof zug.current>, clientY: number) {
+    const L = z.lage ?? GANZES_BLATT, seitenHoehe = (blatt.current?.offsetWidth ?? 1) * L.b * format;
+    const abstand = Math.max(0, (z.abstand0 ?? 0) + (clientY - z.y) / seitenHoehe);
+    const jetzt = schnittSetzen(z.vorher ?? [], z.objektId!, z.punkte[1], abstand);
+    z.jetzt = jetzt;
+    const seite = z.seite!;
+    setAnm((a) => ({ ...a, [seite]: jetzt }));
+  }
+  // Sticker verschieben oder an der Ecke in der Größe ziehen.
+  function stickerZiehen(z: NonNullable<typeof zug.current>, clientX: number, clientY: number) {
+    const L = z.lage ?? GANZES_BLATT, seitenBreite = (blatt.current?.offsetWidth ?? 1) * L.b;
+    const dx = (clientX - z.x) / seitenBreite, dy = (clientY - z.y) / (seitenBreite * format);
+    const st = z.sticker!;
+    const neu = z.griff === 'groesse' ? stickerSkalieren(st, st.b + dx) : stickerBewegen(st, dx, dy);
+    const jetzt = (z.vorher ?? []).map((o) => (o.id === st.id ? neu : o));
+    z.jetzt = jetzt;
+    const seite = z.seite!;
+    setAnm((a) => ({ ...a, [seite]: jetzt }));
+  }
+  // Ecke des gewählten Stickers anfassen (Größe) — die Fläche bekommt den Zug nicht.
+  function griffAnfassen(e: React.PointerEvent) {
+    const st = gewaehlterSticker, seite = stickerWahl?.seite;
+    if (!st || seite === undefined) return;
+    e.stopPropagation(); e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const q = stueckFuer(seite, st.y, null);
+    zug.current = { art: 'sticker', punkte: [], x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId, start: zoomLive.current, seite, lage: q?.lage ?? GANZES_BLATT, vorher: anm[seite] ?? [], objektId: st.id, sticker: st, griff: 'groesse' };
+  }
+  function lueckeKnopf(e: React.MouseEvent<HTMLButtonElement>) {
+    const { seite, luecke } = e.currentTarget.dataset;
+    if (seite && luecke) lueckeEntfernen(Number(seite), luecke);
+  }
+  // Fürs Rendern vorbereitet: Rahmen des gewählten Stickers, Knöpfe der Lücken.
+  const stickerRahmen = stickerWahl && gewaehlterSticker ? rechteckAufBlatt(stickerWahl.seite, stickerRechteck(gewaehlterSticker)) : null;
+  const lueckenKnoepfe = stuecke.filter((q) => q.luecke).map((q) => ({ id: q.luecke!, seite: q.seite, mitte: q.sicht.y + q.sicht.h / 2 }));
+  function stickerLoeschen() {
+    if (!stickerWahl) return;
+    const { seite, id } = stickerWahl;
+    anmerkungenSetzen(seite, (anm[seite] ?? []).filter((o) => o.id !== id));
+    setStickerWahl(null);
+  }
+  // Sticker auf die vorige/nächste Seite legen (gleiche Lage) und dorthin blättern.
+  function stickerAufSeite(richtung: -1 | 1) {
+    const st = gewaehlterSticker;
+    if (!stickerWahl || !st) return;
+    const von = stickerWahl.seite, nach = von + richtung;
+    if (nach < 1 || nach > seiten) return;
+    anmerkungenSetzen(von, (anm[von] ?? []).filter((o) => o.id !== st.id));
+    anmerkungenSetzen(nach, [...(anm[nach] ?? []), st]);
+    setStickerWahl({ seite: nach, id: st.id });
+    zuStand(standUebertragen(liste, folge, { schritt, zeige }, liste, folge, ansichtVonSeite(liste, nach)));
+  }
+  function lueckeEntfernen(seite: number, id: string) {
+    anmerkungenSetzen(seite, schnittEntfernen(anm[seite] ?? [], id));
   }
   // Radier-Wisch zu Ende: einmal speichern — im Updater, der nach allen
   // Updatern des Wischs läuft — und den Verlaufszähler nachziehen (der
@@ -923,27 +1091,28 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   // Ein Radierer-Wisch ist eine Aktion: nur der Stand vor dem ersten Treffer wird gemerkt.
   const radierWisch = useRef(false);
   async function stelleSpeichern() {
-    if (!neueStelle || zeichenSeite === null) return;
+    if (!neueStelle) return;
     const r = neueStelle;
     try {
-      await stelleAnlegen({ stueckId: noten.id, seite: zeichenSeite, ...r, titel: stelleTitel.trim() }, zielAusText(stelleZiel));
+      await stelleAnlegen({ stueckId: noten.id, ...r, titel: stelleTitel.trim() }, zielAusText(stelleZiel));
     } catch (x) {
       // Rahmen bleibt stehen: nach dem Neuladen ist er weg, aber bis dahin sichtbar.
       speicherFehler(x);
       return;
     }
     setNeueStelle(null);
-    neueStelleMerken.current = { seite: zeichenSeite, y: r.y, x: r.x };
+    neueStelleMerken.current = { seite: r.seite, y: r.y, x: r.x };
     geaendert();
   }
   function textSpeichern(e?: React.FocusEvent) {
-    if (!textEingabe || zeichenSeite === null) return;
+    if (!textEingabe) return;
     // Direkt nach dem Antippen feuern Browser noch Maus-Ereignisse nach — die
     // dürfen das frische Feld nicht schließen.
     if (e && e.timeStamp - textEingabe.seit < 400) { (e.target as HTMLInputElement).focus(); return; }
     if (textEingabe.text.trim()) {
-      anmerkungenSetzen(zeichenSeite, [...(anm[zeichenSeite] ?? []),
-        { id: crypto.randomUUID(), art: 'text', farbe: einst.text.farbe, groesse: TEXT_GROESSE, x: textEingabe.x, y: textEingabe.y, text: textEingabe.text.trim() }]);
+      const { seite, luecke } = textEingabe;
+      anmerkungenSetzen(seite, [...(anm[seite] ?? []),
+        { id: crypto.randomUUID(), art: 'text', farbe: einst.text.farbe, groesse: TEXT_GROESSE, x: textEingabe.x, y: textEingabe.y, text: textEingabe.text.trim(), ...(luecke ? { luecke } : {}) }]);
     }
     setTextEingabe(null);
   }
@@ -998,7 +1167,11 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   const linieWert = linienSeite ? (blaettern.linien[linienSeite] ?? 0.5) : 0.5;
   function linieBewegen(e: React.PointerEvent) {
     if (!linieZiehen || !linienSeite) return;
-    const y = Math.max(0.02, Math.min(0.98, relativ(e).y));
+    const o = ortVon(relativ(e));
+    if (!o || o.seite !== linienSeite) return;
+    // In einer Lücke: die Linie liegt auf dem Schnitt.
+    const roh = o.luecke ? (schnitte.find((x) => x.id === o.luecke)?.y ?? 0.5) : o.y;
+    const y = Math.max(0.02, Math.min(0.98, roh));
     setBlaettern((b) => ({ ...b, linien: { ...b.linien, [linienSeite]: Math.round(y * 1000) / 1000 } }));
   }
   function linieLoslassen() {
@@ -1074,8 +1247,10 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   // Werkzeug-Hinweise bleiben stehen, solange sie gelten (B-11): beim Benennen
   // der Stelle bzw. Schreiben des Texts sind sie erledigt.
   const werkzeugHinweis = farbeAufnehmen ? 'Auf die Farbe tippen, die du übernehmen willst.'
-    : !werkzeug || zeichenSeite === null ? null
+    : !werkzeug || !zeichenbar ? null
     : werkzeug === 'stelle' ? (neueStelle ? null : 'Rahmen um die Takte ziehen.')
+    : werkzeug === 'schere' ? (stickerWahl ? 'Sticker ziehen, Ecke: Größe. Leiste: Seite wechseln, löschen.'
+      : schereModus === 'sticker' ? 'Rahmen um die Takte ziehen — wird ein Sticker.' : 'Antippen und nach unten ziehen: schneidet die Seite auf. In der Lücke ziehen: Abstand ändern.')
     : werkzeug === 'text' ? (textEingabe ? null : 'Auf die Stelle tippen, an der der Text stehen soll.')
     : null;
   // Höhe der oberen Leiste: Hinweise schweben darunter, solange sie zu sehen ist.
@@ -1097,8 +1272,8 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   const marken = modus === 'lesen' && !bearbeiten && !linieEinstellen ? sichtbareMarken(spruenge, ansicht) : [];
   // Punkt einer Seite aufs Blatt: innerhalb des Ausschnitts, auf der Doppelseite in ihrer Hälfte.
   const lage = (p: { seite: number; x: number; y: number }) => {
-    const q = einpassen(p, ausschnitt), L = seitenLage(p.seite);
-    return { left: `${(L.x + q.x * L.b) * 100}%`, top: `${(L.y + q.y * L.h) * 100}%` };
+    const q = einpassen(p, ausschnitt), b = aufBlatt(p.seite, q.x, q.y) ?? q;
+    return { left: `${b.x * 100}%`, top: `${b.y * 100}%` };
   };
   // Beim Öffnen steht wieder das zuletzt gewählte Werkzeug bereit (E-11) —
   // solange die App läuft, über Stückwechsel hinweg.
@@ -1169,14 +1344,14 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
                   Blättern, Zuschneiden, Sprünge. Je Seite einstellen geht in der
                   Leiste unten („Blättern einstellen“). */}
               <p className="nav-blase-titel">Ansicht</p>
-              <label className="nav-zeile">
+              <label className="nav-punkt">
                 <SymbolZweiSeiten />
-                <span className="nav-zeile-text">Zwei Seiten<small>{quer ? 'Nebeneinander wie im Heft' : 'Nebeneinander, sobald der Bildschirm quer ist'}</small></span>
+                <span className="nav-punkt-text">Zwei Seiten<small>{quer ? 'Nebeneinander wie im Heft' : 'Nebeneinander, sobald der Bildschirm quer ist'}</small></span>
                 <input type="checkbox" role="switch" className="ios-schalter" checked={zweiSeiten} onChange={(e) => zweiSeitenSetzen(e.target.checked)} />
               </label>
-              <label className="nav-zeile">
+              <label className="nav-punkt">
                 <SymbolZoom />
-                <span className="nav-zeile-text">Immer zoomen<small>{zoomImmer ? 'Zwei Finger zoomen auch beim Lesen' : 'Nur bei offener Stift-Palette'}</small></span>
+                <span className="nav-punkt-text">Immer zoomen<small>{zoomImmer ? 'Zwei Finger zoomen auch beim Lesen' : 'Nur bei offener Stift-Palette'}</small></span>
                 <input type="checkbox" role="switch" className="ios-schalter" checked={zoomImmer} onChange={(e) => zoomImmerSetzen(e.target.checked)} />
               </label>
               {modus === 'lesen' && (
@@ -1198,26 +1373,26 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
                       : 'Ab der Linie oben schon die nächste Seite.'}
                   </p>
                   {seiten > 1 && (
-                    <button type="button" className="nav-zeile" onClick={linieStarten}>
+                    <button type="button" className="nav-punkt" onClick={linieStarten}>
                       <SymbolBlaettern />
-                      <span className="nav-zeile-text">Blättern einstellen<small>Seite für Seite: Ganz, Halb oder Linie ziehen</small></span>
+                      <span className="nav-punkt-text">Blättern einstellen<small>Seite für Seite: Ganz, Halb oder Linie ziehen</small></span>
                       <NavPfeil />
                     </button>
                   )}
                 </>
               )}
               <p className="nav-blase-titel">Seite</p>
-              <button type="button" className="nav-zeile" onClick={ausschnittStarten}>
+              <button type="button" className="nav-punkt" onClick={ausschnittStarten}>
                 <SymbolZuschneiden />
-                <span className="nav-zeile-text">Seite {seiteJetzt} zuschneiden<small>{ausschnitte[seiteJetzt] ? 'Ausschnitt ändern oder ganze Seite' : 'Nur den Bereich zeigen, den du brauchst'}</small></span>
+                <span className="nav-punkt-text">Seite {seiteJetzt} zuschneiden<small>{ausschnitte[seiteJetzt] ? 'Ausschnitt ändern oder ganze Seite' : 'Nur den Bereich zeigen, den du brauchst'}</small></span>
                 <NavPfeil />
               </button>
               {modus === 'lesen' && (
                 <>
                   <p className="nav-blase-titel">Sprünge</p>
-                  <button type="button" className="nav-zeile" onClick={setzenStarten} disabled={!!neueStelle}>
+                  <button type="button" className="nav-punkt" onClick={setzenStarten} disabled={!!neueStelle}>
                     <SymbolSprung />
-                    <span className="nav-zeile-text">Sprung setzen<small>Wiederholung, D.S., D.C., Coda — Weiterblättern folgt</small></span>
+                    <span className="nav-punkt-text">Sprung setzen<small>Wiederholung, D.S., D.C., Coda — Weiterblättern folgt</small></span>
                     <NavPfeil />
                   </button>
                   {spruenge.length > 1 && <p className="nav-hinweis">In dieser Reihenfolge wird gesprungen — mit ↑ ↓ umstellen.</p>}
@@ -1292,19 +1467,35 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
               )}
               {rechteckEntwurf && <span className="b-rechteck" style={prozent(rechteckEntwurf)} />}
               {bearbeiten && <AusschnittRahmen r={bearbeiten.r} blatt={blatt} setzen={(r) => setBearbeiten({ ...bearbeiten, r })} />}
-              {neueStelle && <span className="b-rechteck fest" style={prozent(neueStelle)} />}
+              {neueStelle && <span className="b-rechteck fest" style={prozent(rechteckAufBlatt(neueStelle.seite, neueStelle) ?? neueStelle)} />}
               {linieEinstellen && modus === 'lesen' && linienSeite && (
-                <div className="b-linie" style={{ top: `${linieWert * 100}%` }}
+                <div className="b-linie" style={{ top: `${(aufBlatt(linienSeite, 0, linieWert)?.y ?? linieWert) * 100}%` }}
                   onPointerDown={(e) => { e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); setLinieZiehen(true); }}>
                   <span>Blättern ab hier · {Math.round(linieWert * 100)} %</span>
                 </div>
               )}
               {textEingabe && (
                 <input className="b-texteingabe" autoFocus value={textEingabe.text} placeholder="Text …"
-                  style={{ left: `${textEingabe.x * 100}%`, top: `${textEingabe.y * 100}%` }}
+                  style={(() => { const b = aufBlatt(textEingabe.seite, textEingabe.x, textEingabe.y, textEingabe.luecke) ?? textEingabe; return { left: `${b.x * 100}%`, top: `${b.y * 100}%` }; })()}
                   onPointerDown={(e) => e.stopPropagation()}
                   onChange={(e) => setTextEingabe({ ...textEingabe, text: e.target.value })}
                   onBlur={(e) => textSpeichern(e)} onKeyDown={(e) => { if (e.key === 'Enter') textSpeichern(); if (e.key === 'Escape') setTextEingabe(null); }} />
+              )}
+              {/* Schere (E-12): Lücken lassen sich entfernen, der gewählte Sticker hat Leiste und Griff. */}
+              {werkzeug === 'schere' && lueckenKnoepfe.map((q) => (
+                <button key={q.id} type="button" className="b-luecke-weg" style={{ top: `${q.mitte * 100}%` }} data-seite={q.seite} data-luecke={q.id} {...greifbar}
+                  onClick={lueckeKnopf} aria-label="Schnitt entfernen" title="Schnitt entfernen — samt Lücke und dem, was darin steht">×</button>
+              ))}
+              {stickerRahmen && stickerWahl && (
+                <div className="b-sticker-wahl" style={prozent(stickerRahmen)}>
+                  <div className="b-sticker-leiste" {...greifbar}>
+                    <button type="button" onClick={() => stickerAufSeite(-1)} disabled={stickerWahl.seite <= 1} aria-label="Sticker auf die vorige Seite">‹ Seite</button>
+                    <button type="button" onClick={() => stickerAufSeite(1)} disabled={stickerWahl.seite >= seiten} aria-label="Sticker auf die nächste Seite">Seite ›</button>
+                    <button type="button" className="weg" onClick={stickerLoeschen} aria-label="Sticker löschen">Löschen</button>
+                  </div>
+                  <span className="b-sticker-griff" role="presentation" onPointerDown={griffAnfassen}
+                    onPointerMove={bewegen} onPointerUp={hoch} onPointerCancel={abgebrochen} />
+                </div>
               )}
             </div>
           </div>
@@ -1324,9 +1515,9 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
           </div>
         )}
         {/* Schwebende Hinweise: verkleinern das Blatt nicht. */}
-        {(werkzeugHinweis || (werkzeug && zeichenSeite === null)) && (
+        {(werkzeugHinweis || (werkzeug && !zeichenbar)) && (
           <div className="b-schwebend">
-            {werkzeug && zeichenSeite === null ? (
+            {werkzeug && !zeichenbar ? (
               <>
                 <span>Anmerken geht auf einer ganzen Seite.</span>
                 <button type="button" className="b-knopf b-greifbar" onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()}
@@ -1472,7 +1663,8 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
           pipetten={pipetten} farbeAufnehmen={farbeAufnehmen} setFarbeAufnehmen={setFarbeAufnehmen}
           fingerZeichnen={fingerZeichnen} setFingerZeichnen={setFingerZeichnen}
           rueckgaengig={rueckgaengig} wiederholen={wiederholen}
-          kannRueck={staende.rueck > 0} kannWieder={staende.wieder > 0} />
+          kannRueck={staende.rueck > 0} kannWieder={staende.wieder > 0}
+          schereModus={schereModus} schereEinstellen={setSchereModus} />
       )}
     </div>
   );
@@ -1480,6 +1672,12 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
 
 const BLAETTER_MODI = [['ganz', 'Ganz'], ['halb', 'Halb'], ['linie', 'Linie']] as const;
 const GANZES_BLATT: SeitenLage = { x: 0, y: 0, b: 1, h: 1 };
+// Ein Teilstück des Blatts (siehe `stuecke` im Betrachter).
+interface BlattStueck { seite: number; luecke: string | null; y0: number; y1: number; lage: SeitenLage; sicht: SeitenLage }
+interface Ort { stueck: BlattStueck; seite: number; luecke: string | null; x: number; y: number }
+// Blatt-Punkt → Seiten-Koordinaten über die Lage der Seite; Seiten-Rechteck → Blatt.
+const aufSeiteVon = (L: SeitenLage, p: { x: number; y: number }) => ({ x: (p.x - L.x) / L.b, y: (p.y - L.y) / L.h });
+const blattRechteck = (L: SeitenLage, r: Rechteck): Rechteck => ({ x: L.x + r.x * L.b, y: L.y + r.y * L.h, b: r.b * L.b, h: r.h * L.h });
 // Zuletzt gewähltes Werkzeug der Palette (E-11): nur im Arbeitsspeicher, bis
 // die App neu lädt — dann wieder der Stift.
 let werkzeugZuletzt: Werkzeug = 'stift';

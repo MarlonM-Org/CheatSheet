@@ -1,11 +1,19 @@
 'use client';
 
 import type { Anmerkung } from '@/domain/notenpult';
+import { istSticker, stickerHoehe } from '@/domain/schnitte';
+import type { SeitenBild } from './pdf';
 
-// Zeichnet Anmerkungen einer Seite in ein Rechteck (x0, y0, b, h) der Leinwand.
-export function anmerkungenZeichnen(ctx: CanvasRenderingContext2D, objekte: Anmerkung[], x0: number, y0: number, b: number, h: number) {
+const lueckeVon = (a: Anmerkung): string | null => ('luecke' in a && a.luecke ? a.luecke : null);
+
+// Zeichnet Anmerkungen einer Seite in ein Rechteck (x0, y0, b, h) der Leinwand
+// — die der Seite selbst, oder (luecke) die in der Lücke eines Schnitts (E-12),
+// deren Rechteck dann bei der Oberkante der Lücke beginnt.
+export function anmerkungenZeichnen(ctx: CanvasRenderingContext2D, objekte: Anmerkung[], x0: number, y0: number, b: number, h: number, luecke: string | null = null) {
   for (const a of objekte) {
     if (a.art === 'radiert') continue; // wirkt nur auf die übernommene Ebene
+    if (a.art === 'schnitt' || a.art === 'sticker') continue; // zeichnet blattZeichnen (Teilstücke, Sticker)
+    if (lueckeVon(a) !== luecke) continue;
     ctx.save();
     if (a.art === 'text') {
       ctx.fillStyle = a.farbe;
@@ -75,14 +83,23 @@ export function ebeneZeichnen(ctx: CanvasRenderingContext2D, ebene: HTMLCanvasEl
 // hervorgehoben. seite: wo die ganze Seite auf der Leinwand liegt; jeder
 // Teil zeigt die Höhe y0…y1 einer Seite, sein Bild liegt bei lage.
 // blattLage: wo die ganze Seite dieses Teils liegt — fehlt es, bei `seite`
-// (ganze Seite, Halb-Ansicht); auf der Doppelseite je Hälfte.
-export interface BlattTeil { seite: number; y0: number; y1: number; bild: HTMLCanvasElement; ebene: HTMLCanvasElement | null; lage: Lage; blattLage?: Lage }
+// (ganze Seite, Halb-Ansicht); auf der Doppelseite je Hälfte, bei Schnitten
+// (E-12) je Teilstück nach unten gerückt. luecke: dieser Teil ist die Lücke
+// eines Schnitts (kein Seitenbild, nur was darin geschrieben wurde; blattLage
+// beginnt an ihrer Oberkante, y0…y1 ist ihre Höhe).
+export interface BlattTeil {
+  seite: number; y0: number; y1: number; bild: HTMLCanvasElement | null; ebene: HTMLCanvasElement | null; lage: Lage; blattLage?: Lage; luecke?: string | null;
+}
 export interface BlattExtras {
   stellen: { seite: number; x: number; y: number; b: number; h: number }[];
   schnitt: number | null;
   hervor: { x: number; y: number; b: number; h: number } | null;
   // Lücke zwischen zwei Seiten (Doppelseite): leicht getönt, kein Papier.
   luecke?: Lage | null;
+  // Seitenbilder, aus denen Sticker ihren Ausschnitt holen (je Quellseite).
+  quellen?: Map<number, SeitenBild> | null;
+  // Palette offen: Ränder der Lücken und Sticker zeigen (zum Anfassen).
+  bearbeitbar?: boolean;
 }
 export function blattZeichnen(ctx: CanvasRenderingContext2D, seite: Lage, teile: BlattTeil[],
   anm: Record<number, Anmerkung[]>, extras: BlattExtras, hilfe: () => HTMLCanvasElement) {
@@ -92,14 +109,26 @@ export function blattZeichnen(ctx: CanvasRenderingContext2D, seite: Lage, teile:
     const objekte = anm[t.seite] ?? [];
     const S = t.blattLage ?? seite;
     const { x: X, y: Y, b: W, h: H } = S;
+    const luecke = t.luecke ?? null;
     ctx.save();
     ctx.beginPath(); ctx.rect(X, Y + t.y0 * H, W, (t.y1 - t.y0) * H); ctx.clip();
-    ctx.drawImage(t.bild, t.lage.x, t.lage.y, t.lage.b, t.lage.h);
-    if (t.ebene) ebeneZeichnen(ctx, t.ebene, t.lage, objekte, S, hilfe());
-    anmerkungenZeichnen(ctx, objekte, X, Y, W, H);
-    for (const st of extras.stellen.filter((x) => x.seite === t.seite)) {
-      ctx.strokeStyle = 'rgba(168, 120, 31, 0.55)'; ctx.lineWidth = Math.max(1, W / 600);
-      ctx.setLineDash([W / 120, W / 160]); ctx.strokeRect(X + st.x * W, Y + st.y * H, st.b * W, st.h * H); ctx.setLineDash([]);
+    if (t.bild) ctx.drawImage(t.bild, t.lage.x, t.lage.y, t.lage.b, t.lage.h);
+    if (t.ebene && !luecke) ebeneZeichnen(ctx, t.ebene, t.lage, objekte, S, hilfe());
+    anmerkungenZeichnen(ctx, objekte, X, Y, W, H, luecke);
+    if (!luecke) {
+      for (const st of objekte.filter(istSticker)) {
+        stickerZeichnen(ctx, st, S, extras.quellen?.get(st.von.seite) ?? null, anm[st.von.seite] ?? [], !!extras.bearbeitbar);
+      }
+      for (const st of extras.stellen.filter((x) => x.seite === t.seite)) {
+        ctx.strokeStyle = 'rgba(168, 120, 31, 0.55)'; ctx.lineWidth = Math.max(1, W / 600);
+        ctx.setLineDash([W / 120, W / 160]); ctx.strokeRect(X + st.x * W, Y + st.y * H, st.b * W, st.h * H); ctx.setLineDash([]);
+      }
+    } else if (extras.bearbeitbar) {
+      // Lücke beim Bearbeiten: gestrichelte Ober- und Unterkante.
+      ctx.strokeStyle = 'rgba(168, 120, 31, 0.6)'; ctx.lineWidth = Math.max(1, W / 600);
+      ctx.setLineDash([W / 120, W / 160]);
+      ctx.beginPath(); ctx.moveTo(X, Y + 1); ctx.lineTo(X + W, Y + 1); ctx.moveTo(X, Y + t.y1 * H - 1); ctx.lineTo(X + W, Y + t.y1 * H - 1); ctx.stroke();
+      ctx.setLineDash([]);
     }
     ctx.restore();
   }
@@ -125,4 +154,32 @@ export function blattZeichnen(ctx: CanvasRenderingContext2D, seite: Lage, teile:
     ctx.strokeStyle = '#a8781f'; ctx.lineWidth = Math.max(2, W / 350);
     ctx.strokeRect(X + r.x * W, Y + r.y * H, r.b * W, r.h * H);
   }
+}
+
+// Ein Sticker (E-12): der Ausschnitt `von` einer Seite — ihr Bild, ihre
+// übernommenen Markierungen und ihre Anmerkungen — auf diese Seite gelegt.
+// S: wo die ganze Zielseite auf der Leinwand liegt. Ohne Quellbild bleibt
+// ein leerer Rahmen (das Bild kommt gleich nach).
+export function stickerZeichnen(ctx: CanvasRenderingContext2D, st: Extract<Anmerkung, { art: 'sticker' }>, S: Lage,
+  quelle: SeitenBild | null, quellObjekte: Anmerkung[], rahmen: boolean) {
+  const { x: X, y: Y, b: W, h: H } = S;
+  const dx = X + st.x * W, dy = Y + st.y * H, dw = st.b * W, dh = stickerHoehe(st) * H;
+  ctx.save();
+  ctx.beginPath(); ctx.rect(dx, dy, dw, dh); ctx.clip();
+  ctx.fillStyle = '#fff'; ctx.fillRect(dx, dy, dw, dh);
+  if (quelle) {
+    const q = quelle.seite;
+    const sx = st.von.x * q.width, sy = st.von.y * q.height, sw = st.von.b * q.width, sh = st.von.h * q.height;
+    ctx.drawImage(q, sx, sy, sw, sh, dx, dy, dw, dh);
+    if (quelle.ebene) { ctx.globalCompositeOperation = 'multiply'; ctx.drawImage(quelle.ebene, sx, sy, sw, sh, dx, dy, dw, dh); ctx.globalCompositeOperation = 'source-over'; }
+  }
+  // Anmerkungen der Quelle: die Quellseite gedacht so groß, dass ihr Ausschnitt den Sticker füllt.
+  const f = st.b / st.von.b, fh = stickerHoehe(st) / st.von.h;
+  anmerkungenZeichnen(ctx, quellObjekte, dx - st.von.x * W * f, dy - st.von.y * H * fh, W * f, H * fh);
+  ctx.restore();
+  ctx.save();
+  ctx.strokeStyle = rahmen ? 'rgba(168, 120, 31, 0.8)' : 'rgba(29, 27, 23, 0.28)'; ctx.lineWidth = Math.max(1, W / 700);
+  if (rahmen) ctx.setLineDash([W / 120, W / 160]);
+  ctx.strokeRect(dx + 0.5, dy + 0.5, dw - 1, dh - 1);
+  ctx.restore();
 }

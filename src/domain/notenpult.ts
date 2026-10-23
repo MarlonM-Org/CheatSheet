@@ -148,13 +148,24 @@ export function zuordnen<N extends { id: string; dateiname?: string; titel: stri
 // „radiert“ ist eine Radier-Spur über den aus dem PDF übernommenen
 // Markierungen (siehe ebene.ts): Sie nimmt diese Ebene an den überstrichenen
 // Stellen weg und wird selbst nicht gezeichnet.
+// E-12 (Schere): „schnitt“ teilt die Seite in Höhe y und schiebt alles
+// darunter um `abstand` (in Seitenhöhen) nach unten — die Lücke ist Platz zum
+// Schreiben. Was in der Lücke steht, trägt `luecke` (id des Schnitts), sein y
+// zählt ab der Oberkante der Lücke, in Seitenhöhen wie sonst auch. Alles
+// andere bleibt in den Koordinaten der ursprünglichen Seite (schnitte.ts).
+// „sticker“ ist ein Ausschnitt `von` einer Seite (Rechteck, Anteile), auf
+// diese Seite bei x/y in Breite b gelegt (die Höhe folgt dem Ausschnitt).
 export type Anmerkung =
-  | { id: string; art: 'stift' | 'marker'; farbe: string; breite: number; punkte: number[] }
-  | { id: string; art: 'text'; farbe: string; groesse: number; x: number; y: number; text: string }
-  | { id: string; art: 'radiert'; breite: number; punkte: number[] };
+  | { id: string; art: 'stift' | 'marker'; farbe: string; breite: number; punkte: number[]; luecke?: string }
+  | { id: string; art: 'text'; farbe: string; groesse: number; x: number; y: number; text: string; luecke?: string }
+  | { id: string; art: 'radiert'; breite: number; punkte: number[] }
+  | { id: string; art: 'schnitt'; y: number; abstand: number }
+  | { id: string; art: 'sticker'; von: { seite: number; x: number; y: number; b: number; h: number }; x: number; y: number; b: number };
 
 // Trifft der Radierer (Punkt, Radius relativ zur Seitenbreite) eine Anmerkung?
+// Schnitte und Sticker nimmt er nicht weg (dafür gibt es die Schere).
 export function getroffen(a: Anmerkung, x: number, y: number, radius: number, seitenformat = 1.414): boolean {
+  if (a.art === 'schnitt' || a.art === 'sticker' || a.art === 'radiert') return false;
   if (a.art === 'text') {
     const h = a.groesse * 1.2, b = a.groesse * 0.55 * a.text.length / seitenformat;
     return x >= a.x - radius && x <= a.x + b + radius && y >= a.y - h - radius && y <= a.y + radius;
@@ -238,7 +249,7 @@ export function radierZug(
   let geaendert = false;
   let neu: Anmerkung[] = [];
   for (const a of objekte) {
-    if (a.art === 'radiert') { neu.push(a); continue; }
+    if (a.art === 'radiert' || a.art === 'schnitt' || a.art === 'sticker') { neu.push(a); continue; }
     if (a.art === 'text') {
       if (getroffen(a, x, y, radius, seitenformat)) geaendert = true;
       else neu.push(a);
