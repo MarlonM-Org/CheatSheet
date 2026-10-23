@@ -22,7 +22,14 @@ funktioniert danach auch offline.
 - **Schwierige Stellen:** markieren, gezielt üben, Zieltempo setzen und den
   Fortschritt verfolgen. Der Stellen-Mix übt Stellen aus mehreren Stücken
   gemischt.
-- **Ordnen:** Sammlungen und farbige Tags.
+- **Ordnen:** Sammlungen und farbige Tags; Halten oder „⋯“ öffnet zu jedem
+  Stück, jeder Sammlung, Stelle und jedem Lesezeichen ein Blatt mit allen
+  Aktionen. Lesezeichen benennen Seiten (auch
+  aus dem Inhaltsverzeichnis der PDF); ein Seitenbereich eines Sammelbands
+  wird auf Wunsch ein eigenes Stück.
+- **Einscannen:** Papiernoten mit der Kamera aufnehmen oder vorhandene Fotos
+  wählen — Blattrand finden, entzerren, Schatten herausrechnen, als PDF in
+  die Bibliothek.
 - **Metronom:** Taktarten, Betonungen, Unterteilungen, Tempo-Trainer.
 - **Stimmgerät:** über das Mikrofon, mit Referenztönen. Das Tonprofil zeigt,
   welche Töne auf deinem Instrument zu hoch oder zu tief liegen.

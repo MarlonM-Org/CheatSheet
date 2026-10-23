@@ -80,9 +80,12 @@ function Zentrale() {
   // Was gerade auf der Bühne liegt.
   const angezeigt = mixAn ? (mixNoten ?? null) : offen;
 
-  const oeffnen = (id: string) => {
+  // Aus der Bibliothek (F-08): auf Wunsch gleich mit dem Stück-Blatt.
+  const [blattAnfang, setBlattAnfang] = useState<boolean | 'teilen'>(false);
+  const oeffnen = (id: string, blatt: boolean | 'teilen' = false) => {
     // Aus dem Mix heraus immer frisch aufbauen: zum Lesen, von Seite 1.
     if (mixAn) mixAus();
+    setBlattAnfang(blatt);
     if (mixAn || id === offen) setFassung((f) => f + 1);
     else { setOffen(id); speichern('ueben:offen', id); }
     setBibliothek(false);
@@ -122,7 +125,7 @@ function Zentrale() {
               zurueck={() => { const runde = { ...mix.runde, pos: Math.max(0, mix.runde.reihe.length - 1) }; rundeSpeichern(mix.bereich, runde); setMix({ ...mix, runde }); }} />
           )
         ) : offen ? (
-          <NotenPult key={`${offen}:${fassung}`} notenId={offen} leisten={leisten}
+          <NotenPult key={`${offen}:${fassung}`} notenId={offen} leisten={leisten} blattAnfang={blattAnfang}
             tastenAktiv={!bibliothek && !dialogOffen} verschwunden={offenWeg} />
         ) : (
           <div className="leer">

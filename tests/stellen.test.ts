@@ -214,7 +214,7 @@ describe('Stellen-Mix: Bereich (Sammlung, nur offene, nur Favoriten)', () => {
   });
   it('wählt die Stellen der Sammlung, auf Wunsch nur offene — Behaltenes bleibt drin', () => {
     const liste = [s('a1', 'A'), s('a2', 'A', 100, [{ tempo: 110, am: 1 }]), s('b1', 'B'), s('c1', 'C', 100, [{ tempo: 111, am: 1 }])];
-    const inSammlung = (stueckId: string) => stueckId !== 'B';
+    const inSammlung = (x: { stueckId: string }) => x.stueckId !== 'B';
     expect(mixAuswahl(liste, inSammlung, alle).map((x) => x.id)).toEqual(['a1', 'a2', 'c1']);
     expect(mixAuswahl(liste, inSammlung, offen).map((x) => x.id)).toEqual(['a1']);
     // schon geübt bzw. gerade dran: bleibt in der Runde, auch wenn jetzt geschafft
@@ -225,7 +225,7 @@ describe('Stellen-Mix: Bereich (Sammlung, nur offene, nur Favoriten)', () => {
       s('a1', 'A', null, [], true), s('a2', 'A', 100, [{ tempo: 110, am: 1 }], true), s('a3', 'A'),
       s('b1', 'B', null, [], true), s('c1', 'C', null, [], false),
     ];
-    const inSammlung = (stueckId: string) => stueckId !== 'B';
+    const inSammlung = (x: { stueckId: string }) => x.stueckId !== 'B';
     expect(mixAuswahl(liste, inSammlung, { offen: false, favoriten: true }).map((x) => x.id)).toEqual(['a1', 'a2']);
     expect(mixAuswahl(liste, inSammlung, { offen: true, favoriten: true }).map((x) => x.id)).toEqual(['a1']);
     // Stern inzwischen weg, aber schon dran gewesen: bleibt in der Runde

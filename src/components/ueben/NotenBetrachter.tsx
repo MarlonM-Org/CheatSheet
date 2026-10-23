@@ -1,7 +1,7 @@
 'use client';
 
-import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { ablage, dateiVon, type Lesezeichen } from '@/domain/bestand';
 import { ausschnitteLesen, ausschnittFuer, ausschnittSetzen, darstellung, doppelDarstellung, fuerAlleSeiten, VOLL, type SeitenLage } from '@/domain/ausschnitt';
 import { pipettenPunkt } from '@/domain/farbe';
 import { RAD_ANFANG, radGeste, radWeg, tastenAktion, WISCH_UMKEHREN, zeigerGeste, type Blaetter } from '@/domain/geste';
@@ -14,6 +14,7 @@ import {
   artWaehlen, einpassen, KUERZEL, punktSichtbar, setzenTippen, sichtbareMarken, spruengeSchreiben, sprungLoeschen,
   sprungNeu, sprungText, sprungVerschieben, SPRUNG_ARTEN, zielAnsicht, type Punkt as SprungPunkt, type Setzen, type Sprung,
 } from '@/domain/spruenge';
+import { inSicht, zurPdf } from '@/domain/sicht';
 import { mixKopf, stelleFavorit, tempoStand, zielAusText, zielStand } from '@/domain/stellen';
 import {
   einstellungPruefen, pipettenFarbe, pipettenPruefen, radiererPruefen, TEXT_GROESSE,
@@ -30,14 +31,14 @@ import {
 import { AusschnittRahmen } from './Ausschnitt';
 import { gespeichert as gespeicherterWert, speichern, useEinstellungenGeladen } from './klang';
 import {
-  anmerkungenSpeichern, anmerkungenVon, stelleAendern, stueckAendern, stelleAnlegen, tempoGeschafft,
+  anmerkungenSpeichern, anmerkungenVon, lesezeichenAnlegen, lesezeichenLoeschen, stelleAendern, stueckAendern, stelleAnlegen, tempoGeschafft,
   type Stueck, type Stelle,
 } from './lokal';
 import { useMetronom } from './MetronomKontext';
 import { ladeFehler, speicherFehler } from './speicherfehler';
 import { faktorPruefen, SPRUNG_STEMPEL, STEMPEL_FAKTOR, stempelAnlegen, type StempelZeichen } from '@/domain/stempel';
 import { StiftPalette, type SchereModus, type Werkzeug } from './StiftPalette';
-import { ausschnittRendern, seiteMitEbene, type SeitenBild } from './pdf';
+import { ausschnittRendern, seiteMitEbene, type Dokument, type SeitenBild } from './pdf';
 import { StelleBlatt } from './StelleBlatt';
 import { StellenInfo } from './StellenInfo';
 import { SprungZeichen } from './SprungZeichen';
@@ -58,13 +59,20 @@ const stiftEinstellungen = (): Record<ZeichenWerkzeug, StiftEinstellung> => ({
   text: einstellungPruefen('text', gespeicherterWert('ueben:text', null)),
 });
 
+// Sprung aus dem Stück-Blatt: zu einer Stelle (Stellen-Modus) oder zu einer Seite (Lesezeichen).
+export type Ziel = { stelle: string; n: number } | { seite: number; n: number };
+
 interface Props {
-  noten: Stueck; pdf: PDFDocumentProxy; stellen: Stelle[];
+  // pdf: bei einem virtuellen Stück das Fenster auf die Seiten der Quelle (F-03);
+  // Seiten, Stellen und Lesezeichen sind hier immer in der Sicht gezählt.
+  noten: Stueck; pdf: Dokument; stellen: Stelle[];
+  // Lesezeichen des Stücks (F-03), in Sicht-Seiten; nach Setzen/Entfernen wird neu geladen.
+  lesezeichen: Lesezeichen[]; lesezeichenGeaendert: () => void;
   geaendert: () => void;
   // Tasten blättern nur, wenn kein Overlay über den Noten liegt.
   tastenAktiv: boolean;
-  // Sprung aus der Stellen-Übersicht: in den Stellen-Modus zu dieser Stelle.
-  sprung: { stelle: string; n: number } | null;
+  // Sprung aus der Stellen-Übersicht oder von einem Lesezeichen.
+  sprung: Ziel | null;
   titelTipp: () => void;
   // Stellen-Mix (F-11): genau diese Stelle, ‹ › gehen durch die Runde.
   mix: MixSteuerung | null;
@@ -73,7 +81,7 @@ interface Props {
   leisteWeg: boolean; setLeisteWeg: (weg: boolean) => void; navDa: boolean;
 }
 
-export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, sprung, titelTipp, mix, leisteWeg, setLeisteWeg, navDa }: Props) {
+export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenGeaendert, geaendert, tastenAktiv, sprung, titelTipp, mix, leisteWeg, setLeisteWeg, navDa }: Props) {
   const seiten = pdf.numPages;
   const { bpm, setBpm } = useMetronom();
 
@@ -186,9 +194,14 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   const [anm, setAnm] = useState<Record<number, Anmerkung[]>>({});
   useEffect(() => {
     let weg = false;
-    anmerkungenVon(noten.id).then((l) => { if (!weg) setAnm(Object.fromEntries(l.map((x) => [x.seite, x.objekte]))); }).catch(ladeFehler);
+    // Bei einem virtuellen Stück die der Quelle, in Sicht-Seiten (F-03).
+    anmerkungenVon(dateiVon(noten)).then((l) => { if (!weg) setAnm(Object.fromEntries(inSicht(noten, l).map((x) => [x.seite, x.objekte]))); }).catch(ladeFehler);
     return () => { weg = true; };
+    // Nur das Stück zählt; dateiVon/inSicht hängen allein an id und quelle.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [noten.id]);
+  // Stellen und Anmerkungen liegen bei der Quelle, in Seiten der PDF.
+  const ort = (seite: number) => ablage(noten, seite);
 
   const sichtbareSeite = stelle ? stelle.seite : hauptseite(ansicht);
   // Zeichnen geht nur auf einer ganz sichtbaren Seite.
@@ -769,9 +782,27 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   const [letzterSprung, setLetzterSprung] = useState<typeof sprung>(null);
   if (sprung !== letzterSprung) {
     setLetzterSprung(sprung);
-    const i = sprung ? stellen.findIndex((s) => s.id === sprung.stelle) : -1;
-    if (i >= 0) { setStelleNr(i); setModus('stellen'); setWerkzeug(null); setPaletteOffen(false); setLinieEinstellen(false); }
+    if (sprung && 'seite' in sprung) {
+      zuStand(standZu(folge, ansichtVonSeite(liste, Math.max(1, Math.min(seiten, sprung.seite))), schritt));
+      setModus('lesen'); setWerkzeug(null); setPaletteOffen(false); setLinieEinstellen(false);
+    } else {
+      const i = sprung ? stellen.findIndex((s) => s.id === sprung.stelle) : -1;
+      if (i >= 0) { setStelleNr(i); setModus('stellen'); setWerkzeug(null); setPaletteOffen(false); setLinieEinstellen(false); }
+    }
   }
+
+  // ── Lesezeichen (F-03) ── setzen auf der sichtbaren Seite, anspringen, entfernen.
+  const [lzNeu, setLzNeu] = useState<string | null>(null);
+  const lzHier = lesezeichen.filter((l) => l.seite === sichtbareSeite);
+  const zurSeite = (seite: number) => {
+    zuStand(standZu(folge, ansichtVonSeite(liste, Math.max(1, Math.min(seiten, seite))), schritt));
+    setModus('lesen'); setAnsichtOffen(false);
+  };
+  const lzSpeichern = () => {
+    const titel = (lzNeu ?? '').trim() || `Seite ${sichtbareSeite}`;
+    lesezeichenAnlegen({ stueckId: noten.id, seite: zurPdf(noten, sichtbareSeite), titel }).then(lesezeichenGeaendert, speicherFehler);
+    setLzNeu(null);
+  };
 
   const relativ = (e: { clientX: number; clientY: number }) => {
     const r = blatt.current!.getBoundingClientRect();
@@ -789,7 +820,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   function anmerkungenSetzen(seite: number, neu: Anmerkung[], merken = true) {
     if (merken) { verlaufAnm.current = [...verlaufAnm.current.slice(-49), { seite, vorher: anm[seite] ?? [] }]; wiederholenAnm.current = []; }
     setAnm((a) => ({ ...a, [seite]: neu }));
-    anmerkungenSpeichern(noten.id, seite, neu).catch(speicherFehler);
+    anmerkungenSpeichern(ort(seite).stueckId, ort(seite).seite, neu).catch(speicherFehler);
     staendeAktualisieren();
   }
 
@@ -1213,7 +1244,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   // Verlauf wird in den Updatern geschrieben, die bis hierhin gelaufen sind).
   function radierEnde(seite: number) {
     setAnm((a) => {
-      if (radierWisch.current) anmerkungenSpeichern(noten.id, seite, a[seite] ?? []).catch(speicherFehler);
+      if (radierWisch.current) anmerkungenSpeichern(ort(seite).stueckId, ort(seite).seite, a[seite] ?? []).catch(speicherFehler);
       return a;
     });
     staendeAktualisieren();
@@ -1236,7 +1267,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     if (!neueStelle) return;
     const r = neueStelle;
     try {
-      await stelleAnlegen({ stueckId: noten.id, ...r, titel: stelleTitel.trim() }, zielAusText(stelleZiel));
+      await stelleAnlegen({ ...r, ...ort(r.seite), titel: stelleTitel.trim() }, zielAusText(stelleZiel));
     } catch (x) {
       // Rahmen bleibt stehen: nach dem Neuladen ist er weg, aber bis dahin sichtbar.
       speicherFehler(x);
@@ -1530,6 +1561,37 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
                 <span className="nav-punkt-text">Seite {seiteJetzt} zuschneiden<small>{ausschnitte[seiteJetzt] ? 'Ausschnitt ändern oder ganze Seite' : 'Nur den Bereich zeigen, den du brauchst'}</small></span>
                 <NavPfeil />
               </button>
+              {/* Lesezeichen (F-03): auf dieser Seite setzen oder entfernen, alle anspringen. */}
+              {lzNeu === null ? (
+                <button type="button" className="nav-punkt" onClick={() => setLzNeu('')}>
+                  <SymbolLesezeichen />
+                  <span className="nav-punkt-text">Lesezeichen auf Seite {seiteJetzt}<small>{lzHier.length ? `Hier: ${lzHier.map((l) => l.titel).join(', ')}` : 'Diese Seite benennen und später direkt anspringen'}</small></span>
+                  <NavPfeil />
+                </button>
+              ) : (
+                <form className="nav-lesezeichen-form" onSubmit={(e) => { e.preventDefault(); lzSpeichern(); }}>
+                  <input className="feld" value={lzNeu} onChange={(e) => setLzNeu(e.target.value)} placeholder={`Seite ${seiteJetzt}`} aria-label="Name des Lesezeichens" autoFocus />
+                  <button type="submit" className="knopf knopf-klein">Setzen</button>
+                  <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => setLzNeu(null)}>Abbrechen</button>
+                </form>
+              )}
+              {lesezeichen.length > 0 && (
+                <>
+                  <p className="nav-blase-titel">Lesezeichen</p>
+                  <ol className="nav-spruenge nav-lesezeichen" aria-label="Lesezeichen">
+                    {lesezeichen.map((l) => (
+                      <li key={l.id} className={l.seite === seiteJetzt ? 'hier' : undefined}>
+                        <button type="button" className="nav-lesezeichen-ziel" onClick={() => zurSeite(l.seite)} aria-label={`Zu „${l.titel}“, Seite ${l.seite}`}>
+                          <span className="nav-sprung-art">{l.titel}</span>
+                          <span className="nav-sprung-weg tabular-nums">S. {l.seite}</span>
+                        </button>
+                        <button type="button" className="nav-loeschen" aria-label={`Lesezeichen „${l.titel}“ entfernen`}
+                          onClick={() => lesezeichenLoeschen(l.id).then(lesezeichenGeaendert, speicherFehler)}>Entfernen</button>
+                      </li>
+                    ))}
+                  </ol>
+                </>
+              )}
               {modus === 'lesen' && (
                 <>
                   <p className="nav-blase-titel">Sprünge</p>
@@ -1879,6 +1941,9 @@ const SymbolZuschneiden = () => (
   <svg className="nav-symbol" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 2.5V15a2 2 0 0 0 2 2h12.5" /><path d="M2.5 7H15a2 2 0 0 1 2 2v12.5" /></svg>
 );
 // Sprung zurück (Wiederholung, D.S.).
+const SymbolLesezeichen = () => (
+  <svg className="nav-symbol" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-4.5L6 21z" /></svg>
+);
 const SymbolSprung = () => (
   <svg className="nav-symbol" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 11h11a4 4 0 0 1 0 8H10" /><path d="M8 7.5L4.5 11 8 14.5" /><path d="M4.5 4.5h15" strokeDasharray="2 2.5" /></svg>
 );

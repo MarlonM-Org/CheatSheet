@@ -12,11 +12,16 @@ const datum = (t: number) => new Date(t).toLocaleDateString('de-DE', { day: '2-d
 
 // Eine Stelle im Blick (F-12): Zieltempo setzen, Stand zum Ziel, Steigerung
 // der letzten drei Wochen und der Tempo-Verlauf als Kurve. Geöffnet aus der
-// Stellen-Leiste (Tipp auf den Namen der Stelle). Unten lässt sich die Stelle
-// löschen (F-18, mit Rückfrage); `geloescht` räumt danach auf.
-export function StelleBlatt({ stelle, stueck, geaendert, schliessen, geloescht }: {
-  stelle: Stelle; stueck: string; geaendert: () => void; schliessen: () => void; geloescht: () => void;
+// Stellen-Leiste (Tipp auf den Namen) und aus dem Stück-Blatt (⋯ oder
+// Halten auf der Karte) — ein Blatt für beide (F-08): oben die Aktionen
+// (`aktionen`: in den Noten zeigen, Metronom, geschafft), Name und Notiz
+// lassen sich hier ändern. Unten lässt sich die Stelle löschen (F-18, mit
+// Rückfrage); `geloescht` räumt danach auf.
+export function StelleBlatt({ stelle, stueck, aktionen = [], geaendert, schliessen, geloescht }: {
+  stelle: Stelle; stueck: string; aktionen?: { name: string; tun: () => void }[];
+  geaendert: () => void; schliessen: () => void; geloescht: () => void;
 }) {
+  const [bearbeiten, setBearbeiten] = useState(false);
   useEscape(schliessen);
   const fokus = useDialogFokus<HTMLDivElement>();
   const [jetzt] = useState(() => Date.now());
@@ -64,6 +69,28 @@ export function StelleBlatt({ stelle, stueck, geaendert, schliessen, geloescht }
           </div>
           <button type="button" className="knopf knopf-leise knopf-klein" onClick={schliessen}>Fertig</button>
         </div>
+
+        {(aktionen.length > 0 || !bearbeiten) && (
+          <div className="flex flex-wrap gap-2">
+            {aktionen.map((a) => <button key={a.name} type="button" className="knopf knopf-leise knopf-klein" onClick={a.tun}>{a.name}</button>)}
+            {!bearbeiten && <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => setBearbeiten(true)}>Name und Notiz …</button>}
+          </div>
+        )}
+        {bearbeiten && (
+          <form className="karte grid gap-2" onSubmit={async (e) => {
+            e.preventDefault();
+            const f = new FormData(e.currentTarget);
+            try { await stelleAendern(stelle.id, { titel: String(f.get('titel') ?? '').trim(), notiz: String(f.get('notiz') ?? '').trim() }); } catch (x) { speicherFehler(x); return; }
+            setBearbeiten(false); geaendert();
+          }}>
+            <input className="feld" name="titel" defaultValue={stelle.titel} placeholder="Takte, z. B. T. 32–48" aria-label="Bezeichnung" autoFocus />
+            <input className="feld" name="notiz" defaultValue={stelle.notiz ?? ''} placeholder="Notiz, z. B. Atmung nach Takt 34" aria-label="Notiz" />
+            <div className="flex gap-2">
+              <button className="knopf knopf-klein" type="submit">Speichern</button>
+              <button className="knopf knopf-leise knopf-klein" type="button" onClick={() => setBearbeiten(false)}>Abbrechen</button>
+            </div>
+          </form>
+        )}
 
         <form className="ziel-zeile" onSubmit={(e) => void zielSpeichern(e)}>
           <label className="ziel-label" htmlFor="ziel-tempo">Zieltempo</label>

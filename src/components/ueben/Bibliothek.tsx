@@ -8,6 +8,7 @@ import {
   dateiSchluessel, gleicheSammlung, imFilter, mitSammlung, ohneSammlung, ordnerPlanen, sammlungenUebersicht, sammlungenVon,
   sammlungUmbenennen, sicherungFaellig,
 } from '@/domain/sammlungen';
+import { quellenText, stellenJeStueck } from '@/domain/sicht';
 import type { MixBereich } from '@/domain/stellen';
 import { imTagFilter, mitTag, tagsVon, tagUebersicht, type Tag } from '@/domain/tags';
 import { gespeichert, speichern } from './klang';
@@ -17,7 +18,9 @@ import {
   stueckeLoeschen, tagsLaden, tagsSetzen, vorgaengerDa, zuletztListe, type Stelle, type Stueck,
   SICHERUNG_ERINNERN,
 } from './lokal';
+import { MehrKnopf, SammlungKontext, StueckKontext, useHalten } from './Kontext';
 import { HinzufuegenMenue, SammlungenLeiste, SammlungKopf, SammlungWahl } from './Sammlungen';
+import { bilderWaehlen, ScanDialog, type ScanArt } from './Scan';
 import { useSicherungLaden } from './Sicherung';
 import { MixZeile } from './StellenMix';
 import { TagEtikett, TagFilter, TagWahl } from './Tags';
@@ -29,7 +32,8 @@ import { useEscape } from './tasten';
 // Löschen im Auswahl-Modus. Tipp auf ein Stück öffnet es vollflächig.
 export function Bibliothek({ offen, oeffnen, schliessen, einstellungen, offenEntfernt, aktualisiert, escapeAktiv, stand, mixStarten, mixAktiv }: {
   offen: string | null;
-  oeffnen: (id: string) => void;
+  // Öffnen — auf Wunsch gleich mit dem Stück-Blatt (Lesezeichen, Stellen).
+  oeffnen: (id: string, blatt?: boolean | 'teilen') => void;
   schliessen: () => void;
   einstellungen: () => void;
   offenEntfernt: () => void;
@@ -43,7 +47,9 @@ export function Bibliothek({ offen, oeffnen, schliessen, einstellungen, offenEnt
 }) {
   const [anzahl, setAnzahl] = useState<number | null>(null);
   const [gewaehlt, setGewaehlt] = useState<number | null>(null);
-  useEscape(schliessen, escapeAktiv);
+  // Ein offenes Kontext-Blatt (F-08) schluckt Escape selbst.
+  const [kontextOffen, setKontextOffen] = useState(false);
+  useEscape(schliessen, escapeAktiv && !kontextOffen);
 
   return (
     <section className="bibliothek" role="region" aria-label="Bibliothek">
@@ -63,7 +69,7 @@ export function Bibliothek({ offen, oeffnen, schliessen, einstellungen, offenEnt
         </button>
       </div>
       <div className="bib-inhalt">
-        <NotenListe offen={offen} oeffnen={oeffnen} anzahlMelden={setAnzahl} auswahlMelden={setGewaehlt} offenEntfernt={offenEntfernt} aktualisiert={aktualisiert} stand={stand} mixStarten={mixStarten} mixAktiv={mixAktiv} einstellungen={einstellungen} />
+        <NotenListe offen={offen} oeffnen={oeffnen} anzahlMelden={setAnzahl} auswahlMelden={setGewaehlt} offenEntfernt={offenEntfernt} aktualisiert={aktualisiert} stand={stand} mixStarten={mixStarten} mixAktiv={mixAktiv} einstellungen={einstellungen} kontextMelden={setKontextOffen} />
       </div>
       <div className="bib-fuss">Alles bleibt auf diesem Gerät. Kein Konto, kein Server.</div>
     </section>
@@ -130,8 +136,8 @@ async function ausVerweis(n: Stueck): Promise<File | null> {
   } catch { return null; }
 }
 
-function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt, aktualisiert, stand: bibStand, mixStarten, mixAktiv, einstellungen }: {
-  offen: string | null; oeffnen: (id: string) => void; anzahlMelden: (n: number) => void;
+function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt, aktualisiert, stand: bibStand, mixStarten, mixAktiv, einstellungen, kontextMelden }: {
+  offen: string | null; oeffnen: (id: string, blatt?: boolean | 'teilen') => void; anzahlMelden: (n: number) => void; kontextMelden: (offen: boolean) => void;
   // Im Auswahl-Modus: wie viele gewählt sind (für den Kopf), sonst null.
   auswahlMelden: (n: number | null) => void;
   offenEntfernt: () => void; aktualisiert: (ids: string[]) => void; stand: number;
@@ -163,6 +169,11 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
   const [markieren, setMarkieren] = useState(true);
   const [tagBlatt, setTagBlatt] = useState<string[] | null>(null);
   const [fortschritt, setFortschritt] = useState('');
+  // Kontext-Blatt (F-08): für ein Stück oder eine Sammlung.
+  const [kontext, setKontext] = useState<{ art: 'stueck'; id: string } | { art: 'sammlung'; name: string } | null>(null);
+  useEffect(() => kontextMelden(kontext !== null), [kontext, kontextMelden]);
+  // Kamera-Scan / Foto-Import (F-07): offener Dialog mit den zuerst gewählten Bildern.
+  const [scan, setScan] = useState<{ art: ScanArt; start: File[] } | null>(null);
   // Erinnerung an die Sicherung (H-01)
   const [erinnerung, setErinnerung] = useState<{ faellig: boolean; tage: number | null } | null>(null);
   // Abschaltbar in den Einstellungen (je Gerät); „ausblenden“ hier tut dasselbe.
@@ -204,11 +215,9 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
   const tagUeber = useMemo(() => tagUebersicht(tags, noten ?? []), [tags, noten]);
   const gefiltert = useMemo(() => sortiert.filter((n) => imFilter(n, aktiv) && imTagFilter(n, aktivTag)), [sortiert, aktiv, aktivTag]);
   const alleGewaehlt = gefiltert.length > 0 && gefiltert.every((n) => auswahl.has(n.id));
-  const stellenJe = useMemo(() => {
-    const je: Record<string, number> = {};
-    for (const s of stellen) je[s.stueckId] = (je[s.stueckId] ?? 0) + 1;
-    return je;
-  }, [stellen]);
+  // Ein virtuelles Stück zählt die Stellen seiner Quelle in seinem Bereich (F-03).
+  const stellenJe = useMemo(() => stellenJeStueck(noten ?? [], stellen), [noten, stellen]);
+  const titelVon = (id: string) => noten?.find((x) => x.id === id)?.titel;
 
   // Dateien oder einen Ordner hinzufügen. Was schon in der Bibliothek liegt
   // (gleicher Dateiname, gleiche Größe), wird nicht doppelt angelegt, nur
@@ -276,6 +285,16 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
       setLaeuft(false); setFortschritt('');
       laden();
     }
+  }
+
+  // Einscannen oder Fotos wählen: erst die Bilder, dann der Dialog (F-07).
+  // Ohne Bild (abgebrochen) öffnet der Dialog trotzdem — mit „Aufnehmen“ —
+  // nur, wenn die Kamera am Rechner live läuft; sonst passiert nichts.
+  async function scannen(art: ScanArt) {
+    const bilder = await bilderWaehlen(art);
+    if (!bilder.length) return;
+    setMeldung(''); setWarnung('');
+    setScan({ art, start: bilder });
   }
 
   // Alle Stücke einer Sammlung umsortieren (Umbenennen, Auflösen).
@@ -383,14 +402,9 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
         </div>
       )}
 
-      {!!noten?.length && <SammlungenLeiste uebersicht={uebersicht} aktiv={aktiv} waehlen={sammlungWaehlen} />}
+      {!!noten?.length && <SammlungenLeiste uebersicht={uebersicht} aktiv={aktiv} waehlen={sammlungWaehlen} halten={(name) => setKontext({ art: 'sammlung', name })} />}
       {aktiv && (
-        <SammlungKopf name={aktiv} anzahl={gefiltert.length}
-          umbenennen={(neu) => { void sammlungAendern(aktiv, (l) => sammlungUmbenennen(l, aktiv, neu)).then(() => sammlungWaehlen(neu)); }}
-          aufloesen={() => {
-            if (!confirm(`Sammlung „${aktiv}“ auflösen? Die ${gefiltert.length} Stücke bleiben in der Bibliothek, nur die Sammlung verschwindet.`)) return;
-            void sammlungAendern(aktiv, (l) => ohneSammlung(l, aktiv)).then(() => sammlungWaehlen(null));
-          }} />
+        <SammlungKopf name={aktiv} anzahl={gefiltert.length} mehr={() => setKontext({ art: 'sammlung', name: aktiv })} />
       )}
 
       {!!noten?.length && tags.length > 0 && <TagFilter uebersicht={tagUeber} aktiv={aktivTag} waehlen={tagWaehlen} />}
@@ -423,7 +437,8 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
         <div className="bib-werkzeuge">
           <HinzufuegenMenue ziel={aktiv} einsortieren={einsortieren} setEinsortieren={setEinsortieren} gesperrt={laeuft}
             tagZiel={zielTag} markieren={markieren} setMarkieren={setMarkieren}
-            dateien={() => void hinzufuegen('dateien')} ordner={() => void hinzufuegen('ordner')} />
+            dateien={() => void hinzufuegen('dateien')} ordner={() => void hinzufuegen('ordner')}
+            scannen={() => void scannen('kamera')} fotos={() => void scannen('fotos')} />
           <span className="flex-1" />
           <div className="segment !mx-0" role="group" aria-label="Sortieren">
             <button type="button" aria-pressed={sortierung === 'zuletzt'} onClick={() => { setSortierung('zuletzt'); speichern('ueben:sort', 'zuletzt'); }}>Zuletzt</button>
@@ -460,6 +475,8 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
             </button>
             <button type="button" className="knopf knopf-leise" onClick={() => void hinzufuegen('dateien')} disabled={sicherung.laeuft || sicherung.uebernimmt || laeuft}>+ Noten hinzufügen</button>
             <button type="button" className="knopf knopf-leise" onClick={() => void hinzufuegen('ordner')} disabled={sicherung.laeuft || sicherung.uebernimmt || laeuft}>Ordner wählen</button>
+            <button type="button" className="knopf knopf-leise" onClick={() => void scannen('kamera')} disabled={sicherung.laeuft || sicherung.uebernimmt || laeuft}>Einscannen</button>
+            <button type="button" className="knopf knopf-leise" onClick={() => void scannen('fotos')} disabled={sicherung.laeuft || sicherung.uebernimmt || laeuft}>Fotos wählen</button>
           </div>
         </div>
       )}
@@ -475,6 +492,13 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
           Kein Stück{aktiv ? ` in „${aktiv}“` : ''} trägt „{zielTag?.name}“. Stücke auswählen und „Tags …“ wählen — oder den Tag-Filter
           noch einmal antippen, um ihn aufzuheben.
         </p>
+      )}
+
+      {scan && (
+        <ScanDialog art={scan.art} start={scan.start}
+          sammlungen={aktiv && einsortieren ? [aktiv] : []} tags={zielTag && markieren ? [zielTag.id] : []}
+          fertig={(m) => { setScan(null); setMeldung(m); if (aktiv && einsortieren && sammlungNeu && gleicheSammlung(aktiv, sammlungNeu)) setSammlungNeu(null); laden(); }}
+          schliessen={() => setScan(null)} />
       )}
 
       {tagBlatt && noten && (
@@ -500,33 +524,70 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
 
       {!!gefiltert.length && (
         <ul className="bib-liste">
-          {gefiltert.map((n) => {
-            const z = zuletztAus(zuletzt, n);
-            const anzahlStellen = stellenJe[n.id] ?? 0;
-            return (
-              <li key={n.id} className={`bib-zeile ${auswaehlen && auswahl.has(n.id) ? 'gewaehlt' : ''} ${offen === n.id ? 'offen-markiert' : ''}`}>
-                {auswaehlen && (
-                  <label className="auswahl-feld"><input type="checkbox" className="auswahl-box" checked={auswahl.has(n.id)} onChange={() => umschalten(n.id)} aria-label={`${n.titel} auswählen`} /></label>
-                )}
-                <button type="button" className="bib-stueck" onClick={() => (auswaehlen ? umschalten(n.id) : oeffnen(n.id))}>
-                  <span className="bib-titel">{n.titel}</span>
-                  <span className="bib-unterzeile">
-                    {[n.stimme, z ? `zuletzt ${zeitpunkt(z)}` : 'noch nicht geöffnet',
-                      anzahlStellen ? `${anzahlStellen} ${anzahlStellen === 1 ? 'Stelle' : 'Stellen'}` : '',
-                      !aktiv ? sammlungenVon(n).join(', ') : '',
-                      n.aktualisiert ? `aktualisiert ${datum(n.aktualisiert)}` : ''].filter(Boolean).join(' · ')}
-                  </span>
-                  {tagsVon(n, tags).length > 0 && (
-                    <span className="bib-tags">{tagsVon(n, tags).map((id) => <TagEtikett key={id} tag={tags.find((t) => t.id === id)!} />)}</span>
-                  )}
-                </button>
-                {!auswaehlen && <span className="bib-pfeil" aria-hidden="true">›</span>}
-              </li>
-            );
-          })}
+          {gefiltert.map((n) => (
+            <StueckZeile key={n.id} n={n} tags={tags} zuletzt={zuletztAus(zuletzt, n)} anzahlStellen={stellenJe[n.id] ?? 0} aktiv={aktiv}
+              quelle={n.quelle ? quellenText(n.quelle, titelVon(n.quelle.stueckId)) : ''}
+              auswaehlen={auswaehlen} gewaehlt={auswahl.has(n.id)} offen={offen === n.id}
+              tippen={() => (auswaehlen ? umschalten(n.id) : oeffnen(n.id))} mehr={() => setKontext({ art: 'stueck', id: n.id })} />
+          ))}
         </ul>
       )}
+
+      {kontext?.art === 'stueck' && noten && (() => {
+        const n = noten.find((x) => x.id === kontext.id);
+        if (!n) return null;
+        return (
+          <StueckKontext stueck={n} stuecke={noten} anzahlStellen={stellenJe[n.id] ?? 0} schliessen={() => setKontext(null)}
+            oeffnen={(blatt) => { setKontext(null); oeffnen(n.id, blatt); }}
+            teilen={() => { setKontext(null); oeffnen(n.id, 'teilen'); }}
+            dateiNeu={() => { setKontext(null); void aktualisieren([n]); }}
+            geaendert={() => laden()}
+            geloescht={(ids) => { setKontext(null); setMeldung(`„${n.titel}“ gelöscht.`); if (offen && ids.includes(offen)) offenEntfernt(); laden(); }} />
+        );
+      })()}
+      {kontext?.art === 'sammlung' && (
+        <SammlungKontext name={kontext.name} anzahl={(noten ?? []).filter((n) => imFilter(n, kontext.name)).length}
+          aktiv={aktiv !== null && gleicheSammlung(aktiv, kontext.name)} schliessen={() => setKontext(null)}
+          waehlen={() => sammlungWaehlen(kontext.name)}
+          umbenennen={(neu) => { void sammlungAendern(kontext.name, (l) => sammlungUmbenennen(l, kontext.name, neu)).then(() => { if (aktiv && gleicheSammlung(aktiv, kontext.name)) sammlungWaehlen(neu); }); }}
+          auswaehlen={() => { sammlungWaehlen(kontext.name); setAuswaehlen(true); }}
+          aufloesen={() => {
+            const z = (noten ?? []).filter((n) => imFilter(n, kontext.name)).length;
+            if (!confirm(`Sammlung „${kontext.name}“ auflösen? Die ${z} Stücke bleiben in der Bibliothek, nur die Sammlung verschwindet.`)) return;
+            void sammlungAendern(kontext.name, (l) => ohneSammlung(l, kontext.name)).then(() => { if (aktiv && gleicheSammlung(aktiv, kontext.name)) sammlungWaehlen(null); });
+          }} />
+      )}
     </div>
+  );
+}
+
+// Eine Zeile der Liste: Tipp öffnet (oder wählt), Halten / ⋯ / Rechtsklick
+// öffnet das Kontext-Blatt (F-08).
+function StueckZeile({ n, tags, zuletzt, anzahlStellen, aktiv, quelle, auswaehlen, gewaehlt, offen, tippen, mehr }: {
+  n: Stueck; tags: Tag[]; zuletzt: number | null | undefined; anzahlStellen: number; aktiv: string | null; quelle: string;
+  auswaehlen: boolean; gewaehlt: boolean; offen: boolean; tippen: () => void; mehr: () => void;
+}) {
+  const halten = useHalten(mehr);
+  const z = zuletzt;
+  return (
+    <li className={`bib-zeile haltbar ${auswaehlen && gewaehlt ? 'gewaehlt' : ''} ${offen ? 'offen-markiert' : ''}`}>
+      {auswaehlen && (
+        <label className="auswahl-feld"><input type="checkbox" className="auswahl-box" checked={gewaehlt} onChange={tippen} aria-label={`${n.titel} auswählen`} /></label>
+      )}
+      <button type="button" className="bib-stueck" onClick={tippen} {...halten}>
+        <span className="bib-titel">{n.titel}</span>
+        <span className="bib-unterzeile">
+          {[n.stimme, quelle, z ? `zuletzt ${zeitpunkt(z)}` : 'noch nicht geöffnet',
+            anzahlStellen ? `${anzahlStellen} ${anzahlStellen === 1 ? 'Stelle' : 'Stellen'}` : '',
+            !aktiv ? sammlungenVon(n).join(', ') : '',
+            n.aktualisiert ? `aktualisiert ${datum(n.aktualisiert)}` : ''].filter(Boolean).join(' · ')}
+        </span>
+        {tagsVon(n, tags).length > 0 && (
+          <span className="bib-tags">{tagsVon(n, tags).map((id) => <TagEtikett key={id} tag={tags.find((t) => t.id === id)!} />)}</span>
+        )}
+      </button>
+      {!auswaehlen && <MehrKnopf tun={mehr} aria={`Mehr zu „${n.titel}“`} />}
+    </li>
   );
 }
 
