@@ -17,7 +17,7 @@ import {
   stueckeLoeschen, tagsLaden, tagsSetzen, vorgaengerDa, zuletztListe, type Stelle, type Stueck,
   SICHERUNG_ERINNERN,
 } from './lokal';
-import { HinzufuegenMenue, SammlungenLeiste, SammlungKopf, SammlungWahl } from './Sammlungen';
+import { HinzufuegenMenue, SammlungenLeiste, SammlungWahl } from './Sammlungen';
 import { useSicherungLaden } from './Sicherung';
 import { MixZeile } from './StellenMix';
 import { TagEtikett, TagFilter, TagWahl } from './Tags';
@@ -198,10 +198,13 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
     setSammlung(name); speichern('ueben:sammlung', name); setEinsortieren(true);
     if (name && !uebersicht.some((x) => gleicheSammlung(x.name, name))) setSammlungNeu(name);
   };
-  const aktivTag = tagFilter !== null && tags.some((t) => t.id === tagFilter) ? tagFilter : null;
+  // Tags je Sammlung (F-20): in einer Sammlung nur die Tags ihrer Stücke mit
+  // deren Zahl; unter „Alle“ alle Tags mit der Summe. Ein gemerkter Tag-Filter,
+  // den es in der Sammlung nicht gibt, ruht, bis er wieder vorkommt.
+  const tagUeber = useMemo(() => tagUebersicht(tags, (noten ?? []).filter((n) => imFilter(n, aktiv)), aktiv !== null), [tags, noten, aktiv]);
+  const aktivTag = tagFilter !== null && tagUeber.some((x) => x.tag.id === tagFilter) ? tagFilter : null;
   const zielTag = tags.find((t) => t.id === aktivTag) ?? null;
   const tagWaehlen = (id: string | null) => { setTagFilter(id); speichern('ueben:tag', id); setMarkieren(true); };
-  const tagUeber = useMemo(() => tagUebersicht(tags, noten ?? []), [tags, noten]);
   const gefiltert = useMemo(() => sortiert.filter((n) => imFilter(n, aktiv) && imTagFilter(n, aktivTag)), [sortiert, aktiv, aktivTag]);
   const alleGewaehlt = gefiltert.length > 0 && gefiltert.every((n) => auswahl.has(n.id));
   const stellenJe = useMemo(() => {
@@ -383,17 +386,18 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
         </div>
       )}
 
-      {!!noten?.length && <SammlungenLeiste uebersicht={uebersicht} aktiv={aktiv} waehlen={sammlungWaehlen} />}
-      {aktiv && (
-        <SammlungKopf name={aktiv} anzahl={gefiltert.length}
-          umbenennen={(neu) => { void sammlungAendern(aktiv, (l) => sammlungUmbenennen(l, aktiv, neu)).then(() => sammlungWaehlen(neu)); }}
+      {!!noten?.length && (
+        <SammlungenLeiste uebersicht={uebersicht} aktiv={aktiv} waehlen={sammlungWaehlen}
+          umbenennen={(neu) => { if (aktiv) void sammlungAendern(aktiv, (l) => sammlungUmbenennen(l, aktiv, neu)).then(() => sammlungWaehlen(neu)); }}
           aufloesen={() => {
-            if (!confirm(`Sammlung „${aktiv}“ auflösen? Die ${gefiltert.length} Stücke bleiben in der Bibliothek, nur die Sammlung verschwindet.`)) return;
+            if (!aktiv) return;
+            const n = (noten ?? []).filter((x) => imFilter(x, aktiv)).length;
+            if (!confirm(`Sammlung „${aktiv}“ auflösen? Die ${n} Stücke bleiben in der Bibliothek, nur die Sammlung verschwindet.`)) return;
             void sammlungAendern(aktiv, (l) => ohneSammlung(l, aktiv)).then(() => sammlungWaehlen(null));
           }} />
       )}
 
-      {!!noten?.length && tags.length > 0 && <TagFilter uebersicht={tagUeber} aktiv={aktivTag} waehlen={tagWaehlen} />}
+      {!!noten?.length && tagUeber.length > 0 && <TagFilter uebersicht={tagUeber} aktiv={aktivTag} waehlen={tagWaehlen} />}
 
       {!!noten?.length && (
         <MixZeile sammlung={aktiv} tag={zielTag} noten={noten} stellen={stellen} starten={mixStarten} aktiv={mixAktiv} />

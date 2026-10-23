@@ -16,26 +16,46 @@ type Uebersicht = { name: string; anzahl: number }[];
 // Filterzeile: „Alle“, jede Sammlung mit Zahl ihrer Stücke, „+ Sammlung“.
 // Eine gerade angelegte, noch leere Sammlung steht mit 0 da, solange sie
 // gewählt ist.
-export function SammlungenLeiste({ uebersicht, aktiv, waehlen }: {
+// Die gewählte Sammlung ist am Chip zu erkennen (keine eigene Kopfzeile, F-20);
+// ein zweiter Tipp auf den gewählten Chip öffnet Umbenennen und Auflösen.
+export function SammlungenLeiste({ uebersicht, aktiv, waehlen, umbenennen, aufloesen }: {
   uebersicht: Uebersicht; aktiv: string | null; waehlen: (name: string | null) => void;
+  umbenennen: (neu: string) => void; aufloesen: () => void;
 }) {
-  const [formular, setFormular] = useState<null | 'neu'>(null);
+  const [formular, setFormular] = useState<null | 'neu' | 'bearbeiten'>(null);
   const leer = aktiv !== null && !uebersicht.some((s) => gleicheSammlung(s.name, aktiv));
+  const anzahl = aktiv === null ? 0 : (uebersicht.find((s) => gleicheSammlung(s.name, aktiv))?.anzahl ?? 0);
   return (
     <div className="space-y-2">
       <div className="sammlungen" role="group" aria-label="Sammlungen">
-        <button type="button" className="sammlung-chip" aria-pressed={aktiv === null} onClick={() => waehlen(null)}>Alle</button>
-        {uebersicht.map((s) => (
-          <button key={s.name} type="button" className="sammlung-chip" aria-pressed={aktiv !== null && gleicheSammlung(s.name, aktiv)} onClick={() => waehlen(s.name)}>
-            {s.name}<span className="sammlung-zahl">{s.anzahl}</span>
-          </button>
-        ))}
+        <button type="button" className="sammlung-chip" aria-pressed={aktiv === null} onClick={() => { setFormular(null); waehlen(null); }}>Alle</button>
+        {uebersicht.map((s) => {
+          const gewaehlt = aktiv !== null && gleicheSammlung(s.name, aktiv);
+          return (
+            <button key={s.name} type="button" className="sammlung-chip" aria-pressed={gewaehlt}
+              title={gewaehlt ? 'Noch einmal tippen: umbenennen oder auflösen' : undefined}
+              onClick={() => { if (gewaehlt) setFormular(formular === 'bearbeiten' ? null : 'bearbeiten'); else { setFormular(null); waehlen(s.name); } }}>
+              {s.name}<span className="sammlung-zahl">{s.anzahl}</span>
+            </button>
+          );
+        })}
         {leer && <button type="button" className="sammlung-chip" aria-pressed="true">{aktiv}<span className="sammlung-zahl">0</span></button>}
         <button type="button" className="sammlung-chip sammlung-neu" onClick={() => setFormular(formular ? null : 'neu')} aria-expanded={formular === 'neu'}>+ Sammlung</button>
       </div>
       {formular === 'neu' && (
         <NameFormular knopf="Anlegen" platzhalter="z. B. Märsche oder Orchester A" abbrechen={() => setFormular(null)}
           fertig={(name) => { setFormular(null); waehlen(name); }} />
+      )}
+      {formular === 'bearbeiten' && aktiv && (
+        <div className="sammlung-kopf">
+          <NameFormular start={aktiv} knopf="Umbenennen" platzhalter="Neuer Name" abbrechen={() => setFormular(null)}
+            fertig={(neu) => { setFormular(null); if (neu !== aktiv) umbenennen(neu); }} />
+          {anzahl > 0 && (
+            <button type="button" className="text-knopf bib-loeschen" onClick={() => { setFormular(null); aufloesen(); }}>
+              Sammlung auflösen (die {anzahl} {anzahl === 1 ? 'Stück bleibt' : 'Stücke bleiben'} in der Bibliothek)
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
@@ -52,33 +72,6 @@ function NameFormular({ start = '', knopf, platzhalter, fertig, abbrechen }: {
       <button type="submit" className="knopf knopf-klein" disabled={!name}>{knopf}</button>
       <button type="button" className="text-knopf bib-fertig" onClick={abbrechen}>Abbrechen</button>
     </form>
-  );
-}
-
-// Die gewählte Sammlung: deutlich als Filter markiert, mit Umbenennen und Auflösen.
-export function SammlungKopf({ name, anzahl, umbenennen, aufloesen }: {
-  name: string; anzahl: number; umbenennen: (neu: string) => void; aufloesen: () => void;
-}) {
-  const [bearbeiten, setBearbeiten] = useState(false);
-  return (
-    <div className="sammlung-kopf">
-      {bearbeiten ? (
-        <>
-          <NameFormular start={name} knopf="Umbenennen" platzhalter="Neuer Name" abbrechen={() => setBearbeiten(false)}
-            fertig={(neu) => { setBearbeiten(false); if (neu !== name) umbenennen(neu); }} />
-          {anzahl > 0 && (
-            <button type="button" className="text-knopf bib-loeschen" onClick={() => { setBearbeiten(false); aufloesen(); }}>
-              Sammlung auflösen (die {anzahl} {anzahl === 1 ? 'Stück bleibt' : 'Stücke bleiben'} in der Bibliothek)
-            </button>
-          )}
-        </>
-      ) : (
-        <p className="text-sm">
-          <span className="gedaempft">Sammlung</span> <strong>„{name}“</strong> <span className="gedaempft">· {anzahl} {anzahl === 1 ? 'Stück' : 'Stücke'}</span>
-          {anzahl > 0 && <button type="button" className="text-knopf bib-fertig ml-2" onClick={() => setBearbeiten(true)}>bearbeiten</button>}
-        </p>
-      )}
-    </div>
   );
 }
 

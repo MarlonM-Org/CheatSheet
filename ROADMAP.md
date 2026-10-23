@@ -241,6 +241,16 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
 
 *(Abgeschlossene Punkte hierher verschieben, mit Datum und Commit.)*
 
+- **F-20 · Bibliothek: Tags je Sammlung, Kopfzeile der Sammlung weg**
+  (2026-10-23): Wunsch Marlon. Die Zeile „Sammlung „2026“ · 17 Stücke ·
+  bearbeiten“ entfällt — der gewählte Chip zeigt es schon. Umbenennen und
+  Auflösen erreicht man mit einem zweiten Tipp auf den gewählten Chip. Die
+  Tag-Zeile zeigt in einer Sammlung nur die Tags, die dort vorkommen, mit
+  der Zahl in dieser Sammlung; unter „Alle“ alle Tags mit der Summe. Ein
+  gemerkter Tag-Filter, den es in der Sammlung nicht gibt, ruht, bis er
+  wieder vorkommt. Regel `tagUebersicht(…, nurVorhandene)` in
+  `src/domain/tags.ts` (getestet).
+
 - **F-19 · Stellen-Modus: Umgebung hell oder abgedunkelt** (2026-10-23):
   Wunsch Marlon: im Stellen-Modus auch davor und danach mitspielen, ohne die
   Stellen-Leiste („geschafft“) zu verlieren — und nicht versteckt im Menü,

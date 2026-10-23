@@ -49,6 +49,9 @@ describe('Tags an Stücken', () => {
     expect(tagUebersicht(tags, [{ tags: ['blau', 'rot'] }, { tags: ['rot'] }, {}])).toEqual([
       { tag: tags[0], anzahl: 2 }, { tag: tags[1], anzahl: 1 },
     ]);
+    // In einer Sammlung nur die Tags, die dort vorkommen (F-20); unter „Alle“ bleiben alle.
+    expect(tagUebersicht(tags, [{ tags: ['rot'] }], true)).toEqual([{ tag: tags[0], anzahl: 1 }]);
+    expect(tagUebersicht(tags, [{}], false).map((x) => x.anzahl)).toEqual([0, 0]);
   });
 });
 
