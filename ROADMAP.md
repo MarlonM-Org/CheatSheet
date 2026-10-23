@@ -390,6 +390,70 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
     unverändert. Regeln in `src/domain/sicht.ts`, getestet
     (`tests/sicht.test.ts`); im Browser durchgespielt (Inhaltsverzeichnis →
     Lesezeichen → Stücke → öffnen → Lesezeichen setzen).
+- **F-19 · Stellen-Modus: Umgebung hell oder abgedunkelt** (2026-10-23):
+  Wunsch Marlon: im Stellen-Modus auch davor und danach mitspielen, ohne die
+  Stellen-Leiste („geschafft“) zu verlieren — und nicht versteckt im Menü,
+  sondern direkt in der Leiste. Links neben dem Namen der Stelle steht eine
+  **Sonne** (Umgebung ist abgedunkelt, Tipp hellt auf) bzw. ein **Mond**
+  (Umgebung ist hell, Tipp dunkelt ab). Der Rahmen um die Stelle bleibt
+  immer. Gilt auch im Stellen-Mix, gemerkt je Gerät (`ueben:stelle-hell`).
+
+- **E-03 (Nachbesserung) · Werkzeuge erkennbar** (2026-10-23): Wunsch
+  Marlon: Marker sah aus wie ein Block, Radierer und Stempel waren nicht
+  zu erkennen. Jetzt: Textmarker mit Keilspitze, dunklem Kragen und Etikett;
+  Radierer als klassischer gelber Bleistift mit rosa Radiergummi und
+  Zwinge (Radierseite oben, zur Seite hin); Schere mit zwei Klingen,
+  Schraube und Griffösen; Stempel mit Gummiplatte oben, Hals und rundem
+  Holzgriff. Breite und Stil wie die übrigen Werkzeuge.
+
+- **E-04 (Teil 1) · Stempel; Sprungmarken nur mit Symbol, D.C. weg**
+  (2026-10-23): Wunsch Marlon. Neues Werkzeug **Stempel** in der Palette:
+  Tipp aufs aktive Werkzeug öffnet das Raster — Segno, Coda, Fermate,
+  Atemzeichen, Zäsur, pp bis ff, Fingersätze 1–5; Antippen setzt das Zeichen
+  mit der Mitte auf die Stelle, in Stiftfarbe, auch in Lücken. Der Radierer
+  nimmt einen Stempel ganz weg; Rückgängig wie gewohnt. Größen nach dem
+  Druckbild (Notensystem ≈ 4 % der Seitenbreite: Segno 6,2 %, Coda 5,2 %,
+  Dynamik 5 %, Fingersatz 2,8 %), dazu im Raster **Klein / Mittel / Groß**
+  (×0,7 / ×1 / ×1,4, je Gerät `ueben:stempel-groesse`) — Rückmeldung Marlon,
+  die ersten waren viel zu klein. Das Segno ist jetzt
+  hoch und schlank (S mit Schrägstrich und zwei Punkten), Sprungzeichen und
+  Stempel teilen sich die Pfade (`src/domain/stempel.ts`, getestet).
+  **Sprünge:** Die Marke auf der Seite zeigt nur noch das Symbol (ohne
+  „Coda“/„D.S.“-Text); beim Speichern eines D.S. oder Coda kommt das
+  Zeichen als Stempel an die Einstiegsstelle — eine normale Anmerkung, die
+  man verschieben (radieren und neu setzen) oder löschen kann; ein gelöschter
+  Sprung nimmt sie nicht mit. D.C. steht nicht mehr zur Wahl (vorhandene
+  D.C.-Sprünge funktionieren weiter). Daten: Anmerkungsart `stempel`
+  (`zeichen`, `x`, `y`, `groesse`, `farbe`, optional `luecke`), kein
+  Schema-Sprung. Offen aus E-04: Formen (Bindebögen, Crescendo-Keile),
+  Auswahl-Werkzeug.
+
+- **E-14 · Stift-Vorrang (Handballen)** (2026-10-23): Rückmeldung Marlon:
+  Beim Neuansetzen wurde ein Strich manchmal nicht erfasst. Ursache: Eine
+  Berührung der Hand während eines Stift-Strichs überschrieb den laufenden
+  Zug — der Strich ging verloren oder endete, sobald die Hand abhob; zwei
+  Auflagepunkte der Hand starteten sogar den Zwei-Finger-Zoom und brachen
+  den Strich ab. Jetzt gilt: Solange der Stift schreibt und 700 ms danach
+  zählen Berührungen nicht (Zeichnen, Blättern, Zoom), und nur der Zeiger,
+  der einen Zug begonnen hat, darf ihn beenden. „Auch mit dem Finger“
+  zeichnet weiter, sobald kein Stift im Spiel ist.
+
+- **E-13 · Schreiben ohne Hänger: Striche nachzeichnen statt Blatt neu
+  setzen** (2026-10-23): Rückmeldung Marlon, das Schreiben hakt nach dem
+  Absetzen. Analyse (gemessen mit einem Skript, das 60 kurze Striche in
+  Schreibgeschwindigkeit setzt, CPU sechsfach gedrosselt): kein
+  Netzproblem — nach jedem Strich wurde das ganze Blatt neu zusammengesetzt
+  (Seitenbild, Markierungs-Ebene, alle Anmerkungen, Sticker auf einer
+  Leinwand bis 11 Millionen Pixel; beim Zoomen zusätzlich der scharfe
+  Ausschnitt). Jetzt merkt sich der Betrachter, was die Leinwand zeigt, und
+  zeichnet einen neuen Strich oder Text nur nach (`nurAngehaengt`); Radieren,
+  Rückgängig, Schnitte und Sticker setzen weiter das ganze Blatt. Dafür
+  bleibt die Schnitt-Liste dasselbe Objekt, solange sie sich nicht ändert.
+  Messung: lange Frames (über 50 ms) von 9 auf 2, längster von 117 auf 67 ms;
+  Vollbilder von 60 auf 3. Weitere Hebel, falls nötig: Speichern in die
+  Datenbank bündeln, Leinwand-Obergrenze auf dem iPad senken.
+- **D-05 (Nachbesserung):** Schnellwahl der Taktart nur noch 4/4, 3/4, 6/8,
+  2/4 (Wunsch Marlon), alles andere über − / +.
 
 - **D-07 · Tempo je Schlag, nicht je Nenner-Note** (2026-10-23): Rückmeldung
   Marlon: 6/8 bei 120 müsste 360 Achtel in der Minute geben (zwei Schläge je
@@ -413,6 +477,10 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
     Teilstücke und Lücken derselben Seite; landet er in einer Lücke, gehört
     er zu ihr (`luecke` am Sticker, Lage ab Oberkante) und geht mit dem
     Schnitt. Auf eine andere Seite gelegt liegt er wieder auf der Seite.
+    Ob Seite oder Lücke, entscheidet die **Mitte** des Stickers beim
+    Loslassen (die linke obere Ecke ließ ihn an der Seite hängen und am
+    Schnitt teilen — Video Marlon); Sticker einer Lücke dürfen über deren
+    Rand hinausragen, Sticker der Seite enden am Schnitt.
   - **Schnitt ziehen ohne Ruckeln:** Das Blatt wurde bei jeder Bewegung neu
     gerendert (auf dem iPad ruckelig, einmal abgestürzt). Jetzt zeigt ein
     Band nur die Vorschau; gerendert wird einmal beim Loslassen.

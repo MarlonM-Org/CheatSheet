@@ -256,6 +256,13 @@ a { color: inherit; text-decoration: underline; text-decoration-color: var(--mes
 .werkzeug-knopf .instrument { width: 26px; height: 86px; display: block; margin-bottom: -34px; filter: drop-shadow(0 1px 1.5px rgb(0 0 0 / 30%)); }
 .werkzeug-knopf[aria-pressed="true"] { transform: translateY(-2px); }
 @media (prefers-reduced-motion: reduce) { .werkzeug-knopf { transition: none; } }
+/* Schmale Telefone: sieben Werkzeuge passen nur enger (E-04). */
+@media (max-width: 430px) {
+  .stift-palette { gap: 0; padding: 0 6px 0 4px; }
+  .palette-knopf { width: 28px; }
+  .werkzeug-knopf { width: 31px; }
+  .werkzeug-knopf .instrument { width: 22px; height: 73px; margin-bottom: -30px; }
+}
 
 /* Farbrondell: zeigt die Farbe des aktiven Werkzeugs, öffnet die Farb-Blase. */
 .farb-rondell {
@@ -550,7 +557,7 @@ details[open] > summary::before { transform: rotate(90deg); }
 .taktart-zeile { display: flex; align-items: center; gap: 0.55rem; }
 .taktart-zahl { min-width: 2.4ch; text-align: center; font-size: 2.1rem; font-weight: 800; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .taktart-strich { width: 3rem; height: 2px; border-radius: 1px; background: var(--tinte); }
-.taktart-wahl { display: grid; grid-template-columns: repeat(3, minmax(3.6rem, 1fr)); gap: 6px; }
+.taktart-wahl { display: grid; grid-template-columns: repeat(2, minmax(3.6rem, 1fr)); gap: 6px; }
 .taktart-chip {
   min-height: 2.5rem; padding: 0 0.6rem; border: 1px solid var(--linie-stark); border-radius: 5px; background: var(--papier);
   font-size: 0.9rem; font-weight: 600; color: var(--gedaempft); font-variant-numeric: tabular-nums;
@@ -730,6 +737,11 @@ details[open] > summary::before { transform: rotate(90deg); }
   position: absolute; right: -14px; bottom: -14px; width: 28px; height: 28px; border-radius: 50%; pointer-events: auto; cursor: nwse-resize; touch-action: none;
   background: var(--messing); border: 2px solid var(--papier); box-shadow: 0 1px 4px rgb(0 0 0 / 30%);
 }
+/* Sonne/Mond in der Stellen-Leiste (F-19): Umgebung hell oder abgedunkelt. */
+.b-knopf.b-hell { flex: none; width: 36px; min-width: 36px; padding: 0; display: grid; place-items: center; }
+.b-knopf.b-hell svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+/* Gedrückt (hell): der Mond in der Knopffarbe, gefüllt — nicht Messing auf Messing. */
+.b-knopf.b-hell[aria-pressed="true"] svg { fill: currentColor; stroke: currentColor; }
 .b-schnitt-vorschau {
   position: absolute; left: 0; right: 0; pointer-events: none; z-index: 2;
   background: rgb(168 120 31 / 10%); border-top: 2px solid var(--messing); border-bottom: 1px dashed var(--messing);
@@ -739,6 +751,13 @@ details[open] > summary::before { transform: rotate(90deg); }
   background: var(--schleier); border: 1px solid var(--linie-stark); color: var(--warnung); font-size: 1.1rem; font-weight: 700; z-index: 2;
 }
 .palette-hinweis { max-width: 220px; margin-top: 6px; font-size: 0.74rem; line-height: 1.35; color: var(--gedaempft); }
+/* Stempel (E-04): Raster der Zeichen in der Palette. */
+.blase-stempel { display: grid; grid-template-columns: repeat(4, 44px); gap: 4px; }
+.stempel-knopf { width: 44px; height: 44px; border-radius: 8px; display: grid; place-items: center; color: var(--tinte); border: 1px solid transparent; }
+.stempel-knopf[aria-pressed="true"] { background: var(--flaeche2); border-color: var(--messing); }
+.stempel-bild { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.stempel-bild .voll { fill: currentColor; stroke: none; }
+.stempel-bild text { stroke: none; }
 .b-rechteck.fest { border-style: solid; border-color: #a8781f; background: rgb(168 120 31 / 14%); }
 .b-linie { position: absolute; left: -2%; right: -2%; height: 34px; margin-top: -17px; cursor: ns-resize; touch-action: none; display: flex; align-items: center; }
 .b-linie::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 3px; margin-top: -1.5px; background: var(--messing); box-shadow: 0 0 0 1px rgb(0 0 0 / 20%); }
@@ -1165,7 +1184,7 @@ ol.stichpunkte { list-style: decimal; }
   display: grid; place-items: center; padding: 0; background: none; cursor: pointer;
 }
 .b-marke > span {
-  min-width: 30px; height: 30px; padding: 0 7px; border-radius: 999px; display: flex; align-items: center; justify-content: center; gap: 1px;
+  min-width: 30px; height: 30px; padding: 0 5px; border-radius: 999px; display: flex; align-items: center; justify-content: center; gap: 1px;
   background: var(--messing); color: var(--messing-text); font-size: 0.68rem; font-weight: 800; white-space: nowrap;
   border: 2px solid #fff; box-shadow: 0 1px 6px rgb(0 0 0 / 35%);
 }

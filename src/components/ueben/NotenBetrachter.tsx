@@ -5,7 +5,7 @@ import { ablage, dateiVon, type Lesezeichen } from '@/domain/bestand';
 import { ausschnitteLesen, ausschnittFuer, ausschnittSetzen, darstellung, doppelDarstellung, fuerAlleSeiten, VOLL, type SeitenLage } from '@/domain/ausschnitt';
 import { pipettenPunkt } from '@/domain/farbe';
 import { RAD_ANFANG, radGeste, radWeg, tastenAktion, WISCH_UMKEHREN, zeigerGeste, type Blaetter } from '@/domain/geste';
-import { ansichten, ansichtVonSeite, blaetternLesen, einheitlich, hauptseite, modusSetzen, radierWeg, radierZug, seitenModus, seitenVon, ZWEI_SEITEN, type Anmerkung, type Ansicht, type Blaettermodus, type Blaettern } from '@/domain/notenpult';
+import { ansichten, ansichtVonSeite, blaetternLesen, einheitlich, hauptseite, modusSetzen, radierWeg, radierZug, seitenModus, seitenVon, STELLE_HELL, ZWEI_SEITEN, type Anmerkung, type Ansicht, type Blaettermodus, type Blaettern } from '@/domain/notenpult';
 import {
   ankunftSchritt, genommeneSpruenge, nachSprung, spielfolge, spruengeLaden, sprungEinordnen, standUebertragen, standZu,
   weiterGehen, zurueckGehen, type Stand,
@@ -22,7 +22,7 @@ import {
 } from '@/domain/stift';
 import {
   dehnung, istSticker, luecken, rechteckGedehnt, schnittEntfernen, schnittSetzen, schnitteVon, stickerAus,
-  stickerGetroffen, stickerHoehe, stickerRechteck, stickerSkalieren, teilstuecke, type Sticker,
+  stickerGetroffen, stickerHoehe, stickerRechteck, stickerSkalieren, teilstuecke, type Schnitt, type Sticker,
 } from '@/domain/schnitte';
 import { mitRand, rechteckAus, type Rechteck } from '@/domain/ueben';
 import {
@@ -36,6 +36,7 @@ import {
 } from './lokal';
 import { useMetronom } from './MetronomKontext';
 import { ladeFehler, speicherFehler } from './speicherfehler';
+import { faktorPruefen, SPRUNG_STEMPEL, STEMPEL_FAKTOR, stempelAnlegen, type StempelZeichen } from '@/domain/stempel';
 import { StiftPalette, type SchereModus, type Werkzeug } from './StiftPalette';
 import { ausschnittRendern, seiteMitEbene, type Dokument, type SeitenBild } from './pdf';
 import { StelleBlatt } from './StelleBlatt';
@@ -43,7 +44,7 @@ import { StellenInfo } from './StellenInfo';
 import { SprungZeichen } from './SprungZeichen';
 import type { MixSteuerung } from './StellenMix';
 import { SternKnopf } from './Stern';
-import { blattZeichnen, stickerZeichnen, strichZeichnen, type BlattTeil } from './zeichnen';
+import { anmerkungenZeichnen, blattZeichnen, stickerZeichnen, strichZeichnen, type BlattTeil } from './zeichnen';
 
 const RAND = 0.06;
 const MAX_PX = 2800;
@@ -99,6 +100,9 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
   // Lesen; Anmerken und Blättern-Einstellen zeigen weiter eine Seite.
   const [zweiSeiten, setZweiSeiten] = useState(() => gespeicherterWert(ZWEI_SEITEN, false));
   const zweiSeitenSetzen = (an: boolean) => { setZweiSeiten(an); speichern(ZWEI_SEITEN, an); };
+  // Stellen-Modus hell (F-19): Umgebung der Stelle nicht abdunkeln — Sonne/Mond in der Stellen-Leiste, je Gerät.
+  const [stelleHell, setStelleHell] = useState(() => gespeicherterWert(STELLE_HELL, false));
+  const stelleHellSetzen = (an: boolean) => { setStelleHell(an); speichern(STELLE_HELL, an); };
   const quer = platz.b > platz.h;
   const doppel = zweiSeiten && quer && !linieEinstellen && modus === 'lesen';
   const liste = useMemo(() => ansichten(seiten, blaettern.modus, blaettern.linien, blaettern.jeSeite, doppel), [seiten, blaettern, doppel]);
@@ -229,7 +233,13 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
   // Beim Einstellen etwas kleiner: die Griffe an den Ecken bleiben greifbar.
   // Schnitte (E-12) gelten auf einer einzeln gezeigten ganzen Seite: Das Blatt
   // wird um die Lücken länger, die Seite behält ihre Koordinaten.
-  const schnitte = useMemo(() => (zeichenSeite !== null && bearbeitenSeite === null ? schnitteVon(anm[zeichenSeite] ?? []) : []), [zeichenSeite, bearbeitenSeite, anm]);
+  const schnitteRoh = useMemo(() => (zeichenSeite !== null && bearbeitenSeite === null ? schnitteVon(anm[zeichenSeite] ?? []) : []), [zeichenSeite, bearbeitenSeite, anm]);
+  // Dieselbe Liste behalten, solange sich nichts ändert: Teilstücke und
+  // Darstellung bleiben dann dieselben Objekte, und ein neuer Strich kann
+  // nachgezeichnet werden, statt das Blatt neu zu setzen (gleicheSchnitte).
+  const [schnitteStabil, setSchnitteStabil] = useState(schnitteRoh);
+  const schnitte = gleicheSchnitte(schnitteStabil, schnitteRoh) ? schnitteStabil : schnitteRoh;
+  if (schnitte !== schnitteStabil) setSchnitteStabil(schnitte);
   const dehn = dehnung(schnitte);
   // Doppelseite (B-13): beide Seiten nebeneinander auf einem Blatt, lagen sagt, wo jede liegt.
   const darst = useMemo(() => {
@@ -330,6 +340,9 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
     const { von, nach, art } = setzen;
     // Eingereiht, wo man ihn spielt (verschieben geht im Ansicht-Menü).
     spruengeSpeichern(sprungEinordnen(liste, spruenge, sprungNeu({ von, nach, art }, crypto.randomUUID())));
+    // D.S. und Coda: ihr Zeichen als Stempel an die Einstiegsstelle (E-04) — eine Anmerkung, wie von Hand gesetzt.
+    const zeichen = SPRUNG_STEMPEL[art];
+    if (zeichen) anmerkungenSetzen(nach.seite, [...(anm[nach.seite] ?? []), stempelAnlegen(crypto.randomUUID(), zeichen, nach.x, nach.y, einst.stift.farbe, null, stempelFaktor)]);
     // Zurück zum Sprungzeichen: die neue Marke blinkt kurz.
     if (!punktSichtbar(ansicht, von)) setPos({ schritt, zeige: ansichtVonSeite(liste, von.seite), frei: true, liste, folge });
     setzenEnde();
@@ -383,15 +396,39 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
     hervor: stelle && bearbeitenSeite === null ? (rechteckAufBlatt(stelle.seite, mitRand(stelle, RAND)) ?? mitRand(stelle, RAND)) : null,
     // Palette offen: Lücken und Sticker mit Rand (zum Anfassen).
     bearbeitbar: paletteOffen,
-  }), [stelle, paletteOffen, stellen, ansicht, bearbeitenSeite, rechteckAufBlatt]);
+    hervorHell: stelleHell,
+  }), [stelle, paletteOffen, stellen, ansicht, bearbeitenSeite, rechteckAufBlatt, stelleHell]);
   // Quellbilder der Sticker (je Quellseite), auch für den scharfen Ausschnitt beim Zoomen.
   const quellenRef = useRef<Map<number, SeitenBild>>(new Map());
+  // Was die Leinwand gerade zeigt — für das Nachzeichnen einzelner Striche.
+  const gezeichnet = useRef<{ stuecke: BlattStueck[]; extras: unknown; darst: unknown; px: number; anm: Record<number, Anmerkung[]> } | null>(null);
+  const nahGezeichnet = useRef<{ nah: unknown; extras: unknown; anm: Record<number, Anmerkung[]> } | null>(null);
   useEffect(() => {
     const c = leinwand.current;
     if (!c || !rahmen || !px || !darst || !stuecke.length) return;
     let weg = false;
     const W = px, H = Math.round(px * darst.blatt.h / darst.blatt.b);
     const inPx = (l: SeitenLage) => ({ x: Math.round(l.x * W), y: Math.round(l.y * H), b: Math.round(l.b * W), h: Math.round(l.h * H) });
+    // Nur ein Strich (Text) dazugekommen, sonst alles gleich: ihn nachzeichnen
+    // statt das ganze Blatt neu zu setzen — das hielt das Schreiben auf.
+    const g = gezeichnet.current;
+    if (g && g.stuecke === stuecke && g.extras === extras && g.darst === darst && g.px === px && c.width === W && c.height === H) {
+      const dazu = nurAngehaengt(g.anm, anm);
+      if (dazu) {
+        const ctx = c.getContext('2d')!;
+        for (const q of stuecke) {
+          const neu = dazu.get(q.seite);
+          if (!neu?.length) continue;
+          const S = inPx(q.lage);
+          ctx.save();
+          ctx.beginPath(); ctx.rect(S.x, S.y + q.y0 * S.h, S.b, (q.y1 - q.y0) * S.h); ctx.clip();
+          anmerkungenZeichnen(ctx, neu, S.x, S.y, S.b, S.h, q.luecke);
+          ctx.restore();
+        }
+        gezeichnet.current = { ...g, anm };
+        return;
+      }
+    }
     const zeichnen = async () => {
       const ganz = { x: 0, y: 0, b: W, h: H };
       // Je Teilstück: Seite oder Lücke, Höhenbereich, wo die ganze Seite liegt (dort auch ihr Bild).
@@ -407,7 +444,9 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
       blattZeichnen(c.getContext('2d')!, ganz,
         teile.map((t, i): BlattTeil => ({ ...t, bild: bilder[i]?.seite ?? null, ebene: bilder[i]?.ebene ?? null })),
         anm, { ...extras, luecke: darst.lagen ? inPx(darst.luecke) : null, quellen }, () => (hilfe.current ??= document.createElement('canvas')));
+      gezeichnet.current = { stuecke, extras, darst, px, anm };
     };
+    gezeichnet.current = null;
     zeichnen().catch((e) => { if (!weg) console.error('Seite ließ sich nicht zeichnen', e); });
     return () => { weg = true; };
   }, [stuecke, anm, extras, rahmen, px, seiteBild, darst, hauptLage]);
@@ -537,11 +576,21 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
     const c = nahLeinwand.current;
     if (!c || !nah || !nahGilt) return;
     const { seite, ebene } = nah.bild, r = nah.r;
-    c.width = seite.width; c.height = seite.height;
     const W = seite.width / r.b, H = seite.height / r.h;
+    const g = nahGezeichnet.current;
+    if (g && g.nah === nah && g.extras === extras && c.width === seite.width && c.height === seite.height) {
+      const dazu = nurAngehaengt(g.anm, anm)?.get(nah.seite);
+      if (dazu) {
+        if (dazu.length) anmerkungenZeichnen(c.getContext('2d')!, dazu, -r.x * W, -r.y * H, W, H);
+        nahGezeichnet.current = { ...g, anm };
+        return;
+      }
+    }
+    c.width = seite.width; c.height = seite.height;
     blattZeichnen(c.getContext('2d')!, { x: -r.x * W, y: -r.y * H, b: W, h: H },
       [{ seite: nah.seite, y0: 0, y1: 1, bild: seite, ebene, lage: { x: 0, y: 0, b: seite.width, h: seite.height } }],
       anm, { ...extras, quellen: quellenRef.current }, () => (nahHilfe.current ??= document.createElement('canvas')));
+    nahGezeichnet.current = { nah, extras, anm };
   }, [nah, nahGilt, anm, extras]);
 
   // Nachbarseiten vorab rendern: Blättern ohne Wartezeit — auch die Zielseite,
@@ -628,7 +677,7 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
   // seite/luecke/lage: wo ein Strich begann — alle seine Punkte werden darüber umgerechnet.
   // schnitt/sticker (Schere, E-12): vorher = Stand der Seite vor dem Zug (für Rückgängig).
   const zug = useRef<{
-    art: 'zeichnen' | 'tippen' | 'schieben' | 'schnitt' | 'sticker'; punkte: number[]; x: number; y: number; t: number; id: number; start: Zoom; marke?: string | null;
+    art: 'zeichnen' | 'tippen' | 'schieben' | 'schnitt' | 'sticker'; punkte: number[]; x: number; y: number; t: number; id: number; start: Zoom; zeiger?: string; marke?: string | null;
     seite?: number; luecke?: string | null; lage?: SeitenLage; vorher?: Anmerkung[]; objektId?: string; abstand0?: number; jetzt?: Anmerkung[];
     sticker?: Sticker; griff?: 'bewegen' | 'groesse'; blattStart?: { x: number; y: number }; abstandJetzt?: number;
   } | null>(null);
@@ -715,6 +764,10 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
   const [neueStelle, setNeueStelle] = useState<(Rechteck & { seite: number }) | null>(null);
   // Schere (E-12): Sticker oder Schnitt; der gewählte Sticker (zum Verschieben, Größe, Löschen, Seite wechseln).
   const [schereModus, setSchereModus] = useState<SchereModus>('sticker');
+  // Stempel (E-04): das gewählte Zeichen.
+  const [stempel, setStempel] = useState<StempelZeichen>('segno');
+  const [stempelFaktor, setStempelFaktor] = useState(() => faktorPruefen(gespeicherterWert(STEMPEL_FAKTOR, 1)));
+  const stempelFaktorSetzen = (f: number) => { setStempelFaktor(f); speichern(STEMPEL_FAKTOR, f); };
   const [stickerWahlRoh, setStickerWahl] = useState<{ seite: number; id: string } | null>(null);
   // Gewählt nur, solange die Schere das Werkzeug ist.
   const stickerWahl = werkzeug === 'schere' ? stickerWahlRoh : null;
@@ -756,7 +809,7 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
     return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height };
   };
   const darfZeichnen = (e: React.PointerEvent) =>
-    werkzeug !== null && zeichenbar && (e.pointerType !== 'touch' || fingerZeichnen || werkzeug === 'stelle' || werkzeug === 'text' || werkzeug === 'schere');
+    werkzeug !== null && zeichenbar && (e.pointerType !== 'touch' || fingerZeichnen || werkzeug === 'stelle' || werkzeug === 'text' || werkzeug === 'schere' || werkzeug === 'stempel');
 
   // Rückgängig/Wiederholen je Aktion (auch Radier-Wische), nicht je Strich.
   const verlaufAnm = useRef<{ seite: number; vorher: Anmerkung[] }[]>([]);
@@ -864,7 +917,19 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
     setRechteckEntwurf(null);
   }
 
+  // Stift-Vorrang (E-14): Solange der Stift schreibt — und kurz danach —
+  // zählen Berührungen nicht (Handballen beim Schreiben). Sonst überschrieb
+  // die Hand den laufenden Zug, der Strich ging verloren oder endete, sobald
+  // die Hand abhob.
+  const stiftZuletzt = useRef(0);
+  const STIFT_SCHONZEIT = 700;
+  function handballen(e: React.PointerEvent): boolean {
+    if (e.pointerType === 'pen') { stiftZuletzt.current = e.timeStamp; return false; }
+    if (e.pointerType !== 'touch') return false;
+    return zug.current?.zeiger === 'pen' || e.timeStamp - stiftZuletzt.current < STIFT_SCHONZEIT;
+  }
   function runter(e: React.PointerEvent) {
+    if (handballen(e)) return;
     if (textEingabe) { textSpeichern(); return; } // Tippen daneben übernimmt den Text
     if (neueStelle || bearbeiten) return;
     if (zoomAktiv && e.pointerType === 'touch') {
@@ -884,7 +949,7 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
     if (o && werkzeug === 'schere') {
       e.preventDefault();
       e.currentTarget.setPointerCapture(e.pointerId);
-      const start = { x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId, start: zoomLive.current, seite: o.seite, lage: o.stueck.lage, vorher: anm[o.seite] ?? [] };
+      const start = { x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId, start: zoomLive.current, zeiger: e.pointerType, seite: o.seite, lage: o.stueck.lage, vorher: anm[o.seite] ?? [] };
       // Auf einen Sticker getippt: anfassen und verschieben.
       const getroffen = (anm[o.seite] ?? []).filter(istSticker).find((st) => (st.luecke ?? null) === o.luecke && stickerGetroffen(st, o.x, o.y));
       if (getroffen) {
@@ -904,7 +969,7 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
     } else if (o && !(werkzeug === 'stelle' && o.luecke)) {
       e.preventDefault();
       e.currentTarget.setPointerCapture(e.pointerId);
-      zug.current = { art: 'zeichnen', punkte: [o.x, o.y], x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId, start: zoomLive.current, seite: o.seite, luecke: o.luecke, lage: o.stueck.lage };
+      zug.current = { art: 'zeichnen', punkte: [o.x, o.y], x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId, start: zoomLive.current, zeiger: e.pointerType, seite: o.seite, luecke: o.luecke, lage: o.stueck.lage };
       if (werkzeug === 'stift' || werkzeug === 'marker') liveVorbereiten();
       if (werkzeug === 'radierer') { kreisZeigen(e); radieren(o.seite, o.luecke, o.x, o.y); }
     } else {
@@ -915,7 +980,7 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
       // Gezoomt schiebt der Finger das Blatt, statt zu blättern.
       const art = zoomAktiv && zoomLive.current.z > 1 ? 'schieben' : 'tippen';
       const marke = (e.target as Element).closest?.('[data-sprung]')?.getAttribute('data-sprung') ?? null;
-      zug.current = { art, punkte: [], x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId, start: zoomLive.current, marke };
+      zug.current = { art, punkte: [], x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId, start: zoomLive.current, zeiger: e.pointerType, marke };
     }
   }
   // Liegt der Punkt im sichtbaren Rahmen (beim Ausschnitt ragt das Blatt darüber hinaus)?
@@ -924,6 +989,7 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
     return !!r && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
   };
   function bewegen(e: React.PointerEvent) {
+    if (handballen(e)) return;
     if (finger.current.has(e.pointerId)) {
       finger.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
       const g = zweiGriff.current;
@@ -962,6 +1028,8 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
       return;
     }
     const z = zug.current;
+    // Ein anderer Zeiger (Handballen neben dem Stift) beendet den Zug nicht.
+    if (z && e.pointerId !== z.id) return;
     zug.current = null;
     if (e.pointerType === 'touch') kreisZeigen(null);
     if (!z) return;
@@ -1018,6 +1086,9 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
     }
     if (werkzeug === 'text') {
       setTextEingabe({ seite, luecke: z.luecke ?? null, x: z.punkte[0], y: z.punkte[1], text: '', seit: e.timeStamp });
+    }
+    if (werkzeug === 'stempel') {
+      anmerkungenSetzen(seite, [...(anm[seite] ?? []), stempelAnlegen(crypto.randomUUID(), stempel, z.punkte[0], z.punkte[1], einst.stift.farbe, z.luecke ?? null, stempelFaktor)]);
     }
     if (werkzeug === 'stelle' || werkzeug === 'schere') {
       const p = aufSeiteVon(z.lage ?? GANZES_BLATT, relativ(e));
@@ -1105,13 +1176,15 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
     if (z.griff === 'groesse') {
       neu = stickerSkalieren(st, st.b + (clientX - z.x) / (el.offsetWidth * L.b));
     } else {
-      // Linke obere Ecke auf dem Blatt mitführen; das Teilstück darunter bestimmt Seite-oder-Lücke und Koordinaten.
+      // Linke obere Ecke auf dem Blatt mitführen; das Teilstück unter der
+      // **Mitte** des Stickers bestimmt, ob er zur Seite oder zu einer Lücke
+      // gehört (die Ecke allein ließ ihn an der Seite hängen und am Schnitt teilen).
       const s0 = z.blattStart;
       if (!s0) return;
       const bb = st.b * L.b, hb = stickerHoehe(st) * L.h;
       const k = (v: number, von: number, bis: number) => Math.max(von, Math.min(bis, v));
       const nx = k(s0.x + (clientX - z.x) / el.offsetWidth, -bb * 0.75, 1 - bb * 0.25), ny = k(s0.y + (clientY - z.y) / el.offsetHeight, -hb * 0.75, 1 - hb * 0.25);
-      const px = k(nx, 0, 1), py = k(ny, 0, 0.9999);
+      const px = k(nx + bb / 2, 0, 1), py = k(ny + hb / 2, 0, 0.9999);
       const q = stuecke.find((s) => s.seite === seite && px >= s.sicht.x && px <= s.sicht.x + s.sicht.b && py >= s.sicht.y && py <= s.sicht.y + s.sicht.h);
       if (!q) return;
       neu = { ...st, x: (nx - q.lage.x) / q.lage.b, y: (ny - q.lage.y) / q.lage.h };
@@ -1128,7 +1201,7 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
     e.stopPropagation(); e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
     const q = stueckFuer(seite, st.y, st.luecke ?? null);
-    zug.current = { art: 'sticker', punkte: [], x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId, start: zoomLive.current, seite, lage: q?.lage ?? GANZES_BLATT, vorher: anm[seite] ?? [], objektId: st.id, sticker: st, griff: 'groesse' };
+    zug.current = { art: 'sticker', punkte: [], x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId, start: zoomLive.current, zeiger: e.pointerType, seite, lage: q?.lage ?? GANZES_BLATT, vorher: anm[seite] ?? [], objektId: st.id, sticker: st, griff: 'groesse' };
     stickerVorschauStarten(seite, st);
   }
   function lueckeKnopf(e: React.MouseEvent<HTMLButtonElement>) {
@@ -1352,6 +1425,7 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
     : werkzeug === 'schere' ? (stickerWahl ? 'Sticker ziehen, Ecke: Größe. Leiste: Seite wechseln, löschen.'
       : schereModus === 'sticker' ? 'Rahmen um die Takte ziehen — wird ein Sticker.' : 'Antippen und nach unten ziehen: schneidet die Seite auf. In der Lücke ziehen: Abstand ändern.')
     : werkzeug === 'text' ? (textEingabe ? null : 'Auf die Stelle tippen, an der der Text stehen soll.')
+    : werkzeug === 'stempel' ? 'Auf die Stelle tippen, an die der Stempel soll.'
     : null;
   // Höhe der oberen Leiste: Hinweise schweben darunter, solange sie zu sehen ist.
   const oben = useRef<HTMLDivElement>(null);
@@ -1582,12 +1656,12 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
                   tabIndex={setzen ? -1 : undefined} aria-label={`${KUERZEL[s.art]}: zu Seite ${s.nach.seite}`} title={`${KUERZEL[s.art]} → Seite ${s.nach.seite}`}
                   // Finger und Zeiger laufen über die Fläche (hoch); hier nur Tastatur (detail 0).
                   onClick={(e) => { if (e.detail === 0) springen(s); }}>
-                  <span><SprungZeichen art={s.art} />{KUERZEL[s.art]}</span>
+                  <span>{s.art === 'dc' ? KUERZEL.dc : <SprungZeichen art={s.art} />}</span>
                 </button>
               ))}
               {setzen && setzen.schritt !== 'von' && punktSichtbar(ansicht, setzen.von) && (
                 <span className="b-marke vorschau" style={lage(setzen.von)} aria-hidden="true">
-                  <span>{setzen.schritt === 'art' ? <><SprungZeichen art={setzen.art} />{KUERZEL[setzen.art]}</> : '?'}</span>
+                  <span>{setzen.schritt === 'art' ? (setzen.art === 'dc' ? KUERZEL.dc : <SprungZeichen art={setzen.art} />) : '?'}</span>
                 </span>
               )}
               {setzen?.schritt === 'art' && punktSichtbar(ansicht, setzen.nach) && (
@@ -1742,7 +1816,7 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
           ) : (
             <div className="b-sprung-zeile b-sprung-zwei">
               <div className="b-segment b-sprung-arten" role="group" aria-label="Art des Sprungs">
-                {SPRUNG_ARTEN.map((a) => (
+                {SPRUNG_ARTEN.filter((a) => a !== 'dc').map((a) => (
                   <button key={a} type="button" aria-pressed={setzen.art === a} onClick={() => setSetzen(artWaehlen(setzen, a))}>
                     <SprungZeichen art={a} />{KUERZEL[a]}
                   </button>
@@ -1758,6 +1832,12 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
         <div className="b-unten b-stellenleiste">
           <button type="button" className="b-knopf gross" onClick={zurueck} disabled={mix ? mix.nr <= 1 : stelleNr === 0} aria-label="Vorige Stelle">‹</button>
           <SternKnopf an={stelleFavorit(stelle)} umschalten={() => void favoritUmschalten(stelle)} className="b-stern" />
+          <button type="button" className="b-knopf b-hell" aria-pressed={stelleHell} onClick={() => stelleHellSetzen(!stelleHell)}
+            aria-label={stelleHell ? 'Umgebung abdunkeln' : 'Umgebung aufhellen'} title={stelleHell ? 'Umgebung abdunkeln — nur die Stelle bleibt hell' : 'Umgebung aufhellen — davor und danach mitspielen'}>
+            {stelleHell
+              ? <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" /></svg>
+              : <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" /></svg>}
+          </button>
           <button type="button" className="b-stelleninfo min-w-0 flex-1" onClick={() => setStelleBlatt(true)} title="Ziel und Tempo-Verlauf der Stelle">
             <span className="b-stellentitel">
               <span className="truncate font-bold">{stelle.titel || `Stelle auf Seite ${stelle.seite}`}</span>
@@ -1804,7 +1884,8 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
           fingerZeichnen={fingerZeichnen} setFingerZeichnen={setFingerZeichnen}
           rueckgaengig={rueckgaengig} wiederholen={wiederholen}
           kannRueck={staende.rueck > 0} kannWieder={staende.wieder > 0}
-          schereModus={schereModus} schereEinstellen={setSchereModus} />
+          schereModus={schereModus} schereEinstellen={setSchereModus} stempel={stempel} stempelEinstellen={setStempel}
+          stempelFaktor={stempelFaktor} stempelFaktorEinstellen={stempelFaktorSetzen} />
       )}
     </div>
   );
@@ -1812,6 +1893,24 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
 
 const BLAETTER_MODI = [['ganz', 'Ganz'], ['halb', 'Halb'], ['linie', 'Linie']] as const;
 const GANZES_BLATT: SeitenLage = { x: 0, y: 0, b: 1, h: 1 };
+const gleicheSchnitte = (a: readonly Schnitt[], b: readonly Schnitt[]) =>
+  a.length === b.length && a.every((x, i) => x.id === b[i].id && x.y === b[i].y && x.abstand === b[i].abstand);
+// Sind in `neu` gegenüber `alt` nur Striche oder Texte hinten angehängt (je
+// Seite)? Dann je Seite die neuen — sonst null (Radieren, Rückgängig,
+// Schnitte, Sticker: neu zeichnen).
+function nurAngehaengt(alt: Record<number, Anmerkung[]>, neu: Record<number, Anmerkung[]>): Map<number, Anmerkung[]> | null {
+  if (alt === neu) return new Map();
+  const dazu = new Map<number, Anmerkung[]>();
+  for (const k of new Set([...Object.keys(alt), ...Object.keys(neu)])) {
+    const a = alt[Number(k)] ?? [], n = neu[Number(k)] ?? [];
+    if (a === n) continue;
+    if (n.length < a.length || a.some((o, i) => o !== n[i])) return null;
+    const rest = n.slice(a.length);
+    if (rest.some((o) => o.art !== 'stift' && o.art !== 'marker' && o.art !== 'text' && o.art !== 'stempel')) return null;
+    dazu.set(Number(k), rest);
+  }
+  return dazu;
+}
 // Ein Teilstück des Blatts (siehe `stuecke` im Betrachter).
 interface BlattStueck { seite: number; luecke: string | null; y0: number; y1: number; lage: SeitenLage; sicht: SeitenLage }
 interface Ort { stueck: BlattStueck; seite: number; luecke: string | null; x: number; y: number }

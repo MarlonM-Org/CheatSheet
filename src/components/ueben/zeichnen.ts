@@ -2,6 +2,7 @@
 
 import type { Anmerkung } from '@/domain/notenpult';
 import { istSticker, stickerHoehe } from '@/domain/schnitte';
+import { STEMPEL, type StempelZeichen } from '@/domain/stempel';
 import type { SeitenBild } from './pdf';
 
 const lueckeVon = (a: Anmerkung): string | null => ('luecke' in a && a.luecke ? a.luecke : null);
@@ -15,7 +16,9 @@ export function anmerkungenZeichnen(ctx: CanvasRenderingContext2D, objekte: Anme
     if (a.art === 'schnitt' || a.art === 'sticker') continue; // zeichnet blattZeichnen (Teilstücke, Sticker)
     if (lueckeVon(a) !== luecke) continue;
     ctx.save();
-    if (a.art === 'text') {
+    if (a.art === 'stempel') {
+      stempelZeichnen(ctx, a, x0, y0, b, h);
+    } else if (a.art === 'text') {
       ctx.fillStyle = a.farbe;
       ctx.font = `600 ${a.groesse * b}px system-ui, -apple-system, sans-serif`;
       ctx.textBaseline = 'alphabetic';
@@ -100,6 +103,8 @@ export interface BlattExtras {
   quellen?: Map<number, SeitenBild> | null;
   // Palette offen: Ränder der Lücken und Sticker zeigen (zum Anfassen).
   bearbeitbar?: boolean;
+  // Stellen-Modus hell (F-19): Umgebung nicht abdunkeln, nur der Rahmen bleibt.
+  hervorHell?: boolean;
 }
 export function blattZeichnen(ctx: CanvasRenderingContext2D, seite: Lage, teile: BlattTeil[],
   anm: Record<number, Anmerkung[]>, extras: BlattExtras, hilfe: () => HTMLCanvasElement) {
@@ -115,10 +120,10 @@ export function blattZeichnen(ctx: CanvasRenderingContext2D, seite: Lage, teile:
     if (t.bild) ctx.drawImage(t.bild, t.lage.x, t.lage.y, t.lage.b, t.lage.h);
     if (t.ebene && !luecke) ebeneZeichnen(ctx, t.ebene, t.lage, objekte, S, hilfe());
     anmerkungenZeichnen(ctx, objekte, X, Y, W, H, luecke);
-    for (const st of objekte.filter(istSticker)) {
-      if ((st.luecke ?? null) !== luecke) continue;
-      stickerZeichnen(ctx, st, S, extras.quellen?.get(st.von.seite) ?? null, anm[st.von.seite] ?? [], !!extras.bearbeitbar);
-    }
+    const stickerHier = objekte.filter(istSticker).filter((st) => (st.luecke ?? null) === luecke);
+    // Sticker der Seite enden am Schnitt (die Seite ist dort geteilt); Sticker
+    // einer Lücke dürfen über ihren Rand hinaus — sie liegen obenauf.
+    if (!luecke) for (const st of stickerHier) stickerZeichnen(ctx, st, S, extras.quellen?.get(st.von.seite) ?? null, anm[st.von.seite] ?? [], !!extras.bearbeitbar);
     if (!luecke) {
       for (const st of extras.stellen.filter((x) => x.seite === t.seite)) {
         ctx.strokeStyle = 'rgba(168, 120, 31, 0.55)'; ctx.lineWidth = Math.max(1, W / 600);
@@ -132,6 +137,7 @@ export function blattZeichnen(ctx: CanvasRenderingContext2D, seite: Lage, teile:
       ctx.setLineDash([]);
     }
     ctx.restore();
+    if (luecke) for (const st of stickerHier) stickerZeichnen(ctx, st, S, extras.quellen?.get(st.von.seite) ?? null, anm[st.von.seite] ?? [], !!extras.bearbeitbar);
   }
   if (extras.luecke) {
     const l = extras.luecke;
@@ -147,11 +153,13 @@ export function blattZeichnen(ctx: CanvasRenderingContext2D, seite: Lage, teile:
   }
   if (extras.hervor) {
     const r = extras.hervor;
-    ctx.fillStyle = 'rgba(20, 20, 20, 0.5)';
-    ctx.beginPath();
-    ctx.rect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    ctx.rect(X + r.x * W, Y + r.y * H, r.b * W, r.h * H);
-    ctx.fill('evenodd');
+    if (!extras.hervorHell) {
+      ctx.fillStyle = 'rgba(20, 20, 20, 0.5)';
+      ctx.beginPath();
+      ctx.rect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      ctx.rect(X + r.x * W, Y + r.y * H, r.b * W, r.h * H);
+      ctx.fill('evenodd');
+    }
     ctx.strokeStyle = '#a8781f'; ctx.lineWidth = Math.max(2, W / 350);
     ctx.strokeRect(X + r.x * W, Y + r.y * H, r.b * W, r.h * H);
   }
@@ -182,5 +190,27 @@ export function stickerZeichnen(ctx: CanvasRenderingContext2D, st: Extract<Anmer
   ctx.strokeStyle = rahmen ? 'rgba(168, 120, 31, 0.8)' : 'rgba(29, 27, 23, 0.28)'; ctx.lineWidth = Math.max(1, W / 700);
   if (rahmen) ctx.setLineDash([W / 120, W / 160]);
   ctx.strokeRect(dx + 0.5, dy + 0.5, dw - 1, dh - 1);
+  ctx.restore();
+}
+
+// Ein Stempel (E-04): sein 24er-Kasten, auf die Kastenbreite groesse·b
+// skaliert und mit der Mitte auf x/y gesetzt. Unbekannte Zeichen (neuere
+// Version) bleiben unsichtbar.
+export function stempelZeichnen(ctx: CanvasRenderingContext2D, a: Extract<Anmerkung, { art: 'stempel' }>, x0: number, y0: number, b: number, h: number) {
+  const bild = STEMPEL[a.zeichen as StempelZeichen];
+  if (!bild) return;
+  const px = a.groesse * b;
+  ctx.save();
+  ctx.translate(x0 + a.x * b - px / 2, y0 + a.y * h - px / 2);
+  ctx.scale(px / 24, px / 24);
+  ctx.strokeStyle = a.farbe; ctx.fillStyle = a.farbe;
+  ctx.lineWidth = 1.9; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  if (bild.text) {
+    ctx.font = `italic 700 ${bild.schrift ?? 15}px "Times New Roman", Georgia, serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(bild.text, 12, 12.5);
+  } else {
+    for (const p of bild.pfade ?? []) { const pfad = new Path2D(p.d); if (p.voll) ctx.fill(pfad); else ctx.stroke(pfad); }
+  }
   ctx.restore();
 }

@@ -15,7 +15,7 @@ export const ZAEHLER_MAX = 16;
 export const NENNER_NAME: Record<Nenner, string> = { 2: 'Halbe', 4: 'Viertel', 8: 'Achtel', 16: 'Sechzehntel' };
 
 // Häufige Taktarten als Schnellwahl.
-export const TAKTARTEN: readonly [number, Nenner][] = [[2, 4], [3, 4], [4, 4], [6, 8], [9, 8], [12, 8]];
+export const TAKTARTEN: readonly [number, Nenner][] = [[4, 4], [3, 4], [6, 8], [2, 4]];
 
 export const istNenner = (v: unknown): v is Nenner => NENNER.includes(v as Nenner);
 export const nennerPruefen = (v: unknown): Nenner => (istNenner(v) ? v : NENNER_STANDARD);
