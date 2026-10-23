@@ -15,7 +15,7 @@ import {
 import { nurLesbare } from '@/domain/lesbar';
 import type { Anmerkung } from '@/domain/notenpult';
 import { sicherungLesen, sicherungPacken, SicherungsFehler, type Zusatz } from '@/domain/sicherung';
-import { verbindungVerloren } from '@/domain/speicher';
+import { verbindungVerloren, type SpeicherDauer } from '@/domain/speicher';
 import { tagMitNamen, tagsAbgleichen, tagSchluessel, tagsLesen, tagsUmschreiben, tagsVon, type Tag, type TagFarbe } from '@/domain/tags';
 import { profileLesen, profileVereinigen, type Tonprofil } from '@/domain/tonprofil';
 import { ohneFehlende, vonSicherung, zurSicherung } from '@/domain/uebersetzen';
@@ -274,6 +274,20 @@ export function zuletztMerken(id: string) {
 }
 // Wann zuletzt eine Sicherung gespeichert wurde (H-01: Erinnerung in der Bibliothek).
 const LETZTE_SICHERUNG = 'ueben:letzte-sicherung';
+// Dauerhafter Speicher (A-07): einmal beim Start bitten; der Stand ist
+// danach jederzeit abfragbar. Fehlt die Schnittstelle (ältere Browser): null.
+type SpeicherNavigator = Navigator & { storage?: { persist?: () => Promise<boolean>; persisted?: () => Promise<boolean> } };
+export async function speicherBehalten(): Promise<SpeicherDauer> {
+  const st = typeof navigator === 'undefined' ? undefined : (navigator as SpeicherNavigator).storage;
+  if (!st?.persist) return null;
+  try { return await st.persist(); } catch { return null; }
+}
+export async function speicherDauer(): Promise<SpeicherDauer> {
+  const st = typeof navigator === 'undefined' ? undefined : (navigator as SpeicherNavigator).storage;
+  if (!st?.persisted) return null;
+  try { return await st.persisted(); } catch { return null; }
+}
+
 // Erinnerung an die Sicherung in der Bibliothek an/aus (je Gerät, Standard an).
 export const SICHERUNG_ERINNERN = 'ueben:sicherung-erinnern';
 export function letzteSicherung(): number | null {

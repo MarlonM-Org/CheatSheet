@@ -33,3 +33,14 @@ export function zuletztAus(liste: Record<string, number>, n: { id: string; zulet
   const t = Math.max(liste[n.id] ?? 0, n.zuletzt ?? 0);
   return t > 0 ? t : undefined;
 }
+
+// ── Dauerhafter Speicher (A-07) ── Die App bittet den Browser beim Start,
+// ihre Daten vom Aufräumen bei Speichermangel auszunehmen
+// (navigator.storage.persist). Was er antwortet, steht in den Einstellungen:
+// null = die Anfrage gibt es in diesem Browser nicht.
+export type SpeicherDauer = boolean | null;
+export function speicherDauerText(d: SpeicherDauer): { kurz: string; lang: string } {
+  if (d === true) return { kurz: 'Dauerhaft', lang: 'Der Browser hat zugesagt, die Daten beim Aufräumen zu behalten.' };
+  if (d === false) return { kurz: 'Nicht zugesagt', lang: 'Der Browser kann die Daten bei Speichermangel oder nach langer Zeit ohne Nutzung löschen.' };
+  return { kurz: 'Keine Angabe', lang: 'Dieser Browser kennt die Zusage nicht.' };
+}

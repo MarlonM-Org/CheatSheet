@@ -4,8 +4,9 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { rueckfrage, ueberschreibt } from '@/domain/einspielen';
 import { SicherungsFehler, sicherungsName } from '@/domain/sicherung';
 import { zeitpunkt as kurzZeit } from '@/domain/notenpult';
+import { speicherDauerText, type SpeicherDauer } from '@/domain/speicher';
 import {
-  letzteSicherung, SICHERUNG_ERINNERN, sicherungErstellen, sicherungGespeichert, sicherungPruefen, sicherungSchreiben, vorgaengerDa, vorgaengerPruefen,
+  letzteSicherung, SICHERUNG_ERINNERN, sicherungErstellen, speicherDauer, sicherungGespeichert, sicherungPruefen, sicherungSchreiben, vorgaengerDa, vorgaengerPruefen,
   type Einspielung,
 } from './lokal';
 import { gespeichert, speichern } from './klang';
@@ -116,6 +117,9 @@ export function Sicherung({ laden }: { laden: SicherungLaden }) {
   // Wann zuletzt gespeichert (Herunterladen angetippt bzw. geteilt).
   const [letzte, setLetzte] = useState<number | null>(() => letzteSicherung());
   const [erinnern, setErinnern] = useState(() => gespeichert(SICHERUNG_ERINNERN, true));
+  // Dauerhafter Speicher (A-07): was der Browser zugesagt hat.
+  const [dauer, setDauer] = useState<SpeicherDauer | undefined>(undefined);
+  useEffect(() => { speicherDauer().then(setDauer, () => setDauer(null)); }, []);
   const gemerkt = () => { sicherungGespeichert(); setLetzte(letzteSicherung()); };
   // Objekt-URL erst beim nächsten Vorbereiten oder beim Verlassen freigeben:
   // Ein Timer kann einen langsamen Download (großes PDF, iPad) abschneiden.
@@ -187,6 +191,12 @@ export function Sicherung({ laden }: { laden: SicherungLaden }) {
       <p className="text-sm" role="status">
         {letzte ? <>Letzte Sicherung: <strong>{kurzZeit(letzte)}</strong></> : <span className="gedaempft">Noch keine Sicherung gespeichert.</span>}
       </p>
+      {dauer !== undefined && (
+        <p className="text-sm" role="status">
+          Speicher auf diesem Gerät: <strong>{speicherDauerText(dauer).kurz}</strong>
+          <span className="gedaempft"> — {speicherDauerText(dauer).lang}</span>
+        </p>
+      )}
       <label className="flex items-center justify-between gap-3">
         <span>
           <span className="text-sm font-semibold">In der Bibliothek erinnern</span>
