@@ -85,9 +85,11 @@ export function anBreite(platz: Groesse, rahmen: Groesse, blatt: { b: number; h:
   return begrenzen({ z, x: 0, y }, rahmen);
 }
 
-// Zwei Tipps kurz nacheinander nahe beieinander sind ein Doppeltipp.
-export const DOPPELTIPP_MS = 350;
-const DOPPELTIPP_WEG = 40;
+// Zwei Tipps kurz nacheinander nahe beieinander sind ein Doppeltipp. Großzügig
+// bemessen: Beim Spielen tippt man nicht so flink wie am Rechner, und ein
+// Finger landet nicht zweimal auf demselben Punkt.
+export const DOPPELTIPP_MS = 450;
+const DOPPELTIPP_WEG = 60;
 export interface Tipp { x: number; y: number; t: number }
 export const istDoppeltipp = (vorher: Tipp | null, jetzt: Tipp) =>
   vorher !== null && jetzt.t - vorher.t <= DOPPELTIPP_MS && Math.hypot(jetzt.x - vorher.x, jetzt.y - vorher.y) <= DOPPELTIPP_WEG;

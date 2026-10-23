@@ -479,10 +479,15 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
   // Doppeltipp: Leisten weg; einzelne Seite an die Breite (Stelle in die
   // Mitte), Doppelseite zurück auf ganz.
   const letzterTipp = useRef<Tipp | null>(null);
+  // Eigene Uhr statt e.timeStamp: die ist je Browser anders aufgehängt.
+  const uhr = useCallback(() => performance.now(), []);
   const doppeltipp = () => {
     setLeisteWeg(true); setAnsichtOffen(false);
     if (!darst || bearbeitenSeite !== null || !zeichenbar) return;
     if (ansicht.art === 'doppel' && !stelle) { setBreitenZoom(null); setZoom(OHNE_ZOOM); return; }
+    // Schon gezoomt (auf Breite oder von Hand): der Doppeltipp führt zurück
+    // zur ganzen Seite — der sichere Weg heraus, auch ohne Zwei-Finger-Geste.
+    if (zoomLive.current.z > 1) { setBreitenZoom(null); setZoom(OHNE_ZOOM); return; }
     const ziel = anBreite(platz, darst.rahmen, darst.blatt, stelle ? stelle.y + stelle.h / 2 : null);
     setBreitenZoom({ schluessel: seitenSchluessel, ziel }); setZoom(ziel);
   };
@@ -1078,7 +1083,7 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
       if (sprungHier) { springen(sprungHier); return; }
       const b = window.innerWidth, x = e.clientX;
       if (x < b * 0.3) zurueck(); else if (x > b * 0.7) weiter(); else {
-        const tipp: Tipp = { x: e.clientX, y: e.clientY, t: e.timeStamp };
+        const tipp: Tipp = { x: e.clientX, y: e.clientY, t: uhr() };
         if (istDoppeltipp(letzterTipp.current, tipp)) { letzterTipp.current = null; doppeltipp(); } else { letzterTipp.current = tipp; setAnsichtOffen(false); setLeisteWeg(leiste); }
       }
       return;

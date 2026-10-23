@@ -89,8 +89,8 @@ describe('Doppeltipp: an die Breite', () => {
   });
   it('erkennt zwei Tipps kurz nacheinander nahe beieinander', () => {
     expect(istDoppeltipp(null, { x: 0, y: 0, t: 1000 })).toBe(false);
-    expect(istDoppeltipp({ x: 0, y: 0, t: 1000 }, { x: 10, y: 5, t: 1300 })).toBe(true);
-    expect(istDoppeltipp({ x: 0, y: 0, t: 1000 }, { x: 10, y: 5, t: 1400 })).toBe(false);
+    expect(istDoppeltipp({ x: 0, y: 0, t: 1000 }, { x: 10, y: 5, t: 1400 })).toBe(true);
+    expect(istDoppeltipp({ x: 0, y: 0, t: 1000 }, { x: 10, y: 5, t: 1500 })).toBe(false);
     expect(istDoppeltipp({ x: 0, y: 0, t: 1000 }, { x: 80, y: 5, t: 1200 })).toBe(false);
   });
 });
