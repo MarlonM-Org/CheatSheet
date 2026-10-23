@@ -115,10 +115,11 @@ export function blattZeichnen(ctx: CanvasRenderingContext2D, seite: Lage, teile:
     if (t.bild) ctx.drawImage(t.bild, t.lage.x, t.lage.y, t.lage.b, t.lage.h);
     if (t.ebene && !luecke) ebeneZeichnen(ctx, t.ebene, t.lage, objekte, S, hilfe());
     anmerkungenZeichnen(ctx, objekte, X, Y, W, H, luecke);
+    for (const st of objekte.filter(istSticker)) {
+      if ((st.luecke ?? null) !== luecke) continue;
+      stickerZeichnen(ctx, st, S, extras.quellen?.get(st.von.seite) ?? null, anm[st.von.seite] ?? [], !!extras.bearbeitbar);
+    }
     if (!luecke) {
-      for (const st of objekte.filter(istSticker)) {
-        stickerZeichnen(ctx, st, S, extras.quellen?.get(st.von.seite) ?? null, anm[st.von.seite] ?? [], !!extras.bearbeitbar);
-      }
       for (const st of extras.stellen.filter((x) => x.seite === t.seite)) {
         ctx.strokeStyle = 'rgba(168, 120, 31, 0.55)'; ctx.lineWidth = Math.max(1, W / 600);
         ctx.setLineDash([W / 120, W / 160]); ctx.strokeRect(X + st.x * W, Y + st.y * H, st.b * W, st.h * H); ctx.setLineDash([]);

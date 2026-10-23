@@ -20,8 +20,8 @@ import {
   type Pipetten, type StiftEinstellung, type ZeichenWerkzeug,
 } from '@/domain/stift';
 import {
-  dehnung, istSticker, luecken, rechteckGedehnt, schnittEntfernen, schnittSetzen, schnitteVon, stickerAus, stickerBewegen,
-  stickerGetroffen, stickerRechteck, stickerSkalieren, teilstuecke, type Sticker,
+  dehnung, istSticker, luecken, rechteckGedehnt, schnittEntfernen, schnittSetzen, schnitteVon, stickerAus,
+  stickerGetroffen, stickerHoehe, stickerRechteck, stickerSkalieren, teilstuecke, type Sticker,
 } from '@/domain/schnitte';
 import { mitRand, rechteckAus, type Rechteck } from '@/domain/ueben';
 import {
@@ -616,13 +616,16 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   const zug = useRef<{
     art: 'zeichnen' | 'tippen' | 'schieben' | 'schnitt' | 'sticker'; punkte: number[]; x: number; y: number; t: number; id: number; start: Zoom; marke?: string | null;
     seite?: number; luecke?: string | null; lage?: SeitenLage; vorher?: Anmerkung[]; objektId?: string; abstand0?: number; jetzt?: Anmerkung[];
-    sticker?: Sticker; griff?: 'bewegen' | 'groesse';
+    sticker?: Sticker; griff?: 'bewegen' | 'groesse'; blattStart?: { x: number; y: number }; abstandJetzt?: number;
   } | null>(null);
+  // Schnitt ziehen (E-12): nur eine Vorschau — gerendert wird erst beim Loslassen.
+  const [schnittVorschau, setSchnittVorschau] = useState<{ seite: number; y: number; abstand: number } | null>(null);
   // Zwei Finger beim Zoomen: wo sie aufsetzten (von der Rahmenmitte aus).
   const zweiGriff = useRef<{ ids: [number, number]; a: Punkt; b: Punkt; start: Zoom; mitte: Punkt } | null>(null);
   // Die Leinwand des laufenden Strichs: gezoomt nur der sichtbare Teil, in
   // Bildschirmschärfe (r: Teil der Seite, W: Seitenbreite in Pixeln).
   const liveLage = useRef<{ r: Rechteck; W: number }>({ r: VOLL, W: 0 });
+  const liveGezeichnet = useRef(0);
   // Radierer als Kreis unter Stift oder Maus, in seiner Breite.
   const radierKreis = useRef<HTMLSpanElement>(null);
   const [rechteckEntwurf, setRechteckEntwurf] = useState<Rechteck | null>(null);
@@ -742,18 +745,29 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     if (groesse > MAX_NAH) W *= Math.sqrt(MAX_NAH / groesse);
     liveLage.current = { r, W };
     Object.assign(c.style, { left: `${r.x * 100}%`, top: `${r.y * 100}%`, width: `${r.b * 100}%`, height: `${r.h * 100}%` });
+    // Einmal je Strich anlegen — jedes Setzen von width/height legt die Leinwand neu an und ist auf dem iPad teuer.
+    const H = W * (el.offsetHeight / el.offsetWidth);
+    c.width = Math.round(r.b * W); c.height = Math.round(r.h * H);
+    liveGezeichnet.current = 0;
   }
+  // Stift: nur die neuen Punkte nachzeichnen (deckend, Überlappung unsichtbar);
+  // Marker: halbtransparent, darum ganz neu — seine Striche sind kurz.
   function liveZeichnen() {
     const c = live.current, z = zug.current, el = blatt.current;
     if (!c || !z || !el) return;
     const { r, W } = liveLage.current, H = W * (el.offsetHeight / el.offsetWidth);
-    c.width = Math.round(r.b * W); c.height = Math.round(r.h * H);
     const ctx = c.getContext('2d')!;
-    ctx.clearRect(0, 0, c.width, c.height);
     // Die Seite des Strichs liegt bei z.lage auf dem Blatt (Doppelseite, Teilstück, Lücke).
     const L = z.lage ?? GANZES_BLATT, b = W * L.b, h = H * L.h, x0 = -r.x * W + L.x * W, y0 = -r.y * H + L.y * H;
-    if (werkzeug === 'stift') strichZeichnen(ctx, z.punkte, einst.stift.farbe, einst.stift.breite * b, x0, y0, b, h);
-    if (werkzeug === 'marker') strichZeichnen(ctx, z.punkte, einst.marker.farbe, einst.marker.breite * b, x0, y0, b, h, true);
+    if (werkzeug === 'stift') {
+      const ab = Math.max(0, liveGezeichnet.current - 4);
+      strichZeichnen(ctx, ab ? z.punkte.slice(ab) : z.punkte, einst.stift.farbe, einst.stift.breite * b, x0, y0, b, h);
+      liveGezeichnet.current = z.punkte.length;
+    }
+    if (werkzeug === 'marker') {
+      ctx.clearRect(0, 0, c.width, c.height);
+      strichZeichnen(ctx, z.punkte, einst.marker.farbe, einst.marker.breite * b, x0, y0, b, h, true);
+    }
   }
   const liveLeeren = () => { const c = live.current; if (c) c.getContext('2d')!.clearRect(0, 0, c.width, c.height); };
 
@@ -806,7 +820,8 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     const z = zug.current;
     zug.current = null;
     if (z?.art === 'zeichnen' && werkzeug === 'radierer' && z.seite !== undefined) radierEnde(z.seite);
-    if ((z?.art === 'schnitt' || z?.art === 'sticker') && z.seite !== undefined && z.vorher) { const { seite, vorher } = z; setAnm((a) => ({ ...a, [seite]: vorher })); }
+    if (z?.art === 'schnitt') setSchnittVorschau(null);
+    if (z?.art === 'sticker' && z.seite !== undefined && z.vorher) { const { seite, vorher } = z; setAnm((a) => ({ ...a, [seite]: vorher })); }
     if (z?.art === 'schieben') setZoom(einrasten(zoomLive.current));
     liveLeeren();
     setRechteckEntwurf(null);
@@ -834,10 +849,11 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       e.currentTarget.setPointerCapture(e.pointerId);
       const start = { x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId, start: zoomLive.current, seite: o.seite, lage: o.stueck.lage, vorher: anm[o.seite] ?? [] };
       // Auf einen Sticker getippt: anfassen und verschieben.
-      const getroffen = o.luecke ? undefined : (anm[o.seite] ?? []).filter(istSticker).find((st) => stickerGetroffen(st, o.x, o.y));
+      const getroffen = (anm[o.seite] ?? []).filter(istSticker).find((st) => (st.luecke ?? null) === o.luecke && stickerGetroffen(st, o.x, o.y));
       if (getroffen) {
         setStickerWahl({ seite: o.seite, id: getroffen.id });
-        zug.current = { ...start, art: 'sticker', punkte: [], objektId: getroffen.id, sticker: getroffen, griff: 'bewegen' };
+        const r0 = rechteckAufBlatt(o.seite, stickerRechteck(getroffen), getroffen.luecke ?? null);
+        zug.current = { ...start, art: 'sticker', punkte: [], objektId: getroffen.id, sticker: getroffen, griff: 'bewegen', blattStart: r0 ? { x: r0.x, y: r0.y } : undefined };
       } else if (schereModus === 'sticker') {
         setStickerWahl(null);
         if (!o.luecke) zug.current = { ...start, art: 'zeichnen', punkte: [o.x, o.y], luecke: null };
@@ -939,8 +955,16 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       return;
     }
     const seite = z.seite!;
-    if (z.art === 'schnitt' || z.art === 'sticker') {
-      // Schere: Was der Zug verändert hat, als eine Aktion festlegen (Rückgängig geht auf z.vorher).
+    if (z.art === 'schnitt') {
+      // Erst jetzt rendern: ein Schnitt mit dem gezogenen Abstand, als eine Aktion.
+      setSchnittVorschau(null);
+      const vorher = z.vorher ?? [];
+      const neu = schnittSetzen(vorher, z.objektId!, z.punkte[1], z.abstandJetzt ?? z.abstand0 ?? 0);
+      if (JSON.stringify(neu) !== JSON.stringify(vorher)) festlegen(seite, vorher, neu);
+      return;
+    }
+    if (z.art === 'sticker') {
+      // Was der Zug verändert hat, als eine Aktion festlegen (Rückgängig geht auf z.vorher).
       if (z.jetzt && z.vorher && JSON.stringify(z.jetzt) !== JSON.stringify(z.vorher)) festlegen(seite, z.vorher, z.jetzt);
       else if (z.vorher) setAnm((a) => ({ ...a, [seite]: z.vorher! }));
       return;
@@ -1013,21 +1037,34 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   // Schnitt ziehen (E-12): Der Abstand folgt dem Finger, in Seitenhöhen.
   function schnittZiehen(z: NonNullable<typeof zug.current>, clientY: number) {
     const L = z.lage ?? GANZES_BLATT, seitenHoehe = (blatt.current?.offsetWidth ?? 1) * L.b * format;
-    const abstand = Math.max(0, (z.abstand0 ?? 0) + (clientY - z.y) / seitenHoehe);
-    const jetzt = schnittSetzen(z.vorher ?? [], z.objektId!, z.punkte[1], abstand);
-    z.jetzt = jetzt;
-    const seite = z.seite!;
-    setAnm((a) => ({ ...a, [seite]: jetzt }));
+    const abstand = Math.min(1, Math.max(0, (z.abstand0 ?? 0) + (clientY - z.y) / seitenHoehe));
+    z.abstandJetzt = abstand;
+    setSchnittVorschau({ seite: z.seite!, y: z.punkte[1], abstand });
   }
-  // Sticker verschieben oder an der Ecke in der Größe ziehen.
+  // Sticker verschieben (über Teilstücke und Lücken derselben Seite hinweg)
+  // oder an der Ecke in der Größe ziehen.
   function stickerZiehen(z: NonNullable<typeof zug.current>, clientX: number, clientY: number) {
-    const L = z.lage ?? GANZES_BLATT, seitenBreite = (blatt.current?.offsetWidth ?? 1) * L.b;
-    const dx = (clientX - z.x) / seitenBreite, dy = (clientY - z.y) / (seitenBreite * format);
-    const st = z.sticker!;
-    const neu = z.griff === 'groesse' ? stickerSkalieren(st, st.b + dx) : stickerBewegen(st, dx, dy);
+    const el = blatt.current;
+    if (!el) return;
+    const st = z.sticker!, seite = z.seite!, L = z.lage ?? GANZES_BLATT;
+    let neu: Sticker;
+    if (z.griff === 'groesse') {
+      neu = stickerSkalieren(st, st.b + (clientX - z.x) / (el.offsetWidth * L.b));
+    } else {
+      // Linke obere Ecke auf dem Blatt mitführen; das Teilstück darunter bestimmt Seite-oder-Lücke und Koordinaten.
+      const s0 = z.blattStart;
+      if (!s0) return;
+      const bb = st.b * L.b, hb = stickerHoehe(st) * L.h;
+      const k = (v: number, von: number, bis: number) => Math.max(von, Math.min(bis, v));
+      const nx = k(s0.x + (clientX - z.x) / el.offsetWidth, -bb * 0.75, 1 - bb * 0.25), ny = k(s0.y + (clientY - z.y) / el.offsetHeight, -hb * 0.75, 1 - hb * 0.25);
+      const px = k(nx, 0, 1), py = k(ny, 0, 0.9999);
+      const q = stuecke.find((s) => s.seite === seite && px >= s.sicht.x && px <= s.sicht.x + s.sicht.b && py >= s.sicht.y && py <= s.sicht.y + s.sicht.h);
+      if (!q) return;
+      neu = { ...st, x: (nx - q.lage.x) / q.lage.b, y: (ny - q.lage.y) / q.lage.h };
+      if (q.luecke) neu.luecke = q.luecke; else delete neu.luecke;
+    }
     const jetzt = (z.vorher ?? []).map((o) => (o.id === st.id ? neu : o));
     z.jetzt = jetzt;
-    const seite = z.seite!;
     setAnm((a) => ({ ...a, [seite]: jetzt }));
   }
   // Ecke des gewählten Stickers anfassen (Größe) — die Fläche bekommt den Zug nicht.
@@ -1036,7 +1073,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     if (!st || seite === undefined) return;
     e.stopPropagation(); e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
-    const q = stueckFuer(seite, st.y, null);
+    const q = stueckFuer(seite, st.y, st.luecke ?? null);
     zug.current = { art: 'sticker', punkte: [], x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId, start: zoomLive.current, seite, lage: q?.lage ?? GANZES_BLATT, vorher: anm[seite] ?? [], objektId: st.id, sticker: st, griff: 'groesse' };
   }
   function lueckeKnopf(e: React.MouseEvent<HTMLButtonElement>) {
@@ -1044,7 +1081,12 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     if (seite && luecke) lueckeEntfernen(Number(seite), luecke);
   }
   // Fürs Rendern vorbereitet: Rahmen des gewählten Stickers, Knöpfe der Lücken.
-  const stickerRahmen = stickerWahl && gewaehlterSticker ? rechteckAufBlatt(stickerWahl.seite, stickerRechteck(gewaehlterSticker)) : null;
+  const stickerRahmen = stickerWahl && gewaehlterSticker ? rechteckAufBlatt(stickerWahl.seite, stickerRechteck(gewaehlterSticker), gewaehlterSticker.luecke ?? null) : null;
+  // Vorschau des Schnitts: Band ab der Schnitthöhe (bei einer bestehenden Lücke ab deren Oberkante).
+  const vorschauBand = schnittVorschau ? (() => {
+    const o = aufBlatt(schnittVorschau.seite, 0, schnittVorschau.y), q = stueckFuer(schnittVorschau.seite, schnittVorschau.y, null);
+    return o && q ? { top: o.y, h: schnittVorschau.abstand * q.lage.h } : null;
+  })() : null;
   const lueckenKnoepfe = stuecke.filter((q) => q.luecke).map((q) => ({ id: q.luecke!, seite: q.seite, mitte: q.sicht.y + q.sicht.h / 2 }));
   function stickerLoeschen() {
     if (!stickerWahl) return;
@@ -1058,8 +1100,11 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     if (!stickerWahl || !st) return;
     const von = stickerWahl.seite, nach = von + richtung;
     if (nach < 1 || nach > seiten) return;
+    // Auf der anderen Seite gibt es diese Lücke nicht: dort auf die Seite selbst.
+    const ohne: Sticker = { ...st };
+    delete ohne.luecke;
     anmerkungenSetzen(von, (anm[von] ?? []).filter((o) => o.id !== st.id));
-    anmerkungenSetzen(nach, [...(anm[nach] ?? []), st]);
+    anmerkungenSetzen(nach, [...(anm[nach] ?? []), ohne]);
     setStickerWahl({ seite: nach, id: st.id });
     zuStand(standUebertragen(liste, folge, { schritt, zeige }, liste, folge, ansichtVonSeite(liste, nach)));
   }
@@ -1486,6 +1531,9 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
                 <button key={q.id} type="button" className="b-luecke-weg" style={{ top: `${q.mitte * 100}%` }} data-seite={q.seite} data-luecke={q.id} {...greifbar}
                   onClick={lueckeKnopf} aria-label="Schnitt entfernen" title="Schnitt entfernen — samt Lücke und dem, was darin steht">×</button>
               ))}
+              {vorschauBand && (
+                <div className="b-schnitt-vorschau" style={{ top: `${vorschauBand.top * 100}%`, height: `${vorschauBand.h * 100}%` }} aria-hidden="true" />
+              )}
               {stickerRahmen && stickerWahl && (
                 <div className="b-sticker-wahl" style={prozent(stickerRahmen)}>
                   <div className="b-sticker-leiste" {...greifbar}>

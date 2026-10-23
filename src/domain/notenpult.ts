@@ -154,13 +154,14 @@ export function zuordnen<N extends { id: string; dateiname?: string; titel: stri
 // zählt ab der Oberkante der Lücke, in Seitenhöhen wie sonst auch. Alles
 // andere bleibt in den Koordinaten der ursprünglichen Seite (schnitte.ts).
 // „sticker“ ist ein Ausschnitt `von` einer Seite (Rechteck, Anteile), auf
-// diese Seite bei x/y in Breite b gelegt (die Höhe folgt dem Ausschnitt).
+// diese Seite bei x/y in Breite b gelegt (die Höhe folgt dem Ausschnitt) —
+// oder, mit `luecke`, in die Lücke eines Schnitts.
 export type Anmerkung =
   | { id: string; art: 'stift' | 'marker'; farbe: string; breite: number; punkte: number[]; luecke?: string }
   | { id: string; art: 'text'; farbe: string; groesse: number; x: number; y: number; text: string; luecke?: string }
   | { id: string; art: 'radiert'; breite: number; punkte: number[] }
   | { id: string; art: 'schnitt'; y: number; abstand: number }
-  | { id: string; art: 'sticker'; von: { seite: number; x: number; y: number; b: number; h: number }; x: number; y: number; b: number };
+  | { id: string; art: 'sticker'; von: { seite: number; x: number; y: number; b: number; h: number }; x: number; y: number; b: number; luecke?: string };
 
 // Trifft der Radierer (Punkt, Radius relativ zur Seitenbreite) eine Anmerkung?
 // Schnitte und Sticker nimmt er nicht weg (dafür gibt es die Schere).

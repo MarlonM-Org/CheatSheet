@@ -149,7 +149,11 @@ body {
   background: var(--papier); color: var(--tinte);
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   line-height: 1.5;
+  /* Kein Markieren von Text (E-12): Beim Schreiben mit dem Pencil markierte
+     iOS sonst Beschriftungen der Leisten. Eingabefelder bleiben markierbar. */
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 }
+input, textarea { user-select: text; -webkit-user-select: text; }
 a { color: inherit; text-decoration: underline; text-decoration-color: var(--messing); text-underline-offset: 3px; }
 :focus-visible { outline: 3px solid var(--messing); outline-offset: 2px; border-radius: 6px; }
 
@@ -399,7 +403,8 @@ input.metro-zahl { width: 3ch; background: none; }
 .metro-saeule .metro-zahl { font-size: 32px; }
 .metro-saeule input.metro-zahl { width: 100%; text-align: center; font-size: 32px; }
 .gruppe.senkrecht { flex: none; flex-direction: column; }
-.gruppe.senkrecht button { height: 42px; font-size: 13px; }
+/* Doppelt so hoch wie in der Zeile (Wunsch Marlon): lang darf die Säule sein, breit nicht. */
+.gruppe.senkrecht button { height: 84px; font-size: 15px; }
 .gruppe.senkrecht button + button { border-left: none; border-top: 1px solid var(--linie-stark); }
 .metro-saeule .metro-takt { margin-left: 0; align-items: center; gap: 6px; }
 .metro-saeule .metro-punkte { flex-wrap: wrap; justify-content: center; gap: 5px; max-width: 80px; }
@@ -719,6 +724,10 @@ details[open] > summary::before { transform: rotate(90deg); }
 .b-sticker-griff {
   position: absolute; right: -14px; bottom: -14px; width: 28px; height: 28px; border-radius: 50%; pointer-events: auto; cursor: nwse-resize; touch-action: none;
   background: var(--messing); border: 2px solid var(--papier); box-shadow: 0 1px 4px rgb(0 0 0 / 30%);
+}
+.b-schnitt-vorschau {
+  position: absolute; left: 0; right: 0; pointer-events: none; z-index: 2;
+  background: rgb(168 120 31 / 10%); border-top: 2px solid var(--messing); border-bottom: 1px dashed var(--messing);
 }
 .b-luecke-weg {
   position: absolute; right: 6px; width: 30px; height: 30px; margin-top: -15px; border-radius: 50%; display: grid; place-items: center;

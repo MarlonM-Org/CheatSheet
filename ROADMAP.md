@@ -241,6 +241,25 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
 
 *(Abgeschlossene Punkte hierher verschieben, mit Datum und Commit.)*
 
+- **E-12 (Nachbesserung) · Sticker in der Lücke, Schnitt als Vorschau,
+  flüssiger schreiben** (2026-10-23): Rückmeldung Marlon vom iPad.
+  - **Sticker in die Lücke:** Beim Ziehen folgt der Sticker dem Finger über
+    Teilstücke und Lücken derselben Seite; landet er in einer Lücke, gehört
+    er zu ihr (`luecke` am Sticker, Lage ab Oberkante) und geht mit dem
+    Schnitt. Auf eine andere Seite gelegt liegt er wieder auf der Seite.
+  - **Schnitt ziehen ohne Ruckeln:** Das Blatt wurde bei jeder Bewegung neu
+    gerendert (auf dem iPad ruckelig, einmal abgestürzt). Jetzt zeigt ein
+    Band nur die Vorschau; gerendert wird einmal beim Loslassen.
+  - **Schreiben:** Die Live-Leinwand des laufenden Strichs wurde bei jeder
+    Bewegung neu angelegt; jetzt einmal je Strich, und der Stift zeichnet
+    nur die neuen Punkte nach (der Marker wird wegen seiner Transparenz
+    weiter ganz gezeichnet).
+  - **Keine Textauswahl:** Beim schnellen Schreiben mit dem Pencil markierte
+    iOS Beschriftungen der Leisten („Stimmgerät“). Text ist in der App jetzt
+    nirgends markierbar, außer in Eingabefeldern.
+- **D-06 (Nachbesserung):** Die Tempo-Knöpfe der schmalen Säule sind doppelt
+  so hoch (Wunsch Marlon: lang darf sie sein, breit nicht).
+
 - **A-07 · Dauerhafter Speicher** (2026-10-23): Frage Marlon, ob sich das
   Löschen der Browser-Daten durch das iPad verhindern lässt. Die App bittet
   den Browser jetzt beim Start, ihre Daten zu behalten
