@@ -2,6 +2,7 @@
 
 import type { Anmerkung } from '@/domain/notenpult';
 import { istSticker, stickerHoehe } from '@/domain/schnitte';
+import { STEMPEL, type StempelZeichen } from '@/domain/stempel';
 import type { SeitenBild } from './pdf';
 
 const lueckeVon = (a: Anmerkung): string | null => ('luecke' in a && a.luecke ? a.luecke : null);
@@ -15,7 +16,9 @@ export function anmerkungenZeichnen(ctx: CanvasRenderingContext2D, objekte: Anme
     if (a.art === 'schnitt' || a.art === 'sticker') continue; // zeichnet blattZeichnen (Teilstücke, Sticker)
     if (lueckeVon(a) !== luecke) continue;
     ctx.save();
-    if (a.art === 'text') {
+    if (a.art === 'stempel') {
+      stempelZeichnen(ctx, a, x0, y0, b, h);
+    } else if (a.art === 'text') {
       ctx.fillStyle = a.farbe;
       ctx.font = `600 ${a.groesse * b}px system-ui, -apple-system, sans-serif`;
       ctx.textBaseline = 'alphabetic';
@@ -183,5 +186,27 @@ export function stickerZeichnen(ctx: CanvasRenderingContext2D, st: Extract<Anmer
   ctx.strokeStyle = rahmen ? 'rgba(168, 120, 31, 0.8)' : 'rgba(29, 27, 23, 0.28)'; ctx.lineWidth = Math.max(1, W / 700);
   if (rahmen) ctx.setLineDash([W / 120, W / 160]);
   ctx.strokeRect(dx + 0.5, dy + 0.5, dw - 1, dh - 1);
+  ctx.restore();
+}
+
+// Ein Stempel (E-04): sein 24er-Kasten, auf die Kastenbreite groesse·b
+// skaliert und mit der Mitte auf x/y gesetzt. Unbekannte Zeichen (neuere
+// Version) bleiben unsichtbar.
+export function stempelZeichnen(ctx: CanvasRenderingContext2D, a: Extract<Anmerkung, { art: 'stempel' }>, x0: number, y0: number, b: number, h: number) {
+  const bild = STEMPEL[a.zeichen as StempelZeichen];
+  if (!bild) return;
+  const px = a.groesse * b;
+  ctx.save();
+  ctx.translate(x0 + a.x * b - px / 2, y0 + a.y * h - px / 2);
+  ctx.scale(px / 24, px / 24);
+  ctx.strokeStyle = a.farbe; ctx.fillStyle = a.farbe;
+  ctx.lineWidth = 1.9; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  if (bild.text) {
+    ctx.font = `italic 700 ${bild.schrift ?? 15}px "Times New Roman", Georgia, serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(bild.text, 12, 12.5);
+  } else {
+    for (const p of bild.pfade ?? []) { const pfad = new Path2D(p.d); if (p.voll) ctx.fill(pfad); else ctx.stroke(pfad); }
+  }
   ctx.restore();
 }

@@ -160,6 +160,8 @@ export type Anmerkung =
   | { id: string; art: 'stift' | 'marker'; farbe: string; breite: number; punkte: number[]; luecke?: string }
   | { id: string; art: 'text'; farbe: string; groesse: number; x: number; y: number; text: string; luecke?: string }
   | { id: string; art: 'radiert'; breite: number; punkte: number[] }
+  // Stempel (E-04): Zeichen aus stempel.ts, Mitte bei x/y, groesse = Kastenbreite.
+  | { id: string; art: 'stempel'; zeichen: string; x: number; y: number; groesse: number; farbe: string; luecke?: string }
   | { id: string; art: 'schnitt'; y: number; abstand: number }
   | { id: string; art: 'sticker'; von: { seite: number; x: number; y: number; b: number; h: number }; x: number; y: number; b: number; luecke?: string };
 
@@ -167,6 +169,10 @@ export type Anmerkung =
 // Schnitte und Sticker nimmt er nicht weg (dafür gibt es die Schere).
 export function getroffen(a: Anmerkung, x: number, y: number, radius: number, seitenformat = 1.414): boolean {
   if (a.art === 'schnitt' || a.art === 'sticker' || a.art === 'radiert') return false;
+  if (a.art === 'stempel') {
+    const b = a.groesse / 2, h = a.groesse / seitenformat / 2;
+    return x >= a.x - b - radius && x <= a.x + b + radius && y >= a.y - h - radius && y <= a.y + h + radius;
+  }
   if (a.art === 'text') {
     const h = a.groesse * 1.2, b = a.groesse * 0.55 * a.text.length / seitenformat;
     return x >= a.x - radius && x <= a.x + b + radius && y >= a.y - h - radius && y <= a.y + radius;
@@ -251,7 +257,8 @@ export function radierZug(
   let neu: Anmerkung[] = [];
   for (const a of objekte) {
     if (a.art === 'radiert' || a.art === 'schnitt' || a.art === 'sticker') { neu.push(a); continue; }
-    if (a.art === 'text') {
+    if (a.art === 'text' || a.art === 'stempel') {
+      // Texte und Stempel gehen ganz weg.
       if (getroffen(a, x, y, radius, seitenformat)) geaendert = true;
       else neu.push(a);
       continue;
