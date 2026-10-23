@@ -241,6 +241,16 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
 
 *(Abgeschlossene Punkte hierher verschieben, mit Datum und Commit.)*
 
+- **E-14 · Stift-Vorrang (Handballen)** (2026-10-23): Rückmeldung Marlon:
+  Beim Neuansetzen wurde ein Strich manchmal nicht erfasst. Ursache: Eine
+  Berührung der Hand während eines Stift-Strichs überschrieb den laufenden
+  Zug — der Strich ging verloren oder endete, sobald die Hand abhob; zwei
+  Auflagepunkte der Hand starteten sogar den Zwei-Finger-Zoom und brachen
+  den Strich ab. Jetzt gilt: Solange der Stift schreibt und 700 ms danach
+  zählen Berührungen nicht (Zeichnen, Blättern, Zoom), und nur der Zeiger,
+  der einen Zug begonnen hat, darf ihn beenden. „Auch mit dem Finger“
+  zeichnet weiter, sobald kein Stift im Spiel ist.
+
 - **E-13 · Schreiben ohne Hänger: Striche nachzeichnen statt Blatt neu
   setzen** (2026-10-23): Rückmeldung Marlon, das Schreiben hakt nach dem
   Absetzen. Analyse (gemessen mit einem Skript, das 60 kurze Striche in
