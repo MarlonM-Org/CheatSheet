@@ -5,7 +5,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useSta
 import { ausschnitteLesen, ausschnittFuer, ausschnittSetzen, darstellung, doppelDarstellung, fuerAlleSeiten, VOLL, type SeitenLage } from '@/domain/ausschnitt';
 import { pipettenPunkt } from '@/domain/farbe';
 import { RAD_ANFANG, radGeste, radWeg, tastenAktion, WISCH_UMKEHREN, zeigerGeste, type Blaetter } from '@/domain/geste';
-import { ansichten, ansichtVonSeite, blaetternLesen, einheitlich, hauptseite, modusSetzen, radierWeg, radierZug, seitenModus, seitenVon, ZWEI_SEITEN, type Anmerkung, type Ansicht, type Blaettermodus, type Blaettern } from '@/domain/notenpult';
+import { ansichten, ansichtVonSeite, blaetternLesen, einheitlich, hauptseite, modusSetzen, radierWeg, radierZug, seitenModus, seitenVon, STELLE_HELL, ZWEI_SEITEN, type Anmerkung, type Ansicht, type Blaettermodus, type Blaettern } from '@/domain/notenpult';
 import {
   ankunftSchritt, genommeneSpruenge, nachSprung, spielfolge, spruengeLaden, sprungEinordnen, standUebertragen, standZu,
   weiterGehen, zurueckGehen, type Stand,
@@ -92,6 +92,9 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   // Lesen; Anmerken und Blättern-Einstellen zeigen weiter eine Seite.
   const [zweiSeiten, setZweiSeiten] = useState(() => gespeicherterWert(ZWEI_SEITEN, false));
   const zweiSeitenSetzen = (an: boolean) => { setZweiSeiten(an); speichern(ZWEI_SEITEN, an); };
+  // Stellen-Modus hell (F-19): Umgebung der Stelle nicht abdunkeln — Sonne/Mond in der Stellen-Leiste, je Gerät.
+  const [stelleHell, setStelleHell] = useState(() => gespeicherterWert(STELLE_HELL, false));
+  const stelleHellSetzen = (an: boolean) => { setStelleHell(an); speichern(STELLE_HELL, an); };
   const quer = platz.b > platz.h;
   const doppel = zweiSeiten && quer && !linieEinstellen && modus === 'lesen';
   const liste = useMemo(() => ansichten(seiten, blaettern.modus, blaettern.linien, blaettern.jeSeite, doppel), [seiten, blaettern, doppel]);
@@ -380,7 +383,8 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     hervor: stelle && bearbeitenSeite === null ? (rechteckAufBlatt(stelle.seite, mitRand(stelle, RAND)) ?? mitRand(stelle, RAND)) : null,
     // Palette offen: Lücken und Sticker mit Rand (zum Anfassen).
     bearbeitbar: paletteOffen,
-  }), [stelle, paletteOffen, stellen, ansicht, bearbeitenSeite, rechteckAufBlatt]);
+    hervorHell: stelleHell,
+  }), [stelle, paletteOffen, stellen, ansicht, bearbeitenSeite, rechteckAufBlatt, stelleHell]);
   // Quellbilder der Sticker (je Quellseite), auch für den scharfen Ausschnitt beim Zoomen.
   const quellenRef = useRef<Map<number, SeitenBild>>(new Map());
   // Was die Leinwand gerade zeigt — für das Nachzeichnen einzelner Striche.
@@ -1766,6 +1770,12 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
         <div className="b-unten b-stellenleiste">
           <button type="button" className="b-knopf gross" onClick={zurueck} disabled={mix ? mix.nr <= 1 : stelleNr === 0} aria-label="Vorige Stelle">‹</button>
           <SternKnopf an={stelleFavorit(stelle)} umschalten={() => void favoritUmschalten(stelle)} className="b-stern" />
+          <button type="button" className="b-knopf b-hell" aria-pressed={stelleHell} onClick={() => stelleHellSetzen(!stelleHell)}
+            aria-label={stelleHell ? 'Umgebung abdunkeln' : 'Umgebung aufhellen'} title={stelleHell ? 'Umgebung abdunkeln — nur die Stelle bleibt hell' : 'Umgebung aufhellen — davor und danach mitspielen'}>
+            {stelleHell
+              ? <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" /></svg>
+              : <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" /></svg>}
+          </button>
           <button type="button" className="b-stelleninfo min-w-0 flex-1" onClick={() => setStelleBlatt(true)} title="Ziel und Tempo-Verlauf der Stelle">
             <span className="b-stellentitel">
               <span className="truncate font-bold">{stelle.titel || `Stelle auf Seite ${stelle.seite}`}</span>

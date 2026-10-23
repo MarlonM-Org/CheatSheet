@@ -16,6 +16,8 @@ export type Ansicht =
 // Querformat; beim Anmerken und Blättern-Einstellen zeigt der Betrachter
 // weiter eine Seite.
 export const ZWEI_SEITEN = 'ueben:zwei-seiten';
+// Stellen-Modus hell (F-19): Umgebung der Stelle nicht abdunkeln (je Gerät).
+export const STELLE_HELL = 'ueben:stelle-hell';
 
 // Wie ein Stück blättert (gespeichert am Stück): modus gilt für alle Seiten,
 // jeSeite weicht für einzelne davon ab (F-16) — z. B. eigene Linie, aber

@@ -103,6 +103,8 @@ export interface BlattExtras {
   quellen?: Map<number, SeitenBild> | null;
   // Palette offen: Ränder der Lücken und Sticker zeigen (zum Anfassen).
   bearbeitbar?: boolean;
+  // Stellen-Modus hell (F-19): Umgebung nicht abdunkeln, nur der Rahmen bleibt.
+  hervorHell?: boolean;
 }
 export function blattZeichnen(ctx: CanvasRenderingContext2D, seite: Lage, teile: BlattTeil[],
   anm: Record<number, Anmerkung[]>, extras: BlattExtras, hilfe: () => HTMLCanvasElement) {
@@ -151,11 +153,13 @@ export function blattZeichnen(ctx: CanvasRenderingContext2D, seite: Lage, teile:
   }
   if (extras.hervor) {
     const r = extras.hervor;
-    ctx.fillStyle = 'rgba(20, 20, 20, 0.5)';
-    ctx.beginPath();
-    ctx.rect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    ctx.rect(X + r.x * W, Y + r.y * H, r.b * W, r.h * H);
-    ctx.fill('evenodd');
+    if (!extras.hervorHell) {
+      ctx.fillStyle = 'rgba(20, 20, 20, 0.5)';
+      ctx.beginPath();
+      ctx.rect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      ctx.rect(X + r.x * W, Y + r.y * H, r.b * W, r.h * H);
+      ctx.fill('evenodd');
+    }
     ctx.strokeStyle = '#a8781f'; ctx.lineWidth = Math.max(2, W / 350);
     ctx.strokeRect(X + r.x * W, Y + r.y * H, r.b * W, r.h * H);
   }
