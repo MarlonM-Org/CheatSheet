@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { gleicheSammlung, imFilter, mitSammlung, ohneSammlung, sammlungenVon, sammlungName } from '@/domain/sammlungen';
 import type { Tag } from '@/domain/tags';
+import { MehrKnopf, useHalten } from './Kontext';
 import type { Stueck } from './lokal';
 import { TagPunkt } from './Tags';
 import { useDialogFokus, useEscape } from './tasten';
@@ -16,8 +17,10 @@ type Uebersicht = { name: string; anzahl: number }[];
 // Filterzeile: „Alle“, jede Sammlung mit Zahl ihrer Stücke, „+ Sammlung“.
 // Eine gerade angelegte, noch leere Sammlung steht mit 0 da, solange sie
 // gewählt ist.
-export function SammlungenLeiste({ uebersicht, aktiv, waehlen }: {
+export function SammlungenLeiste({ uebersicht, aktiv, waehlen, halten }: {
   uebersicht: Uebersicht; aktiv: string | null; waehlen: (name: string | null) => void;
+  // Halten oder Rechtsklick auf einen Chip: Kontext-Blatt der Sammlung (F-08).
+  halten: (name: string) => void;
 }) {
   const [formular, setFormular] = useState<null | 'neu'>(null);
   const leer = aktiv !== null && !uebersicht.some((s) => gleicheSammlung(s.name, aktiv));
@@ -26,9 +29,7 @@ export function SammlungenLeiste({ uebersicht, aktiv, waehlen }: {
       <div className="sammlungen" role="group" aria-label="Sammlungen">
         <button type="button" className="sammlung-chip" aria-pressed={aktiv === null} onClick={() => waehlen(null)}>Alle</button>
         {uebersicht.map((s) => (
-          <button key={s.name} type="button" className="sammlung-chip" aria-pressed={aktiv !== null && gleicheSammlung(s.name, aktiv)} onClick={() => waehlen(s.name)}>
-            {s.name}<span className="sammlung-zahl">{s.anzahl}</span>
-          </button>
+          <SammlungChip key={s.name} name={s.name} anzahl={s.anzahl} aktiv={aktiv !== null && gleicheSammlung(s.name, aktiv)} waehlen={() => waehlen(s.name)} halten={() => halten(s.name)} />
         ))}
         {leer && <button type="button" className="sammlung-chip" aria-pressed="true">{aktiv}<span className="sammlung-zahl">0</span></button>}
         <button type="button" className="sammlung-chip sammlung-neu" onClick={() => setFormular(formular ? null : 'neu')} aria-expanded={formular === 'neu'}>+ Sammlung</button>
@@ -38,6 +39,15 @@ export function SammlungenLeiste({ uebersicht, aktiv, waehlen }: {
           fertig={(name) => { setFormular(null); waehlen(name); }} />
       )}
     </div>
+  );
+}
+
+function SammlungChip({ name, anzahl, aktiv, waehlen, halten }: { name: string; anzahl: number; aktiv: boolean; waehlen: () => void; halten: () => void }) {
+  const geste = useHalten(halten);
+  return (
+    <button type="button" className="sammlung-chip haltbar" aria-pressed={aktiv} onClick={waehlen} {...geste}>
+      {name}<span className="sammlung-zahl">{anzahl}</span>
+    </button>
   );
 }
 
@@ -55,29 +65,15 @@ function NameFormular({ start = '', knopf, platzhalter, fertig, abbrechen }: {
   );
 }
 
-// Die gewählte Sammlung: deutlich als Filter markiert, mit Umbenennen und Auflösen.
-export function SammlungKopf({ name, anzahl, umbenennen, aufloesen }: {
-  name: string; anzahl: number; umbenennen: (neu: string) => void; aufloesen: () => void;
-}) {
-  const [bearbeiten, setBearbeiten] = useState(false);
+// Die gewählte Sammlung: deutlich als Filter markiert; ⋯ öffnet ihr
+// Kontext-Blatt (Umbenennen, Auswählen, Auflösen — F-08).
+export function SammlungKopf({ name, anzahl, mehr }: { name: string; anzahl: number; mehr: () => void }) {
   return (
-    <div className="sammlung-kopf">
-      {bearbeiten ? (
-        <>
-          <NameFormular start={name} knopf="Umbenennen" platzhalter="Neuer Name" abbrechen={() => setBearbeiten(false)}
-            fertig={(neu) => { setBearbeiten(false); if (neu !== name) umbenennen(neu); }} />
-          {anzahl > 0 && (
-            <button type="button" className="text-knopf bib-loeschen" onClick={() => { setBearbeiten(false); aufloesen(); }}>
-              Sammlung auflösen (die {anzahl} {anzahl === 1 ? 'Stück bleibt' : 'Stücke bleiben'} in der Bibliothek)
-            </button>
-          )}
-        </>
-      ) : (
-        <p className="text-sm">
-          <span className="gedaempft">Sammlung</span> <strong>„{name}“</strong> <span className="gedaempft">· {anzahl} {anzahl === 1 ? 'Stück' : 'Stücke'}</span>
-          {anzahl > 0 && <button type="button" className="text-knopf bib-fertig ml-2" onClick={() => setBearbeiten(true)}>bearbeiten</button>}
-        </p>
-      )}
+    <div className="sammlung-kopf flex items-center gap-1">
+      <p className="min-w-0 flex-1 text-sm">
+        <span className="gedaempft">Sammlung</span> <strong>„{name}“</strong> <span className="gedaempft">· {anzahl} {anzahl === 1 ? 'Stück' : 'Stücke'}</span>
+      </p>
+      <MehrKnopf tun={mehr} aria={`Mehr zur Sammlung „${name}“`} />
     </div>
   );
 }

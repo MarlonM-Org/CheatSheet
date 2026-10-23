@@ -5,25 +5,25 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { dateiVon, istVirtuell, type Lesezeichen } from '@/domain/bestand';
 import { istNachladeFehler } from '@/domain/nachladen';
 import type { Anmerkung } from '@/domain/notenpult';
-import { sammlungenUebersicht, sammlungenVon } from '@/domain/sammlungen';
+import { sammlungenVon } from '@/domain/sammlungen';
 import { bereichLesen, inSicht, neueLesezeichen, quellenText, stueckeAusLesezeichen, zurPdf } from '@/domain/sicht';
 import { tagsVon, type Tag } from '@/domain/tags';
-import { stelleFavorit, tempoStand, zielAusText } from '@/domain/stellen';
+import { stelleFavorit, tempoStand } from '@/domain/stellen';
 import { mitRand } from '@/domain/ueben';
 import { NeueVersion } from '@/components/NeueVersion';
 import {
-  alleStuecke, anmerkungenVon, lesezeichenAendern, lesezeichenAnlegen, lesezeichenLoeschen, lesezeichenVon, stueckAendern, stueckDatei, stueckHolen,
-  sammlungenSetzen, stelleAendern, zuletztMerken, stelleLoeschen, stellenVon, tagsLaden, tagsSetzen, tempoGeschafft, virtuellesAnlegen,
+  alleStuecke, anmerkungenVon, lesezeichenAendern, lesezeichenAnlegen, lesezeichenLoeschen, lesezeichenVon, stueckDatei, stueckHolen,
+  stelleAendern, zuletztMerken, stellenVon, tagsLaden, tempoGeschafft, virtuellesAnlegen,
   type Stueck, type Stelle,
 } from './lokal';
-import { SammlungWahl } from './Sammlungen';
-import { TagEtikett, TagWahl } from './Tags';
+import { LesezeichenKontext, MehrKnopf, StueckKontext, useHalten } from './Kontext';
+import { TagEtikett } from './Tags';
 import { useMetronom } from './MetronomKontext';
 import { NotenBetrachter, type Ziel } from './NotenBetrachter';
 import { gliederungLesen, NeueVersionFehler, pdfLaden, seiteMitEbene, seitenFenster, type Dokument } from './pdf';
 import { fehlerGrund, ladeFehler, speicherFehler } from './speicherfehler';
 import type { MixSteuerung } from './StellenMix';
-import { stelleLoeschenBestaetigen } from './StelleBlatt';
+import { StelleBlatt } from './StelleBlatt';
 import { SternKnopf } from './Stern';
 import { TempoKurve } from './TempoKurve';
 import { useDialogFokus, useEscape } from './tasten';
@@ -38,8 +38,10 @@ const RAND = 0.06;
 // Betrachter und Blatt sehen ein Fenster darauf (seitenFenster), Stellen und
 // Anmerkungen der Quelle in Sicht-Seiten (inSicht), gespeichert wird bei der
 // Quelle (ablage).
-export function NotenPult({ notenId, tastenAktiv, verschwunden, mix = null, leisten }: {
+export function NotenPult({ notenId, tastenAktiv, verschwunden, mix = null, leisten, blattAnfang = false }: {
   notenId: string; tastenAktiv: boolean; verschwunden: () => void; mix?: MixSteuerung | null;
+  // Gleich mit offenem Stück-Blatt starten (aus dem Kontext-Blatt der Bibliothek).
+  blattAnfang?: boolean | 'teilen';
   leisten: { leisteWeg: boolean; setLeisteWeg: (weg: boolean) => void; navDa: boolean };
 }) {
   const { bpm, setBpm } = useMetronom();
@@ -51,7 +53,7 @@ export function NotenPult({ notenId, tastenAktiv, verschwunden, mix = null, leis
   const [neueVersion, setNeueVersion] = useState(false);
   const [stellen, setStellen] = useState<Stelle[]>([]);
   const [lesezeichen, setLesezeichen] = useState<Lesezeichen[]>([]);
-  const [blatt, setBlatt] = useState(false);
+  const [blatt, setBlatt] = useState(!!blattAnfang);
   const [sprung, setSprung] = useState<Ziel | null>(null);
   const mixAbgleichen = mix?.abgleichen;
   const neuLaden = useCallback(() => {
@@ -112,7 +114,7 @@ export function NotenPult({ notenId, tastenAktiv, verschwunden, mix = null, leis
         tastenAktiv={tastenAktiv && !blatt} sprung={sprung} titelTipp={() => setBlatt(true)} />
       {blatt && (
         <StueckBlatt noten={noten} quelle={quelle} pdf={pdf} stellen={stellen} lesezeichen={lesezeichen} lesezeichenGeaendert={lesezeichenLaden}
-          bpm={bpm} tempoSetzen={setBpm} neuLaden={neuLaden}
+          bpm={bpm} tempoSetzen={setBpm} neuLaden={neuLaden} geloescht={verschwunden} teilenAnfang={blattAnfang === 'teilen'}
           umbenannt={(neu) => setNoten({ ...noten, ...neu })}
           zeigen={(id) => { mix?.beenden(); setSprung({ stelle: id, n: Date.now() }); setBlatt(false); }}
           seiteZeigen={(seite) => { mix?.beenden(); setSprung({ seite, n: Date.now() }); setBlatt(false); }}
@@ -124,18 +126,20 @@ export function NotenPult({ notenId, tastenAktiv, verschwunden, mix = null, leis
 
 // ── Stück-Blatt: Umbenennen und Stellen-Übersicht ───────────────────────
 
-function StueckBlatt({ noten, quelle, pdf, stellen, lesezeichen, lesezeichenGeaendert, bpm, tempoSetzen, neuLaden, umbenannt, zeigen, seiteZeigen, schliessen }: {
+function StueckBlatt({ noten, quelle, pdf, stellen, lesezeichen, lesezeichenGeaendert, bpm, tempoSetzen, neuLaden, umbenannt, geloescht, zeigen, seiteZeigen, schliessen, teilenAnfang = false }: {
   noten: Stueck; quelle: Stueck | null; pdf: Dokument; stellen: Stelle[]; lesezeichen: Lesezeichen[]; lesezeichenGeaendert: () => void;
   bpm: number; tempoSetzen: (n: number) => void;
-  neuLaden: () => void; umbenannt: (neu: Partial<Stueck>) => void; zeigen: (id: string) => void; seiteZeigen: (seite: number) => void; schliessen: () => void;
+  neuLaden: () => void; umbenannt: (neu: Partial<Stueck>) => void; geloescht: () => void;
+  zeigen: (id: string) => void; seiteZeigen: (seite: number) => void; schliessen: () => void; teilenAnfang?: boolean;
 }) {
-  const [umbenennen, setUmbenennen] = useState(false);
-  // Sammlungen des Stücks ändern: alle vorhandenen zur Auswahl (F-13).
-  const [wahl, setWahl] = useState<{ name: string; anzahl: number }[] | null>(null);
-  // Tags des Stücks (F-14)
-  const [tags, setTags] = useState<Tag[]>(() => tagsLaden());
-  const [tagWahl, setTagWahl] = useState(false);
-  useEscape(schliessen, !wahl && !tagWahl);
+  // Aktionen am Stück (umbenennen, Sammlungen, Tags, löschen) im Kontext-Blatt (F-08).
+  const [kontext, setKontext] = useState(false);
+  const [stuecke, setStuecke] = useState<Stueck[] | null>(null);
+  const kontextOeffnen = () => { alleStuecke().then((l) => { setStuecke(l); setKontext(true); }, speicherFehler); };
+  // „Eigene Stücke daraus“: der Abschnitt erscheint auf Wunsch.
+  const [teilen, setTeilen] = useState(teilenAnfang);
+  const [tags] = useState<Tag[]>(() => tagsLaden());
+  useEscape(schliessen, !kontext);
   const fokus = useDialogFokus<HTMLDivElement>();
 
   return (
@@ -144,58 +148,25 @@ function StueckBlatt({ noten, quelle, pdf, stellen, lesezeichen, lesezeichenGeae
         <div className="flex flex-wrap items-baseline gap-x-3">
           <h2 className="text-xl font-extrabold">{noten.titel}</h2>
           {noten.stimme && <span className="gedaempft">{noten.stimme}</span>}
-          <button type="button" className="text-knopf gedaempft text-sm underline" onClick={() => setUmbenennen(!umbenennen)}>umbenennen</button>
           <span className="flex-1" />
+          <MehrKnopf tun={kontextOeffnen} aria={`Mehr zu „${noten.titel}“`} />
           <button type="button" className="knopf knopf-leise knopf-klein" onClick={schliessen}>Fertig</button>
         </div>
-        {umbenennen && (
-          <form className="karte grid gap-2" onSubmit={async (e) => {
-            e.preventDefault();
-            const f = new FormData(e.currentTarget);
-            const neu = { titel: String(f.get('titel') || noten.titel), stimme: String(f.get('stimme') ?? '') };
-            try { await stueckAendern(noten.id, neu); } catch (x) { speicherFehler(x); return; }
-            umbenannt(neu); setUmbenennen(false);
-          }}>
-            <input className="feld" name="titel" defaultValue={noten.titel} aria-label="Titel" />
-            <input className="feld" name="stimme" defaultValue={noten.stimme} placeholder="Stimme" aria-label="Stimme" />
-            <button className="knopf knopf-klein" type="submit">Speichern</button>
-          </form>
-        )}
-        <p className="text-sm">
-          <span className="gedaempft">Sammlungen: </span>{sammlungenVon(noten).join(', ') || <span className="gedaempft">keine</span>}
-          <button type="button" className="text-knopf gedaempft ml-2 text-sm underline"
-            onClick={() => { alleStuecke().then((l) => setWahl(sammlungenUebersicht(l)), (x) => speicherFehler(x)); }}>ändern</button>
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm gedaempft">
+          {noten.quelle && <span>{quellenText(noten.quelle, quelle?.titel)} · teilt Stellen und Anmerkungen mit der Quelle</span>}
+          {sammlungenVon(noten).length > 0 && <span>{sammlungenVon(noten).join(', ')}</span>}
+          {tagsVon(noten, tags).map((id) => <TagEtikett key={id} tag={tags.find((t) => t.id === id)!} />)}
+          {!noten.quelle && !sammlungenVon(noten).length && !tagsVon(noten, tags).length && <span>In keiner Sammlung, keine Tags — über ⋯ ändern.</span>}
         </p>
-        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-          <span className="gedaempft">Tags:</span>
-          {tagsVon(noten, tags).length ? tagsVon(noten, tags).map((id) => <TagEtikett key={id} tag={tags.find((t) => t.id === id)!} />) : <span className="gedaempft">keine</span>}
-          <button type="button" className="text-knopf gedaempft text-sm underline" onClick={() => setTagWahl(true)}>ändern</button>
-        </p>
-        {tagWahl && (
-          <TagWahl noten={[noten]} tags={tags} schliessen={() => { setTagWahl(false); setTags(tagsLaden()); }}
-            speichern={(a) => {
-              setTagWahl(false); setTags(tagsLaden());
-              if (!a.length) return;
-              tagsSetzen(a).then(() => umbenannt({ tags: a[0].tags }), speicherFehler);
-            }} />
-        )}
-        {wahl && (
-          <SammlungWahl noten={[noten]} uebersicht={wahl} schliessen={() => setWahl(null)}
-            speichern={(a) => {
-              setWahl(null);
-              if (!a.length) return;
-              sammlungenSetzen(a).then(() => umbenannt({ sammlungen: a[0].sammlungen }), speicherFehler);
-            }} />
-        )}
-        {noten.quelle && (
-          <p className="text-sm">
-            <span className="gedaempft">Zeigt </span>{quellenText(noten.quelle, quelle?.titel)}
-            <span className="gedaempft"> — Stellen und Anmerkungen teilt es mit der Quelle.</span>
-          </p>
+        {kontext && stuecke && (
+          <StueckKontext stueck={noten} stuecke={stuecke} anzahlStellen={stellen.length} schliessen={() => setKontext(false)}
+            teilen={() => { setKontext(false); setTeilen(true); }}
+            geaendert={(neu) => umbenannt(neu)}
+            geloescht={() => { setKontext(false); geloescht(); }} />
         )}
         <h3 className="abschnitt-titel">Lesezeichen</h3>
         <LesezeichenListe noten={noten} pdf={pdf} lesezeichen={lesezeichen} geaendert={lesezeichenGeaendert} seiteZeigen={seiteZeigen} />
-        {!istVirtuell(noten) && (
+        {teilen && !istVirtuell(noten) && (
           <>
             <h3 className="abschnitt-titel">Eigene Stücke aus diesem</h3>
             <TeilStuecke noten={noten} pdf={pdf} lesezeichen={lesezeichen} />
@@ -213,9 +184,23 @@ function StueckBlatt({ noten, quelle, pdf, stellen, lesezeichen, lesezeichenGeae
 function LesezeichenListe({ noten, pdf, lesezeichen, geaendert, seiteZeigen }: {
   noten: Stueck; pdf: Dokument; lesezeichen: Lesezeichen[]; geaendert: () => void; seiteZeigen: (seite: number) => void;
 }) {
-  const [bearbeiten, setBearbeiten] = useState<string | null>(null);
+  // Kontext-Blatt (F-08) für ein Lesezeichen: zur Seite, bearbeiten, als Stück, entfernen.
+  const [kontext, setKontext] = useState<string | null>(null);
   const [meldung, setMeldung] = useState('');
   const [laeuft, setLaeuft] = useState(false);
+  // „Ab hier als eigenes Stück“: bis vor das nächste Lesezeichen (Regel in sicht.ts).
+  async function alsStueck(l: Lesezeichen) {
+    const vorhandene = (await alleStuecke()).filter((s) => s.quelle?.stueckId === noten.id).map((s) => s.quelle!);
+    const t = stueckeAusLesezeichen(lesezeichen, pdf.numPages, vorhandene).find((x) => x.von === l.seite);
+    if (!t) { setMeldung('Diesen Bereich gibt es schon als Stück.'); return; }
+    try {
+      await virtuellesAnlegen({
+        titel: t.titel, stimme: noten.stimme, quelle: { stueckId: noten.id, von: t.von, bis: t.bis },
+        ...(noten.sammlungen?.length ? { sammlungen: noten.sammlungen } : {}), ...(noten.tags?.length ? { tags: noten.tags } : {}),
+      });
+      setMeldung(`„${t.titel}“ (Seiten ${t.von}–${t.bis}) steht jetzt als Stück in der Bibliothek.`);
+    } catch (x) { setMeldung(`Das ging nicht: ${fehlerGrund(x)}`); }
+  }
   // Aus dem Inhaltsverzeichnis der PDF (nur, was noch fehlt).
   async function ausGliederung() {
     setLaeuft(true); setMeldung('');
@@ -233,44 +218,38 @@ function LesezeichenListe({ noten, pdf, lesezeichen, geaendert, seiteZeigen }: {
       {lesezeichen.length === 0 && <p className="karte text-sm">Noch keine Lesezeichen. In den Noten im Ansicht-Menü (⋯) „Lesezeichen auf Seite …“ wählen — oder unten aus dem Inhaltsverzeichnis der PDF übernehmen.</p>}
       {lesezeichen.length > 0 && (
         <ul className="lz-liste">
-          {lesezeichen.map((l) => (
-            <li key={l.id} className="lz-zeile">
-              {bearbeiten === l.id ? (
-                <form className="flex flex-1 flex-wrap items-center gap-2" onSubmit={async (e) => {
-                  e.preventDefault();
-                  const f = new FormData(e.currentTarget);
-                  const seite = Number(f.get('seite'));
-                  if (!Number.isInteger(seite) || seite < 1 || seite > pdf.numPages) { setMeldung(`Seite 1 bis ${pdf.numPages}.`); return; }
-                  try { await lesezeichenAendern(l.id, { titel: String(f.get('titel') ?? '').trim() || `Seite ${seite}`, seite: zurPdf(noten, seite) }); } catch (x) { speicherFehler(x); return; }
-                  setBearbeiten(null); geaendert();
-                }}>
-                  <input className="feld flex-1" name="titel" defaultValue={l.titel} aria-label="Name" />
-                  <input className="feld feld-zahl" name="seite" inputMode="numeric" defaultValue={l.seite} aria-label="Seite" />
-                  <button className="knopf knopf-klein" type="submit">Speichern</button>
-                  <button className="knopf knopf-leise knopf-klein" type="button" onClick={() => setBearbeiten(null)}>Abbrechen</button>
-                  <button className="knopf knopf-leise knopf-klein" type="button" onClick={() => {
-                    if (!confirm(`Lesezeichen „${l.titel}“ entfernen?`)) return;
-                    lesezeichenLoeschen(l.id).then(() => { setBearbeiten(null); geaendert(); }, speicherFehler);
-                  }}>Entfernen</button>
-                </form>
-              ) : (
-                <>
-                  <button type="button" className="lz-ziel" onClick={() => seiteZeigen(l.seite)} title="In den Noten zeigen">
-                    <span className="lz-titel">{l.titel}</span>
-                    <span className="gedaempft tabular-nums text-sm">Seite {l.seite}</span>
-                  </button>
-                  <button type="button" className="text-knopf gedaempft text-sm underline" onClick={() => setBearbeiten(l.id)}>bearbeiten</button>
-                </>
-              )}
-            </li>
-          ))}
+          {lesezeichen.map((l) => <LesezeichenZeile key={l.id} l={l} zeigen={() => seiteZeigen(l.seite)} mehr={() => setKontext(l.id)} />)}
         </ul>
       )}
+      {kontext && (() => {
+        const l = lesezeichen.find((x) => x.id === kontext);
+        if (!l) return null;
+        return (
+          <LesezeichenKontext lesezeichen={l} seiten={pdf.numPages} schliessen={() => setKontext(null)}
+            zurSeite={() => seiteZeigen(l.seite)}
+            speichern={async (titel, seite) => { await lesezeichenAendern(l.id, { titel, seite: zurPdf(noten, seite) }); geaendert(); }}
+            alsStueck={istVirtuell(noten) ? null : () => void alsStueck(l)}
+            entfernen={async () => { await lesezeichenLoeschen(l.id); geaendert(); }} />
+        );
+      })()}
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" className="knopf knopf-leise knopf-klein" disabled={laeuft} onClick={() => void ausGliederung()}>Aus dem Inhaltsverzeichnis der PDF</button>
         {meldung && <span className="text-sm" role="status">{meldung}</span>}
       </div>
     </div>
+  );
+}
+
+function LesezeichenZeile({ l, zeigen, mehr }: { l: Lesezeichen; zeigen: () => void; mehr: () => void }) {
+  const halten = useHalten(mehr);
+  return (
+    <li className="lz-zeile haltbar">
+      <button type="button" className="lz-ziel" onClick={zeigen} title="In den Noten zeigen" {...halten}>
+        <span className="lz-titel">{l.titel}</span>
+        <span className="gedaempft tabular-nums text-sm">Seite {l.seite}</span>
+      </button>
+      <MehrKnopf tun={mehr} aria={`Mehr zu „${l.titel}“`} />
+    </li>
   );
 }
 
@@ -404,18 +383,20 @@ function UebeAnsicht({ pdf, noten, stellen, bpm, tempoSetzen, neuLaden, zeigen }
         <input type="checkbox" className="auswahl-box" checked={rand} onChange={(e) => setRand(e.target.checked)} /> etwas Rand davor und danach zeigen
       </label>
       {breite > 0 && anm && stellen.map((s) => (
-        <UebeStelle key={s.id} stelle={s} breite={breite} rand={rand} seiteHolen={seiteHolen} bpm={bpm} tempoSetzen={tempoSetzen} neuLaden={neuLaden} zeigen={() => zeigen(s.id)} />
+        <UebeStelle key={s.id} stelle={s} stueck={noten.titel} breite={breite} rand={rand} seiteHolen={seiteHolen} bpm={bpm} tempoSetzen={tempoSetzen} neuLaden={neuLaden} zeigen={() => zeigen(s.id)} />
       ))}
     </div>
   );
 }
 
-function UebeStelle({ stelle, breite, rand, seiteHolen, bpm, tempoSetzen, neuLaden, zeigen }: {
-  stelle: Stelle; breite: number; rand: boolean; seiteHolen: (n: number) => Promise<HTMLCanvasElement>;
+function UebeStelle({ stelle, stueck, breite, rand, seiteHolen, bpm, tempoSetzen, neuLaden, zeigen }: {
+  stelle: Stelle; stueck: string; breite: number; rand: boolean; seiteHolen: (n: number) => Promise<HTMLCanvasElement>;
   bpm: number; tempoSetzen: (n: number) => void; neuLaden: () => void; zeigen: () => void;
 }) {
   const ziel = useRef<HTMLCanvasElement>(null);
-  const [bearbeiten, setBearbeiten] = useState(false);
+  // ⋯ oder Halten: das Stellen-Blatt (Ziel, Verlauf, Name, Notiz, löschen — F-08).
+  const [blatt, setBlatt] = useState(false);
+  const halten = useHalten(() => setBlatt(true));
   const { zuletzt, bestes } = tempoStand(stelle.tempi);
 
   useEffect(() => {
@@ -436,15 +417,16 @@ function UebeStelle({ stelle, breite, rand, seiteHolen, bpm, tempoSetzen, neuLad
   }, [stelle, rand, breite, seiteHolen]);
 
   return (
-    <div className="karte space-y-3">
+    <div className="karte haltbar space-y-3" {...halten}>
       <div className="flex flex-wrap items-center justify-between gap-x-2">
         <p className="flex min-w-0 items-center gap-1 font-bold">
           <SternKnopf an={stelleFavorit(stelle)} className="-my-2 -ml-3"
             umschalten={() => { stelleAendern(stelle.id, { favorit: !stelleFavorit(stelle) }).then(neuLaden, speicherFehler); }} />
           <span className="min-w-0">{stelle.titel || `Stelle auf Seite ${stelle.seite}`}</span>
         </p>
-        <p className="gedaempft text-sm tabular-nums">
-          {zuletzt ? `zuletzt ${zuletzt}` : 'noch kein Tempo'}{bestes && bestes !== zuletzt ? ` · bestes ${bestes}` : ''}{stelle.zielTempo ? ` · Ziel ${stelle.zielTempo}` : ''}
+        <p className="flex min-w-0 items-center gap-1 gedaempft text-sm tabular-nums">
+          <span>{zuletzt ? `zuletzt ${zuletzt}` : 'noch kein Tempo'}{bestes && bestes !== zuletzt ? ` · bestes ${bestes}` : ''}{stelle.zielTempo ? ` · Ziel ${stelle.zielTempo}` : ''}</span>
+          <MehrKnopf tun={() => setBlatt(true)} aria={`Mehr zur Stelle „${stelle.titel || `Seite ${stelle.seite}`}“`} />
         </p>
       </div>
       <div className="overflow-hidden rounded bg-white"><canvas ref={ziel} className="mx-auto block" /></div>
@@ -458,28 +440,15 @@ function UebeStelle({ stelle, breite, rand, seiteHolen, bpm, tempoSetzen, neuLad
           ✓ Geschafft bei {bpm}
         </button>
         <button className="knopf knopf-leise knopf-klein" type="button" onClick={zeigen}>In den Noten</button>
-        <button className="knopf knopf-leise knopf-klein" type="button" onClick={() => setBearbeiten(!bearbeiten)}>bearbeiten</button>
       </div>
-      {bearbeiten && (
-        <form className="grid gap-2" onSubmit={async (e) => {
-          e.preventDefault();
-          const f = new FormData(e.currentTarget);
-          try {
-            await stelleAendern(stelle.id, { titel: String(f.get('titel') ?? ''), notiz: String(f.get('notiz') ?? ''), zielTempo: zielAusText(String(f.get('ziel') ?? '')) });
-          } catch (x) { speicherFehler(x); return; }
-          setBearbeiten(false); neuLaden();
-        }}>
-          <input className="feld" name="titel" defaultValue={stelle.titel} placeholder="Takte, z. B. T. 32–48" aria-label="Bezeichnung" />
-          <input className="feld" name="ziel" inputMode="numeric" defaultValue={stelle.zielTempo ?? ''} placeholder="Zieltempo, z. B. 120" aria-label="Zieltempo" />
-          <input className="feld" name="notiz" defaultValue={stelle.notiz ?? ''} placeholder="Notiz, z. B. Atmung nach Takt 34" aria-label="Notiz" />
-          <div className="flex gap-2">
-            <button className="knopf knopf-klein" type="submit">Speichern</button>
-            <button className="knopf knopf-leise knopf-klein" type="button" onClick={() => {
-              if (!stelleLoeschenBestaetigen(stelle.titel || `Stelle auf Seite ${stelle.seite}`, stelle.tempi.length)) return;
-              stelleLoeschen(stelle.id).then(neuLaden, speicherFehler);
-            }}>Stelle löschen</button>
-          </div>
-        </form>
+      {blatt && (
+        <StelleBlatt stelle={stelle} stueck={stueck} geaendert={neuLaden} schliessen={() => setBlatt(false)}
+          geloescht={() => { setBlatt(false); neuLaden(); }}
+          aktionen={[
+            { name: 'In den Noten zeigen', tun: () => { setBlatt(false); zeigen(); } },
+            { name: `♩ auf ${zuletzt ?? stelle.zielTempo ?? 60}`, tun: () => tempoSetzen(zuletzt ?? stelle.zielTempo ?? 60) },
+            { name: `✓ Geschafft bei ${bpm}`, tun: () => { tempoGeschafft(stelle.id, bpm).then(neuLaden, speicherFehler); } },
+          ]} />
       )}
     </div>
   );

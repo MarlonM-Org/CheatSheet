@@ -22,7 +22,9 @@ funktioniert danach auch offline.
 - **Schwierige Stellen:** markieren, gezielt üben, Zieltempo setzen und den
   Fortschritt verfolgen. Der Stellen-Mix übt Stellen aus mehreren Stücken
   gemischt.
-- **Ordnen:** Sammlungen und farbige Tags. Lesezeichen benennen Seiten (auch
+- **Ordnen:** Sammlungen und farbige Tags; Halten oder „⋯“ öffnet zu jedem
+  Stück, jeder Sammlung, Stelle und jedem Lesezeichen ein Blatt mit allen
+  Aktionen. Lesezeichen benennen Seiten (auch
   aus dem Inhaltsverzeichnis der PDF); ein Seitenbereich eines Sammelbands
   wird auf Wunsch ein eigenes Stück.
 - **Einscannen:** Papiernoten mit der Kamera aufnehmen oder vorhandene Fotos

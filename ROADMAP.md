@@ -35,7 +35,7 @@ ob das ins Leitbild passt (dann auch CLAUDE.md anpassen: „kein Login“).
 | M1 | **Fundament aufräumen** | Datenmodell klären, Tests für die Speicherschicht (A-01 verworfen) — *erledigt 2026-10-12* | A-02, A-03 |
 | M2 | **Noten im Zentrum** | UI-Neuaufbau: Noten vollflächig, Werkzeuge als Overlays, drei Knöpfe unten | B-01…B-03 |
 | M3 | **Werkzeuge schärfen** | Stimmgerät- und Metronom-Verbesserungen, Stift-Ausbau | C-01…C-03, D-01, E-01…E-03 |
-| M4 | **Notenmanagement I** | Metadaten, Flags, Kontextmenüs, Drag & Drop (Sammlungen F-13 und Lesezeichen/virtuelle Stücke F-03 erledigt) | F-01, F-04, F-08, F-09 |
+| M4 | **Notenmanagement I** | Metadaten, Flags, Drag & Drop (Sammlungen F-13, Lesezeichen/virtuelle Stücke F-03 und Kontext-Blatt F-08 erledigt) | F-01, F-04, F-09 |
 | M5 | **Üben & Setlisten** | Setlisten (Stellen-Mix F-11, Tonprofil C-04, Sprünge F-05, Halbseiten-Blättern F-06, Blättern je Seite F-16 und Favoriten im Mix F-17 schon erledigt) — *zurückgestellt 2026-10-23: Marlon ordnet bisher über Dateinamen, Setlisten sind Zukunftsthema* | F-02 |
 | M6 | **Extras** | Stempel/Formen (Kamera-Scan F-07, Themes B-04 und Design B-05 erledigt) — *vorgezogen 2026-10-23, vor M4 und M5* | E-04 |
 | M7 | **Komponieren** (Vision) | Noteneingabe, Rhythmus-/Melodie-Transkription | G-01…G-03 |
@@ -136,11 +136,7 @@ Speicher steht (A-02): `merker`, einer je Seite.
 
 *(F-07 Kamera-Scan und Foto-Import am 2026-10-23 erledigt, siehe unten.)*
 
-### F-08 · Kontextmenüs
-
-Langdruck auf Note/Bookmark/Setliste: Vorschaubild + Aktionen (öffnen,
-umbenennen, Metadaten, duplizieren, löschen). Ein Interaktionsmuster für die
-ganze App.
+*(F-08 Kontext-Blatt am 2026-10-23 erledigt, siehe unten.)*
 
 ### F-09 · Drag & Drop
 
@@ -280,6 +276,47 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
 
 *(Abgeschlossene Punkte hierher verschieben, mit Datum und Commit.)*
 
+- **F-08 · Kontext-Blatt: ein Menü für alles, was ein Ding kann**
+  (2026-10-23): Bestandsaufnahme (Vorschlag mit Mockups, von Marlon
+  angenommen): Die Aktionen zu einem Stück lagen an drei Orten mit drei
+  Mustern — Löschen und Datei neu wählen nur im Auswahl-Modus, Umbenennen
+  nur im geöffneten Stück, Sammlungen und Tags doppelt. Jetzt **ein
+  Kontext-Blatt** (`Kontext.tsx`), das überall gleich aufgeht: **Halten**
+  (Langdruck, 450 ms, Bewegung bricht ab), **„⋯“** am Zeilenrand oder
+  **Rechtsklick**; der Klick danach wird geschluckt (`useHalten`).
+  Vorschaubild, Name, eine Zeile Fakten, darunter die Aktionen; Formulare
+  (Umbenennen) erscheinen im selben Blatt.
+  - **Stück** (Bibliothek: Zeile halten oder ⋯ statt „›“; Stück-Blatt: ⋯
+    im Kopf): Öffnen, Umbenennen (Titel und Stimme), Sammlungen …, Tags …,
+    Lesezeichen und Stellen … (öffnet das Stück mit Stück-Blatt), Eigene
+    Stücke daraus … (öffnet den Abschnitt im Stück-Blatt), Datei neu wählen
+    (nicht bei virtuellen), Löschen … mit derselben Rückfrage wie im
+    Auswahl-Modus. Vorschaubild: erste Seite (bei virtuellen Stücken die
+    Seite `von`) klein über pdf.js, danach wieder freigegeben.
+  - **Stück-Blatt schlanker:** Zeilen „umbenennen“, „Sammlungen ändern“,
+    „Tags ändern“ und der Abschnitt „Eigene Stücke aus diesem“ sind raus;
+    eine Fakten-Zeile (Quelle, Sammlungen, Tags) und ⋯ ersetzen sie. Es
+    zeigt, was man liest und übt: Lesezeichen und Stellen.
+  - **Sammlung** (Chip halten, ⋯ im Sammlungs-Kopf statt „bearbeiten“):
+    Nur diese Sammlung zeigen, Umbenennen, Stücke auswählen … (Auswahl-Modus
+    mit Filter), Auflösen …
+  - **Stelle:** ein Blatt für beide Orte. Das Stellen-Blatt (Stellen-Leiste:
+    Name antippen; Stück-Blatt: Karte halten oder ⋯) hat jetzt oben die
+    Aktionen (In den Noten zeigen, ♩ auf …, ✓ Geschafft bei …) und **„Name
+    und Notiz …“**; das zweite Formular hinter „bearbeiten“ auf der Karte
+    ist weg.
+  - **Lesezeichen** (Stück-Blatt: Zeile halten oder ⋯): Zur Seite,
+    Umbenennen oder Seite ändern, **Ab hier als eigenes Stück …** (bis vor
+    das nächste Lesezeichen), Entfernen. Die Liste im Ansicht-Menü bleibt
+    (Setzen braucht die aktuelle Seite).
+  - **Bleibt:** der Auswahl-Modus für mehrere Stücke (Aktualisieren,
+    Löschen, In Sammlung, Tags) — unverändert. Tags haben weiter ihr eigenes
+    Tag-Blatt. Entscheidungen aus dem Vorschlag: Vorschaubild ja, Auswählen
+    bleibt, Duplizieren kommt mit F-01 (Metadaten bekommen dann im
+    Kontext-Blatt ihren Platz).
+  - Nur Oberfläche, kein Schema-Sprung. Im Browser durchgespielt: ⋯ und
+    Halten in der Bibliothek, Umbenennen, Lesezeichen → eigenes Stück,
+    Sammlung halten → umbenennen, Löschen.
 - **F-07 · Kamera-Scan und Foto-Import** (2026-10-23): Wunsch Marlon,
   vorgezogen. Unter „+ Noten“ zwei neue Punkte: **„Einscannen“** (Kamera,
   Seite für Seite) und **„Fotos wählen“** (vorhandene Bilder, mehrere auf
