@@ -241,6 +241,14 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
 
 *(Abgeschlossene Punkte hierher verschieben, mit Datum und Commit.)*
 
+- **E-03 (Nachbesserung) · Werkzeuge erkennbar** (2026-10-23): Wunsch
+  Marlon: Marker sah aus wie ein Block, Radierer und Stempel waren nicht
+  zu erkennen. Jetzt: Textmarker mit Keilspitze, dunklem Kragen und Etikett;
+  Radierer als klassischer gelber Bleistift mit rosa Radiergummi und
+  Zwinge (Radierseite oben, zur Seite hin); Schere mit zwei Klingen,
+  Schraube und Griffösen; Stempel mit Gummiplatte oben, Hals und rundem
+  Holzgriff. Breite und Stil wie die übrigen Werkzeuge.
+
 - **E-04 (Teil 1) · Stempel; Sprungmarken nur mit Symbol, D.C. weg**
   (2026-10-23): Wunsch Marlon. Neues Werkzeug **Stempel** in der Palette:
   Tipp aufs aktive Werkzeug öffnet das Raster — Segno, Coda, Fermate,
