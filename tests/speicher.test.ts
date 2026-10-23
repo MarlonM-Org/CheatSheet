@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dateiVerloren, speicherVoll, verbindungVerloren, zuletztAus } from '@/domain/speicher';
+import { dateiVerloren, speicherDauerText, speicherVoll, verbindungVerloren, zuletztAus } from '@/domain/speicher';
 
 const fehler = (name: string) => Object.assign(new Error('x'), { name });
 
@@ -39,5 +39,14 @@ describe('Zuletzt geöffnet', () => {
     expect(zuletztAus({ a: 50 }, { id: 'a', zuletzt: 100 })).toBe(100);
     expect(zuletztAus({}, { id: 'a' })).toBeUndefined();
     expect(zuletztAus({ b: 5 }, { id: 'a', zuletzt: 7 })).toBe(7);
+  });
+});
+
+describe('Dauerhafter Speicher', () => {
+  it('drei Antworten, drei Texte', () => {
+    expect(speicherDauerText(true).kurz).toBe('Dauerhaft');
+    expect(speicherDauerText(false).kurz).toBe('Nicht zugesagt');
+    expect(speicherDauerText(null).kurz).toBe('Keine Angabe');
+    expect(new Set([speicherDauerText(true).lang, speicherDauerText(false).lang, speicherDauerText(null).lang]).size).toBe(3);
   });
 });

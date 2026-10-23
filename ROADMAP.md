@@ -241,6 +241,17 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
 
 *(Abgeschlossene Punkte hierher verschieben, mit Datum und Commit.)*
 
+- **A-07 · Dauerhafter Speicher** (2026-10-23): Frage Marlon, ob sich das
+  Löschen der Browser-Daten durch das iPad verhindern lässt. Die App bittet
+  den Browser jetzt beim Start, ihre Daten zu behalten
+  (`navigator.storage.persist`); Einstellungen → Daten übertragen zeigt die
+  Antwort („Dauerhaft“ / „Nicht zugesagt“ / „Keine Angabe“, Texte in
+  `src/domain/speicher.ts`, getestet). Was sonst gilt: Als
+  Home-Bildschirm-App fällt Safaris Sieben-Tage-Regel weg; bei Speichermangel
+  darf iOS trotzdem aufräumen, Website-Daten löschen oder das App-Symbol
+  entfernen löscht alles. Die Sicherung bleibt die einzige Kopie außerhalb
+  des Browsers.
+
 - **E-12 · Schere: Sticker und Schnitt mit Lücke** (2026-10-23): Wunsch
   Marlon: ein Segment der Noten ausschneiden und wie einen Sticker woanders
   hinlegen (die halbe Coda-Zeile ans Ende, die nächste Zeile vor eine
