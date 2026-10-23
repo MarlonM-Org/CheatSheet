@@ -241,6 +241,24 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
 
 *(Abgeschlossene Punkte hierher verschieben, mit Datum und Commit.)*
 
+- **E-04 (Teil 1) · Stempel; Sprungmarken nur mit Symbol, D.C. weg**
+  (2026-10-23): Wunsch Marlon. Neues Werkzeug **Stempel** in der Palette:
+  Tipp aufs aktive Werkzeug öffnet das Raster — Segno, Coda, Fermate,
+  Atemzeichen, Zäsur, pp bis ff, Fingersätze 1–5; Antippen setzt das Zeichen
+  mit der Mitte auf die Stelle, in Stiftfarbe, auch in Lücken. Der Radierer
+  nimmt einen Stempel ganz weg; Rückgängig wie gewohnt. Das Segno ist jetzt
+  hoch und schlank (S mit Schrägstrich und zwei Punkten), Sprungzeichen und
+  Stempel teilen sich die Pfade (`src/domain/stempel.ts`, getestet).
+  **Sprünge:** Die Marke auf der Seite zeigt nur noch das Symbol (ohne
+  „Coda“/„D.S.“-Text); beim Speichern eines D.S. oder Coda kommt das
+  Zeichen als Stempel an die Einstiegsstelle — eine normale Anmerkung, die
+  man verschieben (radieren und neu setzen) oder löschen kann; ein gelöschter
+  Sprung nimmt sie nicht mit. D.C. steht nicht mehr zur Wahl (vorhandene
+  D.C.-Sprünge funktionieren weiter). Daten: Anmerkungsart `stempel`
+  (`zeichen`, `x`, `y`, `groesse`, `farbe`, optional `luecke`), kein
+  Schema-Sprung. Offen aus E-04: Formen (Bindebögen, Crescendo-Keile),
+  Auswahl-Werkzeug.
+
 - **E-14 · Stift-Vorrang (Handballen)** (2026-10-23): Rückmeldung Marlon:
   Beim Neuansetzen wurde ein Strich manchmal nicht erfasst. Ursache: Eine
   Berührung der Hand während eines Stift-Strichs überschrieb den laufenden

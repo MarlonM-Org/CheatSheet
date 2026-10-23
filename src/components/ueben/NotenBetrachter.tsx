@@ -35,6 +35,7 @@ import {
 } from './lokal';
 import { useMetronom } from './MetronomKontext';
 import { ladeFehler, speicherFehler } from './speicherfehler';
+import { SPRUNG_STEMPEL, stempelAnlegen, type StempelZeichen } from '@/domain/stempel';
 import { StiftPalette, type SchereModus, type Werkzeug } from './StiftPalette';
 import { ausschnittRendern, seiteMitEbene, type SeitenBild } from './pdf';
 import { StelleBlatt } from './StelleBlatt';
@@ -323,6 +324,9 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     const { von, nach, art } = setzen;
     // Eingereiht, wo man ihn spielt (verschieben geht im Ansicht-Menü).
     spruengeSpeichern(sprungEinordnen(liste, spruenge, sprungNeu({ von, nach, art }, crypto.randomUUID())));
+    // D.S. und Coda: ihr Zeichen als Stempel an die Einstiegsstelle (E-04) — eine Anmerkung, wie von Hand gesetzt.
+    const zeichen = SPRUNG_STEMPEL[art];
+    if (zeichen) anmerkungenSetzen(nach.seite, [...(anm[nach.seite] ?? []), stempelAnlegen(crypto.randomUUID(), zeichen, nach.x, nach.y, einst.stift.farbe)]);
     // Zurück zum Sprungzeichen: die neue Marke blinkt kurz.
     if (!punktSichtbar(ansicht, von)) setPos({ schritt, zeige: ansichtVonSeite(liste, von.seite), frei: true, liste, folge });
     setzenEnde();
@@ -743,6 +747,8 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   const [neueStelle, setNeueStelle] = useState<(Rechteck & { seite: number }) | null>(null);
   // Schere (E-12): Sticker oder Schnitt; der gewählte Sticker (zum Verschieben, Größe, Löschen, Seite wechseln).
   const [schereModus, setSchereModus] = useState<SchereModus>('sticker');
+  // Stempel (E-04): das gewählte Zeichen.
+  const [stempel, setStempel] = useState<StempelZeichen>('segno');
   const [stickerWahlRoh, setStickerWahl] = useState<{ seite: number; id: string } | null>(null);
   // Gewählt nur, solange die Schere das Werkzeug ist.
   const stickerWahl = werkzeug === 'schere' ? stickerWahlRoh : null;
@@ -766,7 +772,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height };
   };
   const darfZeichnen = (e: React.PointerEvent) =>
-    werkzeug !== null && zeichenbar && (e.pointerType !== 'touch' || fingerZeichnen || werkzeug === 'stelle' || werkzeug === 'text' || werkzeug === 'schere');
+    werkzeug !== null && zeichenbar && (e.pointerType !== 'touch' || fingerZeichnen || werkzeug === 'stelle' || werkzeug === 'text' || werkzeug === 'schere' || werkzeug === 'stempel');
 
   // Rückgängig/Wiederholen je Aktion (auch Radier-Wische), nicht je Strich.
   const verlaufAnm = useRef<{ seite: number; vorher: Anmerkung[] }[]>([]);
@@ -1043,6 +1049,9 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     }
     if (werkzeug === 'text') {
       setTextEingabe({ seite, luecke: z.luecke ?? null, x: z.punkte[0], y: z.punkte[1], text: '', seit: e.timeStamp });
+    }
+    if (werkzeug === 'stempel') {
+      anmerkungenSetzen(seite, [...(anm[seite] ?? []), stempelAnlegen(crypto.randomUUID(), stempel, z.punkte[0], z.punkte[1], einst.stift.farbe, z.luecke ?? null)]);
     }
     if (werkzeug === 'stelle' || werkzeug === 'schere') {
       const p = aufSeiteVon(z.lage ?? GANZES_BLATT, relativ(e));
@@ -1379,6 +1388,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     : werkzeug === 'schere' ? (stickerWahl ? 'Sticker ziehen, Ecke: Größe. Leiste: Seite wechseln, löschen.'
       : schereModus === 'sticker' ? 'Rahmen um die Takte ziehen — wird ein Sticker.' : 'Antippen und nach unten ziehen: schneidet die Seite auf. In der Lücke ziehen: Abstand ändern.')
     : werkzeug === 'text' ? (textEingabe ? null : 'Auf die Stelle tippen, an der der Text stehen soll.')
+    : werkzeug === 'stempel' ? 'Auf die Stelle tippen, an die der Stempel soll.'
     : null;
   // Höhe der oberen Leiste: Hinweise schweben darunter, solange sie zu sehen ist.
   const oben = useRef<HTMLDivElement>(null);
@@ -1578,12 +1588,12 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
                   tabIndex={setzen ? -1 : undefined} aria-label={`${KUERZEL[s.art]}: zu Seite ${s.nach.seite}`} title={`${KUERZEL[s.art]} → Seite ${s.nach.seite}`}
                   // Finger und Zeiger laufen über die Fläche (hoch); hier nur Tastatur (detail 0).
                   onClick={(e) => { if (e.detail === 0) springen(s); }}>
-                  <span><SprungZeichen art={s.art} />{KUERZEL[s.art]}</span>
+                  <span>{s.art === 'dc' ? KUERZEL.dc : <SprungZeichen art={s.art} />}</span>
                 </button>
               ))}
               {setzen && setzen.schritt !== 'von' && punktSichtbar(ansicht, setzen.von) && (
                 <span className="b-marke vorschau" style={lage(setzen.von)} aria-hidden="true">
-                  <span>{setzen.schritt === 'art' ? <><SprungZeichen art={setzen.art} />{KUERZEL[setzen.art]}</> : '?'}</span>
+                  <span>{setzen.schritt === 'art' ? (setzen.art === 'dc' ? KUERZEL.dc : <SprungZeichen art={setzen.art} />) : '?'}</span>
                 </span>
               )}
               {setzen?.schritt === 'art' && punktSichtbar(ansicht, setzen.nach) && (
@@ -1738,7 +1748,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
           ) : (
             <div className="b-sprung-zeile b-sprung-zwei">
               <div className="b-segment b-sprung-arten" role="group" aria-label="Art des Sprungs">
-                {SPRUNG_ARTEN.map((a) => (
+                {SPRUNG_ARTEN.filter((a) => a !== 'dc').map((a) => (
                   <button key={a} type="button" aria-pressed={setzen.art === a} onClick={() => setSetzen(artWaehlen(setzen, a))}>
                     <SprungZeichen art={a} />{KUERZEL[a]}
                   </button>
@@ -1800,7 +1810,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
           fingerZeichnen={fingerZeichnen} setFingerZeichnen={setFingerZeichnen}
           rueckgaengig={rueckgaengig} wiederholen={wiederholen}
           kannRueck={staende.rueck > 0} kannWieder={staende.wieder > 0}
-          schereModus={schereModus} schereEinstellen={setSchereModus} />
+          schereModus={schereModus} schereEinstellen={setSchereModus} stempel={stempel} stempelEinstellen={setStempel} />
       )}
     </div>
   );
@@ -1821,7 +1831,7 @@ function nurAngehaengt(alt: Record<number, Anmerkung[]>, neu: Record<number, Anm
     if (a === n) continue;
     if (n.length < a.length || a.some((o, i) => o !== n[i])) return null;
     const rest = n.slice(a.length);
-    if (rest.some((o) => o.art !== 'stift' && o.art !== 'marker' && o.art !== 'text')) return null;
+    if (rest.some((o) => o.art !== 'stift' && o.art !== 'marker' && o.art !== 'text' && o.art !== 'stempel')) return null;
     dazu.set(Number(k), rest);
   }
   return dazu;

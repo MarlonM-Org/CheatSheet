@@ -3,10 +3,12 @@
 import { useRef, useState } from 'react';
 import { hexVon, istHell, rgbAus } from '@/domain/farbe';
 import { DICKEN, eigeneFarbe, FARBEN, RADIERER_BREITEN, type Pipetten, type StiftEinstellung, type ZeichenWerkzeug } from '@/domain/stift';
+import { STEMPEL, STEMPEL_REIHE, type StempelZeichen } from '@/domain/stempel';
 import { Farbwaehler } from './Farbwaehler';
+import { StempelBild } from './SprungZeichen';
 import { useSchiebbar } from './schiebbar';
 
-export type Werkzeug = 'stift' | 'marker' | 'text' | 'radierer' | 'stelle' | 'schere';
+export type Werkzeug = 'stift' | 'marker' | 'text' | 'radierer' | 'stelle' | 'schere' | 'stempel';
 // Schere (E-12): Ausschnitt als Sticker — oder Schnitt mit Lücke zum Schreiben.
 export type SchereModus = 'sticker' | 'schnitt';
 const ZEICHNER: Werkzeug[] = ['stift', 'marker', 'text'];
@@ -142,6 +144,27 @@ function SchereKoerper() {
   );
 }
 
+// Stempel (E-04): Griff mit Platte, darunter ein kleines Segno.
+function StempelKoerper() {
+  return (
+    <svg className="instrument" viewBox="0 0 28 92" aria-hidden="true">
+      <defs>
+        <linearGradient id="ik-stempel" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#c9c9cf" /><stop offset="0.3" stopColor="#f6f6f8" />
+          <stop offset="0.7" stopColor="#e6e6ea" /><stop offset="1" stopColor="#b9b9c1" />
+        </linearGradient>
+      </defs>
+      <path d="M7 8a7 7 0 0 1 14 0v80H7z" fill="url(#ik-stempel)" />
+      <rect x="6" y="20" width="16" height="6" rx="1.5" fill="#3a3a40" />
+      <path d="M11 20v-5a3 3 0 0 1 6 0v5" fill="none" stroke="#3a3a40" strokeWidth="1.6" />
+      <g transform="translate(8.5 28) scale(0.46)" fill="none" stroke="#a8781f" strokeWidth="2.6" strokeLinecap="round">
+        <path d="M16.4 5.3C15.6 3.4 13.5 2.6 11.7 3.2 9.7 3.9 8.7 5.9 9.4 7.8c.7 1.9 2.7 2.6 4.2 3.6 1.5 1 3.3 2.2 3.5 4.3.2 2.2-1.3 4-3.4 4.4-2 .4-4.3-.5-5-2.4" />
+        <path d="M6 22.5 18 1.5" />
+      </g>
+    </svg>
+  );
+}
+
 // Pipette: Glas mit Gummikappe, schräg — wie die übliche Pipette.
 function PipettenBild() {
   return (
@@ -157,7 +180,7 @@ function PipettenBild() {
 export function StiftPalette({
   werkzeug, wechseln, einst, einstellen, radierBreite, radiererEinstellen,
   pipetten, farbeAufnehmen, setFarbeAufnehmen, fingerZeichnen, setFingerZeichnen,
-  rueckgaengig, wiederholen, kannRueck, kannWieder, schereModus, schereEinstellen,
+  rueckgaengig, wiederholen, kannRueck, kannWieder, schereModus, schereEinstellen, stempel, stempelEinstellen,
 }: {
   werkzeug: Werkzeug | null;
   wechseln: (w: Werkzeug | null) => void;
@@ -168,6 +191,7 @@ export function StiftPalette({
   fingerZeichnen: boolean; setFingerZeichnen: (b: boolean) => void;
   rueckgaengig: () => void; wiederholen: () => void;
   schereModus: SchereModus; schereEinstellen: (m: SchereModus) => void;
+  stempel: StempelZeichen; stempelEinstellen: (z: StempelZeichen) => void;
   kannRueck: boolean; kannWieder: boolean;
 }) {
   const { panel, lage, ebene, anfassen, bewegen, loslassen } = useSchiebbar('ueben:lage-stift');
@@ -217,6 +241,7 @@ export function StiftPalette({
     { w: 'radierer', name: 'Radierer', bild: <RadiererKoerper /> },
     { w: 'stelle', name: 'Stelle', bild: <StelleKoerper /> },
     { w: 'schere', name: 'Schere', bild: <SchereKoerper /> },
+    { w: 'stempel', name: 'Stempel', bild: <StempelKoerper /> },
   ];
 
   return (
@@ -243,6 +268,19 @@ export function StiftPalette({
           <label className="palette-schalter">
             <input type="checkbox" checked={fingerZeichnen} onChange={(e) => setFingerZeichnen(e.target.checked)} /> auch mit dem Finger
           </label>
+        </div>
+      )}
+      {blase === 'optionen' && werkzeug === 'stempel' && (
+        <div className={blasenKlasse} role="group" aria-label="Stempel">
+          <div className="blase-stempel">
+            {STEMPEL_REIHE.map((z) => (
+              <button key={z} type="button" className="stempel-knopf" aria-pressed={stempel === z} title={STEMPEL[z].name} aria-label={STEMPEL[z].name}
+                onClick={() => { stempelEinstellen(z); setBlase(null); }}>
+                <StempelBild zeichen={z} />
+              </button>
+            ))}
+          </div>
+          <p className="palette-hinweis">Antippen setzt den Stempel mit der Mitte auf die Stelle. Der Radierer nimmt ihn ganz weg.</p>
         </div>
       )}
       {blase === 'optionen' && werkzeug === 'schere' && (
