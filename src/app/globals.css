@@ -647,17 +647,17 @@ details[open] > summary::before { transform: rotate(90deg); }
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   font-size: 0.85rem; font-weight: 600; cursor: pointer; min-height: 32px;
 }
-/* Zeilen des Ansicht-Menüs (B-14): Symbol, Text mit Unterzeile, rechts
+/* Punkte des Ansicht-Menüs (nav-zeile ist die Kopfzeile) (B-14): Symbol, Text mit Unterzeile, rechts
    Schalter oder Pfeil. */
-.nav-zeile {
+.nav-punkt {
   display: flex; align-items: center; gap: 12px; width: 100%; min-height: 44px; margin: -2px 0;
   padding: 4px 6px; border-radius: 8px; font-size: 0.9rem; font-weight: 600; color: var(--tinte); text-align: left; cursor: pointer;
 }
-.nav-zeile:active { background: var(--flaeche); }
-.nav-zeile:disabled { opacity: 0.4; cursor: not-allowed; }
+.nav-punkt:active { background: var(--flaeche); }
+.nav-punkt:disabled { opacity: 0.4; cursor: not-allowed; }
 .nav-symbol { width: 22px; height: 22px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; color: var(--gedaempft); }
-.nav-zeile-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; line-height: 1.25; }
-.nav-zeile-text small { font-size: 0.74rem; font-weight: 500; color: var(--gedaempft); }
+.nav-punkt-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; line-height: 1.25; }
+.nav-punkt-text small { font-size: 0.74rem; font-weight: 500; color: var(--gedaempft); }
 .nav-hinweis { margin-top: -4px; font-size: 0.74rem; line-height: 1.35; color: var(--gedaempft); }
 
 .b-leise { color: var(--gedaempft); }
@@ -707,6 +707,24 @@ details[open] > summary::before { transform: rotate(90deg); }
 .b-zoom .b-zoom-wert:disabled { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .b-zoom { transition: none; } }
 .b-rechteck { position: absolute; border: 2px dashed #1f5fd1; background: rgb(31 95 209 / 10%); pointer-events: none; border-radius: 3px; }
+/* Schere (E-12): gewählter Sticker mit Leiste darüber und Griff an der Ecke; × an jeder Lücke. */
+.b-sticker-wahl { position: absolute; outline: 2.5px solid var(--messing); outline-offset: 1px; pointer-events: none; }
+.b-sticker-leiste {
+  position: absolute; left: 0; bottom: 100%; margin-bottom: 6px; display: flex; gap: 2px; padding: 2px; border-radius: 6px;
+  background: var(--schleier); backdrop-filter: blur(8px); border: 1px solid var(--linie); box-shadow: 0 4px 14px rgb(0 0 0 / 18%); pointer-events: auto;
+}
+.b-sticker-leiste button { min-height: 32px; padding: 0 8px; border-radius: 4px; font-size: 0.78rem; font-weight: 650; color: var(--tinte); white-space: nowrap; }
+.b-sticker-leiste button:disabled { opacity: 0.35; }
+.b-sticker-leiste button.weg { color: var(--warnung); }
+.b-sticker-griff {
+  position: absolute; right: -14px; bottom: -14px; width: 28px; height: 28px; border-radius: 50%; pointer-events: auto; cursor: nwse-resize; touch-action: none;
+  background: var(--messing); border: 2px solid var(--papier); box-shadow: 0 1px 4px rgb(0 0 0 / 30%);
+}
+.b-luecke-weg {
+  position: absolute; right: 6px; width: 30px; height: 30px; margin-top: -15px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--schleier); border: 1px solid var(--linie-stark); color: var(--warnung); font-size: 1.1rem; font-weight: 700; z-index: 2;
+}
+.palette-hinweis { max-width: 220px; margin-top: 6px; font-size: 0.74rem; line-height: 1.35; color: var(--gedaempft); }
 .b-rechteck.fest { border-style: solid; border-color: #a8781f; background: rgb(168 120 31 / 14%); }
 .b-linie { position: absolute; left: -2%; right: -2%; height: 34px; margin-top: -17px; cursor: ns-resize; touch-action: none; display: flex; align-items: center; }
 .b-linie::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 3px; margin-top: -1.5px; background: var(--messing); box-shadow: 0 0 0 1px rgb(0 0 0 / 20%); }

@@ -6,7 +6,9 @@ import { DICKEN, eigeneFarbe, FARBEN, RADIERER_BREITEN, type Pipetten, type Stif
 import { Farbwaehler } from './Farbwaehler';
 import { useSchiebbar } from './schiebbar';
 
-export type Werkzeug = 'stift' | 'marker' | 'text' | 'radierer' | 'stelle';
+export type Werkzeug = 'stift' | 'marker' | 'text' | 'radierer' | 'stelle' | 'schere';
+// Schere (E-12): Ausschnitt als Sticker — oder Schnitt mit Lücke zum Schreiben.
+export type SchereModus = 'sticker' | 'schnitt';
 const ZEICHNER: Werkzeug[] = ['stift', 'marker', 'text'];
 
 // Markerfarben sind halbtransparent (Malwirkung) — Spitze und Rondell
@@ -121,6 +123,25 @@ function StelleKoerper() {
   );
 }
 
+// Schere (E-12): zwei Klingen mit Ösen, Sticker-Ecke darunter.
+function SchereKoerper() {
+  return (
+    <svg className="instrument" viewBox="0 0 28 92" aria-hidden="true">
+      <defs>
+        <linearGradient id="ik-schere" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#c9c9cf" /><stop offset="0.3" stopColor="#f6f6f8" />
+          <stop offset="0.7" stopColor="#e6e6ea" /><stop offset="1" stopColor="#b9b9c1" />
+        </linearGradient>
+      </defs>
+      <path d="M7 8a7 7 0 0 1 14 0v80H7z" fill="url(#ik-schere)" />
+      <path d="M10.5 6.5L17.5 20M17.5 6.5L10.5 20" stroke="#3a3a40" strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="9.5" cy="22.5" r="2.3" fill="none" stroke="#3a3a40" strokeWidth="1.5" />
+      <circle cx="18.5" cy="22.5" r="2.3" fill="none" stroke="#3a3a40" strokeWidth="1.5" />
+      <rect x="8.5" y="30" width="11" height="7" rx="1" fill="#a8781f" opacity="0.55" />
+    </svg>
+  );
+}
+
 // Pipette: Glas mit Gummikappe, schräg — wie die übliche Pipette.
 function PipettenBild() {
   return (
@@ -136,7 +157,7 @@ function PipettenBild() {
 export function StiftPalette({
   werkzeug, wechseln, einst, einstellen, radierBreite, radiererEinstellen,
   pipetten, farbeAufnehmen, setFarbeAufnehmen, fingerZeichnen, setFingerZeichnen,
-  rueckgaengig, wiederholen, kannRueck, kannWieder,
+  rueckgaengig, wiederholen, kannRueck, kannWieder, schereModus, schereEinstellen,
 }: {
   werkzeug: Werkzeug | null;
   wechseln: (w: Werkzeug | null) => void;
@@ -146,6 +167,7 @@ export function StiftPalette({
   pipetten: Pipetten; farbeAufnehmen: boolean; setFarbeAufnehmen: (an: boolean) => void;
   fingerZeichnen: boolean; setFingerZeichnen: (b: boolean) => void;
   rueckgaengig: () => void; wiederholen: () => void;
+  schereModus: SchereModus; schereEinstellen: (m: SchereModus) => void;
   kannRueck: boolean; kannWieder: boolean;
 }) {
   const { panel, lage, ebene, anfassen, bewegen, loslassen } = useSchiebbar('ueben:lage-stift');
@@ -175,7 +197,7 @@ export function StiftPalette({
       if (w !== 'stelle' && w !== 'text') setBlase(blase === 'optionen' ? null : 'optionen');
       return;
     }
-    if (w !== 'radierer') zurueckNach.current = w === 'stelle' ? zurueckNach.current : w;
+    if (w !== 'radierer') zurueckNach.current = w === 'stelle' || w === 'schere' ? zurueckNach.current : w;
     setBlase(null);
     wechseln(w);
   }
@@ -194,6 +216,7 @@ export function StiftPalette({
     { w: 'text', name: 'Text', bild: <TextKoerper farbe={einst.text.farbe} /> },
     { w: 'radierer', name: 'Radierer', bild: <RadiererKoerper /> },
     { w: 'stelle', name: 'Stelle', bild: <StelleKoerper /> },
+    { w: 'schere', name: 'Schere', bild: <SchereKoerper /> },
   ];
 
   return (
@@ -220,6 +243,18 @@ export function StiftPalette({
           <label className="palette-schalter">
             <input type="checkbox" checked={fingerZeichnen} onChange={(e) => setFingerZeichnen(e.target.checked)} /> auch mit dem Finger
           </label>
+        </div>
+      )}
+      {blase === 'optionen' && werkzeug === 'schere' && (
+        <div className={blasenKlasse} role="group" aria-label="Schere">
+          <div className="segment !mx-0" role="group" aria-label="Was die Schere tut">
+            <button type="button" aria-pressed={schereModus === 'sticker'} onClick={() => { schereEinstellen('sticker'); setBlase(null); }}>Sticker</button>
+            <button type="button" aria-pressed={schereModus === 'schnitt'} onClick={() => { schereEinstellen('schnitt'); setBlase(null); }}>Schnitt</button>
+          </div>
+          <p className="palette-hinweis">
+            {schereModus === 'sticker' ? 'Rahmen um Takte ziehen: ein Sticker, den du verschieben und auf eine andere Seite legen kannst.'
+              : 'Antippen und nach unten ziehen: schneidet die Seite auf und macht Platz zum Schreiben.'}
+          </p>
         </div>
       )}
       {blase === 'optionen' && werkzeug === 'radierer' && (

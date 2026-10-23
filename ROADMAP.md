@@ -241,6 +241,50 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
 
 *(Abgeschlossene Punkte hierher verschieben, mit Datum und Commit.)*
 
+- **E-12 · Schere: Sticker und Schnitt mit Lücke** (2026-10-23): Wunsch
+  Marlon: ein Segment der Noten ausschneiden und wie einen Sticker woanders
+  hinlegen (die halbe Coda-Zeile ans Ende, die nächste Zeile vor eine
+  schwere Blätterstelle) — und eine Seite aufschneiden, alles darunter
+  hinunterschieben und in der Lücke Notizen oder eine Zeile Noten
+  unterbringen. Neues Werkzeug **Schere** in der Palette; Tipp aufs aktive
+  Werkzeug wählt **Sticker** oder **Schnitt**. Regeln in
+  `src/domain/schnitte.ts` (getestet).
+  - **Sticker:** Rahmen um die Takte ziehen — der Ausschnitt liegt als
+    Sticker etwas versetzt darüber und ist gewählt: ziehen verschiebt, der
+    Griff an der Ecke ändert die Größe, die Leiste darüber legt ihn auf die
+    vorige/nächste Seite (die App blättert mit) oder löscht ihn. Gespeichert
+    wird nur die Quelle (Seite, Rechteck) und die Lage; das Bild entsteht
+    beim Öffnen frisch aus dem PDF samt Markierungen und Anmerkungen der
+    Quelle. Beim Lesen ein feiner Rand, bei offener Palette gestrichelt.
+  - **Schnitt:** Antippen und nach unten ziehen — die Seite teilt sich in
+    dieser Höhe, alles darunter rückt um den Abstand hinunter, dazwischen
+    ist Papier. In der Lücke ziehen ändert den Abstand, auf unter 1,5 %
+    ziehen oder das × am Rand entfernt den Schnitt samt dem, was in der
+    Lücke stand. Das Blatt wird um die Lücken länger, der Ausschnitt gilt
+    weiter. Schnitte wirken auf einzeln gezeigten ganzen Seiten (auch im
+    Stellen-Modus); Halb, Linie und Doppelseite zeigen die Seite original.
+  - **Entscheidung (Marlon):** Keine Umrechnung der Anmerkungen. Alles
+    bleibt in den Koordinaten der ursprünglichen Seite; gerechnet wird nur
+    ein Versatz je Teilstück — beim Zeichnen (jedes Teilstück kennt seine
+    Lage auf dem Blatt) und beim Tippen (Blatt-Punkt → Teilstück → Seite).
+    Was in einer Lücke steht, gehört zum Schnitt (`luecke` = seine id, y ab
+    Oberkante der Lücke, sonst dieselben Einheiten) und geht mit ihm.
+  - **Daten:** zwei neue Anmerkungsarten je Seite — `schnitt` (`y`,
+    `abstand` in Seitenhöhen) und `sticker` (`von {seite, x, y, b, h}`, `x`,
+    `y`, `b`) — sowie das optionale Feld `luecke` an Stift, Marker, Text.
+    Reisen mit der Sicherung, Rückgängig/Wiederholen wie gewohnt, der
+    Radierer nimmt Schnitte und Sticker nicht weg. Kein Schema-Sprung.
+    Ältere App-Stände kennen die Arten nicht — erst nach dem Update laden.
+  - **Offen:** Der scharfe Ausschnitt beim Zoomen (E-06) gilt für einzelne
+    Seiten ohne Schnitte; mit Schnitten und auf der Doppelseite bleibt es
+    beim Zoomen bei der Schärfe des ganzen Blatts.
+- **B-13 (Ergänzung) · Anmerken und Zoomen auf der Doppelseite**
+  (2026-10-23): Wunsch Marlon: Die Palette ließ die Doppelseite nicht mehr
+  zu, und Zoomen ging dort nicht. Jetzt bleibt die Doppelseite bei offener
+  Palette; Stift, Marker, Text, Radierer, Stelle und Schere gehen direkt
+  auf beiden Seiten (jeder Strich gehört der Seite, auf der er beginnt), und
+  Zoomen geht mit „Immer zoomen“ oder offener Palette auch hier.
+
 - **B-13 · Zwei Seiten nebeneinander** (2026-10-23): Wunsch Marlon. Ansicht →
   „Zwei Seiten“ (je Gerät, `ueben:zwei-seiten`): Im Querformat stehen die
   Seiten paarweise nebeneinander (1–2, 3–4 …, eine übrige letzte allein),
@@ -250,7 +294,7 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
   Seite zeigt). Kopf „Seiten 1–2 von 4“. Hochkant, beim Anmerken (offene
   Palette), im Stellen-Modus und beim Blättern-Einstellen zeigt der
   Betrachter weiter eine Seite; Halb und Linie gelten in der Doppelseite
-  nicht. Neue Ansicht-Art `doppel` in `src/domain/notenpult.ts`, Sprünge in
+  nicht. *(Seit der Ergänzung unten auch zum Anmerken und Zoomen.)* Neue Ansicht-Art `doppel` in `src/domain/notenpult.ts`, Sprünge in
   `spruenge.ts`, Geometrie `doppelDarstellung` in `ausschnitt.ts` (alles
   getestet). Kein Schema-Sprung.
 - **B-14 · Ansicht-Menü aufgeräumt** (2026-10-23): Wunsch Marlon: „Seite für
