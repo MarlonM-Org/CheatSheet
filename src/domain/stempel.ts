@@ -24,13 +24,15 @@ export interface StempelBild {
   schrift?: number;
 }
 
-const dyn = (text: string, name: string): StempelBild => ({ name, groesse: 0.03, text, schrift: 15 });
-const finger = (n: number): StempelBild => ({ name: `Fingersatz ${n}`, groesse: 0.016, text: String(n), schrift: 17 });
+// Maß: Ein Notensystem (fünf Linien) ist in gedruckten Stimmen rund 4 % der
+// Seitenbreite hoch; das Segno geht anderthalb Systemhöhen, Dynamik etwa eine.
+const dyn = (text: string, name: string): StempelBild => ({ name, groesse: 0.05, text, schrift: 15 });
+const finger = (n: number): StempelBild => ({ name: `Fingersatz ${n}`, groesse: 0.028, text: String(n), schrift: 17 });
 
 export const STEMPEL: Record<StempelZeichen, StempelBild> = {
   // Segno: hohes, schlankes S mit Schrägstrich und zwei Punkten.
   segno: {
-    name: 'Segno', groesse: 0.034,
+    name: 'Segno', groesse: 0.062,
     pfade: [
       { d: 'M16.4 5.3C15.6 3.4 13.5 2.6 11.7 3.2 9.7 3.9 8.7 5.9 9.4 7.8c.7 1.9 2.7 2.6 4.2 3.6 1.5 1 3.3 2.2 3.5 4.3.2 2.2-1.3 4-3.4 4.4-2 .4-4.3-.5-5-2.4' },
       { d: 'M6 22.5 18 1.5' },
@@ -39,15 +41,15 @@ export const STEMPEL: Record<StempelZeichen, StempelBild> = {
     ],
   },
   coda: {
-    name: 'Coda', groesse: 0.03,
+    name: 'Coda', groesse: 0.052,
     pfade: [
       { d: 'M12 5.5C14.9 5.5 17.2 8.4 17.2 12S14.9 18.5 12 18.5 6.8 15.6 6.8 12 9.1 5.5 12 5.5z' },
       { d: 'M12 2v20M2 12h20' },
     ],
   },
-  fermate: { name: 'Fermate', groesse: 0.03, pfade: [{ d: 'M3 16a9 9 0 0 1 18 0' }, { d: 'M12 14.2a1.7 1.7 0 1 0 .01 0z', voll: true }] },
-  atem: { name: 'Atemzeichen', groesse: 0.014, pfade: [{ d: 'M10.5 4c3.8 0 5.2 2.8 3.6 6.4L9.5 20' }] },
-  zaesur: { name: 'Zäsur', groesse: 0.022, pfade: [{ d: 'M7 20 13 4M14 20 20 4' }] },
+  fermate: { name: 'Fermate', groesse: 0.05, pfade: [{ d: 'M3 16a9 9 0 0 1 18 0' }, { d: 'M12 14.2a1.7 1.7 0 1 0 .01 0z', voll: true }] },
+  atem: { name: 'Atemzeichen', groesse: 0.026, pfade: [{ d: 'M10.5 4c3.8 0 5.2 2.8 3.6 6.4L9.5 20' }] },
+  zaesur: { name: 'Zäsur', groesse: 0.04, pfade: [{ d: 'M7 20 13 4M14 20 20 4' }] },
   pp: dyn('pp', 'Pianissimo'), p: dyn('p', 'Piano'), mp: dyn('mp', 'Mezzopiano'),
   mf: dyn('mf', 'Mezzoforte'), f: dyn('f', 'Forte'), ff: dyn('ff', 'Fortissimo'),
   f1: finger(1), f2: finger(2), f3: finger(3), f4: finger(4), f5: finger(5),
@@ -58,9 +60,14 @@ export const istStempelZeichen = (z: unknown): z is StempelZeichen => typeof z =
 // Welcher Stempel beim Sprung an die Einstiegsstelle kommt.
 export const SPRUNG_STEMPEL: Partial<Record<SprungArt, StempelZeichen>> = { ds: 'segno', coda: 'coda' };
 
+// Größe wählbar (je Gerät gemerkt): Faktor auf die Grundgröße des Zeichens.
+export const STEMPEL_FAKTOREN = [{ name: 'Klein', wert: 0.7 }, { name: 'Mittel', wert: 1 }, { name: 'Groß', wert: 1.4 }] as const;
+export const STEMPEL_FAKTOR = 'ueben:stempel-groesse';
+export const faktorPruefen = (v: unknown): number => (STEMPEL_FAKTOREN.some((f) => f.wert === v) ? (v as number) : 1);
+
 export type Stempel = Extract<Anmerkung, { art: 'stempel' }>;
-export function stempelAnlegen(id: string, zeichen: StempelZeichen, x: number, y: number, farbe: string, luecke: string | null = null): Stempel {
-  const st: Stempel = { id, art: 'stempel', zeichen, x, y, groesse: STEMPEL[zeichen].groesse, farbe };
+export function stempelAnlegen(id: string, zeichen: StempelZeichen, x: number, y: number, farbe: string, luecke: string | null = null, faktor = 1): Stempel {
+  const st: Stempel = { id, art: 'stempel', zeichen, x, y, groesse: STEMPEL[zeichen].groesse * faktor, farbe };
   if (luecke) st.luecke = luecke;
   return st;
 }

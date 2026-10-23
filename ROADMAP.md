@@ -246,7 +246,11 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
   Tipp aufs aktive Werkzeug öffnet das Raster — Segno, Coda, Fermate,
   Atemzeichen, Zäsur, pp bis ff, Fingersätze 1–5; Antippen setzt das Zeichen
   mit der Mitte auf die Stelle, in Stiftfarbe, auch in Lücken. Der Radierer
-  nimmt einen Stempel ganz weg; Rückgängig wie gewohnt. Das Segno ist jetzt
+  nimmt einen Stempel ganz weg; Rückgängig wie gewohnt. Größen nach dem
+  Druckbild (Notensystem ≈ 4 % der Seitenbreite: Segno 6,2 %, Coda 5,2 %,
+  Dynamik 5 %, Fingersatz 2,8 %), dazu im Raster **Klein / Mittel / Groß**
+  (×0,7 / ×1 / ×1,4, je Gerät `ueben:stempel-groesse`) — Rückmeldung Marlon,
+  die ersten waren viel zu klein. Das Segno ist jetzt
   hoch und schlank (S mit Schrägstrich und zwei Punkten), Sprungzeichen und
   Stempel teilen sich die Pfade (`src/domain/stempel.ts`, getestet).
   **Sprünge:** Die Marke auf der Seite zeigt nur noch das Symbol (ohne

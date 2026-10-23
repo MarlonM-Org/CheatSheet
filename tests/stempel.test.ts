@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getroffen, radierZug, type Anmerkung } from '@/domain/notenpult';
-import { istStempelZeichen, SPRUNG_STEMPEL, STEMPEL, STEMPEL_REIHE, stempelAnlegen, stempelKasten } from '@/domain/stempel';
+import { faktorPruefen, istStempelZeichen, SPRUNG_STEMPEL, STEMPEL, STEMPEL_REIHE, stempelAnlegen, stempelKasten } from '@/domain/stempel';
 
 describe('Stempel (E-04)', () => {
   it('jedes Zeichen hat Bild oder Text und eine Größe, die Reihe ist vollständig', () => {
@@ -22,6 +22,10 @@ describe('Stempel (E-04)', () => {
     const s = stempelAnlegen('a', 'segno', 0.3, 0.4, '#1b1b1b');
     expect(s).toEqual({ id: 'a', art: 'stempel', zeichen: 'segno', x: 0.3, y: 0.4, groesse: STEMPEL.segno.groesse, farbe: '#1b1b1b' });
     expect(stempelAnlegen('b', 'f', 0.1, 0.1, '#000', 'L').luecke).toBe('L');
+    expect(stempelAnlegen('c', 'segno', 0.1, 0.1, '#000', null, 1.4).groesse).toBeCloseTo(STEMPEL.segno.groesse * 1.4);
+    expect(faktorPruefen(0.7)).toBe(0.7); expect(faktorPruefen(2)).toBe(1); expect(faktorPruefen('1')).toBe(1);
+    // Segno etwa anderthalb Systemhöhen (System ≈ 4 % der Seitenbreite)
+    expect(STEMPEL.segno.groesse).toBeGreaterThan(0.05);
     const k = stempelKasten(s, 2);
     expect(k.b).toBe(s.groesse); expect(k.h).toBeCloseTo(s.groesse / 2); expect(k.x + k.b / 2).toBeCloseTo(0.3);
   });

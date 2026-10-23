@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import { hexVon, istHell, rgbAus } from '@/domain/farbe';
 import { DICKEN, eigeneFarbe, FARBEN, RADIERER_BREITEN, type Pipetten, type StiftEinstellung, type ZeichenWerkzeug } from '@/domain/stift';
-import { STEMPEL, STEMPEL_REIHE, type StempelZeichen } from '@/domain/stempel';
+import { STEMPEL, STEMPEL_FAKTOREN, STEMPEL_REIHE, type StempelZeichen } from '@/domain/stempel';
 import { Farbwaehler } from './Farbwaehler';
 import { StempelBild } from './SprungZeichen';
 import { useSchiebbar } from './schiebbar';
@@ -180,7 +180,7 @@ function PipettenBild() {
 export function StiftPalette({
   werkzeug, wechseln, einst, einstellen, radierBreite, radiererEinstellen,
   pipetten, farbeAufnehmen, setFarbeAufnehmen, fingerZeichnen, setFingerZeichnen,
-  rueckgaengig, wiederholen, kannRueck, kannWieder, schereModus, schereEinstellen, stempel, stempelEinstellen,
+  rueckgaengig, wiederholen, kannRueck, kannWieder, schereModus, schereEinstellen, stempel, stempelEinstellen, stempelFaktor, stempelFaktorEinstellen,
 }: {
   werkzeug: Werkzeug | null;
   wechseln: (w: Werkzeug | null) => void;
@@ -192,6 +192,7 @@ export function StiftPalette({
   rueckgaengig: () => void; wiederholen: () => void;
   schereModus: SchereModus; schereEinstellen: (m: SchereModus) => void;
   stempel: StempelZeichen; stempelEinstellen: (z: StempelZeichen) => void;
+  stempelFaktor: number; stempelFaktorEinstellen: (f: number) => void;
   kannRueck: boolean; kannWieder: boolean;
 }) {
   const { panel, lage, ebene, anfassen, bewegen, loslassen } = useSchiebbar('ueben:lage-stift');
@@ -278,6 +279,11 @@ export function StiftPalette({
                 onClick={() => { stempelEinstellen(z); setBlase(null); }}>
                 <StempelBild zeichen={z} />
               </button>
+            ))}
+          </div>
+          <div className="segment !mx-0 mt-2" role="group" aria-label="Größe der Stempel">
+            {STEMPEL_FAKTOREN.map((f) => (
+              <button key={f.wert} type="button" aria-pressed={stempelFaktor === f.wert} onClick={() => stempelFaktorEinstellen(f.wert)}>{f.name}</button>
             ))}
           </div>
           <p className="palette-hinweis">Antippen setzt den Stempel mit der Mitte auf die Stelle. Der Radierer nimmt ihn ganz weg.</p>
