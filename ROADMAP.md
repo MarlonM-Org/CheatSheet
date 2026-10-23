@@ -241,6 +241,19 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
 
 *(Abgeschlossene Punkte hierher verschieben, mit Datum und Commit.)*
 
+- **B-12 · Bibliothek immer in voller Höhe, Erinnerung abschaltbar**
+  (2026-10-23): Wunsch Marlon: Die Höhe der Bibliothek hing davon ab, wie
+  viele Stücke es gab. Jetzt setzt sie immer ganz oben an (Kopf „Bibliothek“
+  mit Zahnrad und Schließen), die Liste rollt, darunter bleibt Papier. Die
+  Erinnerung „Letzte Sicherung vor n Tagen“ lässt sich mit „ausblenden“ an
+  der Meldung oder in Einstellungen → Daten übertragen („In der Bibliothek
+  erinnern“) abschalten (je Gerät, `ueben:sicherung-erinnern`). Zur Frage,
+  ob Sicherungen wichtig sind: Die Daten liegen nur im Browser-Speicher
+  dieses Geräts (IndexedDB, localStorage) — sie werden nicht automatisch
+  woanders gespeichert. Löscht man Website-Daten, wechselt das Gerät oder
+  räumt iOS bei Speichermangel auf, sind sie weg. Die Sicherung ist die
+  einzige Kopie außerhalb des Browsers; darum erinnert die App.
+
 - **D-05 · Taktart mit Zähler und Nenner** (2026-10-23): Wunsch Marlon: 3/4,
   6/8, 12/8 statt nur „Schläge je Takt“, und ohne System-Auswahlfeld. Im
   großen Metronom steht die Taktart als Bruch wie in den Noten (Zähler über

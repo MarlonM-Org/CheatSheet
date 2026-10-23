@@ -15,6 +15,7 @@ import { zuletztAus } from '@/domain/speicher';
 import {
   alleStellen, alleStuecke, dateiGroessen, DateiNichtLesbar, letzteSicherung, loeschVorschau, sammlungenSetzen, stueckAendern, stueckAnlegen,
   stueckeLoeschen, tagsLaden, tagsSetzen, vorgaengerDa, zuletztListe, type Stelle, type Stueck,
+  SICHERUNG_ERINNERN,
 } from './lokal';
 import { HinzufuegenMenue, SammlungenLeiste, SammlungKopf, SammlungWahl } from './Sammlungen';
 import { useSicherungLaden } from './Sicherung';
@@ -164,6 +165,9 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
   const [fortschritt, setFortschritt] = useState('');
   // Erinnerung an die Sicherung (H-01)
   const [erinnerung, setErinnerung] = useState<{ faellig: boolean; tage: number | null } | null>(null);
+  // Abschaltbar in den Einstellungen (je Gerät); „ausblenden“ hier tut dasselbe.
+  const [erinnern, setErinnern] = useState(() => gespeichert(SICHERUNG_ERINNERN, true));
+  const erinnerungAus = () => { setErinnern(false); speichern(SICHERUNG_ERINNERN, false); };
   const laden = useCallback(() => {
     Promise.all([alleStuecke(), alleStellen()]).then(([l, st]) => {
       setZuletzt(zuletztListe()); setNoten(l); setStellen(st); setTags(tagsLaden());
@@ -369,11 +373,14 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
       {sicherung.fehler && <p className="karte warnung" role="alert">{sicherung.fehler}</p>}
       {sicherung.eingabe}
 
-      {erinnerung?.faellig && (
-        <button type="button" className="sicherung-erinnerung" onClick={einstellungen}>
-          <span>{erinnerung.tage === null ? 'Noch keine Sicherung gemacht' : `Letzte Sicherung vor ${erinnerung.tage} Tagen`} — seitdem hat sich etwas geändert.</span>
-          <strong>Sichern ›</strong>
-        </button>
+      {erinnerung?.faellig && erinnern && (
+        <div className="sicherung-erinnerung">
+          <button type="button" className="sicherung-erinnerung-text" onClick={einstellungen}>
+            <span>{erinnerung.tage === null ? 'Noch keine Sicherung gemacht' : `Letzte Sicherung vor ${erinnerung.tage} Tagen`} — seitdem hat sich etwas geändert.</span>
+            <strong>Sichern ›</strong>
+          </button>
+          <button type="button" className="text-knopf gedaempft text-xs underline" onClick={erinnerungAus} title="Nicht mehr erinnern (in den Einstellungen wieder einschaltbar)">ausblenden</button>
+        </div>
       )}
 
       {!!noten?.length && <SammlungenLeiste uebersicht={uebersicht} aktiv={aktiv} waehlen={sammlungWaehlen} />}

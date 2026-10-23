@@ -423,13 +423,14 @@ input.metro-zahl { width: 3ch; background: none; }
 }
 
 /* Bibliothek: Overlay über den Noten, flach angedockt */
+/* Immer die ganze Höhe (B-12): Kopf oben, die Liste rollt, darunter bleibt
+   Papier — egal, wie viele Stücke es gibt. */
 .bibliothek {
-  position: fixed; left: 0; right: 0; z-index: 45;
+  position: fixed; left: 0; right: 0; z-index: 45; top: 0;
   bottom: calc(var(--leiste-hoehe) + env(safe-area-inset-bottom, 0px));
+  padding-top: env(safe-area-inset-top, 0px);
   display: flex; flex-direction: column;
-  background: var(--papier); border-top: 1px solid var(--linie); box-shadow: var(--panel-schatten);
-  max-height: calc(100vh - var(--leiste-hoehe) - env(safe-area-inset-bottom, 0px) - env(safe-area-inset-top, 0px) - 64px);
-  max-height: calc(100dvh - var(--leiste-hoehe) - env(safe-area-inset-bottom, 0px) - env(safe-area-inset-top, 0px) - 64px);
+  background: var(--papier); box-shadow: var(--panel-schatten);
 }
 .bib-inhalt { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0.9rem 14px; }
 .bib-fuss { padding: 10px 14px; border-top: 1px solid var(--linie); font-size: 11px; line-height: 1.45; color: var(--leise); }
@@ -961,10 +962,11 @@ small .stern { display: inline-block; width: 0.95em; height: 0.95em; vertical-al
 
 /* Erinnerung an die Sicherung (H-01) */
 .sicherung-erinnerung {
-  display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px;
+  display: flex; width: 100%; align-items: center; gap: 10px; padding: 8px 12px;
   border: 1px solid var(--messing); border-radius: 6px; background: var(--messing-hell);
   font-size: 0.8rem; text-align: left; color: var(--tinte);
 }
+.sicherung-erinnerung-text { flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 10px; text-align: left; color: inherit; }
 .sicherung-erinnerung strong { flex: none; color: var(--messing); }
 
 /* ── Tags (F-14) ── Farben aus der geprüften Diagramm-Palette; für dunkle
