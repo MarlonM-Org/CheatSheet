@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { begrenzen, einrasten, OHNE_ZOOM, sichtbarerTeil, ZOOM_MAX, zoomenUm, zweiFinger } from '@/domain/zoom';
+import { anBreite, begrenzen, einrasten, istDoppeltipp, OHNE_ZOOM, sichtbarerTeil, ZOOM_MAX, zoomenUm, zweiFinger } from '@/domain/zoom';
 
 const rahmen = { b: 600, h: 800 };
 
@@ -54,5 +54,43 @@ describe('Sichtbarer Teil der Seite', () => {
     // Rahmen zeigt die rechte Hälfte der Seite: Blatt doppelt so breit, nach links verschoben.
     const t = sichtbarerTeil(OHNE_ZOOM, { b: 1000, h: 900 }, rahmen, { b: 1200, h: 800, x: -600, y: 0 })!;
     expect(t.x).toBeCloseTo(0.5); expect(t.b).toBeCloseTo(0.5);
+  });
+});
+
+describe('Doppeltipp: an die Breite', () => {
+  // Querformat: Platz 1000 × 700, hochformatige Seite füllt die Höhe: Rahmen 490 × 692.
+  const platz = { b: 1000, h: 700 }, r = { b: 490, h: 692 };
+  const blatt = { b: 490, h: 692, x: 0, y: 0 };
+  it('zieht die Seite auf die Platzbreite, Oberkante oben', () => {
+    const z = anBreite(platz, r, blatt);
+    expect(z.z).toBeCloseTo(1000 / 490);
+    expect(z.x).toBe(0);
+    // Gezoomte Rahmenhöhe 1412 > 700: Oberkante des Rahmens an die Oberkante des Platzes.
+    expect(z.y).toBeCloseTo((692 * z.z - 700) / 2);
+  });
+  it('legt die Mitte einer Stelle in die Bildschirmmitte', () => {
+    const z = anBreite(platz, r, blatt, 0.25);
+    // Punkt bei 25 % der Seite (173 px) soll in der Mitte liegen: Verschiebung = (346 − 173) · z nach unten.
+    expect(z.y).toBeCloseTo((692 / 2 - 0.25 * 692) * z.z);
+    expect(anBreite(platz, r, blatt, 0.5).y).toBeCloseTo(0);
+  });
+  it('bleibt in den Grenzen des Verschiebens', () => {
+    const z = anBreite(platz, r, blatt, 0);
+    expect(z.y).toBeLessThanOrEqual((r.h * z.z) / 2);
+  });
+  it('Hochformat: die Seite füllt die Breite schon — kein Zoom', () => {
+    expect(anBreite({ b: 600, h: 1000 }, { b: 592, h: 837 }, { b: 592, h: 837, x: 0, y: 0 })).toEqual(OHNE_ZOOM);
+  });
+  it('mit Ausschnitt rechnet die Seitenlage im Rahmen mit', () => {
+    // Ausschnitt zeigt die untere Hälfte: das Blatt ragt oben aus dem Rahmen (y negativ).
+    const z = anBreite(platz, { b: 490, h: 346 }, { b: 490, h: 692, x: 0, y: -346 }, 0.75);
+    // 75 % der Seite liegt genau in der Rahmenmitte → keine Verschiebung.
+    expect(z.y).toBeCloseTo(0);
+  });
+  it('erkennt zwei Tipps kurz nacheinander nahe beieinander', () => {
+    expect(istDoppeltipp(null, { x: 0, y: 0, t: 1000 })).toBe(false);
+    expect(istDoppeltipp({ x: 0, y: 0, t: 1000 }, { x: 10, y: 5, t: 1300 })).toBe(true);
+    expect(istDoppeltipp({ x: 0, y: 0, t: 1000 }, { x: 10, y: 5, t: 1400 })).toBe(false);
+    expect(istDoppeltipp({ x: 0, y: 0, t: 1000 }, { x: 80, y: 5, t: 1200 })).toBe(false);
   });
 });

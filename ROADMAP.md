@@ -276,6 +276,20 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
 
 *(Abgeschlossene Punkte hierher verschieben, mit Datum und Commit.)*
 
+- **B-15 · Doppeltipp in die Mitte: spielbereit** (2026-10-23): Wunsch
+  Marlon. Ein Tipp in die Mitte blendet wie bisher die Leisten oben und
+  unten aus und ein; ein **Doppeltipp** (zwei Tipps binnen 350 ms, nah
+  beieinander) blendet die Leisten aus **und** stellt den Zoom: eine
+  einzelne Seite wird auf die **Bildschirmbreite** gezogen (Oberkante oben,
+  im Querformat also der obere Notenausschnitt, dann schieben), im
+  Stellen-Modus liegt die **Mitte der Stelle** in der Bildschirmmitte; auf
+  der **Doppelseite** geht der Zoom zurück auf ganz. Metronom- und
+  Stimmgerät-Widgets bleiben. Im Hochformat füllt die Seite die Breite
+  schon — dann nur Leisten weg. Danach sind Schieben und Zwei-Finger-Zoom
+  auf dieser Seite erlaubt, auch ohne „Immer zoomen“; mit der nächsten
+  Seite ist es vorbei. Regeln `anBreite` und `istDoppeltipp` in
+  `src/domain/zoom.ts`, getestet; im Browser (Querformat, Touch)
+  durchgespielt.
 - **F-08 · Kontext-Blatt: ein Menü für alles, was ein Ding kann**
   (2026-10-23): Bestandsaufnahme (Vorschlag mit Mockups, von Marlon
   angenommen): Die Aktionen zu einem Stück lagen an drei Orten mit drei

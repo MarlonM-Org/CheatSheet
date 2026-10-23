@@ -26,7 +26,7 @@ import {
 } from '@/domain/schnitte';
 import { mitRand, rechteckAus, type Rechteck } from '@/domain/ueben';
 import {
-  begrenzen, einrasten, OHNE_ZOOM, sichtbarerTeil, ZOOM_IMMER, ZOOM_MAX, zoomenUm, zweiFinger, type Punkt, type Zoom,
+  anBreite, begrenzen, einrasten, istDoppeltipp, OHNE_ZOOM, sichtbarerTeil, ZOOM_IMMER, ZOOM_MAX, zoomenUm, zweiFinger, type Punkt, type Tipp, type Zoom,
 } from '@/domain/zoom';
 import { AusschnittRahmen } from './Ausschnitt';
 import { gespeichert as gespeicherterWert, speichern, useEinstellungenGeladen } from './klang';
@@ -460,12 +460,32 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
   const [zoomImmer, setZoomImmer] = useState(() => gespeicherterWert(ZOOM_IMMER, false));
   useEinstellungenGeladen(useCallback(() => setZoomImmer(gespeicherterWert(ZOOM_IMMER, false)), []));
   const zoomImmerSetzen = (an: boolean) => { setZoomImmer(an); speichern(ZOOM_IMMER, an); };
-  const zoomSchluessel = (paletteOffen || zoomImmer) && zeichenbar && bearbeitenSeite === null && rahmen
-    ? `${stelle?.seite ?? hauptseite(ansicht)}:${stelle?.id ?? ''}:${rahmen.b}x${rahmen.h}` : null;
+  // Doppeltipp in die Mitte: Seite an die Bildschirmbreite (anBreite) — dann
+  // ist Zoomen und Schieben auf dieser Seite erlaubt, auch ohne „Immer
+  // zoomen“; mit der nächsten Seite (anderer Schlüssel) ist es vorbei.
+  // breitenZoom merkt sich Ziel und Schlüssel, für den es gilt.
+  const seitenSchluessel = `${stelle?.seite ?? hauptseite(ansicht)}:${stelle?.id ?? ''}:${rahmen?.b ?? 0}x${rahmen?.h ?? 0}`;
+  const [breitenZoom, setBreitenZoom] = useState<{ schluessel: string; ziel: Zoom } | null>(null);
+  const breiteGilt = breitenZoom !== null && breitenZoom.schluessel === seitenSchluessel;
+  const zoomSchluessel = (paletteOffen || zoomImmer || breiteGilt) && zeichenbar && bearbeitenSeite === null && rahmen ? seitenSchluessel : null;
   const zoomAktiv = zoomSchluessel !== null;
   const [zoom, setZoom] = useState<Zoom>(OHNE_ZOOM);
   const [zoomFuer, setZoomFuer] = useState(zoomSchluessel);
-  if (zoomSchluessel !== zoomFuer) { setZoomFuer(zoomSchluessel); setZoom(OHNE_ZOOM); }
+  if (zoomSchluessel !== zoomFuer) {
+    setZoomFuer(zoomSchluessel);
+    setZoom(breiteGilt && zoomSchluessel ? breitenZoom.ziel : OHNE_ZOOM);
+    if (breitenZoom && !breiteGilt) setBreitenZoom(null);
+  }
+  // Doppeltipp: Leisten weg; einzelne Seite an die Breite (Stelle in die
+  // Mitte), Doppelseite zurück auf ganz.
+  const letzterTipp = useRef<Tipp | null>(null);
+  const doppeltipp = () => {
+    setLeisteWeg(true); setAnsichtOffen(false);
+    if (!darst || bearbeitenSeite !== null || !zeichenbar) return;
+    if (ansicht.art === 'doppel' && !stelle) { setBreitenZoom(null); setZoom(OHNE_ZOOM); return; }
+    const ziel = anBreite(platz, darst.rahmen, darst.blatt, stelle ? stelle.y + stelle.h / 2 : null);
+    setBreitenZoom({ schluessel: seitenSchluessel, ziel }); setZoom(ziel);
+  };
   // Während einer Geste läuft der Zoom an React vorbei (flüssig); festgelegt
   // wird er am Ende (zoom), dann folgt der scharfe Ausschnitt.
   const zoomLive = useRef<Zoom>(OHNE_ZOOM);
@@ -1057,7 +1077,10 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
       const sprungHier = z.marke && modus === 'lesen' ? spruenge.find((s) => s.id === z.marke) : undefined;
       if (sprungHier) { springen(sprungHier); return; }
       const b = window.innerWidth, x = e.clientX;
-      if (x < b * 0.3) zurueck(); else if (x > b * 0.7) weiter(); else { setAnsichtOffen(false); setLeisteWeg(leiste); }
+      if (x < b * 0.3) zurueck(); else if (x > b * 0.7) weiter(); else {
+        const tipp: Tipp = { x: e.clientX, y: e.clientY, t: e.timeStamp };
+        if (istDoppeltipp(letzterTipp.current, tipp)) { letzterTipp.current = null; doppeltipp(); } else { letzterTipp.current = tipp; setAnsichtOffen(false); setLeisteWeg(leiste); }
+      }
       return;
     }
     const seite = z.seite!;
