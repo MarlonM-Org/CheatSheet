@@ -287,9 +287,12 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
   Stimmgerät-Widgets bleiben. Im Hochformat füllt die Seite die Breite
   schon — dann nur Leisten weg. Danach sind Schieben und Zwei-Finger-Zoom
   auf dieser Seite erlaubt, auch ohne „Immer zoomen“; mit der nächsten
-  Seite ist es vorbei. Regeln `anBreite` und `istDoppeltipp` in
-  `src/domain/zoom.ts`, getestet; im Browser (Querformat, Touch)
-  durchgespielt.
+  Seite ist es vorbei. **Noch ein Doppeltipp** führt zurück zur ganzen
+  Seite (Rückmeldung Marlon: nach dem Doppeltipp kam er auf dem iPad nicht
+  mehr heraus) — der sichere Weg ohne Zwei-Finger-Geste; Erkennung mit
+  450 ms und 60 px, eigene Uhr statt `e.timeStamp`. Regeln `anBreite` und
+  `istDoppeltipp` in `src/domain/zoom.ts`, getestet; im Browser (Querformat,
+  Touch, Maus) durchgespielt.
 - **F-08 · Kontext-Blatt: ein Menü für alles, was ein Ding kann**
   (2026-10-23): Bestandsaufnahme (Vorschlag mit Mockups, von Marlon
   angenommen): Die Aktionen zu einem Stück lagen an drei Orten mit drei

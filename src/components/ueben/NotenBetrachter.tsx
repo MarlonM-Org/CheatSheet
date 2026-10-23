@@ -485,6 +485,9 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
     setLeisteWeg(true); setAnsichtOffen(false);
     if (!darst || bearbeitenSeite !== null || !zeichenbar) return;
     if (ansicht.art === 'doppel' && !stelle) { setBreitenZoom(null); setZoom(OHNE_ZOOM); return; }
+    // Schon gezoomt (auf Breite oder von Hand): der Doppeltipp führt zurück
+    // zur ganzen Seite — der sichere Weg heraus, auch ohne Zwei-Finger-Geste.
+    if (zoomLive.current.z > 1) { setBreitenZoom(null); setZoom(OHNE_ZOOM); return; }
     const ziel = anBreite(platz, darst.rahmen, darst.blatt, stelle ? stelle.y + stelle.h / 2 : null);
     setBreitenZoom({ schluessel: seitenSchluessel, ziel }); setZoom(ziel);
   };
