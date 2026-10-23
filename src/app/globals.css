@@ -550,7 +550,7 @@ details[open] > summary::before { transform: rotate(90deg); }
 .taktart-zeile { display: flex; align-items: center; gap: 0.55rem; }
 .taktart-zahl { min-width: 2.4ch; text-align: center; font-size: 2.1rem; font-weight: 800; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .taktart-strich { width: 3rem; height: 2px; border-radius: 1px; background: var(--tinte); }
-.taktart-wahl { display: grid; grid-template-columns: repeat(3, minmax(3.6rem, 1fr)); gap: 6px; }
+.taktart-wahl { display: grid; grid-template-columns: repeat(2, minmax(3.6rem, 1fr)); gap: 6px; }
 .taktart-chip {
   min-height: 2.5rem; padding: 0 0.6rem; border: 1px solid var(--linie-stark); border-radius: 5px; background: var(--papier);
   font-size: 0.9rem; font-weight: 600; color: var(--gedaempft); font-variant-numeric: tabular-nums;

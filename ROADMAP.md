@@ -241,6 +241,23 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
 
 *(Abgeschlossene Punkte hierher verschieben, mit Datum und Commit.)*
 
+- **E-13 · Schreiben ohne Hänger: Striche nachzeichnen statt Blatt neu
+  setzen** (2026-10-23): Rückmeldung Marlon, das Schreiben hakt nach dem
+  Absetzen. Analyse (gemessen mit einem Skript, das 60 kurze Striche in
+  Schreibgeschwindigkeit setzt, CPU sechsfach gedrosselt): kein
+  Netzproblem — nach jedem Strich wurde das ganze Blatt neu zusammengesetzt
+  (Seitenbild, Markierungs-Ebene, alle Anmerkungen, Sticker auf einer
+  Leinwand bis 11 Millionen Pixel; beim Zoomen zusätzlich der scharfe
+  Ausschnitt). Jetzt merkt sich der Betrachter, was die Leinwand zeigt, und
+  zeichnet einen neuen Strich oder Text nur nach (`nurAngehaengt`); Radieren,
+  Rückgängig, Schnitte und Sticker setzen weiter das ganze Blatt. Dafür
+  bleibt die Schnitt-Liste dasselbe Objekt, solange sie sich nicht ändert.
+  Messung: lange Frames (über 50 ms) von 9 auf 2, längster von 117 auf 67 ms;
+  Vollbilder von 60 auf 3. Weitere Hebel, falls nötig: Speichern in die
+  Datenbank bündeln, Leinwand-Obergrenze auf dem iPad senken.
+- **D-05 (Nachbesserung):** Schnellwahl der Taktart nur noch 4/4, 3/4, 6/8,
+  2/4 (Wunsch Marlon), alles andere über − / +.
+
 - **D-07 · Tempo je Schlag, nicht je Nenner-Note** (2026-10-23): Rückmeldung
   Marlon: 6/8 bei 120 müsste 360 Achtel in der Minute geben (zwei Schläge je
   Takt, drei Achtel je Schlag), die App klickte aber 120 Achtel. Jetzt gilt

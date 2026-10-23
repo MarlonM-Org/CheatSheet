@@ -19,7 +19,7 @@ describe('Taktart', () => {
     expect(zaehlerPruefen(2.5)).toBe(4);
   });
   it('Schnellwahl enthält die üblichen Taktarten', () => {
-    expect(TAKTARTEN.map(([z, n]) => taktartText(z, n))).toEqual(['2/4', '3/4', '4/4', '6/8', '9/8', '12/8']);
+    expect(TAKTARTEN.map(([z, n]) => taktartText(z, n))).toEqual(['4/4', '3/4', '6/8', '2/4']);
   });
   it('zusammengesetzt sind 6/8, 9/8, 12/8 — nicht 3/8, 6/4 oder 4/4', () => {
     expect(istZusammengesetzt(6, 8)).toBe(true);
