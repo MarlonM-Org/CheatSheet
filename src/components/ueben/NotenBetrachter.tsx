@@ -656,7 +656,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   // seite/luecke/lage: wo ein Strich begann — alle seine Punkte werden darüber umgerechnet.
   // schnitt/sticker (Schere, E-12): vorher = Stand der Seite vor dem Zug (für Rückgängig).
   const zug = useRef<{
-    art: 'zeichnen' | 'tippen' | 'schieben' | 'schnitt' | 'sticker'; punkte: number[]; x: number; y: number; t: number; id: number; start: Zoom; marke?: string | null;
+    art: 'zeichnen' | 'tippen' | 'schieben' | 'schnitt' | 'sticker'; punkte: number[]; x: number; y: number; t: number; id: number; start: Zoom; zeiger?: string; marke?: string | null;
     seite?: number; luecke?: string | null; lage?: SeitenLage; vorher?: Anmerkung[]; objektId?: string; abstand0?: number; jetzt?: Anmerkung[];
     sticker?: Sticker; griff?: 'bewegen' | 'groesse'; blattStart?: { x: number; y: number }; abstandJetzt?: number;
   } | null>(null);
@@ -874,7 +874,19 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     setRechteckEntwurf(null);
   }
 
+  // Stift-Vorrang (E-14): Solange der Stift schreibt — und kurz danach —
+  // zählen Berührungen nicht (Handballen beim Schreiben). Sonst überschrieb
+  // die Hand den laufenden Zug, der Strich ging verloren oder endete, sobald
+  // die Hand abhob.
+  const stiftZuletzt = useRef(0);
+  const STIFT_SCHONZEIT = 700;
+  function handballen(e: React.PointerEvent): boolean {
+    if (e.pointerType === 'pen') { stiftZuletzt.current = e.timeStamp; return false; }
+    if (e.pointerType !== 'touch') return false;
+    return zug.current?.zeiger === 'pen' || e.timeStamp - stiftZuletzt.current < STIFT_SCHONZEIT;
+  }
   function runter(e: React.PointerEvent) {
+    if (handballen(e)) return;
     if (textEingabe) { textSpeichern(); return; } // Tippen daneben übernimmt den Text
     if (neueStelle || bearbeiten) return;
     if (zoomAktiv && e.pointerType === 'touch') {
@@ -894,7 +906,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     if (o && werkzeug === 'schere') {
       e.preventDefault();
       e.currentTarget.setPointerCapture(e.pointerId);
-      const start = { x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId, start: zoomLive.current, seite: o.seite, lage: o.stueck.lage, vorher: anm[o.seite] ?? [] };
+      const start = { x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId, start: zoomLive.current, zeiger: e.pointerType, seite: o.seite, lage: o.stueck.lage, vorher: anm[o.seite] ?? [] };
       // Auf einen Sticker getippt: anfassen und verschieben.
       const getroffen = (anm[o.seite] ?? []).filter(istSticker).find((st) => (st.luecke ?? null) === o.luecke && stickerGetroffen(st, o.x, o.y));
       if (getroffen) {
@@ -914,7 +926,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     } else if (o && !(werkzeug === 'stelle' && o.luecke)) {
       e.preventDefault();
       e.currentTarget.setPointerCapture(e.pointerId);
-      zug.current = { art: 'zeichnen', punkte: [o.x, o.y], x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId, start: zoomLive.current, seite: o.seite, luecke: o.luecke, lage: o.stueck.lage };
+      zug.current = { art: 'zeichnen', punkte: [o.x, o.y], x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId, start: zoomLive.current, zeiger: e.pointerType, seite: o.seite, luecke: o.luecke, lage: o.stueck.lage };
       if (werkzeug === 'stift' || werkzeug === 'marker') liveVorbereiten();
       if (werkzeug === 'radierer') { kreisZeigen(e); radieren(o.seite, o.luecke, o.x, o.y); }
     } else {
@@ -925,7 +937,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       // Gezoomt schiebt der Finger das Blatt, statt zu blättern.
       const art = zoomAktiv && zoomLive.current.z > 1 ? 'schieben' : 'tippen';
       const marke = (e.target as Element).closest?.('[data-sprung]')?.getAttribute('data-sprung') ?? null;
-      zug.current = { art, punkte: [], x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId, start: zoomLive.current, marke };
+      zug.current = { art, punkte: [], x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId, start: zoomLive.current, zeiger: e.pointerType, marke };
     }
   }
   // Liegt der Punkt im sichtbaren Rahmen (beim Ausschnitt ragt das Blatt darüber hinaus)?
@@ -934,6 +946,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     return !!r && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
   };
   function bewegen(e: React.PointerEvent) {
+    if (handballen(e)) return;
     if (finger.current.has(e.pointerId)) {
       finger.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
       const g = zweiGriff.current;
@@ -972,6 +985,8 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       return;
     }
     const z = zug.current;
+    // Ein anderer Zeiger (Handballen neben dem Stift) beendet den Zug nicht.
+    if (z && e.pointerId !== z.id) return;
     zug.current = null;
     if (e.pointerType === 'touch') kreisZeigen(null);
     if (!z) return;
@@ -1138,7 +1153,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     e.stopPropagation(); e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
     const q = stueckFuer(seite, st.y, st.luecke ?? null);
-    zug.current = { art: 'sticker', punkte: [], x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId, start: zoomLive.current, seite, lage: q?.lage ?? GANZES_BLATT, vorher: anm[seite] ?? [], objektId: st.id, sticker: st, griff: 'groesse' };
+    zug.current = { art: 'sticker', punkte: [], x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId, start: zoomLive.current, zeiger: e.pointerType, seite, lage: q?.lage ?? GANZES_BLATT, vorher: anm[seite] ?? [], objektId: st.id, sticker: st, griff: 'groesse' };
     stickerVorschauStarten(seite, st);
   }
   function lueckeKnopf(e: React.MouseEvent<HTMLButtonElement>) {
