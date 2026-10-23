@@ -13,11 +13,11 @@ const speicher = (werte: Record<string, unknown>) => {
 
 describe('Welche Einstellungen mitreisen', () => {
   it('Person und Instrument reisen mit', () => {
-    for (const k of ['stimm:st', 'stimm:a', 'metro:klang', 'metro:laut', 'metro:takt', 'metro:akzente', 'metro:unter', 'metro:trainer',
+    for (const k of ['stimm:st', 'stimm:a', 'metro:klang', 'metro:laut', 'metro:takt', 'metro:nenner', 'metro:akzente', 'metro:unter', 'metro:trainer',
       'ueben:stift', 'ueben:marker', 'ueben:text', 'ueben:wisch-umkehren', 'ueben:zoom-immer', 'ueben:tonprofil-umfang']) {
       expect(istMitreisend(k), k).toBe(true);
     }
-    expect(MITREISEND).toHaveLength(14);
+    expect(MITREISEND).toHaveLength(15);
   });
   it('Gerät, Tempo und was eigene Felder hat, bleibt', () => {
     for (const k of ['ueben:modus', 'ueben:thema-hell', 'ueben:thema-dunkel', 'ueben:lage-metronom', 'metro:bpm', 'ueben:metronom-an',
@@ -70,6 +70,9 @@ describe('Prüfen der Werte', () => {
     expect(gilt('metro:takt', 12)).toBe(true);
     expect(gilt('metro:takt', 0)).toBe(false);
     expect(gilt('metro:takt', 3.5)).toBe(false);
+    expect(gilt('metro:nenner', 8)).toBe(true);
+    expect(gilt('metro:nenner', 3)).toBe(false);
+    expect(gilt('metro:nenner', '4')).toBe(false);
     expect(gilt('metro:unter', 4)).toBe(true);
     expect(gilt('metro:unter', 0)).toBe(false);
     expect(gilt('metro:akzente', ['betont', 'stumm', 'normal'])).toBe(true);

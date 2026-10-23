@@ -1061,9 +1061,12 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     const q = einpassen(p, ausschnitt);
     return { left: `${q.x * 100}%`, top: `${q.y * 100}%` };
   };
+  // Beim Öffnen steht wieder das zuletzt gewählte Werkzeug bereit (E-11) —
+  // solange die App läuft, über Stückwechsel hinweg.
+  useEffect(() => { if (werkzeug) werkzeugZuletzt = werkzeug; }, [werkzeug]);
   const paletteWechsel = (offen: boolean) => {
     setPaletteOffen(offen);
-    setWerkzeug(offen ? 'stift' : null);
+    setWerkzeug(offen ? werkzeugZuletzt : null);
     setFarbeAufnehmen(false);
     if (offen) setLinieEinstellen(false);
   };
@@ -1427,4 +1430,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
 }
 
 const BLAETTER_MODI = [['ganz', 'Ganz'], ['halb', 'Halb'], ['linie', 'Linie']] as const;
+// Zuletzt gewähltes Werkzeug der Palette (E-11): nur im Arbeitsspeicher, bis
+// die App neu lädt — dann wieder der Stift.
+let werkzeugZuletzt: Werkzeug = 'stift';
 const prozent = (r: Rechteck) => ({ left: `${r.x * 100}%`, top: `${r.y * 100}%`, width: `${r.b * 100}%`, height: `${r.h * 100}%` });

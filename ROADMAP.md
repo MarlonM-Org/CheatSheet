@@ -241,6 +241,30 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
 
 *(Abgeschlossene Punkte hierher verschieben, mit Datum und Commit.)*
 
+- **D-05 · Taktart mit Zähler und Nenner** (2026-10-23): Wunsch Marlon: 3/4,
+  6/8, 12/8 statt nur „Schläge je Takt“, und ohne System-Auswahlfeld. Im
+  großen Metronom steht die Taktart als Bruch wie in den Noten (Zähler über
+  Nenner, je − / +; Nenner 2, 4, 8, 16), daneben die Schnellwahl 2/4 · 3/4 ·
+  4/4 · 6/8 · 9/8 · 12/8. Das Tempo gilt je Nenner-Note („Andante · je
+  Achtel“), wie bei einem Metronom „♪ = 120“. Zusammengesetzte Takte (6/8,
+  9/8, 12/8) betonen jede Dreiergruppe; bei gleichem Nenner bleiben gesetzte
+  Akzente Schlag für Schlag. Das Widget zeigt „Takt 6/8“. Regeln in
+  `src/domain/takt.ts` (getestet). Daten: `metro:nenner` (reist mit der
+  Sicherung), `metro:takt` bleibt der Zähler.
+- **D-06 · Schmales Metronom-Widget, gleichmäßigere Größen** (2026-10-23):
+  Wunsch Marlon. Im Kopf des Widgets schaltet ⇥⇤ auf eine **schmale Säule**,
+  nur so breit wie der Start-Knopf: Start, Tempo (antippen zum Eingeben),
+  +10 % · +1 · −1 · −10 % übereinander, Taktart und Taktpunkte, „alles“; ohne
+  Regler. Angedockt sitzt sie rechts an der Leiste, frei geschoben wie
+  gehabt. Gemerkt je Gerät (`ueben:metronom-schmal`). In der breiten Ansicht
+  sind Start-Knopf und Tempozahl jetzt gleich groß (vorher war der Knopf
+  größer als die Zahl).
+- **E-11 · Palette merkt sich das Werkzeug** (2026-10-23): Wunsch Marlon.
+  Öffnet man die Stift-Palette wieder, steht das zuletzt gewählte Werkzeug
+  bereit (Marker, Stelle, Radierer, Text …) samt dessen Farbe und Dicke —
+  über Stückwechsel hinweg, solange die App läuft; nach einem Neustart
+  wieder der Stift.
+
 - **F-18 · Stelle löschen aus der Stellen-Leiste** (2026-10-23): Wunsch
   Marlon: eine Option, Stellen zu löschen. Bisher ging das nur im Stück-Blatt
   hinter „bearbeiten“. Jetzt steht **„Stelle löschen“** unten im Stellen-Blatt
