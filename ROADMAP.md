@@ -36,8 +36,8 @@ ob das ins Leitbild passt (dann auch CLAUDE.md anpassen: „kein Login“).
 | M2 | **Noten im Zentrum** | UI-Neuaufbau: Noten vollflächig, Werkzeuge als Overlays, drei Knöpfe unten | B-01…B-03 |
 | M3 | **Werkzeuge schärfen** | Stimmgerät- und Metronom-Verbesserungen, Stift-Ausbau | C-01…C-03, D-01, E-01…E-03 |
 | M4 | **Notenmanagement I** | Metadaten, Bookmarks, Flags, Kontextmenüs, Drag & Drop (Sammlungen F-13 erledigt) | F-01, F-03, F-04, F-08, F-09 |
-| M5 | **Üben & Setlisten** | Setlisten (Stellen-Mix F-11, Tonprofil C-04, Sprünge F-05, Halbseiten-Blättern F-06, Blättern je Seite F-16 und Favoriten im Mix F-17 schon erledigt) | F-02 |
-| M6 | **Design & Extras** | Themes, Stempel/Formen, Kamera-Scan | B-04, B-05, E-04, F-07 |
+| M5 | **Üben & Setlisten** | Setlisten (Stellen-Mix F-11, Tonprofil C-04, Sprünge F-05, Halbseiten-Blättern F-06, Blättern je Seite F-16 und Favoriten im Mix F-17 schon erledigt) — *zurückgestellt 2026-10-23: Marlon ordnet bisher über Dateinamen, Setlisten sind Zukunftsthema* | F-02 |
+| M6 | **Extras** | Stempel/Formen, Kamera-Scan und Foto-Import (Themes B-04 und Design B-05 erledigt) — *vorgezogen 2026-10-23, vor M4 und M5* | E-04, F-07 |
 | M7 | **Komponieren** (Vision) | Noteneingabe, Rhythmus-/Melodie-Transkription | G-01…G-03 |
 | M8 | **Geräteübergreifend** (Vision, Entscheidung offen) | Noten und Übe-Daten über die eigene Cloud auf mehreren Geräten | H-01…H-05 |
 
@@ -90,6 +90,17 @@ Später, nach E-01…E-03: Stempel (musikalische Symbole: Atemzeichen,
 Fingersätze, Dynamik), Formen (Bindebögen, Crescendo-Keile), Auswahl-Werkzeug
 (verschieben/löschen statt nur radieren), ggf. Anmerkungs-Ebenen.
 
+**Vorgezogen 2026-10-23 (Wunsch Marlon).** Bedienmuster: in der
+Stiftpalette ein Werkzeug „Stempel“ → Palette mit Symbolen (Atemzeichen,
+Fermate, Akzent, Staccato, Dynamik p/mp/mf/f/ff, Crescendo/Decrescendo-Keil,
+Fingersätze 1–5, Bogen, Wiederholungs- und Sprungzeichen, Pfeil, Haken) →
+antippen platziert das Symbol, ziehen verschiebt, Zwei-Finger skaliert;
+gewähltes Symbol hat Rahmen wie der Sticker (E-12), Löschen über den
+Rahmen. Farbe aus der Stiftpalette. Gespeichert als Anmerkung mit Art
+`stempel` (Symbol-Kennung, Lage, Größe, Farbe) — Regeln in `src/domain/`,
+Schema per Versionssprung mit Migrationstest. Dasselbe Muster soll später der
+Komponier-Editor (G-01) nutzen.
+
 ---
 
 ## F — Notenmanagement (forScore als Vorbild)
@@ -133,11 +144,51 @@ Speicher steht (A-02): `merker`, einer je Seite.
 
 *(F-05 Sprünge und F-06 Halbseiten-Umblättern am 2026-10-13 erledigt, siehe unten.)*
 
-### F-07 · Kamera-Scan
+### F-07 · Kamera-Scan und Foto-Import
 
 Papiernoten mit der Gerätekamera abfotografieren → zuschneiden/entzerren →
 als PDF in die Bibliothek. Im Browser machbar (getUserMedia + Canvas), aber
-aufwendig — bewusst spät in der Roadmap.
+aufwendig — ursprünglich bewusst spät in der Roadmap, **vorgezogen
+2026-10-23 (Wunsch Marlon)**.
+
+**Konkretisiert (2026-10-23):**
+
+- **Einstieg über „+ Noten“:** zwei weitere Punkte neben PDF und Ordner:
+  „Einscannen“ (Kamera) und „Fotos wählen“ (vorhandene Bilder aus der
+  Mediathek bzw. vom Rechner, JPEG/PNG/HEIC soweit der Browser sie
+  dekodiert). Sammlung/Tag gelten wie beim Import. Beides führt in
+  denselben Aufbereitungs-Ablauf.
+- **Kamera:** eine Seite nach der anderen aufnehmen, Vorschau mit
+  erkanntem Blattrand, Auslösen, nächste Seite — am Ende „Fertig“ → ein
+  Stück mit so vielen Seiten wie Aufnahmen. Auf iPad/iPhone über
+  `<input type="file" accept="image/*" capture="environment">`
+  (öffnet die Kamera direkt, kein eigener Kamera-Dialog nötig), am Rechner
+  `getUserMedia` als Fallback.
+- **Aufbereitung je Bild** (rein lokal, Canvas, ohne OpenCV-WASM — die
+  Schritte sind einzeln klein genug, Regeln in `src/domain/` getestet):
+  1. Blattrand finden (größtes helles Viereck), Ecken von Hand nachziehbar;
+  2. Entzerren (perspektivische Transformation auf ein Rechteck im
+     Seitenverhältnis A4/Letter, wählbar);
+  3. **Schatten und ungleichmäßiges Licht entfernen:** Hintergrund als stark
+     weichgezeichnetes Bild schätzen und das Original dadurch teilen
+     (Beleuchtungs-Ausgleich), danach Grauwert und sanfte Schwellwertkurve —
+     Papier wird weiß, Noten bleiben schwarz, Bleistift bleibt lesbar;
+  4. Optional Drehen (90°-Schritte, kleine Schieflage automatisch über
+     die Notenlinien);
+  5. Vorschau vorher/nachher, Stärke der Aufbereitung in drei Stufen
+     („Foto“, „Scan“, „Schwarz-Weiß“).
+- **PDF erzeugen:** aus den aufbereiteten Seiten eine PDF bauen (ein
+  JPEG je Seite, Qualität so, dass eine Seite unter ~500 KB bleibt); kein
+  Server. Technik: kleine eigene PDF-Schreibroutine oder `pdf-lib`
+  (lokal lauffähig). Ergebnis wie jeder Import: Bytes in `dateien`,
+  `Stueck` ohne Blob, Metadaten (Titel aus Eingabe oder Dateiname).
+- **Nachträglich:** einzelne Seiten neu aufnehmen oder umsortieren, bevor
+  „Fertig“ gedrückt wird; danach ist es eine normale PDF (Seiten
+  hinzufügen = später über „Stück erweitern“, offen).
+- **Grenzen:** iOS-Web-Apps bekommen keine Fotos per Teilen-Blatt
+  („Teilen → CheatSheet“ gibt es nicht); der Weg ist immer „+ Noten →
+  Fotos wählen“. Texterkennung (OMR, Noten als Noten erkennen) ist bewusst
+  nicht Teil von F-07 — das wäre G-Thema.
 
 ### F-08 · Kontextmenüs
 
