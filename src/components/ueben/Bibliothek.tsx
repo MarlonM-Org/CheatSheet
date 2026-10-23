@@ -19,6 +19,7 @@ import {
   SICHERUNG_ERINNERN,
 } from './lokal';
 import { HinzufuegenMenue, SammlungenLeiste, SammlungKopf, SammlungWahl } from './Sammlungen';
+import { bilderWaehlen, ScanDialog, type ScanArt } from './Scan';
 import { useSicherungLaden } from './Sicherung';
 import { MixZeile } from './StellenMix';
 import { TagEtikett, TagFilter, TagWahl } from './Tags';
@@ -164,6 +165,8 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
   const [markieren, setMarkieren] = useState(true);
   const [tagBlatt, setTagBlatt] = useState<string[] | null>(null);
   const [fortschritt, setFortschritt] = useState('');
+  // Kamera-Scan / Foto-Import (F-07): offener Dialog mit den zuerst gewählten Bildern.
+  const [scan, setScan] = useState<{ art: ScanArt; start: File[] } | null>(null);
   // Erinnerung an die Sicherung (H-01)
   const [erinnerung, setErinnerung] = useState<{ faellig: boolean; tage: number | null } | null>(null);
   // Abschaltbar in den Einstellungen (je Gerät); „ausblenden“ hier tut dasselbe.
@@ -275,6 +278,16 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
       setLaeuft(false); setFortschritt('');
       laden();
     }
+  }
+
+  // Einscannen oder Fotos wählen: erst die Bilder, dann der Dialog (F-07).
+  // Ohne Bild (abgebrochen) öffnet der Dialog trotzdem — mit „Aufnehmen“ —
+  // nur, wenn die Kamera am Rechner live läuft; sonst passiert nichts.
+  async function scannen(art: ScanArt) {
+    const bilder = await bilderWaehlen(art);
+    if (!bilder.length) return;
+    setMeldung(''); setWarnung('');
+    setScan({ art, start: bilder });
   }
 
   // Alle Stücke einer Sammlung umsortieren (Umbenennen, Auflösen).
@@ -422,7 +435,8 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
         <div className="bib-werkzeuge">
           <HinzufuegenMenue ziel={aktiv} einsortieren={einsortieren} setEinsortieren={setEinsortieren} gesperrt={laeuft}
             tagZiel={zielTag} markieren={markieren} setMarkieren={setMarkieren}
-            dateien={() => void hinzufuegen('dateien')} ordner={() => void hinzufuegen('ordner')} />
+            dateien={() => void hinzufuegen('dateien')} ordner={() => void hinzufuegen('ordner')}
+            scannen={() => void scannen('kamera')} fotos={() => void scannen('fotos')} />
           <span className="flex-1" />
           <div className="segment !mx-0" role="group" aria-label="Sortieren">
             <button type="button" aria-pressed={sortierung === 'zuletzt'} onClick={() => { setSortierung('zuletzt'); speichern('ueben:sort', 'zuletzt'); }}>Zuletzt</button>
@@ -459,6 +473,8 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
             </button>
             <button type="button" className="knopf knopf-leise" onClick={() => void hinzufuegen('dateien')} disabled={sicherung.laeuft || sicherung.uebernimmt || laeuft}>+ Noten hinzufügen</button>
             <button type="button" className="knopf knopf-leise" onClick={() => void hinzufuegen('ordner')} disabled={sicherung.laeuft || sicherung.uebernimmt || laeuft}>Ordner wählen</button>
+            <button type="button" className="knopf knopf-leise" onClick={() => void scannen('kamera')} disabled={sicherung.laeuft || sicherung.uebernimmt || laeuft}>Einscannen</button>
+            <button type="button" className="knopf knopf-leise" onClick={() => void scannen('fotos')} disabled={sicherung.laeuft || sicherung.uebernimmt || laeuft}>Fotos wählen</button>
           </div>
         </div>
       )}
@@ -474,6 +490,13 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
           Kein Stück{aktiv ? ` in „${aktiv}“` : ''} trägt „{zielTag?.name}“. Stücke auswählen und „Tags …“ wählen — oder den Tag-Filter
           noch einmal antippen, um ihn aufzuheben.
         </p>
+      )}
+
+      {scan && (
+        <ScanDialog art={scan.art} start={scan.start}
+          sammlungen={aktiv && einsortieren ? [aktiv] : []} tags={zielTag && markieren ? [zielTag.id] : []}
+          fertig={(m) => { setScan(null); setMeldung(m); if (aktiv && einsortieren && sammlungNeu && gleicheSammlung(aktiv, sammlungNeu)) setSammlungNeu(null); laden(); }}
+          schliessen={() => setScan(null)} />
       )}
 
       {tagBlatt && noten && (

@@ -82,14 +82,15 @@ export function SammlungKopf({ name, anzahl, umbenennen, aufloesen }: {
   );
 }
 
-// „+ Noten“ mit kleinem Menü: PDF-Dateien oder einen ganzen Ordner wählen.
+// „+ Noten“ mit kleinem Menü: PDF-Dateien, einen ganzen Ordner, die Kamera
+// (Einscannen) oder Fotos (F-07) wählen.
 // Ist eine Sammlung gewählt, steht oben unübersehbar, dass neue Stücke dort
 // einsortiert werden — mit Schalter zum Abwählen.
-export function HinzufuegenMenue({ ziel, einsortieren, setEinsortieren, tagZiel, markieren, setMarkieren, dateien, ordner, gesperrt }: {
+export function HinzufuegenMenue({ ziel, einsortieren, setEinsortieren, tagZiel, markieren, setMarkieren, dateien, ordner, scannen, fotos, gesperrt }: {
   ziel: string | null; einsortieren: boolean; setEinsortieren: (an: boolean) => void;
   // Gewählter Tag (F-14): neue Stücke damit markieren — genauso sichtbar.
   tagZiel: Tag | null; markieren: boolean; setMarkieren: (an: boolean) => void;
-  dateien: () => void; ordner: () => void; gesperrt: boolean;
+  dateien: () => void; ordner: () => void; scannen: () => void; fotos: () => void; gesperrt: boolean;
 }) {
   const [offen, setOffen] = useState(false);
   const menue = useRef<HTMLDivElement>(null);
@@ -129,6 +130,12 @@ export function HinzufuegenMenue({ ziel, einsortieren, setEinsortieren, tagZiel,
             </button>
             <button type="button" role="menuitem" className="bib-menue-punkt" onClick={() => waehlen(ordner)}>
               Ordner wählen<span>alle PDFs darin · Unterordner werden Sammlungen</span>
+            </button>
+            <button type="button" role="menuitem" className="bib-menue-punkt" onClick={() => waehlen(scannen)}>
+              Einscannen<span>Papiernoten mit der Kamera, Seite für Seite</span>
+            </button>
+            <button type="button" role="menuitem" className="bib-menue-punkt" onClick={() => waehlen(fotos)}>
+              Fotos wählen<span>vorhandene Fotos von Noten · Schatten werden entfernt</span>
             </button>
           </div>
         </>

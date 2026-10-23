@@ -37,7 +37,7 @@ ob das ins Leitbild passt (dann auch CLAUDE.md anpassen: „kein Login“).
 | M3 | **Werkzeuge schärfen** | Stimmgerät- und Metronom-Verbesserungen, Stift-Ausbau | C-01…C-03, D-01, E-01…E-03 |
 | M4 | **Notenmanagement I** | Metadaten, Flags, Kontextmenüs, Drag & Drop (Sammlungen F-13 und Lesezeichen/virtuelle Stücke F-03 erledigt) | F-01, F-04, F-08, F-09 |
 | M5 | **Üben & Setlisten** | Setlisten (Stellen-Mix F-11, Tonprofil C-04, Sprünge F-05, Halbseiten-Blättern F-06, Blättern je Seite F-16 und Favoriten im Mix F-17 schon erledigt) — *zurückgestellt 2026-10-23: Marlon ordnet bisher über Dateinamen, Setlisten sind Zukunftsthema* | F-02 |
-| M6 | **Extras** | Stempel/Formen, Kamera-Scan und Foto-Import (Themes B-04 und Design B-05 erledigt) — *vorgezogen 2026-10-23, vor M4 und M5* | E-04, F-07 |
+| M6 | **Extras** | Stempel/Formen (Kamera-Scan F-07, Themes B-04 und Design B-05 erledigt) — *vorgezogen 2026-10-23, vor M4 und M5* | E-04 |
 | M7 | **Komponieren** (Vision) | Noteneingabe, Rhythmus-/Melodie-Transkription | G-01…G-03 |
 | M8 | **Geräteübergreifend** (Vision, Entscheidung offen) | Noten und Übe-Daten über die eigene Cloud auf mehreren Geräten | H-01…H-05 |
 
@@ -134,51 +134,7 @@ Speicher steht (A-02): `merker`, einer je Seite.
 
 *(F-05 Sprünge und F-06 Halbseiten-Umblättern am 2026-10-13 erledigt, siehe unten.)*
 
-### F-07 · Kamera-Scan und Foto-Import
-
-Papiernoten mit der Gerätekamera abfotografieren → zuschneiden/entzerren →
-als PDF in die Bibliothek. Im Browser machbar (getUserMedia + Canvas), aber
-aufwendig — ursprünglich bewusst spät in der Roadmap, **vorgezogen
-2026-10-23 (Wunsch Marlon)**.
-
-**Konkretisiert (2026-10-23):**
-
-- **Einstieg über „+ Noten“:** zwei weitere Punkte neben PDF und Ordner:
-  „Einscannen“ (Kamera) und „Fotos wählen“ (vorhandene Bilder aus der
-  Mediathek bzw. vom Rechner, JPEG/PNG/HEIC soweit der Browser sie
-  dekodiert). Sammlung/Tag gelten wie beim Import. Beides führt in
-  denselben Aufbereitungs-Ablauf.
-- **Kamera:** eine Seite nach der anderen aufnehmen, Vorschau mit
-  erkanntem Blattrand, Auslösen, nächste Seite — am Ende „Fertig“ → ein
-  Stück mit so vielen Seiten wie Aufnahmen. Auf iPad/iPhone über
-  `<input type="file" accept="image/*" capture="environment">`
-  (öffnet die Kamera direkt, kein eigener Kamera-Dialog nötig), am Rechner
-  `getUserMedia` als Fallback.
-- **Aufbereitung je Bild** (rein lokal, Canvas, ohne OpenCV-WASM — die
-  Schritte sind einzeln klein genug, Regeln in `src/domain/` getestet):
-  1. Blattrand finden (größtes helles Viereck), Ecken von Hand nachziehbar;
-  2. Entzerren (perspektivische Transformation auf ein Rechteck im
-     Seitenverhältnis A4/Letter, wählbar);
-  3. **Schatten und ungleichmäßiges Licht entfernen:** Hintergrund als stark
-     weichgezeichnetes Bild schätzen und das Original dadurch teilen
-     (Beleuchtungs-Ausgleich), danach Grauwert und sanfte Schwellwertkurve —
-     Papier wird weiß, Noten bleiben schwarz, Bleistift bleibt lesbar;
-  4. Optional Drehen (90°-Schritte, kleine Schieflage automatisch über
-     die Notenlinien);
-  5. Vorschau vorher/nachher, Stärke der Aufbereitung in drei Stufen
-     („Foto“, „Scan“, „Schwarz-Weiß“).
-- **PDF erzeugen:** aus den aufbereiteten Seiten eine PDF bauen (ein
-  JPEG je Seite, Qualität so, dass eine Seite unter ~500 KB bleibt); kein
-  Server. Technik: kleine eigene PDF-Schreibroutine oder `pdf-lib`
-  (lokal lauffähig). Ergebnis wie jeder Import: Bytes in `dateien`,
-  `Stueck` ohne Blob, Metadaten (Titel aus Eingabe oder Dateiname).
-- **Nachträglich:** einzelne Seiten neu aufnehmen oder umsortieren, bevor
-  „Fertig“ gedrückt wird; danach ist es eine normale PDF (Seiten
-  hinzufügen = später über „Stück erweitern“, offen).
-- **Grenzen:** iOS-Web-Apps bekommen keine Fotos per Teilen-Blatt
-  („Teilen → CheatSheet“ gibt es nicht); der Weg ist immer „+ Noten →
-  Fotos wählen“. Texterkennung (OMR, Noten als Noten erkennen) ist bewusst
-  nicht Teil von F-07 — das wäre G-Thema.
+*(F-07 Kamera-Scan und Foto-Import am 2026-10-23 erledigt, siehe unten.)*
 
 ### F-08 · Kontextmenüs
 
@@ -324,6 +280,46 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
 
 *(Abgeschlossene Punkte hierher verschieben, mit Datum und Commit.)*
 
+- **F-07 · Kamera-Scan und Foto-Import** (2026-10-23): Wunsch Marlon,
+  vorgezogen. Unter „+ Noten“ zwei neue Punkte: **„Einscannen“** (Kamera,
+  Seite für Seite) und **„Fotos wählen“** (vorhandene Bilder, mehrere auf
+  einmal); auch in der leeren Bibliothek. Sammlung und Tag gelten wie beim
+  Import.
+  - **Dialog** (`Scan.tsx`, am body, über allem): große Vorschau der
+    aktiven Seite, Stufe **Foto / Scan / Schwarz-Weiß** (je Gerät gemerkt,
+    `ueben:scan-stufe`), **„Rand anpassen“** zeigt das Foto mit Viereck und
+    vier ziehbaren Ecken, **Drehen** in 90°-Schritten, Seite entfernen,
+    Reihenfolge ändern, Streifen mit Vorschaubildern, „+“ für weitere
+    Aufnahmen; unten Titel und **„Fertig (n)“**.
+  - **Kamera:** auf Touch-Geräten `<input type="file" accept="image/*"
+    capture="environment">` (öffnet die Kamera direkt, eine Aufnahme je
+    Durchgang); am Rechner eine Live-Kamera über `getUserMedia` mit
+    „Auslösen“.
+  - **Aufbereitung** rein in `src/domain/scan.ts` (getestet,
+    `tests/scan.test.ts`), auf Pixelfeldern ohne Canvas und ohne
+    Bibliothek: Bild auf lange Seite 2000 px verkleinern (EXIF-Drehung macht
+    der Browser); **Blattrand** als größte helle Fläche nach Otsu-Schwelle,
+    vier äußerste Punkte als Ecken, bei kräftigem Schatten zweite tiefere
+    Schwelle und das Viereck mit den ähnlicheren Gegenkanten, 1 % Luft;
+    **Entzerren** per Homographie (Heckbert) mit bilinearer Interpolation
+    auf die gemessenen Kantenlängen; **Licht ausgleichen**: Hintergrund als
+    Blockmaximum (nimmt das Papier, nicht die Note) zweifach weichgezeichnet
+    und hochgezogen, Original durch Hintergrund geteilt — Schatten
+    verschwinden, Farben (Marker, Bleistift) bleiben; Stufe „Scan“ streckt
+    die Pegel (25 % → schwarz, 86 % → weiß), „Schwarz-Weiß“ schwellt bei
+    62 %.
+  - **PDF** selbst geschrieben (`pdfBauen`): ein JPEG je Seite (DCTDecode),
+    Qualität ab 0,85 abwärts bis unter ~500 KB je Seite, Seitenmaß A4-Breite
+    im Bildverhältnis, Titel im Info-Objekt; Struktur (xref-Offsets) im
+    Test geprüft, im Browser mit pdf.js geöffnet. Gespeichert wie jeder
+    Import (`stueckAnlegen`): Bytes in `dateien`, Dateiname
+    „Titel (Scan 2026-10-23).pdf“.
+  - **Nicht gemacht:** automatisches Begradigen kleiner Schieflagen an den
+    Notenlinien (das Entzerren über die Ecken deckt das ab), A4-Format
+    erzwingen, Seiten an ein bestehendes Stück anhängen. Grenzen: iOS reicht
+    Fotos nicht per Teilen-Blatt an Web-Apps; HEIC öffnet nur Safari; auf
+    hellem Tisch findet die App keinen Blattrand und nimmt das ganze Bild —
+    die Ecken lassen sich dann von Hand setzen.
 - **F-03 · Lesezeichen und virtuelle Stücke** (2026-10-23): Wunsch Marlon.
   Speicher und Regeln gab es seit A-02, jetzt die Oberfläche.
   - **Lesezeichen:** im Ansicht-Menü (⋯) der Noten „Lesezeichen auf Seite n“
