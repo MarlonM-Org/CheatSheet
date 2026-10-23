@@ -54,6 +54,8 @@ function StiftKoerper({ farbe }: { farbe: string }) {
   );
 }
 
+// Textmarker: Keilspitze in der Farbe, dunkler Kragen, dicker Körper mit
+// Etikett — so erkennt man ihn als Marker, nicht als Block.
 function MarkerKoerper({ farbe }: { farbe: string }) {
   return (
     <svg className="instrument" viewBox="0 0 28 92" aria-hidden="true">
@@ -63,10 +65,13 @@ function MarkerKoerper({ farbe }: { farbe: string }) {
           <stop offset="0.7" stopColor="#e6e6ea" /><stop offset="1" stopColor="#b9b9c1" />
         </linearGradient>
       </defs>
-      <path d="M9 4 L19 4 L21.5 18 L6.5 18 Z" fill={farbe} stroke={KONTUR} strokeWidth="0.7" strokeLinejoin="round" />
-      <path d="M9 4 L19 4 L19.6 7.5 L8.4 7.5 Z" fill="rgba(0,0,0,0.22)" />
-      <rect x="5.5" y="18" width="17" height="7" fill={farbe} stroke={KONTUR} strokeWidth="0.7" />
-      <path d="M5.5 25h17v62a2.5 2.5 0 0 1-2.5 2.5h-12A2.5 2.5 0 0 1 5.5 87z" fill="url(#ik-marker)" />
+      <path d="M10.5 3 L17.5 3 L20 14 L8 14 Z" fill={farbe} stroke={KONTUR} strokeWidth="0.7" strokeLinejoin="round" />
+      <path d="M10.5 3 L17.5 3 L18 6 L10 6 Z" fill="rgba(0,0,0,0.22)" />
+      <rect x="6.5" y="14" width="15" height="6" rx="1" fill="#3a3a40" />
+      <path d="M5.5 20h17v67a2.5 2.5 0 0 1-2.5 2.5h-12A2.5 2.5 0 0 1 5.5 87z" fill={farbe} stroke={KONTUR} strokeWidth="0.7" />
+      <rect x="5.5" y="30" width="17" height="14" fill="url(#ik-marker)" opacity="0.9" />
+      <rect x="9" y="34" width="10" height="2" rx="1" fill="#3a3a40" opacity="0.5" />
+      <rect x="9" y="38" width="7" height="2" rx="1" fill="#3a3a40" opacity="0.35" />
     </svg>
   );
 }
@@ -88,22 +93,30 @@ function TextKoerper({ farbe }: { farbe: string }) {
   );
 }
 
+// Radierer: klassischer gelber Bleistift mit rosa Radiergummi oben — die
+// Radierseite zeigt zur Seite hin.
 function RadiererKoerper() {
   return (
     <svg className="instrument" viewBox="0 0 28 92" aria-hidden="true">
       <defs>
-        <linearGradient id="ik-radierer" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stopColor="#c9c9cf" /><stop offset="0.3" stopColor="#f6f6f8" />
-          <stop offset="0.7" stopColor="#e6e6ea" /><stop offset="1" stopColor="#b9b9c1" />
+        <linearGradient id="ik-gelb" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#d9a81c" /><stop offset="0.3" stopColor="#fbd34d" />
+          <stop offset="0.7" stopColor="#f2c230" /><stop offset="1" stopColor="#c8961a" />
         </linearGradient>
-        <linearGradient id="ik-gummi" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stopColor="#8f8f97" /><stop offset="0.35" stopColor="#c6c6cd" />
-          <stop offset="1" stopColor="#85858d" />
+        <linearGradient id="ik-rosa" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#d98690" /><stop offset="0.35" stopColor="#f5b7bd" />
+          <stop offset="1" stopColor="#cf7a85" />
+        </linearGradient>
+        <linearGradient id="ik-zwinge" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#9a9aa2" /><stop offset="0.35" stopColor="#e4e4ea" />
+          <stop offset="0.7" stopColor="#c0c0c8" /><stop offset="1" stopColor="#8e8e96" />
         </linearGradient>
       </defs>
-      <path d="M7 10a7 7 0 0 1 14 0v14H7z" fill="url(#ik-gummi)" />
-      <path d="M7 24h14v64a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 7 88z" fill="url(#ik-radierer)" />
-      <rect x="7" y="24" width="14" height="2" fill="rgba(0,0,0,0.18)" />
+      <path d="M7.5 6a6.5 6.5 0 0 1 13 0v9h-13z" fill="url(#ik-rosa)" />
+      <rect x="7" y="15" width="14" height="7" fill="url(#ik-zwinge)" />
+      <path d="M7 16.5h14M7 19h14" stroke="rgba(0,0,0,0.18)" strokeWidth="0.8" />
+      <path d="M7 22h14v66a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 7 88z" fill="url(#ik-gelb)" />
+      <path d="M11.7 22v68.5M16.3 22v68.5" stroke="rgba(0,0,0,0.12)" strokeWidth="0.8" />
     </svg>
   );
 }
@@ -125,42 +138,43 @@ function StelleKoerper() {
   );
 }
 
-// Schere (E-12): zwei Klingen mit Ösen, Sticker-Ecke darunter.
+// Schere (E-12): zwei Klingen nach oben, Schraube, zwei Griffösen darunter.
 function SchereKoerper() {
   return (
     <svg className="instrument" viewBox="0 0 28 92" aria-hidden="true">
       <defs>
-        <linearGradient id="ik-schere" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stopColor="#c9c9cf" /><stop offset="0.3" stopColor="#f6f6f8" />
-          <stop offset="0.7" stopColor="#e6e6ea" /><stop offset="1" stopColor="#b9b9c1" />
+        <linearGradient id="ik-klinge" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#9a9aa2" /><stop offset="0.4" stopColor="#eef0f3" />
+          <stop offset="1" stopColor="#8e8e96" />
         </linearGradient>
       </defs>
-      <path d="M7 8a7 7 0 0 1 14 0v80H7z" fill="url(#ik-schere)" />
-      <path d="M10.5 6.5L17.5 20M17.5 6.5L10.5 20" stroke="#3a3a40" strokeWidth="1.8" strokeLinecap="round" />
-      <circle cx="9.5" cy="22.5" r="2.3" fill="none" stroke="#3a3a40" strokeWidth="1.5" />
-      <circle cx="18.5" cy="22.5" r="2.3" fill="none" stroke="#3a3a40" strokeWidth="1.5" />
-      <rect x="8.5" y="30" width="11" height="7" rx="1" fill="#a8781f" opacity="0.55" />
+      <path d="M9.2 2.5 L15.5 27 L12.6 28.2 Z" fill="url(#ik-klinge)" stroke="#6f6f78" strokeWidth="0.6" strokeLinejoin="round" />
+      <path d="M18.8 2.5 L12.5 27 L15.4 28.2 Z" fill="url(#ik-klinge)" stroke="#6f6f78" strokeWidth="0.6" strokeLinejoin="round" />
+      <circle cx="14" cy="28" r="2" fill="#f2c230" stroke="#8a6a12" strokeWidth="0.8" />
+      <path d="M12.3 30 C6 34 4.5 42 7.5 46 c3 3.5 8 2 8.5 -3 l-1.8 -12z" fill="none" stroke="#a8781f" strokeWidth="2.6" strokeLinejoin="round" />
+      <path d="M15.7 30 C22 34 23.5 42 20.5 46 c-3 3.5 -8 2 -8.5 -3 l1.8 -12z" fill="none" stroke="#a8781f" strokeWidth="2.6" strokeLinejoin="round" />
+      <path d="M9 50h10v38a2.5 2.5 0 0 1-2.5 2.5h-5A2.5 2.5 0 0 1 9 88z" fill="#e6e6ea" />
     </svg>
   );
 }
 
-// Stempel (E-04): Griff mit Platte, darunter ein kleines Segno.
+// Stempel (E-04): Gummiplatte oben (zur Seite hin), Hals, runder Holzgriff.
 function StempelKoerper() {
   return (
     <svg className="instrument" viewBox="0 0 28 92" aria-hidden="true">
       <defs>
-        <linearGradient id="ik-stempel" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stopColor="#c9c9cf" /><stop offset="0.3" stopColor="#f6f6f8" />
-          <stop offset="0.7" stopColor="#e6e6ea" /><stop offset="1" stopColor="#b9b9c1" />
+        <linearGradient id="ik-holz" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#8a5a2b" /><stop offset="0.35" stopColor="#c58a4a" />
+          <stop offset="0.7" stopColor="#b2793c" /><stop offset="1" stopColor="#7d4f24" />
         </linearGradient>
       </defs>
-      <path d="M7 8a7 7 0 0 1 14 0v80H7z" fill="url(#ik-stempel)" />
-      <rect x="6" y="20" width="16" height="6" rx="1.5" fill="#3a3a40" />
-      <path d="M11 20v-5a3 3 0 0 1 6 0v5" fill="none" stroke="#3a3a40" strokeWidth="1.6" />
-      <g transform="translate(8.5 28) scale(0.46)" fill="none" stroke="#a8781f" strokeWidth="2.6" strokeLinecap="round">
-        <path d="M16.4 5.3C15.6 3.4 13.5 2.6 11.7 3.2 9.7 3.9 8.7 5.9 9.4 7.8c.7 1.9 2.7 2.6 4.2 3.6 1.5 1 3.3 2.2 3.5 4.3.2 2.2-1.3 4-3.4 4.4-2 .4-4.3-.5-5-2.4" />
-        <path d="M6 22.5 18 1.5" />
-      </g>
+      <rect x="3" y="3" width="22" height="8" rx="1.5" fill="#4a4a52" />
+      <rect x="4" y="4" width="20" height="2" rx="1" fill="rgba(255,255,255,0.18)" />
+      <rect x="5" y="11" width="18" height="4" rx="1" fill="#2f2f36" />
+      <rect x="11" y="15" width="6" height="6" fill="#3a3a40" />
+      <path d="M8 21h12a4 4 0 0 1 4 4v3a6 6 0 0 1-6 6h-8a6 6 0 0 1-6-6v-3a4 4 0 0 1 4-4z" fill="url(#ik-holz)" />
+      <path d="M9 34h10v54a2.5 2.5 0 0 1-2.5 2.5h-5A2.5 2.5 0 0 1 9 88z" fill="url(#ik-holz)" />
+      <path d="M12 34v55" stroke="rgba(255,255,255,0.18)" strokeWidth="1" />
     </svg>
   );
 }
