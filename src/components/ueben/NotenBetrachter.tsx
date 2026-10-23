@@ -2,10 +2,10 @@
 
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ausschnitteLesen, ausschnittFuer, ausschnittSetzen, darstellung, fuerAlleSeiten, VOLL } from '@/domain/ausschnitt';
+import { ausschnitteLesen, ausschnittFuer, ausschnittSetzen, darstellung, doppelDarstellung, fuerAlleSeiten, VOLL, type SeitenLage } from '@/domain/ausschnitt';
 import { pipettenPunkt } from '@/domain/farbe';
 import { RAD_ANFANG, radGeste, radWeg, tastenAktion, WISCH_UMKEHREN, zeigerGeste, type Blaetter } from '@/domain/geste';
-import { ansichten, ansichtVonSeite, blaetternLesen, einheitlich, hauptseite, modusSetzen, radierWeg, radierZug, seitenModus, type Anmerkung, type Ansicht, type Blaettermodus, type Blaettern } from '@/domain/notenpult';
+import { ansichten, ansichtVonSeite, blaetternLesen, einheitlich, hauptseite, modusSetzen, radierWeg, radierZug, seitenModus, seitenVon, ZWEI_SEITEN, type Anmerkung, type Ansicht, type Blaettermodus, type Blaettern } from '@/domain/notenpult';
 import {
   ankunftSchritt, genommeneSpruenge, nachSprung, spielfolge, spruengeLaden, sprungEinordnen, standUebertragen, standZu,
   weiterGehen, zurueckGehen, type Stand,
@@ -38,7 +38,7 @@ import { StellenInfo } from './StellenInfo';
 import { SprungZeichen } from './SprungZeichen';
 import type { MixSteuerung } from './StellenMix';
 import { SternKnopf } from './Stern';
-import { blattZeichnen, strichZeichnen, type BlattTeil } from './zeichnen';
+import { blattZeichnen, strichZeichnen, type BlattTeil, type Lage } from './zeichnen';
 
 const RAND = 0.06;
 const MAX_PX = 2800;
@@ -75,7 +75,21 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   // ── Blättern ── Die Position ist ein Schritt der Spielfolge: Weiterblättern
   // (Pedal, Ring, Tasten, Rand-Tippen) folgt den Sprüngen, zurück denselben Weg.
   const [blaettern, setBlaettern] = useState<Blaettern>(() => blaetternLesen(noten.blaettern, seiten));
-  const liste = useMemo(() => ansichten(seiten, blaettern.modus, blaettern.linien, blaettern.jeSeite), [seiten, blaettern]);
+  // Im Mix immer die Stelle der Runde (siehe unten).
+  const [eigenerModus, setModus] = useState<'lesen' | 'stellen'>(mix ? 'stellen' : 'lesen');
+  const modus = mix ? 'stellen' : eigenerModus;
+  const [paletteOffen, setPaletteOffen] = useState(false);
+  // Freier Platz für die Seite (Innenmaß der Fläche, siehe unten).
+  const [platz, setPlatz] = useState({ b: 0, h: 0 });
+  // Blättern einstellen (Leiste unten, Blätterlinie zum Ziehen)
+  const [linieEinstellen, setLinieEinstellen] = useState(false);
+  // Zwei Seiten nebeneinander (B-13): je Gerät, wirkt im Querformat beim
+  // Lesen; Anmerken und Blättern-Einstellen zeigen weiter eine Seite.
+  const [zweiSeiten, setZweiSeiten] = useState(() => gespeicherterWert(ZWEI_SEITEN, false));
+  const zweiSeitenSetzen = (an: boolean) => { setZweiSeiten(an); speichern(ZWEI_SEITEN, an); };
+  const quer = platz.b > platz.h;
+  const doppel = zweiSeiten && quer && !paletteOffen && !linieEinstellen && modus === 'lesen';
+  const liste = useMemo(() => ansichten(seiten, blaettern.modus, blaettern.linien, blaettern.jeSeite, doppel), [seiten, blaettern, doppel]);
   // Sprünge (F-05): Marke am Sprungzeichen, Weiterblättern und Antippen führen
   // zur Einstiegsstelle — in der Reihenfolge der Liste.
   const [spruenge, setSpruenge] = useState(() => spruengeLaden(noten.spruenge, liste));
@@ -103,7 +117,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   const blaetternSpeichern = (b: Blaettern, seite = hauptseite(ansicht)) => {
     // Auf die ganze Seite, die gerade gilt (oder die eingestellte) — im selben
     // Durchgang; hat er sie nicht, bleibt sie außer der Reihe zu sehen (z. B. zum Linie-Ziehen).
-    const l = ansichten(seiten, b.modus, b.linien, b.jeSeite), f = spielfolge(l, spruenge);
+    const l = ansichten(seiten, b.modus, b.linien, b.jeSeite, doppel), f = spielfolge(l, spruenge);
     const st = standUebertragen(liste, folge, { schritt, zeige }, l, f, ansichtVonSeite(l, seite));
     setPos({ schritt: st.schritt, zeige: st.zeige, frei, liste: l, folge: f });
     setBlaettern(b);
@@ -111,8 +125,6 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   };
 
   // ── Modus: lesen oder Stelle für Stelle ── Im Mix immer die Stelle der Runde.
-  const [eigenerModus, setModus] = useState<'lesen' | 'stellen'>(mix ? 'stellen' : 'lesen');
-  const modus = mix ? 'stellen' : eigenerModus;
   const [stelleNr, setStelleNr] = useState(0);
   const stelle = mix ? stellen.find((s) => s.id === mix.stelle)
     : modus === 'stellen' ? stellen[Math.min(stelleNr, stellen.length - 1)] : undefined;
@@ -124,7 +136,6 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
 
   // ── Werkzeuge ──
   const [werkzeug, setWerkzeug] = useState<Werkzeug | null>(null);
-  const [paletteOffen, setPaletteOffen] = useState(false);
   // Jedes Werkzeug merkt sich Farbe und Dicke (E-01/E-02, Pencil-Muster).
   const [einst, setEinst] = useState<Record<ZeichenWerkzeug, StiftEinstellung>>(stiftEinstellungen);
   // Aus einer Sicherung übernommen, während das Stück offen ist.
@@ -177,7 +188,6 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
 
   // ── Größe: Seite so groß wie möglich in den freien Platz ──
   const flaeche = useRef<HTMLDivElement>(null);
-  const [platz, setPlatz] = useState({ b: 0, h: 0 });
   const [format, setFormat] = useState(1.414);
   useEffect(() => { void pdf.getPage(1).then((p) => { const v = p.getViewport({ scale: 1 }); setFormat(v.height / v.width); }); }, [pdf]);
   useEffect(() => {
@@ -194,15 +204,23 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   const [bearbeiten, setBearbeiten] = useState<{ seite: number; r: Rechteck; alle: boolean } | null>(null);
   const bearbeitenSeite = bearbeiten?.seite ?? null;
   const ausschnitt = useMemo(() => bearbeitenSeite !== null ? VOLL
-    : ausschnittFuer(ausschnitte, stelle ? [stelle.seite] : ansicht.art === 'ganz' ? [ansicht.seite] : [ansicht.oben, ansicht.unten]),
+    : ausschnittFuer(ausschnitte, stelle ? [stelle.seite] : seitenVon(ansicht)),
   [ausschnitte, bearbeitenSeite, stelle, ansicht]);
   // Beim Einstellen etwas kleiner: die Griffe an den Ecken bleiben greifbar.
+  // Doppelseite (B-13): beide Seiten nebeneinander auf einem Blatt, lagen sagt, wo jede liegt.
   const darst = useMemo(() => {
     if (!platz.b || !platz.h) return null;
     const rand = bearbeitenSeite !== null ? 40 : 0;
-    return darstellung({ b: platz.b - rand, h: platz.h - rand }, format, ausschnitt);
-  }, [platz, format, ausschnitt, bearbeitenSeite]);
+    const p = { b: platz.b - rand, h: platz.h - rand };
+    if (ansicht.art === 'doppel' && !stelle && bearbeitenSeite === null) return doppelDarstellung(p, format, ausschnitt);
+    return { ...darstellung(p, format, ausschnitt), lagen: null, luecke: null };
+  }, [platz, format, ausschnitt, bearbeitenSeite, ansicht, stelle]);
   const rahmen = darst?.rahmen ?? null;
+  // Wo eine Seite auf dem Blatt liegt (Anteile): allein das ganze Blatt, sonst ihre Hälfte.
+  const seitenLage = useCallback((seite: number): SeitenLage => {
+    if (!darst?.lagen || ansicht.art !== 'doppel') return GANZES_BLATT;
+    return seite === ansicht.rechts ? darst.lagen.rechts : darst.lagen.links;
+  }, [darst, ansicht]);
 
   // ── Sprünge ── Gespeichert am Stück; die Spielfolge rechnet sich neu.
   const spruengeSpeichern = (neu: Sprung[]) => {
@@ -255,16 +273,18 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   const dpr = typeof window === 'undefined' ? 1 : Math.min(window.devicePixelRatio || 1, 2.5);
   // Gerendert wird die ganze Seite in Blattgröße (beim Ausschnitt größer als der Rahmen).
   const px = darst ? Math.min(MAX_PX, Math.round(darst.blatt.b * dpr)) : 0;
+  // Doppelseite: jede Seite nur so breit wie ihre Hälfte.
+  const doppelBreite = darst?.lagen ? Math.round(darst.lagen.links.b * px) : null;
   // Je Seite die nackte Seite und, stecken Markierungen im PDF, deren Ebene
   // (seiteMitEbene). Welche Seiten eine Ebene haben, merkt sich mitEbene —
   // nur dort hinterlässt der Radierer eine Radier-Spur.
   const cache = useRef(new Map<string, Promise<SeitenBild>>());
   const mitEbene = useRef(new Set<number>());
-  const seiteBild = useCallback((s: number) => {
-    const key = `${s}@${px}`;
+  const seiteBild = useCallback((s: number, breite = px) => {
+    const key = `${s}@${breite}`;
     let p = cache.current.get(key);
     if (!p) {
-      p = seiteMitEbene(pdf, s, px).then((b) => { if (b.ebene) mitEbene.current.add(s); return b; });
+      p = seiteMitEbene(pdf, s, breite).then((b) => { if (b.ebene) mitEbene.current.add(s); return b; });
       cache.current.set(key, p);
       // Gescheitert (Speicherdruck, Stück schon verlassen): nicht als kaputt
       // merken — der nächste Blick auf die Seite versucht es neu.
@@ -297,26 +317,34 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   }), [stelle, paletteOffen, stellen, ansicht, bearbeitenSeite]);
   useEffect(() => {
     const c = leinwand.current;
-    if (!c || !rahmen || !px) return;
+    if (!c || !rahmen || !px || !darst) return;
     let weg = false;
-    const W = px, H = Math.round(px * format);
+    const lagen = darst.lagen;
+    const W = px, H = Math.round(px * (lagen ? darst.blatt.h / darst.blatt.b : format));
+    const inPx = (l: SeitenLage) => ({ x: Math.round(l.x * W), y: Math.round(l.y * H), b: Math.round(l.b * W), h: Math.round(l.h * H) });
     const zeichnen = async () => {
-      const teile: { seite: number; y0: number; y1: number }[] = bearbeitenSeite !== null
-        ? [{ seite: bearbeitenSeite, y0: 0, y1: 1 }]
-        : stelle ? [{ seite: stelle.seite, y0: 0, y1: 1 }]
-        : ansicht.art === 'ganz' ? [{ seite: ansicht.seite, y0: 0, y1: 1 }]
-          : [{ seite: ansicht.oben, y0: 0, y1: ansicht.schnitt }, { seite: ansicht.unten, y0: ansicht.schnitt, y1: 1 }];
-      const bilder = await Promise.all(teile.map((t) => seiteBild(t.seite)));
+      const ganz = { x: 0, y: 0, b: W, h: H };
+      // Je Teil: welche Seite, welcher Höhenbereich, wo sein Bild liegt und wo die ganze Seite liegt.
+      const teile: { seite: number; y0: number; y1: number; lage: Lage; blattLage: Lage }[] = bearbeitenSeite !== null
+        ? [{ seite: bearbeitenSeite, y0: 0, y1: 1, lage: ganz, blattLage: ganz }]
+        : stelle ? [{ seite: stelle.seite, y0: 0, y1: 1, lage: ganz, blattLage: ganz }]
+        : ansicht.art === 'ganz' ? [{ seite: ansicht.seite, y0: 0, y1: 1, lage: ganz, blattLage: ganz }]
+        : ansicht.art === 'doppel' && lagen
+          ? [{ seite: ansicht.links, y0: 0, y1: 1, lage: inPx(lagen.links), blattLage: inPx(lagen.links) },
+            { seite: ansicht.rechts, y0: 0, y1: 1, lage: inPx(lagen.rechts), blattLage: inPx(lagen.rechts) }]
+        : ansicht.art === 'halb'
+          ? [{ seite: ansicht.oben, y0: 0, y1: ansicht.schnitt, lage: ganz, blattLage: ganz }, { seite: ansicht.unten, y0: ansicht.schnitt, y1: 1, lage: ganz, blattLage: ganz }]
+          : [{ seite: ansicht.links, y0: 0, y1: 1, lage: ganz, blattLage: ganz }];
+      const bilder = await Promise.all(teile.map((t) => seiteBild(t.seite, t.lage.b)));
       if (weg) return;
       c.width = W; c.height = H;
-      const ganz = { x: 0, y: 0, b: W, h: H };
       blattZeichnen(c.getContext('2d')!, ganz,
-        teile.map((t, i): BlattTeil => ({ ...t, bild: bilder[i].seite, ebene: bilder[i].ebene, lage: ganz })),
-        anm, extras, () => (hilfe.current ??= document.createElement('canvas')));
+        teile.map((t, i): BlattTeil => ({ ...t, bild: bilder[i].seite, ebene: bilder[i].ebene })),
+        anm, { ...extras, luecke: lagen ? inPx(darst.luecke) : null }, () => (hilfe.current ??= document.createElement('canvas')));
     };
     zeichnen().catch((e) => { if (!weg) console.error('Seite ließ sich nicht zeichnen', e); });
     return () => { weg = true; };
-  }, [ansicht, stelle, bearbeitenSeite, anm, extras, rahmen, px, format, seiteBild]);
+  }, [ansicht, stelle, bearbeitenSeite, anm, extras, rahmen, px, format, seiteBild, darst]);
 
   // ── Zoom beim Anmerken (E-06) ── Bei offener Stift-Palette auf einer ganzen
   // Seite — oder immer (E-10, Ansicht → „Immer zoomen“), auch beim Lesen.
@@ -456,8 +484,8 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   useEffect(() => {
     if (!px) return;
     const s = sichtbareSeite;
-    for (const n of [s + 1, s + 2, s - 1, sprungSeite]) if (n >= 1 && n <= seiten) void seiteBild(n);
-  }, [sichtbareSeite, sprungSeite, seiten, px, seiteBild]);
+    for (const n of [s + 1, s + 2, s - 1, sprungSeite]) if (n >= 1 && n <= seiten) void seiteBild(n, doppelBreite ?? px);
+  }, [sichtbareSeite, sprungSeite, seiten, px, doppelBreite, seiteBild]);
 
   // ── Navigation ── Lesen: Schritt für Schritt durch die Spielfolge; beim
   // Sprung-Setzen durch die Ansichten selbst.
@@ -504,7 +532,6 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   // Stellen-Blatt (Ziel, Verlauf) der aktuellen Stelle
   const [stelleBlatt, setStelleBlatt] = useState(false);
   // Blättern Seite für Seite einstellen (Leiste unten, Blätterlinie zum Ziehen)
-  const [linieEinstellen, setLinieEinstellen] = useState(false);
   // „Für alle n Seiten“ beim Blättern: an, solange alle gleich blättern (gesetzt beim Öffnen des Menüs).
   const [fuerAlle, setFuerAlle] = useState(true);
 
@@ -811,7 +838,9 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       if (setzen) {
         if (!imRahmen(z.x, z.y)) return;
         const q = relativ({ clientX: z.x, clientY: z.y });
-        setSetzen(setzenTippen(setzen, { seite: seiteAn(ansicht, q.y), x: q.x, y: q.y }));
+        const seite = seiteAn(ansicht, q.y, q.x), L = seitenLage(seite);
+        const k = (v: number) => Math.max(0, Math.min(1, v));
+        setSetzen(setzenTippen(setzen, { seite, x: k((q.x - L.x) / L.b), y: k((q.y - L.y) / L.h) }));
         return;
       }
       const sprungHier = z.marke && modus === 'lesen' ? spruenge.find((s) => s.id === z.marke) : undefined;
@@ -921,7 +950,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
 
   // ── Blättern je Seite (F-16) ── Eingestellt wird die Seite, deren
   // Umblättern man sieht (in der Halb-Ansicht die untere); die letzte blättert nicht.
-  const blaetterSeite = ansicht.art === 'ganz' ? ansicht.seite : ansicht.unten;
+  const blaetterSeite = ansicht.art === 'ganz' ? ansicht.seite : ansicht.art === 'halb' ? ansicht.unten : ansicht.links;
   const letzteSeite = blaetterSeite >= seiten;
   const blaetterModus = letzteSeite ? blaettern.modus : seitenModus(blaettern, blaetterSeite);
   // Danach zu sehen: beim Einstellen (und für die Linie) die eingestellte Seite,
@@ -931,12 +960,21 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     const neu = modusSetzen(blaettern, seiten, fuerAlle ? 'alle' : blaetterSeite, m);
     if (JSON.stringify(neu) !== JSON.stringify(blaettern)) blaetternSpeichern(neu, nachWahl(m));
   }
+  // Im Ansicht-Menü gilt die Wahl für alle Seiten (B-14); je Seite geht es
+  // in der Leiste „Blättern einstellen“.
+  const alleGleich = einheitlich(blaettern, seiten);
+  function alleWaehlen(m: Blaettermodus) {
+    const neu = modusSetzen(blaettern, seiten, 'alle', m);
+    if (JSON.stringify(neu) !== JSON.stringify(blaettern)) blaetternSpeichern(neu, nachWahl(m));
+    setFuerAlle(true);
+  }
   function fuerAlleWechseln(an: boolean) {
     setFuerAlle(an);
     // Einschalten: alle Seiten blättern wie diese.
     if (an && !einheitlich(blaettern, seiten)) blaetternSpeichern(modusSetzen(blaettern, seiten, 'alle', blaetterModus), nachWahl(blaetterModus));
   }
   function linieStarten() {
+    setFuerAlle(einheitlich(blaettern, seiten));
     setLinieEinstellen(true); setWerkzeug(null); setPaletteOffen(false); setAnsichtOffen(false);
     // Leisten weg: die Seite bleibt frei, auch für Linien ganz oben oder unten.
     setLeisteWeg(true);
@@ -944,10 +982,10 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   const linieEnde = () => { setLinieEinstellen(false); setLeisteWeg(false); };
   // Seite für Seite: ‹ › zeigen die vorige bzw. nächste ganze Seite.
   function seiteZeigen(r: -1 | 1) {
-    const ziel = ansicht.art === 'ganz' ? ansicht.seite + r : r < 0 ? ansicht.unten : ansicht.oben;
+    const ziel = ansicht.art === 'ganz' ? ansicht.seite + r : ansicht.art === 'halb' ? (r < 0 ? ansicht.unten : ansicht.oben) : r < 0 ? ansicht.links - 1 : ansicht.rechts + 1;
     if (ziel >= 1 && ziel <= seiten) zuStand(standUebertragen(liste, folge, { schritt, zeige }, liste, folge, ansichtVonSeite(liste, ziel)));
   }
-  const blaetterKopf = ansicht.art === 'ganz' ? `Seite ${ansicht.seite}:` : `Seite ${ansicht.unten} → ${ansicht.oben}:`;
+  const blaetterKopf = ansicht.art === 'ganz' ? `Seite ${ansicht.seite}:` : ansicht.art === 'halb' ? `Seite ${ansicht.unten} → ${ansicht.oben}:` : `Seiten ${ansicht.links}–${ansicht.rechts}:`;
   const blaetterHinweis = ansicht.art === 'halb'
     ? `So blättert es: oben schon Seite ${ansicht.oben}, unten noch Seite ${ansicht.unten}.${blaetterModus === 'linie' ? ' Die Linie ziehst du auf der ganzen Seite (‹).' : ''}`
     : letzteSeite ? 'Letzte Seite — hier wird nicht geblättert.'
@@ -998,13 +1036,13 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     tempoFuer.current = id;
     if (zuletzt) setBpm(zuletzt);
   }, [stelle?.id, zuletzt, setBpm]);
-  const seitenText = ansicht.art === 'ganz' ? `${ansicht.seite}` : `${ansicht.unten} → ${ansicht.oben}`;
+  const seitenText = ansicht.art === 'ganz' ? `${ansicht.seite}` : ansicht.art === 'halb' ? `${ansicht.unten} → ${ansicht.oben}` : `${ansicht.links}–${ansicht.rechts}`;
   // Im Mix: „Mix 2026 · ★ offen · 3 von 9“, wird es eng, kürzer (mixKopf).
   const kopf = mix ? mixKopf(mix.titel, mix.bereich, mix.nr, mix.anzahl) : null;
   const anzeige = kopf ? kopf.formen[0]
     : modus === 'stellen'
     ? `Stelle ${stelleNr + 1} von ${stellen.length}`
-    : `Seite ${seitenText} von ${seiten}`;
+    : `Seite${ansicht.art === 'doppel' ? 'n' : ''} ${seitenText} von ${seiten}`;
   // Per Sprung erreichter Teil (nicht beim Setzen): „Seite 1 von 3 · nach D.S.“,
   // wird es eng „S. 1 · nach D.S.“, dann „S. 1 · D.S.“ — die längste Form,
   // die neben den Knöpfen ganz passt (gemessen: Schrift und Knöpfe je Gerät).
@@ -1057,9 +1095,10 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   // Ziehen der Blätterlinie. Außerhalb des Ausschnitts rücken sie an dessen
   // Rand (sichtbar und antippbar).
   const marken = modus === 'lesen' && !bearbeiten && !linieEinstellen ? sichtbareMarken(spruenge, ansicht) : [];
-  const lage = (p: { x: number; y: number }) => {
-    const q = einpassen(p, ausschnitt);
-    return { left: `${q.x * 100}%`, top: `${q.y * 100}%` };
+  // Punkt einer Seite aufs Blatt: innerhalb des Ausschnitts, auf der Doppelseite in ihrer Hälfte.
+  const lage = (p: { seite: number; x: number; y: number }) => {
+    const q = einpassen(p, ausschnitt), L = seitenLage(p.seite);
+    return { left: `${(L.x + q.x * L.b) * 100}%`, top: `${(L.y + q.y * L.h) * 100}%` };
   };
   // Beim Öffnen steht wieder das zuletzt gewählte Werkzeug bereit (E-11) —
   // solange die App läuft, über Stückwechsel hinweg.
@@ -1126,52 +1165,62 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
           <>
             <button type="button" className="nav-fang" aria-label="Menü schließen" onClick={() => setAnsichtOffen(false)} />
             <div className="nav-blase" role="group" aria-label="Ansicht">
+              {/* Ansicht-Menü (B-14): Zeilen mit Symbol — Schalter oben, dann
+                  Blättern, Zuschneiden, Sprünge. Je Seite einstellen geht in der
+                  Leiste unten („Blättern einstellen“). */}
+              <p className="nav-blase-titel">Ansicht</p>
+              <label className="nav-zeile">
+                <SymbolZweiSeiten />
+                <span className="nav-zeile-text">Zwei Seiten<small>{quer ? 'Nebeneinander wie im Heft' : 'Nebeneinander, sobald der Bildschirm quer ist'}</small></span>
+                <input type="checkbox" role="switch" className="ios-schalter" checked={zweiSeiten} onChange={(e) => zweiSeitenSetzen(e.target.checked)} />
+              </label>
+              <label className="nav-zeile">
+                <SymbolZoom />
+                <span className="nav-zeile-text">Immer zoomen<small>{zoomImmer ? 'Zwei Finger zoomen auch beim Lesen' : 'Nur bei offener Stift-Palette'}</small></span>
+                <input type="checkbox" role="switch" className="ios-schalter" checked={zoomImmer} onChange={(e) => zoomImmerSetzen(e.target.checked)} />
+              </label>
               {modus === 'lesen' && (
                 <>
                   <p className="nav-blase-titel">Blättern</p>
-                  <div className="segment nav-segment" role="group" aria-label={fuerAlle ? 'Blättern auf allen Seiten' : `Blättern auf Seite ${blaetterSeite}`}>
+                  <div className="segment nav-segment" role="group" aria-label="Blättern auf allen Seiten">
                     {BLAETTER_MODI.map(([m, name]) => (
-                      <button key={m} type="button" aria-pressed={blaetterModus === m} disabled={!fuerAlle && letzteSeite}
-                        onClick={() => { modusWaehlen(m); if (m === 'linie') linieStarten(); }}>
+                      <button key={m} type="button" aria-pressed={alleGleich && blaettern.modus === m} disabled={seiten < 2}
+                        onClick={() => { alleWaehlen(m); if (m === 'linie') linieStarten(); }}>
                         {name}
                       </button>
                     ))}
                   </div>
-                  {seiten > 2 && (
-                    <label className="nav-blase-reihe">
-                      Für alle {seiten} Seiten
-                      <input type="checkbox" role="switch" className="ios-schalter" checked={fuerAlle} onChange={(e) => fuerAlleWechseln(e.target.checked)} />
-                    </label>
-                  )}
-                  {!fuerAlle && (
-                    <p className="gedaempft text-xs">{letzteSeite ? 'Auf der letzten Seite wird nicht geblättert.' : `Gilt nur für Seite ${blaetterSeite}, die anderen bleiben, wie sie sind.`}</p>
-                  )}
+                  <p className="nav-hinweis">
+                    {seiten < 2 ? 'Eine Seite — hier wird nicht geblättert.'
+                      : !alleGleich ? 'Je Seite verschieden. Hier wählen gilt wieder für alle.'
+                      : blaettern.modus === 'ganz' ? 'Ganze Seite für Seite.'
+                      : blaettern.modus === 'halb' ? 'Oben schon die nächste, unten noch diese Seite.'
+                      : 'Ab der Linie oben schon die nächste Seite.'}
+                  </p>
                   {seiten > 1 && (
-                    <button type="button" className="knopf knopf-leise knopf-klein" onClick={linieStarten}>Seite für Seite einstellen</button>
+                    <button type="button" className="nav-zeile" onClick={linieStarten}>
+                      <SymbolBlaettern />
+                      <span className="nav-zeile-text">Blättern einstellen<small>Seite für Seite: Ganz, Halb oder Linie ziehen</small></span>
+                      <NavPfeil />
+                    </button>
                   )}
                 </>
               )}
-              <p className="nav-blase-titel">Ausschnitt</p>
-              <button type="button" className="knopf knopf-leise knopf-klein" onClick={ausschnittStarten}>
-                Seite {seiteJetzt} {ausschnitte[seiteJetzt] ? 'anders zuschneiden' : 'zuschneiden'}
+              <p className="nav-blase-titel">Seite</p>
+              <button type="button" className="nav-zeile" onClick={ausschnittStarten}>
+                <SymbolZuschneiden />
+                <span className="nav-zeile-text">Seite {seiteJetzt} zuschneiden<small>{ausschnitte[seiteJetzt] ? 'Ausschnitt ändern oder ganze Seite' : 'Nur den Bereich zeigen, den du brauchst'}</small></span>
+                <NavPfeil />
               </button>
-              <p className="gedaempft text-xs">Nur den Bereich zeigen, den du brauchst — z. B. ohne breite Ränder. Gilt künftig für diese Seite.</p>
-              <p className="nav-blase-titel">Zoom</p>
-              <label className="nav-blase-reihe">
-                Immer zoomen
-                <input type="checkbox" role="switch" className="ios-schalter" checked={zoomImmer} onChange={(e) => zoomImmerSetzen(e.target.checked)} />
-              </label>
-              <p className="gedaempft text-xs">
-                {zoomImmer ? 'Zwei Finger (am Rechner Strg + Mausrad) zoomen auch beim Lesen; ein Finger schiebt, ein Tipp blättert. Beim Blättern wieder ganze Seite.'
-                  : 'Zoomen geht nur, solange die Stift-Palette offen ist.'}
-              </p>
               {modus === 'lesen' && (
                 <>
                   <p className="nav-blase-titel">Sprünge</p>
-                  <button type="button" className="knopf knopf-leise knopf-klein" onClick={setzenStarten} disabled={!!neueStelle}>Sprung setzen</button>
-                  <p className="gedaempft text-xs">
-                    {spruenge.length > 1 ? 'Weiterblättern folgt den Sprüngen in dieser Reihenfolge — mit ↑ ↓ umstellen.' : 'Weiterblättern folgt den Sprüngen.'}
-                  </p>
+                  <button type="button" className="nav-zeile" onClick={setzenStarten} disabled={!!neueStelle}>
+                    <SymbolSprung />
+                    <span className="nav-zeile-text">Sprung setzen<small>Wiederholung, D.S., D.C., Coda — Weiterblättern folgt</small></span>
+                    <NavPfeil />
+                  </button>
+                  {spruenge.length > 1 && <p className="nav-hinweis">In dieser Reihenfolge wird gesprungen — mit ↑ ↓ umstellen.</p>}
                   {spruenge.length > 0 && (
                     <ol className="nav-spruenge" aria-label="Sprünge in Spielreihenfolge">
                       {spruenge.map((s, i) => (
@@ -1196,7 +1245,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
                     </ol>
                   )}
                   {spruenge.some((s) => !genommen.has(s.id)) && (
-                    <p className="gedaempft text-xs">
+                    <p className="nav-hinweis">
                       Grau: wird beim Weiterblättern nicht erreicht.
                       {spruenge.some((s) => s.art === 'coda' && !genommen.has(s.id)) && ' Eine Coda kommt erst nach einem D.S. oder D.C.'}
                     </p>
@@ -1430,7 +1479,31 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
 }
 
 const BLAETTER_MODI = [['ganz', 'Ganz'], ['halb', 'Halb'], ['linie', 'Linie']] as const;
+const GANZES_BLATT: SeitenLage = { x: 0, y: 0, b: 1, h: 1 };
 // Zuletzt gewähltes Werkzeug der Palette (E-11): nur im Arbeitsspeicher, bis
 // die App neu lädt — dann wieder der Stift.
 let werkzeugZuletzt: Werkzeug = 'stift';
 const prozent = (r: Rechteck) => ({ left: `${r.x * 100}%`, top: `${r.y * 100}%`, width: `${r.b * 100}%`, height: `${r.h * 100}%` });
+
+// ── Symbole des Ansicht-Menüs (B-14) ──
+const NavPfeil = () => (
+  <svg className="nav-pfeil" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 3l3 3-3 3" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+);
+const SymbolZweiSeiten = () => (
+  <svg className="nav-symbol" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="8" height="14" rx="1.2" /><rect x="13" y="5" width="8" height="14" rx="1.2" /><path d="M5.5 9h3M5.5 12h3M15.5 9h3M15.5 12h3" /></svg>
+);
+const SymbolZoom = () => (
+  <svg className="nav-symbol" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.5 15.5L21 21M10.5 7.5v6M7.5 10.5h6" /></svg>
+);
+// Blatt mit umgeklappter Ecke unten rechts.
+const SymbolBlaettern = () => (
+  <svg className="nav-symbol" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h12A1.5 1.5 0 0 1 19.5 5v8.5L13 20.5H6A1.5 1.5 0 0 1 4.5 19V5A1.5 1.5 0 0 1 6 3.5z" /><path d="M19.5 13.5H15a2 2 0 0 0-2 2v5" /><path d="M8 8.5h8M8 12h5" /></svg>
+);
+// Zuschneiden wie beim Bearbeiten von Fotos.
+const SymbolZuschneiden = () => (
+  <svg className="nav-symbol" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 2.5V15a2 2 0 0 0 2 2h12.5" /><path d="M2.5 7H15a2 2 0 0 1 2 2v12.5" /></svg>
+);
+// Sprung zurück (Wiederholung, D.S.).
+const SymbolSprung = () => (
+  <svg className="nav-symbol" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 11h11a4 4 0 0 1 0 8H10" /><path d="M8 7.5L4.5 11 8 14.5" /><path d="M4.5 4.5h15" strokeDasharray="2 2.5" /></svg>
+);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  ausschnitteLesen, ausschnittFuer, ausschnittSetzen, aufspannen, darstellung, fuerAlleSeiten, istVoll, MIN, VOLL, ziehen,
+  ausschnitteLesen, ausschnittFuer, ausschnittSetzen, aufspannen, darstellung, doppelDarstellung, fuerAlleSeiten, istVoll, MIN, VOLL, ziehen,
 } from '@/domain/ausschnitt';
 
 const r = (x: number, y: number, b: number, h: number) => ({ x, y, b, h });
@@ -68,5 +68,26 @@ describe('Darstellung: der Ausschnitt füllt den Platz', () => {
     expect(d.blatt.x).toBeCloseTo(-50, 6);
     expect(d.blatt.h).toBeCloseTo(706, 6);
     expect(d.blatt.y).toBeCloseTo(-70.6, 6);
+  });
+});
+
+describe('doppelDarstellung (B-13)', () => {
+  it('zwei Seiten nebeneinander mit Lücke, Lagen als Anteile des Blatts', () => {
+    const d = doppelDarstellung({ b: 1018, h: 800 }, 1.414, VOLL, 10);
+    // Je Seite (1018 − 10) / 2 = 504 breit (die Höhe ließe 560 zu) — die Doppelseite füllt die Breite.
+    expect(d.rahmen).toEqual({ b: 1018, h: 712 });
+    expect(d.blatt.b).toBe(504 + 10 + 504);
+    expect(d.lagen.links.x).toBe(0);
+    expect(d.lagen.rechts.x).toBeCloseTo(514 / d.blatt.b);
+    expect(d.lagen.links.b).toBeCloseTo(504 / d.blatt.b);
+    expect(d.luecke.b).toBeCloseTo(10 / d.blatt.b);
+  });
+  it('derselbe Ausschnitt gilt für beide Seiten', () => {
+    // Ausschnitt 80 % breit: jetzt begrenzt die Höhe (792 / 1,7675 = 448 je Seite); die Seite ist 448 / 0,8 = 560 breit.
+    const d = doppelDarstellung({ b: 1018, h: 800 }, 1.414, { x: 0.1, y: 0, b: 0.8, h: 1 }, 10);
+    expect(d.rahmen.b).toBe(2 * 448 + 10);
+    expect(d.blatt.x).toBeCloseTo(-0.1 * 560);
+    expect(d.lagen.rechts.b * d.blatt.b).toBeCloseTo(560);
+    expect(d.lagen.rechts.x * d.blatt.b).toBeCloseTo(458);
   });
 });

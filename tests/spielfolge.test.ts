@@ -16,7 +16,7 @@ const gespielt = (liste: Ansicht[], spruenge: Sprung[]) => spielfolge(liste, aut
 // Lesbar: je Schritt die Seite (ganz) bzw. „unten→oben“ (halb), mit * und id bei Ankunft.
 const zeige = (liste: Ansicht[], folge: Schritt[]) => folge.map((s) => {
   const a = liste[s.ansicht];
-  const name = a.art === 'ganz' ? `${a.seite}` : `${a.unten}→${a.oben}`;
+  const name = a.art === 'ganz' ? `${a.seite}` : a.art === 'halb' ? `${a.unten}→${a.oben}` : `${a.links}|${a.rechts}`;
   return s.ankunft ? `${name}*${s.ankunft}` : name;
 });
 
@@ -433,5 +433,13 @@ describe('Ansicht außer der Reihe (zeige): weiter im selben Durchgang', () => {
     const vor = gespielt(vier, [sprung('v', p(1, 0.9, 0.9), p(3, 0, 0), 'wdh')]); // 1 3* 4
     expect(standZu(vor, 1, 0)).toEqual({ schritt: 0, zeige: 1 });
     expect(standZu(vor, 3, 0)).toEqual({ schritt: 2, zeige: null });
+  });
+});
+
+describe('Doppelseite (B-13)', () => {
+  it('Weiterblättern geht Doppelseite für Doppelseite, ein Sprung führt auf die Doppelseite mit dem Ziel', () => {
+    const liste = ansichten(5, 'ganz', {}, {}, true);
+    const ds = { id: 'ds', art: 'ds' as const, von: { seite: 4, x: 0.5, y: 0.9 }, nach: { seite: 1, x: 0.1, y: 0.1 }, nr: 1 };
+    expect(zeige(liste, spielfolge(liste, [ds]))).toEqual(['1|2', '3|4', '1|2*ds', '3|4', '5']);
   });
 });

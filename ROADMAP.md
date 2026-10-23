@@ -241,6 +241,29 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
 
 *(Abgeschlossene Punkte hierher verschieben, mit Datum und Commit.)*
 
+- **B-13 · Zwei Seiten nebeneinander** (2026-10-23): Wunsch Marlon. Ansicht →
+  „Zwei Seiten“ (je Gerät, `ueben:zwei-seiten`): Im Querformat stehen die
+  Seiten paarweise nebeneinander (1–2, 3–4 …, eine übrige letzte allein),
+  mit schmaler Lücke; der Ausschnitt gilt für beide Seiten gleich. Geblättert
+  wird je Doppelseite — Pedal, Ring, Tasten, Rand-Tippen, auch über Sprünge
+  (eine Marke liegt auf ihrer Seite, das Ziel ist die Doppelseite, die die
+  Seite zeigt). Kopf „Seiten 1–2 von 4“. Hochkant, beim Anmerken (offene
+  Palette), im Stellen-Modus und beim Blättern-Einstellen zeigt der
+  Betrachter weiter eine Seite; Halb und Linie gelten in der Doppelseite
+  nicht. Neue Ansicht-Art `doppel` in `src/domain/notenpult.ts`, Sprünge in
+  `spruenge.ts`, Geometrie `doppelDarstellung` in `ausschnitt.ts` (alles
+  getestet). Kein Schema-Sprung.
+- **B-14 · Ansicht-Menü aufgeräumt** (2026-10-23): Wunsch Marlon: „Seite für
+  Seite einstellen“ und „Seite 2 zuschneiden“ waren nicht unterscheidbar
+  genug. Das Menü hat jetzt Zeilen mit Symbol und Unterzeile: **Ansicht**
+  (Zwei Seiten, Immer zoomen als Schalter), **Blättern** (Ganz | Halb | Linie
+  gilt hier für alle Seiten, darunter „Blättern einstellen ›“ mit
+  Blatt-Symbol — die Leiste unten für Seite für Seite, Linie ziehen, „Für
+  alle“), **Seite** („Seite n zuschneiden ›“ mit Zuschneide-Symbol wie beim
+  Foto-Bearbeiten) und **Sprünge** („Sprung setzen ›“, Liste). Blättern
+  alle Seiten verschieden, steht das dabei; die Wahl im Menü setzt wieder
+  alle gleich.
+
 - **B-12 · Bibliothek immer in voller Höhe, Erinnerung abschaltbar**
   (2026-10-23): Wunsch Marlon: Die Höhe der Bibliothek hing davon ab, wie
   viele Stücke es gab. Jetzt setzt sie immer ganz oben an (Kopf „Bibliothek“
