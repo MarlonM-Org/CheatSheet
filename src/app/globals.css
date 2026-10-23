@@ -737,6 +737,11 @@ details[open] > summary::before { transform: rotate(90deg); }
   position: absolute; right: -14px; bottom: -14px; width: 28px; height: 28px; border-radius: 50%; pointer-events: auto; cursor: nwse-resize; touch-action: none;
   background: var(--messing); border: 2px solid var(--papier); box-shadow: 0 1px 4px rgb(0 0 0 / 30%);
 }
+/* Sonne/Mond in der Stellen-Leiste (F-19): Umgebung hell oder abgedunkelt. */
+.b-knopf.b-hell { flex: none; width: 36px; min-width: 36px; padding: 0; display: grid; place-items: center; }
+.b-knopf.b-hell svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+/* Gedrückt (hell): der Mond in der Knopffarbe, gefüllt — nicht Messing auf Messing. */
+.b-knopf.b-hell[aria-pressed="true"] svg { fill: currentColor; stroke: currentColor; }
 .b-schnitt-vorschau {
   position: absolute; left: 0; right: 0; pointer-events: none; z-index: 2;
   background: rgb(168 120 31 / 10%); border-top: 2px solid var(--messing); border-bottom: 1px dashed var(--messing);

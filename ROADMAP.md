@@ -241,6 +241,14 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
 
 *(Abgeschlossene Punkte hierher verschieben, mit Datum und Commit.)*
 
+- **F-19 · Stellen-Modus: Umgebung hell oder abgedunkelt** (2026-10-23):
+  Wunsch Marlon: im Stellen-Modus auch davor und danach mitspielen, ohne die
+  Stellen-Leiste („geschafft“) zu verlieren — und nicht versteckt im Menü,
+  sondern direkt in der Leiste. Links neben dem Namen der Stelle steht eine
+  **Sonne** (Umgebung ist abgedunkelt, Tipp hellt auf) bzw. ein **Mond**
+  (Umgebung ist hell, Tipp dunkelt ab). Der Rahmen um die Stelle bleibt
+  immer. Gilt auch im Stellen-Mix, gemerkt je Gerät (`ueben:stelle-hell`).
+
 - **E-03 (Nachbesserung) · Werkzeuge erkennbar** (2026-10-23): Wunsch
   Marlon: Marker sah aus wie ein Block, Radierer und Stempel waren nicht
   zu erkennen. Jetzt: Textmarker mit Keilspitze, dunklem Kragen und Etikett;
