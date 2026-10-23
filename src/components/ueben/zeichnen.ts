@@ -115,10 +115,10 @@ export function blattZeichnen(ctx: CanvasRenderingContext2D, seite: Lage, teile:
     if (t.bild) ctx.drawImage(t.bild, t.lage.x, t.lage.y, t.lage.b, t.lage.h);
     if (t.ebene && !luecke) ebeneZeichnen(ctx, t.ebene, t.lage, objekte, S, hilfe());
     anmerkungenZeichnen(ctx, objekte, X, Y, W, H, luecke);
-    for (const st of objekte.filter(istSticker)) {
-      if ((st.luecke ?? null) !== luecke) continue;
-      stickerZeichnen(ctx, st, S, extras.quellen?.get(st.von.seite) ?? null, anm[st.von.seite] ?? [], !!extras.bearbeitbar);
-    }
+    const stickerHier = objekte.filter(istSticker).filter((st) => (st.luecke ?? null) === luecke);
+    // Sticker der Seite enden am Schnitt (die Seite ist dort geteilt); Sticker
+    // einer Lücke dürfen über ihren Rand hinaus — sie liegen obenauf.
+    if (!luecke) for (const st of stickerHier) stickerZeichnen(ctx, st, S, extras.quellen?.get(st.von.seite) ?? null, anm[st.von.seite] ?? [], !!extras.bearbeitbar);
     if (!luecke) {
       for (const st of extras.stellen.filter((x) => x.seite === t.seite)) {
         ctx.strokeStyle = 'rgba(168, 120, 31, 0.55)'; ctx.lineWidth = Math.max(1, W / 600);
@@ -132,6 +132,7 @@ export function blattZeichnen(ctx: CanvasRenderingContext2D, seite: Lage, teile:
       ctx.setLineDash([]);
     }
     ctx.restore();
+    if (luecke) for (const st of stickerHier) stickerZeichnen(ctx, st, S, extras.quellen?.get(st.von.seite) ?? null, anm[st.von.seite] ?? [], !!extras.bearbeitbar);
   }
   if (extras.luecke) {
     const l = extras.luecke;

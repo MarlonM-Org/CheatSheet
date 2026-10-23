@@ -290,6 +290,10 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
     Teilstücke und Lücken derselben Seite; landet er in einer Lücke, gehört
     er zu ihr (`luecke` am Sticker, Lage ab Oberkante) und geht mit dem
     Schnitt. Auf eine andere Seite gelegt liegt er wieder auf der Seite.
+    Ob Seite oder Lücke, entscheidet die **Mitte** des Stickers beim
+    Loslassen (die linke obere Ecke ließ ihn an der Seite hängen und am
+    Schnitt teilen — Video Marlon); Sticker einer Lücke dürfen über deren
+    Rand hinausragen, Sticker der Seite enden am Schnitt.
   - **Schnitt ziehen ohne Ruckeln:** Das Blatt wurde bei jeder Bewegung neu
     gerendert (auf dem iPad ruckelig, einmal abgestürzt). Jetzt zeigt ein
     Band nur die Vorschau; gerendert wird einmal beim Loslassen.
