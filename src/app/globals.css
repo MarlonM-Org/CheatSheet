@@ -369,6 +369,9 @@ a { color: inherit; text-decoration: underline; text-decoration-color: var(--mes
 }
 .metro-start svg { width: 20px; height: 20px; }
 .panel-zu.metro-breite { margin-right: -4px; }
+/* Schmal/Breit: Symbol so groß wie das × wirkt, Trefffläche bleibt 44 × 44 (Apple HIG). */
+.panel-zu.metro-breite svg { width: 22px; height: 22px; stroke-width: 1.9; }
+.metro-schmal .panel-kopf .panel-zu svg { width: 20px; height: 20px; }
 .metro-start[aria-pressed="true"] { background: var(--messing); border-color: var(--messing); color: var(--messing-text); }
 .metro-bpm { display: flex; align-items: baseline; gap: 7px; min-height: 44px; }
 .metro-zahl {
