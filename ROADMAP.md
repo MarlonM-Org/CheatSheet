@@ -171,6 +171,48 @@ Speicherformat etwas Offenes (ABC-Notation oder MusicXML), nichts Eigenes.
 Export als PDF in die eigene Bibliothek — damit schließt sich der Kreis:
 komponieren → üben.
 
+**Konkretisiert (2026-10-23, Wunsch Marlon):**
+
+- **Einstieg über „+ Noten“:** neben „PDF-Dateien wählen“ und „Ordner
+  wählen“ ein dritter Punkt „Neues Stück schreiben“. Ist eine Sammlung oder
+  ein Tag gewählt, gilt dasselbe wie beim Import: das neue Stück wird dort
+  einsortiert bzw. markiert.
+- **Eigene Ansicht zum Komponieren:** ein Editor als eigener Bildschirm
+  (nicht im Betrachter), mit Palette zum **Antippen und Platzieren** statt
+  Tastatur-Syntax: Notenschlüssel (Violin, Bass, …), Taktart (Zähler und
+  Nenner wie beim Metronom), Tonart/Vorzeichen, Noten in allen Werten,
+  Pausen, Punktierung, Bindebögen, Taktstriche und Wiederholungszeichen.
+  Elemente wählen, einfügen, verschieben, löschen — wie Stempel.
+- **Speichern wie jedes andere Stück:** Das komponierte Stück landet als
+  Stück in der Bibliothek (`Stueck` + Seiten) mit einer gerenderten PDF in
+  `dateien`, damit Betrachter, Stift, Stellen, Metronom und Setlisten ohne
+  Sonderweg funktionieren. **Zusätzlich** bleibt die Quelle (ABC oder
+  MusicXML) am Stück gespeichert — nur so lässt es sich später wieder
+  bearbeiten. Datenmodell: neues optionales Feld am `Stueck` (z. B.
+  `quelle`-Text samt Format), Schema per Versionssprung mit Migrationstest;
+  reist mit der Sicherung (`.uebe` bleibt Version 1, wer das Feld nicht
+  kennt, überliest es). Nach dem Bearbeiten wird die PDF neu erzeugt, die
+  alten Seiten-Anmerkungen bleiben erhalten (Seitenzahl kann sich ändern —
+  Regel dafür in `src/domain/` zuerst als Test).
+- **Nachträglich bearbeiten:** Stücke mit Quelle bekommen in der Bibliothek
+  bzw. im Kontextmenü (F-08) einen Punkt „Bearbeiten“, der den Editor mit
+  der gespeicherten Quelle öffnet. Stücke ohne Quelle (importierte PDFs)
+  haben den Punkt nicht.
+- **Export als Datei:** die PDF teilen/herunterladen wie andere Stücke, plus
+  die Quelle (`.abc` bzw. `.musicxml`) als eigene Datei, damit sie in
+  Notensatz-Programmen weiterlebt. Umgekehrt: eine `.abc`-/`.musicxml`-Datei
+  über „+ Noten“ importieren → wird gerendert und ist bearbeitbar.
+- **Sammlungen, Tags, Setlisten, Metadaten:** nichts Eigenes — ein
+  komponiertes Stück ist ein Stück wie jedes andere.
+- **Empfehlung Technik:** abcjs mit ABC als Quelle (Rendern als SVG, PDF
+  daraus; Speichern, Sichern und Wiederbearbeiten sind dann Text). VexFlow
+  nur, falls die Palette feinere Platzierung braucht, als ABC hergibt.
+- **Reihenfolge:** G steht laut Leitbild hinter M2–M6; offen ist M6
+  (Themes B-05, Stempel/Formen E-04, Kamera-Scan F-07) sowie aus M4/M5
+  F-01…F-04, F-08, F-09. Ob G-01 vorgezogen wird, entscheidet Marlon. Die
+  Stempel-Palette aus E-04 und der Editor sollten dasselbe
+  Bedienmuster teilen (Element wählen → antippen/platzieren → verschieben).
+
 ### G-02 · Rhythmus-Transkription
 
 Einsingen oder klatschen → die App erkennt die Einsätze (Onset-Erkennung)
