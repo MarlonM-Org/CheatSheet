@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { gleicheSammlung, imFilter, mitSammlung, ohneSammlung, sammlungenVon, sammlungName } from '@/domain/sammlungen';
 import type { Tag } from '@/domain/tags';
+import { useHalten } from './Kontext';
 import type { Stueck } from './lokal';
 import { TagPunkt } from './Tags';
 import { useDialogFokus, useEscape } from './tasten';
@@ -16,29 +17,22 @@ type Uebersicht = { name: string; anzahl: number }[];
 // Filterzeile: „Alle“, jede Sammlung mit Zahl ihrer Stücke, „+ Sammlung“.
 // Eine gerade angelegte, noch leere Sammlung steht mit 0 da, solange sie
 // gewählt ist.
-// Die gewählte Sammlung ist am Chip zu erkennen (keine eigene Kopfzeile, F-20);
-// ein zweiter Tipp auf den gewählten Chip öffnet Umbenennen und Auflösen.
-export function SammlungenLeiste({ uebersicht, aktiv, waehlen, umbenennen, aufloesen }: {
+export function SammlungenLeiste({ uebersicht, aktiv, waehlen, halten }: {
   uebersicht: Uebersicht; aktiv: string | null; waehlen: (name: string | null) => void;
-  umbenennen: (neu: string) => void; aufloesen: () => void;
+  // Halten oder Rechtsklick auf einen Chip: Kontext-Blatt der Sammlung (F-08).
+  halten: (name: string) => void;
 }) {
-  const [formular, setFormular] = useState<null | 'neu' | 'bearbeiten'>(null);
+  const [formular, setFormular] = useState<null | 'neu'>(null);
   const leer = aktiv !== null && !uebersicht.some((s) => gleicheSammlung(s.name, aktiv));
-  const anzahl = aktiv === null ? 0 : (uebersicht.find((s) => gleicheSammlung(s.name, aktiv))?.anzahl ?? 0);
   return (
     <div className="space-y-2">
       <div className="sammlungen" role="group" aria-label="Sammlungen">
-        <button type="button" className="sammlung-chip" aria-pressed={aktiv === null} onClick={() => { setFormular(null); waehlen(null); }}>Alle</button>
-        {uebersicht.map((s) => {
-          const gewaehlt = aktiv !== null && gleicheSammlung(s.name, aktiv);
-          return (
-            <button key={s.name} type="button" className="sammlung-chip" aria-pressed={gewaehlt}
-              title={gewaehlt ? 'Noch einmal tippen: umbenennen oder auflösen' : undefined}
-              onClick={() => { if (gewaehlt) setFormular(formular === 'bearbeiten' ? null : 'bearbeiten'); else { setFormular(null); waehlen(s.name); } }}>
-              {s.name}<span className="sammlung-zahl">{s.anzahl}</span>
-            </button>
-          );
-        })}
+        <button type="button" className="sammlung-chip" aria-pressed={aktiv === null} onClick={() => waehlen(null)}>Alle</button>
+        {uebersicht.map((s) => (
+          <SammlungChip key={s.name} name={s.name} anzahl={s.anzahl} aktiv={aktiv !== null && gleicheSammlung(s.name, aktiv)}
+            // Zweiter Tipp auf den gewählten Chip: wie Halten — das Kontext-Blatt (F-20, keine Kopfzeile mehr).
+            waehlen={() => (aktiv !== null && gleicheSammlung(s.name, aktiv) ? halten(s.name) : waehlen(s.name))} halten={() => halten(s.name)} />
+        ))}
         {leer && <button type="button" className="sammlung-chip" aria-pressed="true">{aktiv}<span className="sammlung-zahl">0</span></button>}
         <button type="button" className="sammlung-chip sammlung-neu" onClick={() => setFormular(formular ? null : 'neu')} aria-expanded={formular === 'neu'}>+ Sammlung</button>
       </div>
@@ -46,18 +40,16 @@ export function SammlungenLeiste({ uebersicht, aktiv, waehlen, umbenennen, auflo
         <NameFormular knopf="Anlegen" platzhalter="z. B. Märsche oder Orchester A" abbrechen={() => setFormular(null)}
           fertig={(name) => { setFormular(null); waehlen(name); }} />
       )}
-      {formular === 'bearbeiten' && aktiv && (
-        <div className="sammlung-kopf">
-          <NameFormular start={aktiv} knopf="Umbenennen" platzhalter="Neuer Name" abbrechen={() => setFormular(null)}
-            fertig={(neu) => { setFormular(null); if (neu !== aktiv) umbenennen(neu); }} />
-          {anzahl > 0 && (
-            <button type="button" className="text-knopf bib-loeschen" onClick={() => { setFormular(null); aufloesen(); }}>
-              Sammlung auflösen (die {anzahl} {anzahl === 1 ? 'Stück bleibt' : 'Stücke bleiben'} in der Bibliothek)
-            </button>
-          )}
-        </div>
-      )}
     </div>
+  );
+}
+
+function SammlungChip({ name, anzahl, aktiv, waehlen, halten }: { name: string; anzahl: number; aktiv: boolean; waehlen: () => void; halten: () => void }) {
+  const geste = useHalten(halten);
+  return (
+    <button type="button" className="sammlung-chip haltbar" aria-pressed={aktiv} onClick={waehlen} {...geste}>
+      {name}<span className="sammlung-zahl">{anzahl}</span>
+    </button>
   );
 }
 
@@ -75,14 +67,15 @@ function NameFormular({ start = '', knopf, platzhalter, fertig, abbrechen }: {
   );
 }
 
-// „+ Noten“ mit kleinem Menü: PDF-Dateien oder einen ganzen Ordner wählen.
+// „+ Noten“ mit kleinem Menü: PDF-Dateien, einen ganzen Ordner, die Kamera
+// (Einscannen) oder Fotos (F-07) wählen.
 // Ist eine Sammlung gewählt, steht oben unübersehbar, dass neue Stücke dort
 // einsortiert werden — mit Schalter zum Abwählen.
-export function HinzufuegenMenue({ ziel, einsortieren, setEinsortieren, tagZiel, markieren, setMarkieren, dateien, ordner, gesperrt }: {
+export function HinzufuegenMenue({ ziel, einsortieren, setEinsortieren, tagZiel, markieren, setMarkieren, dateien, ordner, scannen, fotos, gesperrt }: {
   ziel: string | null; einsortieren: boolean; setEinsortieren: (an: boolean) => void;
   // Gewählter Tag (F-14): neue Stücke damit markieren — genauso sichtbar.
   tagZiel: Tag | null; markieren: boolean; setMarkieren: (an: boolean) => void;
-  dateien: () => void; ordner: () => void; gesperrt: boolean;
+  dateien: () => void; ordner: () => void; scannen: () => void; fotos: () => void; gesperrt: boolean;
 }) {
   const [offen, setOffen] = useState(false);
   const menue = useRef<HTMLDivElement>(null);
@@ -122,6 +115,12 @@ export function HinzufuegenMenue({ ziel, einsortieren, setEinsortieren, tagZiel,
             </button>
             <button type="button" role="menuitem" className="bib-menue-punkt" onClick={() => waehlen(ordner)}>
               Ordner wählen<span>alle PDFs darin · Unterordner werden Sammlungen</span>
+            </button>
+            <button type="button" role="menuitem" className="bib-menue-punkt" onClick={() => waehlen(scannen)}>
+              Einscannen<span>Papiernoten mit der Kamera, Seite für Seite</span>
+            </button>
+            <button type="button" role="menuitem" className="bib-menue-punkt" onClick={() => waehlen(fotos)}>
+              Fotos wählen<span>vorhandene Fotos von Noten · Schatten werden entfernt</span>
             </button>
           </div>
         </>

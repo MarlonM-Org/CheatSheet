@@ -15,14 +15,22 @@ funktioniert danach auch offline.
 - **Blättern:** ganze oder halbe Seiten oder ab einer eigenen Linie — für
   alle Seiten gleich oder je Seite anders; per Wischen, Blätterpedal, Mausrad
   oder Bluetooth-Scroll-Ring. Je Seite ein Ausschnitt (z. B. ohne breite
-  Ränder); die Leisten verschwinden mit einem Tipp in die Mitte.
+  Ränder); die Leisten verschwinden mit einem Tipp in die Mitte, ein
+  Doppeltipp zieht die Seite zusätzlich auf die Bildschirmbreite.
 - **Sprünge:** Wiederholung, D.S., D.C. und Coda als Marken; Weiterblättern
   folgt ihnen in der Reihenfolge der Liste (umstellbar), zurück geht
   denselben Weg.
 - **Schwierige Stellen:** markieren, gezielt üben, Zieltempo setzen und den
   Fortschritt verfolgen. Der Stellen-Mix übt Stellen aus mehreren Stücken
   gemischt.
-- **Ordnen:** Sammlungen und farbige Tags.
+- **Ordnen:** Sammlungen und farbige Tags; Halten oder „⋯“ öffnet zu jedem
+  Stück, jeder Sammlung, Stelle und jedem Lesezeichen ein Blatt mit allen
+  Aktionen. Lesezeichen benennen Seiten (auch
+  aus dem Inhaltsverzeichnis der PDF); ein Seitenbereich eines Sammelbands
+  wird auf Wunsch ein eigenes Stück.
+- **Einscannen:** Papiernoten mit der Kamera aufnehmen oder vorhandene Fotos
+  wählen — Blattrand finden, entzerren, Schatten herausrechnen, als PDF in
+  die Bibliothek.
 - **Metronom:** Taktarten, Betonungen, Unterteilungen, Tempo-Trainer.
 - **Stimmgerät:** über das Mikrofon, mit Referenztönen. Das Tonprofil zeigt,
   welche Töne auf deinem Instrument zu hoch oder zu tief liegen.

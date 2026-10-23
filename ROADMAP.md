@@ -35,9 +35,9 @@ ob das ins Leitbild passt (dann auch CLAUDE.md anpassen: „kein Login“).
 | M1 | **Fundament aufräumen** | Datenmodell klären, Tests für die Speicherschicht (A-01 verworfen) — *erledigt 2026-10-12* | A-02, A-03 |
 | M2 | **Noten im Zentrum** | UI-Neuaufbau: Noten vollflächig, Werkzeuge als Overlays, drei Knöpfe unten | B-01…B-03 |
 | M3 | **Werkzeuge schärfen** | Stimmgerät- und Metronom-Verbesserungen, Stift-Ausbau | C-01…C-03, D-01, E-01…E-03 |
-| M4 | **Notenmanagement I** | Metadaten, Bookmarks, Flags, Kontextmenüs, Drag & Drop (Sammlungen F-13 erledigt) | F-01, F-03, F-04, F-08, F-09 |
-| M5 | **Üben & Setlisten** | Setlisten (Stellen-Mix F-11, Tonprofil C-04, Sprünge F-05, Halbseiten-Blättern F-06, Blättern je Seite F-16 und Favoriten im Mix F-17 schon erledigt) | F-02 |
-| M6 | **Design & Extras** | Themes, Stempel/Formen, Kamera-Scan | B-04, B-05, E-04, F-07 |
+| M4 | **Notenmanagement I** | Metadaten, Flags, Drag & Drop (Sammlungen F-13, Lesezeichen/virtuelle Stücke F-03 und Kontext-Blatt F-08 erledigt) | F-01, F-04, F-09 |
+| M5 | **Üben & Setlisten** | Setlisten (Stellen-Mix F-11, Tonprofil C-04, Sprünge F-05, Halbseiten-Blättern F-06, Blättern je Seite F-16 und Favoriten im Mix F-17 schon erledigt) — *zurückgestellt 2026-10-23: Marlon ordnet bisher über Dateinamen, Setlisten sind Zukunftsthema* | F-02 |
+| M6 | **Extras** | Stempel/Formen (Kamera-Scan F-07, Themes B-04 und Design B-05 erledigt) — *vorgezogen 2026-10-23, vor M4 und M5* | E-04 |
 | M7 | **Komponieren** (Vision) | Noteneingabe, Rhythmus-/Melodie-Transkription | G-01…G-03 |
 | M8 | **Geräteübergreifend** (Vision, Entscheidung offen) | Noten und Übe-Daten über die eigene Cloud auf mehreren Geräten | H-01…H-05 |
 
@@ -90,6 +90,17 @@ Später, nach E-01…E-03: Stempel (musikalische Symbole: Atemzeichen,
 Fingersätze, Dynamik), Formen (Bindebögen, Crescendo-Keile), Auswahl-Werkzeug
 (verschieben/löschen statt nur radieren), ggf. Anmerkungs-Ebenen.
 
+**Vorgezogen 2026-10-23 (Wunsch Marlon).** Bedienmuster: in der
+Stiftpalette ein Werkzeug „Stempel“ → Palette mit Symbolen (Atemzeichen,
+Fermate, Akzent, Staccato, Dynamik p/mp/mf/f/ff, Crescendo/Decrescendo-Keil,
+Fingersätze 1–5, Bogen, Wiederholungs- und Sprungzeichen, Pfeil, Haken) →
+antippen platziert das Symbol, ziehen verschiebt, Zwei-Finger skaliert;
+gewähltes Symbol hat Rahmen wie der Sticker (E-12), Löschen über den
+Rahmen. Farbe aus der Stiftpalette. Gespeichert als Anmerkung mit Art
+`stempel` (Symbol-Kennung, Lage, Größe, Farbe) — Regeln in `src/domain/`,
+Schema per Versionssprung mit Migrationstest. Dasselbe Muster soll später der
+Komponier-Editor (G-01) nutzen.
+
 ---
 
 ## F — Notenmanagement (forScore als Vorbild)
@@ -113,17 +124,7 @@ gespielt, zufällig. Export als einfache Textliste (kein Sync, keine Freigabe).
 Speicher steht (A-02): `setlisten` mit `eintraege` in Reihenfolge; gelöschte
 Stücke verschwinden daraus, die Lösch-Rückfrage nennt die Setlisten.
 
-### F-03 · Bookmarks
-
-Seiten benennen und direkt anspringen. Ausbaustufe: Seitenbereich einer PDF
-als **virtuelles Stück** mit eigenen Metadaten (für Sammelbände) — erscheint
-in der Bibliothek wie eine eigene Note, kann in Setlisten. Wenn die PDF ein
-Inhaltsverzeichnis hat: Bookmarks automatisch daraus erzeugen.
-Speicher steht (A-02): `lesezeichen` und virtuelle Stücke (`quelle`), samt
-Kaskade und Sicherung. **Offen in der Oberfläche:** Der Betrachter zeigt ein
-virtuelles Stück noch als ganze PDF der Quelle — er muss die Seiten von–bis
-zeigen und Stellen/Anmerkungen über `ablage()` (`src/domain/bestand.ts`) bei
-der Quelle lesen und schreiben. Anlegen geht bisher nur über `lokal.ts`.
+*(F-03 Lesezeichen und virtuelle Stücke am 2026-10-23 erledigt, siehe unten.)*
 
 ### F-04 · Flags
 
@@ -133,17 +134,9 @@ Speicher steht (A-02): `merker`, einer je Seite.
 
 *(F-05 Sprünge und F-06 Halbseiten-Umblättern am 2026-10-13 erledigt, siehe unten.)*
 
-### F-07 · Kamera-Scan
+*(F-07 Kamera-Scan und Foto-Import am 2026-10-23 erledigt, siehe unten.)*
 
-Papiernoten mit der Gerätekamera abfotografieren → zuschneiden/entzerren →
-als PDF in die Bibliothek. Im Browser machbar (getUserMedia + Canvas), aber
-aufwendig — bewusst spät in der Roadmap.
-
-### F-08 · Kontextmenüs
-
-Langdruck auf Note/Bookmark/Setliste: Vorschaubild + Aktionen (öffnen,
-umbenennen, Metadaten, duplizieren, löschen). Ein Interaktionsmuster für die
-ganze App.
+*(F-08 Kontext-Blatt am 2026-10-23 erledigt, siehe unten.)*
 
 ### F-09 · Drag & Drop
 
@@ -170,6 +163,48 @@ fürs Rendern: VexFlow oder abcjs (beides rein lokal lauffähig); als
 Speicherformat etwas Offenes (ABC-Notation oder MusicXML), nichts Eigenes.
 Export als PDF in die eigene Bibliothek — damit schließt sich der Kreis:
 komponieren → üben.
+
+**Konkretisiert (2026-10-23, Wunsch Marlon):**
+
+- **Einstieg über „+ Noten“:** neben „PDF-Dateien wählen“ und „Ordner
+  wählen“ ein dritter Punkt „Neues Stück schreiben“. Ist eine Sammlung oder
+  ein Tag gewählt, gilt dasselbe wie beim Import: das neue Stück wird dort
+  einsortiert bzw. markiert.
+- **Eigene Ansicht zum Komponieren:** ein Editor als eigener Bildschirm
+  (nicht im Betrachter), mit Palette zum **Antippen und Platzieren** statt
+  Tastatur-Syntax: Notenschlüssel (Violin, Bass, …), Taktart (Zähler und
+  Nenner wie beim Metronom), Tonart/Vorzeichen, Noten in allen Werten,
+  Pausen, Punktierung, Bindebögen, Taktstriche und Wiederholungszeichen.
+  Elemente wählen, einfügen, verschieben, löschen — wie Stempel.
+- **Speichern wie jedes andere Stück:** Das komponierte Stück landet als
+  Stück in der Bibliothek (`Stueck` + Seiten) mit einer gerenderten PDF in
+  `dateien`, damit Betrachter, Stift, Stellen, Metronom und Setlisten ohne
+  Sonderweg funktionieren. **Zusätzlich** bleibt die Quelle (ABC oder
+  MusicXML) am Stück gespeichert — nur so lässt es sich später wieder
+  bearbeiten. Datenmodell: neues optionales Feld am `Stueck` (z. B.
+  `quelle`-Text samt Format), Schema per Versionssprung mit Migrationstest;
+  reist mit der Sicherung (`.uebe` bleibt Version 1, wer das Feld nicht
+  kennt, überliest es). Nach dem Bearbeiten wird die PDF neu erzeugt, die
+  alten Seiten-Anmerkungen bleiben erhalten (Seitenzahl kann sich ändern —
+  Regel dafür in `src/domain/` zuerst als Test).
+- **Nachträglich bearbeiten:** Stücke mit Quelle bekommen in der Bibliothek
+  bzw. im Kontextmenü (F-08) einen Punkt „Bearbeiten“, der den Editor mit
+  der gespeicherten Quelle öffnet. Stücke ohne Quelle (importierte PDFs)
+  haben den Punkt nicht.
+- **Export als Datei:** die PDF teilen/herunterladen wie andere Stücke, plus
+  die Quelle (`.abc` bzw. `.musicxml`) als eigene Datei, damit sie in
+  Notensatz-Programmen weiterlebt. Umgekehrt: eine `.abc`-/`.musicxml`-Datei
+  über „+ Noten“ importieren → wird gerendert und ist bearbeitbar.
+- **Sammlungen, Tags, Setlisten, Metadaten:** nichts Eigenes — ein
+  komponiertes Stück ist ein Stück wie jedes andere.
+- **Empfehlung Technik:** abcjs mit ABC als Quelle (Rendern als SVG, PDF
+  daraus; Speichern, Sichern und Wiederbearbeiten sind dann Text). VexFlow
+  nur, falls die Palette feinere Platzierung braucht, als ABC hergibt.
+- **Reihenfolge:** G steht laut Leitbild hinter M2–M6; offen ist M6
+  (Themes B-05, Stempel/Formen E-04, Kamera-Scan F-07) sowie aus M4/M5
+  F-01…F-04, F-08, F-09. Ob G-01 vorgezogen wird, entscheidet Marlon. Die
+  Stempel-Palette aus E-04 und der Editor sollten dasselbe
+  Bedienmuster teilen (Element wählen → antippen/platzieren → verschieben).
 
 ### G-02 · Rhythmus-Transkription
 
@@ -241,10 +276,139 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
 
 *(Abgeschlossene Punkte hierher verschieben, mit Datum und Commit.)*
 
+- **B-15 · Doppeltipp in die Mitte: spielbereit** (2026-10-23): Wunsch
+  Marlon. Ein Tipp in die Mitte blendet wie bisher die Leisten oben und
+  unten aus und ein; ein **Doppeltipp** (zwei Tipps binnen 350 ms, nah
+  beieinander) blendet die Leisten aus **und** stellt den Zoom: eine
+  einzelne Seite wird auf die **Bildschirmbreite** gezogen (Oberkante oben,
+  im Querformat also der obere Notenausschnitt, dann schieben), im
+  Stellen-Modus liegt die **Mitte der Stelle** in der Bildschirmmitte; auf
+  der **Doppelseite** geht der Zoom zurück auf ganz. Metronom- und
+  Stimmgerät-Widgets bleiben. Im Hochformat füllt die Seite die Breite
+  schon — dann nur Leisten weg. Danach sind Schieben und Zwei-Finger-Zoom
+  auf dieser Seite erlaubt, auch ohne „Immer zoomen“; mit der nächsten
+  Seite ist es vorbei. Regeln `anBreite` und `istDoppeltipp` in
+  `src/domain/zoom.ts`, getestet; im Browser (Querformat, Touch)
+  durchgespielt.
+- **F-08 · Kontext-Blatt: ein Menü für alles, was ein Ding kann**
+  (2026-10-23): Bestandsaufnahme (Vorschlag mit Mockups, von Marlon
+  angenommen): Die Aktionen zu einem Stück lagen an drei Orten mit drei
+  Mustern — Löschen und Datei neu wählen nur im Auswahl-Modus, Umbenennen
+  nur im geöffneten Stück, Sammlungen und Tags doppelt. Jetzt **ein
+  Kontext-Blatt** (`Kontext.tsx`), das überall gleich aufgeht: **Halten**
+  (Langdruck, 450 ms, Bewegung bricht ab), **„⋯“** am Zeilenrand oder
+  **Rechtsklick**; der Klick danach wird geschluckt (`useHalten`).
+  Vorschaubild, Name, eine Zeile Fakten, darunter die Aktionen; Formulare
+  (Umbenennen) erscheinen im selben Blatt.
+  - **Stück** (Bibliothek: Zeile halten oder ⋯ statt „›“; Stück-Blatt: ⋯
+    im Kopf): Öffnen, Umbenennen (Titel und Stimme), Sammlungen …, Tags …,
+    Lesezeichen und Stellen … (öffnet das Stück mit Stück-Blatt), Eigene
+    Stücke daraus … (öffnet den Abschnitt im Stück-Blatt), Datei neu wählen
+    (nicht bei virtuellen), Löschen … mit derselben Rückfrage wie im
+    Auswahl-Modus. Vorschaubild: erste Seite (bei virtuellen Stücken die
+    Seite `von`) klein über pdf.js, danach wieder freigegeben.
+  - **Stück-Blatt schlanker:** Zeilen „umbenennen“, „Sammlungen ändern“,
+    „Tags ändern“ und der Abschnitt „Eigene Stücke aus diesem“ sind raus;
+    eine Fakten-Zeile (Quelle, Sammlungen, Tags) und ⋯ ersetzen sie. Es
+    zeigt, was man liest und übt: Lesezeichen und Stellen.
+  - **Sammlung** (Chip halten, ⋯ im Sammlungs-Kopf statt „bearbeiten“):
+    Nur diese Sammlung zeigen, Umbenennen, Stücke auswählen … (Auswahl-Modus
+    mit Filter), Auflösen …
+  - **Stelle:** ein Blatt für beide Orte. Das Stellen-Blatt (Stellen-Leiste:
+    Name antippen; Stück-Blatt: Karte halten oder ⋯) hat jetzt oben die
+    Aktionen (In den Noten zeigen, ♩ auf …, ✓ Geschafft bei …) und **„Name
+    und Notiz …“**; das zweite Formular hinter „bearbeiten“ auf der Karte
+    ist weg.
+  - **Lesezeichen** (Stück-Blatt: Zeile halten oder ⋯): Zur Seite,
+    Umbenennen oder Seite ändern, **Ab hier als eigenes Stück …** (bis vor
+    das nächste Lesezeichen), Entfernen. Die Liste im Ansicht-Menü bleibt
+    (Setzen braucht die aktuelle Seite).
+  - **Bleibt:** der Auswahl-Modus für mehrere Stücke (Aktualisieren,
+    Löschen, In Sammlung, Tags) — unverändert. Tags haben weiter ihr eigenes
+    Tag-Blatt. Entscheidungen aus dem Vorschlag: Vorschaubild ja, Auswählen
+    bleibt, Duplizieren kommt mit F-01 (Metadaten bekommen dann im
+    Kontext-Blatt ihren Platz).
+  - Nur Oberfläche, kein Schema-Sprung. Im Browser durchgespielt: ⋯ und
+    Halten in der Bibliothek, Umbenennen, Lesezeichen → eigenes Stück,
+    Sammlung halten → umbenennen, Löschen.
+- **F-07 · Kamera-Scan und Foto-Import** (2026-10-23): Wunsch Marlon,
+  vorgezogen. Unter „+ Noten“ zwei neue Punkte: **„Einscannen“** (Kamera,
+  Seite für Seite) und **„Fotos wählen“** (vorhandene Bilder, mehrere auf
+  einmal); auch in der leeren Bibliothek. Sammlung und Tag gelten wie beim
+  Import.
+  - **Dialog** (`Scan.tsx`, am body, über allem): große Vorschau der
+    aktiven Seite, Stufe **Foto / Scan / Schwarz-Weiß** (je Gerät gemerkt,
+    `ueben:scan-stufe`), **„Rand anpassen“** zeigt das Foto mit Viereck und
+    vier ziehbaren Ecken, **Drehen** in 90°-Schritten, Seite entfernen,
+    Reihenfolge ändern, Streifen mit Vorschaubildern, „+“ für weitere
+    Aufnahmen; unten Titel und **„Fertig (n)“**.
+  - **Kamera:** auf Touch-Geräten `<input type="file" accept="image/*"
+    capture="environment">` (öffnet die Kamera direkt, eine Aufnahme je
+    Durchgang); am Rechner eine Live-Kamera über `getUserMedia` mit
+    „Auslösen“.
+  - **Aufbereitung** rein in `src/domain/scan.ts` (getestet,
+    `tests/scan.test.ts`), auf Pixelfeldern ohne Canvas und ohne
+    Bibliothek: Bild auf lange Seite 2000 px verkleinern (EXIF-Drehung macht
+    der Browser); **Blattrand** als größte helle Fläche nach Otsu-Schwelle,
+    vier äußerste Punkte als Ecken, bei kräftigem Schatten zweite tiefere
+    Schwelle und das Viereck mit den ähnlicheren Gegenkanten, 1 % Luft;
+    **Entzerren** per Homographie (Heckbert) mit bilinearer Interpolation
+    auf die gemessenen Kantenlängen; **Licht ausgleichen**: Hintergrund als
+    Blockmaximum (nimmt das Papier, nicht die Note) zweifach weichgezeichnet
+    und hochgezogen, Original durch Hintergrund geteilt — Schatten
+    verschwinden, Farben (Marker, Bleistift) bleiben; Stufe „Scan“ streckt
+    die Pegel (25 % → schwarz, 86 % → weiß), „Schwarz-Weiß“ schwellt bei
+    62 %.
+  - **PDF** selbst geschrieben (`pdfBauen`): ein JPEG je Seite (DCTDecode),
+    Qualität ab 0,85 abwärts bis unter ~500 KB je Seite, Seitenmaß A4-Breite
+    im Bildverhältnis, Titel im Info-Objekt; Struktur (xref-Offsets) im
+    Test geprüft, im Browser mit pdf.js geöffnet. Gespeichert wie jeder
+    Import (`stueckAnlegen`): Bytes in `dateien`, Dateiname
+    „Titel (Scan 2026-10-23).pdf“.
+  - **Nicht gemacht:** automatisches Begradigen kleiner Schieflagen an den
+    Notenlinien (das Entzerren über die Ecken deckt das ab), A4-Format
+    erzwingen, Seiten an ein bestehendes Stück anhängen. Grenzen: iOS reicht
+    Fotos nicht per Teilen-Blatt an Web-Apps; HEIC öffnet nur Safari; auf
+    hellem Tisch findet die App keinen Blattrand und nimmt das ganze Bild —
+    die Ecken lassen sich dann von Hand setzen.
+- **F-03 · Lesezeichen und virtuelle Stücke** (2026-10-23): Wunsch Marlon.
+  Speicher und Regeln gab es seit A-02, jetzt die Oberfläche.
+  - **Lesezeichen:** im Ansicht-Menü (⋯) der Noten „Lesezeichen auf Seite n“
+    — benennen, Setzen; darunter die Liste aller Lesezeichen des Stücks,
+    Antippen springt zur Seite, „Entfernen“ löscht. Im Stück-Blatt (Tipp auf
+    den Titel) dieselbe Liste mit Umbenennen und Seite ändern, dazu **„Aus
+    dem Inhaltsverzeichnis der PDF“**: Die Gliederung der PDF (Outline) wird
+    flach gelesen, nur noch fehlende Punkte werden Lesezeichen (gleiche Seite
+    und gleicher Titel gilt als vorhanden; `neueLesezeichen` in
+    `src/domain/sicht.ts`).
+  - **Virtuelle Stücke** im Stück-Blatt unter „Eigene Stücke aus diesem“:
+    „Seiten von–bis als Stück …“ (Bereich geprüft: ganze Zahlen, innerhalb der
+    PDF, nicht alle Seiten — `bereichLesen`) und **„Je Lesezeichen ein Stück“**
+    (vom Lesezeichen bis vor das nächste, das letzte bis zum Ende; schon
+    vorhandene Bereiche werden ausgelassen — `stueckeAusLesezeichen`). Das
+    neue Stück erbt Stimme, Sammlungen und Tags der Quelle. In der Bibliothek
+    steht es mit „Seiten 3–5 aus „Band““ in der Unterzeile; „Aktualisieren“
+    überspringt es (keine eigene Datei).
+  - **Betrachter:** Ein virtuelles Stück sieht ein **Fenster** auf die PDF der
+    Quelle (`seitenFenster` in `pdf.ts`: `numPages` = Bereich, `getPage`
+    verschoben) — Blättern, Zoom, Ausschnitte, Sprünge, Lesezeichen und
+    Merker zählen in Sicht-Seiten ab 1. Stellen und Anmerkungen liegen bei
+    der Quelle in PDF-Seiten: gelesen über `dateiVon` + `inSicht`, geschrieben
+    über `ablage` (Betrachter, Stück-Blatt, Stellen-Übersicht). Der
+    Stellen-Mix einer Sammlung nimmt die Stellen mit, die ein virtuelles
+    Stück der Sammlung zeigt (`stueckeMitSeite`; `mixAuswahl` sieht jetzt
+    die ganze Stelle); die Stellen-Zahl in der Bibliothek zählt ebenso
+    (`stellenJeStueck`). Reicht die PDF nicht mehr bis `bis`, zeigt das
+    Stück, was da ist; liegt `von` hinter dem Ende, eine klare Meldung.
+  - Kein Schema-Sprung: `lesezeichen` und `quelle` gab es schon; Sicherung
+    unverändert. Regeln in `src/domain/sicht.ts`, getestet
+    (`tests/sicht.test.ts`); im Browser durchgespielt (Inhaltsverzeichnis →
+    Lesezeichen → Stücke → öffnen → Lesezeichen setzen).
 - **F-20 · Bibliothek: Tags je Sammlung, Kopfzeile der Sammlung weg**
   (2026-10-23): Wunsch Marlon. Die Zeile „Sammlung „2026“ · 17 Stücke ·
-  bearbeiten“ entfällt — der gewählte Chip zeigt es schon. Umbenennen und
-  Auflösen erreicht man mit einem zweiten Tipp auf den gewählten Chip. Die
+  ⋯“ entfällt — der gewählte Chip zeigt es schon. Umbenennen, Auswählen und
+  Auflösen stehen im Kontext-Blatt (F-08): Halten auf den Chip oder ein
+  zweiter Tipp auf den gewählten Chip. Die
   Tag-Zeile zeigt in einer Sammlung nur die Tags, die dort vorkommen, mit
   der Zahl in dieser Sammlung; unter „Alle“ alle Tags mit der Summe. Ein
   gemerkter Tag-Filter, den es in der Sammlung nicht gibt, ruht, bis er

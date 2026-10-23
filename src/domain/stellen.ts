@@ -158,10 +158,12 @@ export const stelleFavorit = (s: { favorit?: boolean }) => s.favorit === true;
 // der laufenden Runde — sie bleiben, auch wenn sie inzwischen geschafft sind
 // (oder ihren Stern verloren haben), damit Zählung und Platz in der Runde
 // nicht springen.
+// `imBereich` sieht die ganze Stelle: Ein virtuelles Stück in der Sammlung
+// bringt die Stellen seiner Quelle in seinem Seitenbereich mit (sicht.ts).
 export function mixAuswahl<S extends MixStelle & { zielTempo: number | null; tempi: Tempo[]; favorit?: boolean }>(
-  stellen: S[], imBereich: (stueckId: string) => boolean, nur: { offen: boolean; favoriten: boolean }, behalten: ReadonlySet<string> = new Set(),
+  stellen: S[], imBereich: (stelle: S) => boolean, nur: { offen: boolean; favoriten: boolean }, behalten: ReadonlySet<string> = new Set(),
 ): S[] {
-  return stellen.filter((s) => imBereich(s.stueckId)
+  return stellen.filter((s) => imBereich(s)
     && (behalten.has(s.id) || ((!nur.offen || stelleOffen(s)) && (!nur.favoriten || stelleFavorit(s)))));
 }
 

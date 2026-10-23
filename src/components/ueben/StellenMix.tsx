@@ -6,6 +6,7 @@ import { imFilter } from '@/domain/sammlungen';
 import {
   mixAuswahl, mixFertigText, mixLeer, mixMenge, mixSchluessel, neueRunde, rundeAbgleichen, rundeLesen, rundeStand, type MixBereich, type Runde,
 } from '@/domain/stellen';
+import { stueckeMitSeite } from '@/domain/sicht';
 import { imTagFilter, type Tag } from '@/domain/tags';
 import { gespeichert, speichern } from './klang';
 import { alleStellen, alleStuecke, type Stelle, type Stueck } from './lokal';
@@ -30,7 +31,8 @@ export interface MixStand { bereich: MixBereich; runde: Runde; stueckVon: Record
 export function bereichsStellen(b: MixBereich, noten: Stueck[], stellen: Stelle[], runde: Runde | null = null) {
   const drin = new Set(noten.filter((n) => imFilter(n, b.sammlung) && imTagFilter(n, b.tag)).map((n) => n.id));
   const behalten = new Set(runde ? runde.reihe.slice(0, runde.pos + 1) : []);
-  return mixAuswahl(stellen, (notenId) => drin.has(notenId), b, behalten);
+  // Auch die Stellen, die ein virtuelles Stück des Bereichs zeigt (F-03).
+  return mixAuswahl(stellen, (s) => stueckeMitSeite(noten, s.stueckId, s.seite).some((id) => drin.has(id)), b, behalten);
 }
 
 // Die gespeicherte Runde an die Stellen auf dem Gerät angleichen (oder, ohne
