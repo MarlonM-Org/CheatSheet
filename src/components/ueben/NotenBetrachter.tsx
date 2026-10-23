@@ -42,7 +42,7 @@ import { StellenInfo } from './StellenInfo';
 import { SprungZeichen } from './SprungZeichen';
 import type { MixSteuerung } from './StellenMix';
 import { SternKnopf } from './Stern';
-import { blattZeichnen, strichZeichnen, type BlattTeil } from './zeichnen';
+import { blattZeichnen, stickerZeichnen, strichZeichnen, type BlattTeil } from './zeichnen';
 
 const RAND = 0.06;
 const MAX_PX = 2800;
@@ -389,7 +389,8 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       const quellen = new Map(await Promise.all([...quellSeiten].map(async (n) => [n, await seiteBild(n, Math.round(hauptLage.b * W))] as const)));
       if (weg) return;
       quellenRef.current = quellen;
-      c.width = W; c.height = H;
+      // Nur bei anderer Größe neu anlegen — jedes Setzen leert und reserviert die Leinwand neu.
+      if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
       blattZeichnen(c.getContext('2d')!, ganz,
         teile.map((t, i): BlattTeil => ({ ...t, bild: bilder[i]?.seite ?? null, ebene: bilder[i]?.ebene ?? null })),
         anm, { ...extras, luecke: darst.lagen ? inPx(darst.luecke) : null, quellen }, () => (hilfe.current ??= document.createElement('canvas')));
@@ -620,6 +621,11 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   } | null>(null);
   // Schnitt ziehen (E-12): nur eine Vorschau — gerendert wird erst beim Loslassen.
   const [schnittVorschau, setSchnittVorschau] = useState<{ seite: number; y: number; abstand: number } | null>(null);
+  // Sticker ziehen: ebenso nur eine Vorschau (Bild des Stickers, einmal beim
+  // Anfassen gezeichnet) — das Blatt wird erst beim Loslassen neu gezeichnet.
+  // Die Lage läuft an React vorbei (Ref), damit jede Bewegung billig ist.
+  const [stickerVorschau, setStickerVorschau] = useState<{ bild: string; rahmen: Rechteck } | null>(null);
+  const stickerVorschauEl = useRef<HTMLDivElement>(null);
   // Zwei Finger beim Zoomen: wo sie aufsetzten (von der Rahmenmitte aus).
   const zweiGriff = useRef<{ ids: [number, number]; a: Punkt; b: Punkt; start: Zoom; mitte: Punkt } | null>(null);
   // Die Leinwand des laufenden Strichs: gezoomt nur der sichtbare Teil, in
@@ -821,7 +827,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     zug.current = null;
     if (z?.art === 'zeichnen' && werkzeug === 'radierer' && z.seite !== undefined) radierEnde(z.seite);
     if (z?.art === 'schnitt') setSchnittVorschau(null);
-    if (z?.art === 'sticker' && z.seite !== undefined && z.vorher) { const { seite, vorher } = z; setAnm((a) => ({ ...a, [seite]: vorher })); }
+    if (z?.art === 'sticker') setStickerVorschau(null);
     if (z?.art === 'schieben') setZoom(einrasten(zoomLive.current));
     liveLeeren();
     setRechteckEntwurf(null);
@@ -854,6 +860,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
         setStickerWahl({ seite: o.seite, id: getroffen.id });
         const r0 = rechteckAufBlatt(o.seite, stickerRechteck(getroffen), getroffen.luecke ?? null);
         zug.current = { ...start, art: 'sticker', punkte: [], objektId: getroffen.id, sticker: getroffen, griff: 'bewegen', blattStart: r0 ? { x: r0.x, y: r0.y } : undefined };
+        stickerVorschauStarten(o.seite, getroffen);
       } else if (schereModus === 'sticker') {
         setStickerWahl(null);
         if (!o.luecke) zug.current = { ...start, art: 'zeichnen', punkte: [o.x, o.y], luecke: null };
@@ -964,9 +971,9 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       return;
     }
     if (z.art === 'sticker') {
-      // Was der Zug verändert hat, als eine Aktion festlegen (Rückgängig geht auf z.vorher).
+      // Erst jetzt rendern: der Sticker an seiner neuen Lage, als eine Aktion.
+      setStickerVorschau(null);
       if (z.jetzt && z.vorher && JSON.stringify(z.jetzt) !== JSON.stringify(z.vorher)) festlegen(seite, z.vorher, z.jetzt);
-      else if (z.vorher) setAnm((a) => ({ ...a, [seite]: z.vorher! }));
       return;
     }
     if (werkzeug === 'radierer') radierEnde(seite);
@@ -1041,8 +1048,24 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     z.abstandJetzt = abstand;
     setSchnittVorschau({ seite: z.seite!, y: z.punkte[1], abstand });
   }
+  // Beim Anfassen eines Stickers: sein Bild einmal zeichnen (klein, nur fürs Mitführen).
+  function stickerVorschauStarten(seite: number, st: Sticker) {
+    const r = rechteckAufBlatt(seite, stickerRechteck(st), st.luecke ?? null), el = blatt.current;
+    if (!r || !el) return;
+    const c = document.createElement('canvas');
+    const cw = Math.max(1, Math.round(r.b * el.offsetWidth * Math.min(dpr, 2))), ch = Math.max(1, Math.round(r.h * el.offsetHeight * Math.min(dpr, 2)));
+    c.width = cw; c.height = ch;
+    const W = cw / st.b, H = ch / stickerHoehe(st);
+    stickerZeichnen(c.getContext('2d')!, st, { x: -st.x * W, y: -st.y * H, b: W, h: H }, quellenRef.current.get(st.von.seite) ?? null, anm[st.von.seite] ?? [], true);
+    setStickerVorschau({ bild: c.toDataURL(), rahmen: r });
+    c.width = 0; c.height = 0;
+  }
+  const stickerVorschauLegen = (r: Rechteck) => {
+    const el = stickerVorschauEl.current;
+    if (el) Object.assign(el.style, prozent(r));
+  };
   // Sticker verschieben (über Teilstücke und Lücken derselben Seite hinweg)
-  // oder an der Ecke in der Größe ziehen.
+  // oder an der Ecke in der Größe ziehen — nur die Vorschau bewegt sich.
   function stickerZiehen(z: NonNullable<typeof zug.current>, clientX: number, clientY: number) {
     const el = blatt.current;
     if (!el) return;
@@ -1063,9 +1086,9 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       neu = { ...st, x: (nx - q.lage.x) / q.lage.b, y: (ny - q.lage.y) / q.lage.h };
       if (q.luecke) neu.luecke = q.luecke; else delete neu.luecke;
     }
-    const jetzt = (z.vorher ?? []).map((o) => (o.id === st.id ? neu : o));
-    z.jetzt = jetzt;
-    setAnm((a) => ({ ...a, [seite]: jetzt }));
+    z.jetzt = (z.vorher ?? []).map((o) => (o.id === st.id ? neu : o));
+    const r = rechteckAufBlatt(seite, stickerRechteck(neu), neu.luecke ?? null);
+    if (r) stickerVorschauLegen(r);
   }
   // Ecke des gewählten Stickers anfassen (Größe) — die Fläche bekommt den Zug nicht.
   function griffAnfassen(e: React.PointerEvent) {
@@ -1075,6 +1098,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     e.currentTarget.setPointerCapture(e.pointerId);
     const q = stueckFuer(seite, st.y, st.luecke ?? null);
     zug.current = { art: 'sticker', punkte: [], x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId, start: zoomLive.current, seite, lage: q?.lage ?? GANZES_BLATT, vorher: anm[seite] ?? [], objektId: st.id, sticker: st, griff: 'groesse' };
+    stickerVorschauStarten(seite, st);
   }
   function lueckeKnopf(e: React.MouseEvent<HTMLButtonElement>) {
     const { seite, luecke } = e.currentTarget.dataset;
@@ -1534,7 +1558,13 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
               {vorschauBand && (
                 <div className="b-schnitt-vorschau" style={{ top: `${vorschauBand.top * 100}%`, height: `${vorschauBand.h * 100}%` }} aria-hidden="true" />
               )}
-              {stickerRahmen && stickerWahl && (
+              {stickerVorschau && (
+                <div ref={stickerVorschauEl} className="b-sticker-vorschau" style={prozent(stickerVorschau.rahmen)} aria-hidden="true">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- Datenbild einer Leinwand, kein Bild aus dem Netz */}
+                  <img src={stickerVorschau.bild} alt="" draggable={false} />
+                </div>
+              )}
+              {stickerRahmen && stickerWahl && !stickerVorschau && (
                 <div className="b-sticker-wahl" style={prozent(stickerRahmen)}>
                   <div className="b-sticker-leiste" {...greifbar}>
                     <button type="button" onClick={() => stickerAufSeite(-1)} disabled={stickerWahl.seite <= 1} aria-label="Sticker auf die vorige Seite">‹ Seite</button>

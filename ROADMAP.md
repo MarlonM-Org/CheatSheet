@@ -241,6 +241,22 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
 
 *(Abgeschlossene Punkte hierher verschieben, mit Datum und Commit.)*
 
+- **D-07 · Tempo je Schlag, nicht je Nenner-Note** (2026-10-23): Rückmeldung
+  Marlon: 6/8 bei 120 müsste 360 Achtel in der Minute geben (zwei Schläge je
+  Takt, drei Achtel je Schlag), die App klickte aber 120 Achtel. Jetzt gilt
+  das Tempo je **Schlag**, dem gefühlten Puls: 4/4 die Viertel, 2/2 die
+  Halbe, 6/8, 9/8, 12/8 die punktierte Viertel (drei Einheiten je Schlag);
+  3/8, 5/8, 7/8 zählen in Achteln. Die Taktpunkte bleiben je Einheit (6/8:
+  sechs Punkte, 1 und 4 betont, betonte Punkte leuchten in Messing). Die
+  Unterteilung richtet sich nach dem Nenner: in 4/4 Viertel/Achtel/Triolen/
+  Sechzehntel, in 2/2 Halbe/Viertel/Triolen/Achtel, bei Achtel-Nenner
+  Achtel/Sechzehntel; eine gespeicherte, die es dort nicht gibt, fällt auf
+  die erste zurück. Anzeige „Andante · je punktierte Viertel“ und unter der
+  Taktart „Das Tempo gilt je punktierte Viertel: 2 Schläge je Takt, je 3
+  Achtel.“ Regeln `einheitenJeSchlag`, `schlaegeJeTakt`, `schlagName`,
+  `unterteilungen`, `klickDauer` in `src/domain/takt.ts` (getestet).
+  Ersetzt die Regel aus D-05 („Tempo je Nenner-Note“).
+
 - **E-12 (Nachbesserung) · Sticker in der Lücke, Schnitt als Vorschau,
   flüssiger schreiben** (2026-10-23): Rückmeldung Marlon vom iPad.
   - **Sticker in die Lücke:** Beim Ziehen folgt der Sticker dem Finger über
@@ -250,6 +266,12 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
   - **Schnitt ziehen ohne Ruckeln:** Das Blatt wurde bei jeder Bewegung neu
     gerendert (auf dem iPad ruckelig, einmal abgestürzt). Jetzt zeigt ein
     Band nur die Vorschau; gerendert wird einmal beim Loslassen.
+  - **Sticker ziehen ohne Ruckeln:** dasselbe Muster — beim Anfassen wird
+    das Bild des Stickers einmal klein gezeichnet und als Vorschau
+    mitgeführt (Lage an React vorbei), das Blatt wird einmal beim Loslassen
+    neu gezeichnet. Vorher je Bewegung ein ganzes Blatt (ruckelig, auf dem
+    iPad Absturz beim Schieben in die Lücke). Die Leinwand wird außerdem nur
+    noch bei anderer Größe neu angelegt.
   - **Schreiben:** Die Live-Leinwand des laufenden Strichs wurde bei jeder
     Bewegung neu angelegt; jetzt einmal je Strich, und der Stift zeichnet
     nur die neuen Punkte nach (der Marker wird wegen seiner Transparenz

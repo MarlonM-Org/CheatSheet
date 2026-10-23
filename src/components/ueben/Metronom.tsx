@@ -1,15 +1,11 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { NENNER, NENNER_NAME, nennerSchritt, TAKTARTEN, taktartText, ZAEHLER_MAX, ZAEHLER_MIN } from '@/domain/takt';
+import { NENNER, nennerSchritt, schlaegeJeTakt, schlagName, TAKTARTEN, taktartText, unterteilungen, ZAEHLER_MAX, ZAEHLER_MIN } from '@/domain/takt';
 import { tempoBezeichnung } from '@/domain/ueben';
 import type { Klang } from './klang';
 import { useMetronom } from './MetronomKontext';
 
-const UNTERTEILUNG = [
-  { n: 1, zeichen: '♩', name: 'Viertel', kurz: '4tel' }, { n: 2, zeichen: '♫', name: 'Achtel', kurz: '8tel' },
-  { n: 3, zeichen: '♪³', name: 'Triolen', kurz: 'Triole' }, { n: 4, zeichen: '♬', name: 'Sechzehntel', kurz: '16tel' },
-];
 const KLAENGE: { k: Klang; name: string }[] = [{ k: 'holz', name: 'Holzblock' }, { k: 'klick', name: 'Klick' }, { k: 'glocke', name: 'Glocke' }];
 
 export function Metronom() {
@@ -46,7 +42,7 @@ export function Metronom() {
           <button type="button" className="tempo-zahl" onClick={() => setEingabe(String(bpm))} aria-label={`Tempo ${bpm}, antippen zum Eingeben`}>{bpm}</button>
         )}
         <div className="tempo-name">
-          {tempoBezeichnung(bpm)}{nenner !== 4 ? ` · je ${NENNER_NAME[nenner]}` : ''}{trainer.an && laeuft ? ' · Trainer läuft' : ''}
+          {tempoBezeichnung(bpm)}{schlagName(takt, nenner) !== 'Viertel' ? ` · je ${schlagName(takt, nenner)}` : ''}{trainer.an && laeuft ? ' · Trainer läuft' : ''}
         </div>
       </div>
 
@@ -104,10 +100,13 @@ export function Metronom() {
           ))}
         </div>
       </div>
-      <p className="gedaempft -mt-3 text-center text-xs">Schläge je Takt und ihr Notenwert — das Tempo gilt je {NENNER_NAME[nenner]}.</p>
+      <p className="gedaempft -mt-3 text-center text-xs">
+        Das Tempo gilt je {schlagName(takt, nenner)}: {schlaegeJeTakt(takt, nenner)} {schlaegeJeTakt(takt, nenner) === 1 ? 'Schlag' : 'Schläge'} je Takt
+        {schlaegeJeTakt(takt, nenner) !== takt ? `, je ${takt / schlaegeJeTakt(takt, nenner)} ${schlagName(takt, nenner).includes('Viertel') ? 'Achtel' : 'Sechzehntel'}` : ''}.
+      </p>
 
       <div className="segment" role="group" aria-label="Unterteilung">
-        {UNTERTEILUNG.map((u) => (
+        {unterteilungen(takt, nenner).map((u) => (
           <button key={u.n} type="button" aria-pressed={unter === u.n} onClick={() => setUnter(u.n)} title={u.name}>
             <span className="block text-lg leading-none">{u.zeichen}</span><span className="block text-[0.7rem]">{u.kurz}</span>
           </button>

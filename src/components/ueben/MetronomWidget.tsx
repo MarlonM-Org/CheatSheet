@@ -50,7 +50,7 @@ export function MetronomWidget({ schliessen, voll, vollSetzen }: {
   const punkte = (
     <div className="metro-punkte" aria-hidden="true">
       {akzente.map((a, i) => (
-        <i key={i} className={`${aktiv?.schlag === i && aktiv.sub === 0 ? 'an' : ''} ${i === 0 ? 'eins' : ''} ${a === 'stumm' ? 'stumm' : ''}`} />
+        <i key={i} className={`${aktiv?.schlag === i && aktiv.sub === 0 ? 'an' : ''} ${a === 'betont' ? 'eins' : ''} ${a === 'stumm' ? 'stumm' : ''}`} />
       ))}
     </div>
   );
