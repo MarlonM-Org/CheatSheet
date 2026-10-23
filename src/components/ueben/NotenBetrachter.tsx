@@ -1130,13 +1130,15 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     if (z.griff === 'groesse') {
       neu = stickerSkalieren(st, st.b + (clientX - z.x) / (el.offsetWidth * L.b));
     } else {
-      // Linke obere Ecke auf dem Blatt mitführen; das Teilstück darunter bestimmt Seite-oder-Lücke und Koordinaten.
+      // Linke obere Ecke auf dem Blatt mitführen; das Teilstück unter der
+      // **Mitte** des Stickers bestimmt, ob er zur Seite oder zu einer Lücke
+      // gehört (die Ecke allein ließ ihn an der Seite hängen und am Schnitt teilen).
       const s0 = z.blattStart;
       if (!s0) return;
       const bb = st.b * L.b, hb = stickerHoehe(st) * L.h;
       const k = (v: number, von: number, bis: number) => Math.max(von, Math.min(bis, v));
       const nx = k(s0.x + (clientX - z.x) / el.offsetWidth, -bb * 0.75, 1 - bb * 0.25), ny = k(s0.y + (clientY - z.y) / el.offsetHeight, -hb * 0.75, 1 - hb * 0.25);
-      const px = k(nx, 0, 1), py = k(ny, 0, 0.9999);
+      const px = k(nx + bb / 2, 0, 1), py = k(ny + hb / 2, 0, 0.9999);
       const q = stuecke.find((s) => s.seite === seite && px >= s.sicht.x && px <= s.sicht.x + s.sicht.b && py >= s.sicht.y && py <= s.sicht.y + s.sicht.h);
       if (!q) return;
       neu = { ...st, x: (nx - q.lage.x) / q.lage.b, y: (ny - q.lage.y) / q.lage.h };
