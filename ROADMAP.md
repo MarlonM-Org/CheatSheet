@@ -35,7 +35,7 @@ ob das ins Leitbild passt (dann auch CLAUDE.md anpassen: „kein Login“).
 | M1 | **Fundament aufräumen** | Datenmodell klären, Tests für die Speicherschicht (A-01 verworfen) — *erledigt 2026-10-12* | A-02, A-03 |
 | M2 | **Noten im Zentrum** | UI-Neuaufbau: Noten vollflächig, Werkzeuge als Overlays, drei Knöpfe unten | B-01…B-03 |
 | M3 | **Werkzeuge schärfen** | Stimmgerät- und Metronom-Verbesserungen, Stift-Ausbau | C-01…C-03, D-01, E-01…E-03 |
-| M4 | **Notenmanagement I** | Metadaten, Bookmarks, Flags, Kontextmenüs, Drag & Drop (Sammlungen F-13 erledigt) | F-01, F-03, F-04, F-08, F-09 |
+| M4 | **Notenmanagement I** | Metadaten, Flags, Kontextmenüs, Drag & Drop (Sammlungen F-13 und Lesezeichen/virtuelle Stücke F-03 erledigt) | F-01, F-04, F-08, F-09 |
 | M5 | **Üben & Setlisten** | Setlisten (Stellen-Mix F-11, Tonprofil C-04, Sprünge F-05, Halbseiten-Blättern F-06, Blättern je Seite F-16 und Favoriten im Mix F-17 schon erledigt) — *zurückgestellt 2026-10-23: Marlon ordnet bisher über Dateinamen, Setlisten sind Zukunftsthema* | F-02 |
 | M6 | **Extras** | Stempel/Formen, Kamera-Scan und Foto-Import (Themes B-04 und Design B-05 erledigt) — *vorgezogen 2026-10-23, vor M4 und M5* | E-04, F-07 |
 | M7 | **Komponieren** (Vision) | Noteneingabe, Rhythmus-/Melodie-Transkription | G-01…G-03 |
@@ -124,17 +124,7 @@ gespielt, zufällig. Export als einfache Textliste (kein Sync, keine Freigabe).
 Speicher steht (A-02): `setlisten` mit `eintraege` in Reihenfolge; gelöschte
 Stücke verschwinden daraus, die Lösch-Rückfrage nennt die Setlisten.
 
-### F-03 · Bookmarks
-
-Seiten benennen und direkt anspringen. Ausbaustufe: Seitenbereich einer PDF
-als **virtuelles Stück** mit eigenen Metadaten (für Sammelbände) — erscheint
-in der Bibliothek wie eine eigene Note, kann in Setlisten. Wenn die PDF ein
-Inhaltsverzeichnis hat: Bookmarks automatisch daraus erzeugen.
-Speicher steht (A-02): `lesezeichen` und virtuelle Stücke (`quelle`), samt
-Kaskade und Sicherung. **Offen in der Oberfläche:** Der Betrachter zeigt ein
-virtuelles Stück noch als ganze PDF der Quelle — er muss die Seiten von–bis
-zeigen und Stellen/Anmerkungen über `ablage()` (`src/domain/bestand.ts`) bei
-der Quelle lesen und schreiben. Anlegen geht bisher nur über `lokal.ts`.
+*(F-03 Lesezeichen und virtuelle Stücke am 2026-10-23 erledigt, siehe unten.)*
 
 ### F-04 · Flags
 
@@ -333,6 +323,40 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
 ## Erledigt
 
 *(Abgeschlossene Punkte hierher verschieben, mit Datum und Commit.)*
+
+- **F-03 · Lesezeichen und virtuelle Stücke** (2026-10-23): Wunsch Marlon.
+  Speicher und Regeln gab es seit A-02, jetzt die Oberfläche.
+  - **Lesezeichen:** im Ansicht-Menü (⋯) der Noten „Lesezeichen auf Seite n“
+    — benennen, Setzen; darunter die Liste aller Lesezeichen des Stücks,
+    Antippen springt zur Seite, „Entfernen“ löscht. Im Stück-Blatt (Tipp auf
+    den Titel) dieselbe Liste mit Umbenennen und Seite ändern, dazu **„Aus
+    dem Inhaltsverzeichnis der PDF“**: Die Gliederung der PDF (Outline) wird
+    flach gelesen, nur noch fehlende Punkte werden Lesezeichen (gleiche Seite
+    und gleicher Titel gilt als vorhanden; `neueLesezeichen` in
+    `src/domain/sicht.ts`).
+  - **Virtuelle Stücke** im Stück-Blatt unter „Eigene Stücke aus diesem“:
+    „Seiten von–bis als Stück …“ (Bereich geprüft: ganze Zahlen, innerhalb der
+    PDF, nicht alle Seiten — `bereichLesen`) und **„Je Lesezeichen ein Stück“**
+    (vom Lesezeichen bis vor das nächste, das letzte bis zum Ende; schon
+    vorhandene Bereiche werden ausgelassen — `stueckeAusLesezeichen`). Das
+    neue Stück erbt Stimme, Sammlungen und Tags der Quelle. In der Bibliothek
+    steht es mit „Seiten 3–5 aus „Band““ in der Unterzeile; „Aktualisieren“
+    überspringt es (keine eigene Datei).
+  - **Betrachter:** Ein virtuelles Stück sieht ein **Fenster** auf die PDF der
+    Quelle (`seitenFenster` in `pdf.ts`: `numPages` = Bereich, `getPage`
+    verschoben) — Blättern, Zoom, Ausschnitte, Sprünge, Lesezeichen und
+    Merker zählen in Sicht-Seiten ab 1. Stellen und Anmerkungen liegen bei
+    der Quelle in PDF-Seiten: gelesen über `dateiVon` + `inSicht`, geschrieben
+    über `ablage` (Betrachter, Stück-Blatt, Stellen-Übersicht). Der
+    Stellen-Mix einer Sammlung nimmt die Stellen mit, die ein virtuelles
+    Stück der Sammlung zeigt (`stueckeMitSeite`; `mixAuswahl` sieht jetzt
+    die ganze Stelle); die Stellen-Zahl in der Bibliothek zählt ebenso
+    (`stellenJeStueck`). Reicht die PDF nicht mehr bis `bis`, zeigt das
+    Stück, was da ist; liegt `von` hinter dem Ende, eine klare Meldung.
+  - Kein Schema-Sprung: `lesezeichen` und `quelle` gab es schon; Sicherung
+    unverändert. Regeln in `src/domain/sicht.ts`, getestet
+    (`tests/sicht.test.ts`); im Browser durchgespielt (Inhaltsverzeichnis →
+    Lesezeichen → Stücke → öffnen → Lesezeichen setzen).
 
 - **D-07 · Tempo je Schlag, nicht je Nenner-Note** (2026-10-23): Rückmeldung
   Marlon: 6/8 bei 120 müsste 360 Achtel in der Minute geben (zwei Schläge je

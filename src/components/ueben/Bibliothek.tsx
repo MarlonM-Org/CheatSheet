@@ -8,6 +8,7 @@ import {
   dateiSchluessel, gleicheSammlung, imFilter, mitSammlung, ohneSammlung, ordnerPlanen, sammlungenUebersicht, sammlungenVon,
   sammlungUmbenennen, sicherungFaellig,
 } from '@/domain/sammlungen';
+import { quellenText, stellenJeStueck } from '@/domain/sicht';
 import type { MixBereich } from '@/domain/stellen';
 import { imTagFilter, mitTag, tagsVon, tagUebersicht, type Tag } from '@/domain/tags';
 import { gespeichert, speichern } from './klang';
@@ -204,11 +205,9 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
   const tagUeber = useMemo(() => tagUebersicht(tags, noten ?? []), [tags, noten]);
   const gefiltert = useMemo(() => sortiert.filter((n) => imFilter(n, aktiv) && imTagFilter(n, aktivTag)), [sortiert, aktiv, aktivTag]);
   const alleGewaehlt = gefiltert.length > 0 && gefiltert.every((n) => auswahl.has(n.id));
-  const stellenJe = useMemo(() => {
-    const je: Record<string, number> = {};
-    for (const s of stellen) je[s.stueckId] = (je[s.stueckId] ?? 0) + 1;
-    return je;
-  }, [stellen]);
+  // Ein virtuelles Stück zählt die Stellen seiner Quelle in seinem Bereich (F-03).
+  const stellenJe = useMemo(() => stellenJeStueck(noten ?? [], stellen), [noten, stellen]);
+  const titelVon = (id: string) => noten?.find((x) => x.id === id)?.titel;
 
   // Dateien oder einen Ordner hinzufügen. Was schon in der Bibliothek liegt
   // (gleicher Dateiname, gleiche Größe), wird nicht doppelt angelegt, nur
@@ -511,7 +510,7 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
                 <button type="button" className="bib-stueck" onClick={() => (auswaehlen ? umschalten(n.id) : oeffnen(n.id))}>
                   <span className="bib-titel">{n.titel}</span>
                   <span className="bib-unterzeile">
-                    {[n.stimme, z ? `zuletzt ${zeitpunkt(z)}` : 'noch nicht geöffnet',
+                    {[n.stimme, n.quelle ? quellenText(n.quelle, titelVon(n.quelle.stueckId)) : '', z ? `zuletzt ${zeitpunkt(z)}` : 'noch nicht geöffnet',
                       anzahlStellen ? `${anzahlStellen} ${anzahlStellen === 1 ? 'Stelle' : 'Stellen'}` : '',
                       !aktiv ? sammlungenVon(n).join(', ') : '',
                       n.aktualisiert ? `aktualisiert ${datum(n.aktualisiert)}` : ''].filter(Boolean).join(' · ')}

@@ -1226,3 +1226,16 @@ ol.stichpunkte { list-style: decimal; }
 .nav-schieben svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .nav-schieben:disabled { opacity: 0.25; }
 .nav-loeschen { flex: none; min-height: 44px; padding: 0 2px 0 8px; font-size: 0.8rem; font-weight: 650; color: var(--warnung); }
+
+/* Lesezeichen im Ansicht-Menü (F-03): Liste wie die Sprünge, Ziel antippbar. */
+.nav-lesezeichen-form { display: flex; gap: 6px; align-items: center; padding: 6px 10px 8px; }
+.nav-lesezeichen-form .feld { flex: 1; min-width: 0; }
+.nav-lesezeichen-ziel { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; min-height: 44px; text-align: left; line-height: 1.25; }
+.nav-lesezeichen-ziel .nav-sprung-art { overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.nav-spruenge li.hier .nav-lesezeichen-ziel { color: var(--messing); }
+/* Lesezeichen im Stück-Blatt (F-03) */
+.lz-liste { display: grid; border-top: 1px solid var(--linie); }
+.lz-zeile { display: flex; align-items: center; gap: 8px; min-height: 44px; border-bottom: 1px solid var(--linie); }
+.lz-ziel { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 10px; text-align: left; padding: 6px 0; }
+.lz-ziel:active { color: var(--messing); }
+.lz-titel { font-weight: 650; overflow: hidden; text-overflow: ellipsis; }

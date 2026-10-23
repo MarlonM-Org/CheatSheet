@@ -2,7 +2,9 @@
 
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { anmerkungsBefehle, hatMarkierungen } from '@/domain/ebene';
+import type { Quelle } from '@/domain/bestand';
 import { istNachladeFehler } from '@/domain/nachladen';
+import { seitenInSicht, zurPdf, type Gliederungspunkt } from '@/domain/sicht';
 import { dateiVerloren } from '@/domain/speicher';
 import { DateiVerloren } from './lokal';
 
@@ -39,14 +41,14 @@ export async function pdfLaden(datei: Blob): Promise<PDFDocumentProxy> {
 // Anmerkungen des PDFs und — stecken Markierungen darin — deren Ebene zum
 // Darüberlegen (ebene.ts). So lassen sich die Markierungen radieren.
 export interface SeitenBild { seite: HTMLCanvasElement; ebene: HTMLCanvasElement | null }
-export async function seiteMitEbene(pdf: PDFDocumentProxy, nr: number, px: number): Promise<SeitenBild> {
+export async function seiteMitEbene(pdf: Dokument, nr: number, px: number): Promise<SeitenBild> {
   return ausschnittRendern(pdf, nr, px, { x: 0, y: 0, b: 1, h: 1 }).bild;
 }
 
 // Nur ein Teil r der Seite (Anteile 0…1), die Seite in der Breite seitenPx
 // gedacht — beim Zoomen (E-06) der sichtbare Teil in Bildschirmschärfe,
 // statt die ganze Seite riesig zu rendern. Abbrechbar, wenn weitergezoomt wird.
-export function ausschnittRendern(pdf: PDFDocumentProxy, nr: number, seitenPx: number, r: { x: number; y: number; b: number; h: number }) {
+export function ausschnittRendern(pdf: Dokument, nr: number, seitenPx: number, r: { x: number; y: number; b: number; h: number }) {
   const aufgaben: { cancel: () => void }[] = [];
   let abgebrochen = false;
   const merken = <T extends { cancel: () => void }>(t: T) => { aufgaben.push(t); if (abgebrochen) t.cancel(); return t; };
@@ -86,4 +88,38 @@ export function ausschnittRendern(pdf: PDFDocumentProxy, nr: number, seitenPx: n
     }
   })();
   return { bild, abbrechen: () => { abgebrochen = true; for (const t of aufgaben) t.cancel(); } };
+}
+
+// ── Sicht auf einen Teil der PDF (F-03) ──
+
+// Was Betrachter und Stück-Blatt von der PDF brauchen: Seitenzahl und Seiten.
+export type Dokument = Pick<PDFDocumentProxy, 'numPages' | 'getPage'>;
+
+// Ein virtuelles Stück sieht nur die Seiten von–bis seiner Quelle, ab 1
+// gezählt; die PDF selbst bleibt die der Quelle (und wird dort freigegeben).
+export function seitenFenster(pdf: PDFDocumentProxy, quelle: Quelle | undefined): Dokument {
+  if (!quelle) return pdf;
+  const numPages = seitenInSicht({ quelle }, pdf.numPages);
+  return { numPages, getPage: (nr: number) => pdf.getPage(zurPdf({ id: '', quelle }, nr)) };
+}
+
+// Das Inhaltsverzeichnis der PDF (Gliederung), flach: Titel und Seite (ab 1).
+// Punkte, deren Ziel sich nicht auflösen lässt, fallen weg.
+export async function gliederungLesen(pdf: PDFDocumentProxy): Promise<Gliederungspunkt[]> {
+  const gliederung = await pdf.getOutline().catch(() => null);
+  if (!gliederung) return [];
+  const r: Gliederungspunkt[] = [];
+  const durch = async (punkte: typeof gliederung) => {
+    for (const p of punkte) {
+      try {
+        const ziel = typeof p.dest === 'string' ? await pdf.getDestination(p.dest) : p.dest;
+        const ref = Array.isArray(ziel) ? ziel[0] : null;
+        if (ref && typeof ref === 'object') r.push({ titel: p.title, seite: (await pdf.getPageIndex(ref)) + 1 });
+        else if (typeof ref === 'number') r.push({ titel: p.title, seite: ref + 1 });
+      } catch { /* Ziel nicht auflösbar — Punkt entfällt */ }
+      if (p.items?.length) await durch(p.items);
+    }
+  };
+  await durch(gliederung);
+  return r;
 }
