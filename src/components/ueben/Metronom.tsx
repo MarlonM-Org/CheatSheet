@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { NENNER, NENNER_NAME, nennerSchritt, TAKTARTEN, taktartText, ZAEHLER_MAX, ZAEHLER_MIN } from '@/domain/takt';
 import { tempoBezeichnung } from '@/domain/ueben';
 import type { Klang } from './klang';
 import { useMetronom } from './MetronomKontext';
@@ -13,7 +14,7 @@ const KLAENGE: { k: Klang; name: string }[] = [{ k: 'holz', name: 'Holzblock' },
 
 export function Metronom() {
   const {
-    bpm, setBpm, laeuft, start, stopp, aktiv, takt, taktAendern, akzente, akzentWechseln,
+    bpm, setBpm, laeuft, start, stopp, aktiv, takt, nenner, taktartSetzen, akzente, akzentWechseln,
     unter, setUnter, klang, setKlang, laut, setLaut, trainer, setTrainer,
   } = useMetronom();
   const taps = useRef<number[]>([]);
@@ -44,7 +45,9 @@ export function Metronom() {
         ) : (
           <button type="button" className="tempo-zahl" onClick={() => setEingabe(String(bpm))} aria-label={`Tempo ${bpm}, antippen zum Eingeben`}>{bpm}</button>
         )}
-        <div className="tempo-name">{tempoBezeichnung(bpm)}{trainer.an && laeuft ? ' · Trainer läuft' : ''}</div>
+        <div className="tempo-name">
+          {tempoBezeichnung(bpm)}{nenner !== 4 ? ` · je ${NENNER_NAME[nenner]}` : ''}{trainer.an && laeuft ? ' · Trainer läuft' : ''}
+        </div>
       </div>
 
       <div className="schlaege" role="group" aria-label="Schläge im Takt — antippen: betont, normal, stumm">
@@ -73,14 +76,35 @@ export function Metronom() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-center gap-2">
+      <div className="flex justify-center">
         <button className="knopf knopf-leise knopf-klein" type="button" onClick={tippen}>Tempo tippen</button>
-        <label className="flex items-center gap-1 text-sm">Takt
-          <select className="feld feld-schmal" value={takt} onChange={(e) => taktAendern(Number(e.target.value))}>
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 12].map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
-        </label>
       </div>
+
+      {/* Taktart (D-05): Zähler über Nenner wie in den Noten, daneben die
+          üblichen Taktarten zum Antippen. Kein System-Auswahlfeld. */}
+      <div className="taktart" role="group" aria-label="Taktart">
+        <div className="taktart-bruch" role="group" aria-label={`Taktart ${taktartText(takt, nenner)}`}>
+          <div className="taktart-zeile">
+            <button className="rund-knopf klein" type="button" onClick={() => taktartSetzen(takt - 1, nenner)} disabled={takt <= ZAEHLER_MIN} aria-label="Ein Schlag weniger je Takt">−</button>
+            <span className="taktart-zahl" aria-live="polite">{takt}</span>
+            <button className="rund-knopf klein" type="button" onClick={() => taktartSetzen(takt + 1, nenner)} disabled={takt >= ZAEHLER_MAX} aria-label="Ein Schlag mehr je Takt">+</button>
+          </div>
+          <span className="taktart-strich" aria-hidden="true" />
+          <div className="taktart-zeile">
+            <button className="rund-knopf klein" type="button" onClick={() => taktartSetzen(takt, nennerSchritt(nenner, -1))} disabled={nenner === NENNER[0]} aria-label="Längerer Notenwert je Schlag">−</button>
+            <span className="taktart-zahl" aria-live="polite">{nenner}</span>
+            <button className="rund-knopf klein" type="button" onClick={() => taktartSetzen(takt, nennerSchritt(nenner, 1))} disabled={nenner === NENNER[NENNER.length - 1]} aria-label="Kürzerer Notenwert je Schlag">+</button>
+          </div>
+        </div>
+        <div className="taktart-wahl" role="group" aria-label="Übliche Taktarten">
+          {TAKTARTEN.map(([z, n]) => (
+            <button key={`${z}/${n}`} type="button" className="taktart-chip" aria-pressed={z === takt && n === nenner} onClick={() => taktartSetzen(z, n)}>
+              {taktartText(z, n)}
+            </button>
+          ))}
+        </div>
+      </div>
+      <p className="gedaempft -mt-3 text-center text-xs">Schläge je Takt und ihr Notenwert — das Tempo gilt je {NENNER_NAME[nenner]}.</p>
 
       <div className="segment" role="group" aria-label="Unterteilung">
         {UNTERTEILUNG.map((u) => (

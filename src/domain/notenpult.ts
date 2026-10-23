@@ -5,10 +5,17 @@ export type Blaettermodus = 'ganz' | 'halb' | 'linie';
 
 // Eine Ansicht ist das, was gerade auf dem Bildschirm steht: eine ganze Seite,
 // oder beim Halbseiten-Blättern oben schon der Anfang der nächsten Seite und
-// unten noch der Rest der aktuellen (wie bei Notenpulten üblich).
+// unten noch der Rest der aktuellen (wie bei Notenpulten üblich) — oder zwei
+// Seiten nebeneinander (B-13, wie ein aufgeschlagenes Heft).
 export type Ansicht =
   | { art: 'ganz'; seite: number }
-  | { art: 'halb'; oben: number; unten: number; schnitt: number };
+  | { art: 'halb'; oben: number; unten: number; schnitt: number }
+  | { art: 'doppel'; links: number; rechts: number };
+
+// Zwei Seiten nebeneinander: Einstellung je Gerät (localStorage), gilt im
+// Querformat; beim Anmerken und Blättern-Einstellen zeigt der Betrachter
+// weiter eine Seite.
+export const ZWEI_SEITEN = 'ueben:zwei-seiten';
 
 // Wie ein Stück blättert (gespeichert am Stück): modus gilt für alle Seiten,
 // jeSeite weicht für einzelne davon ab (F-16) — z. B. eigene Linie, aber
@@ -26,8 +33,14 @@ const gueltig = (m: unknown): m is Blaettermodus => typeof m === 'string' && MOD
 // Liegt die Linie zu nah am Rand, wird ganz geblättert.
 const sinnvoll = (s: number) => s > 0.05 && s < 0.95;
 
-export function ansichten(seiten: number, modus: Blaettermodus, linien: Record<number, number> = {}, jeSeite: Record<number, Blaettermodus> = {}): Ansicht[] {
+export function ansichten(seiten: number, modus: Blaettermodus, linien: Record<number, number> = {}, jeSeite: Record<number, Blaettermodus> = {}, doppel = false): Ansicht[] {
   const liste: Ansicht[] = [];
+  if (doppel) {
+    // Zwei Seiten nebeneinander: 1–2, 3–4, …; eine übrige letzte Seite allein.
+    // Halb und Linie gelten hier nicht — geblättert wird je Doppelseite.
+    for (let p = 1; p <= seiten; p += 2) liste.push(p < seiten ? { art: 'doppel', links: p, rechts: p + 1 } : { art: 'ganz', seite: p });
+    return liste;
+  }
   for (let p = 1; p <= seiten; p++) {
     liste.push({ art: 'ganz', seite: p });
     const m = gueltig(jeSeite[p]) ? jeSeite[p] : modus;
@@ -84,15 +97,24 @@ export function blaetternLesen(roh: unknown, seiten: number): Blaettern {
   return ordnen(modus, linien, je, seiten);
 }
 
+// Zeigt die Ansicht die Seite ganz (allein oder als Hälfte einer Doppelseite)?
+export const zeigtGanz = (a: Ansicht, seite: number) =>
+  (a.art === 'ganz' && a.seite === seite) || (a.art === 'doppel' && (a.links === seite || a.rechts === seite));
+
 // Index der Ansicht, die eine Seite ganz zeigt (für Sprünge und Moduswechsel).
 export function ansichtVonSeite(liste: Ansicht[], seite: number): number {
-  const i = liste.findIndex((a) => a.art === 'ganz' && a.seite === seite);
+  const i = liste.findIndex((a) => zeigtGanz(a, seite));
   return i < 0 ? 0 : i;
 }
 
 // Welche Seite „gilt“ gerade (für Seitenanzeige und Zeichnen)?
 export function hauptseite(a: Ansicht): number {
-  return a.art === 'ganz' ? a.seite : a.oben;
+  return a.art === 'ganz' ? a.seite : a.art === 'halb' ? a.oben : a.links;
+}
+
+// Die Seiten, die eine Ansicht (teils) zeigt.
+export function seitenVon(a: Ansicht): number[] {
+  return a.art === 'ganz' ? [a.seite] : a.art === 'halb' ? [a.oben, a.unten] : [a.links, a.rechts];
 }
 
 // „Pomp and Circumstance - Klarinette in B 1.pdf“ → Titel und Stimme.

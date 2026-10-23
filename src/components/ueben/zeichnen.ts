@@ -74,23 +74,28 @@ export function ebeneZeichnen(ctx: CanvasRenderingContext2D, ebene: HTMLCanvasEl
 // Stellen, Übergangskante beim Halbseiten-Blättern, die geübte Stelle
 // hervorgehoben. seite: wo die ganze Seite auf der Leinwand liegt; jeder
 // Teil zeigt die Höhe y0…y1 einer Seite, sein Bild liegt bei lage.
-export interface BlattTeil { seite: number; y0: number; y1: number; bild: HTMLCanvasElement; ebene: HTMLCanvasElement | null; lage: Lage }
+// blattLage: wo die ganze Seite dieses Teils liegt — fehlt es, bei `seite`
+// (ganze Seite, Halb-Ansicht); auf der Doppelseite je Hälfte.
+export interface BlattTeil { seite: number; y0: number; y1: number; bild: HTMLCanvasElement; ebene: HTMLCanvasElement | null; lage: Lage; blattLage?: Lage }
 export interface BlattExtras {
   stellen: { seite: number; x: number; y: number; b: number; h: number }[];
   schnitt: number | null;
   hervor: { x: number; y: number; b: number; h: number } | null;
+  // Lücke zwischen zwei Seiten (Doppelseite): leicht getönt, kein Papier.
+  luecke?: Lage | null;
 }
 export function blattZeichnen(ctx: CanvasRenderingContext2D, seite: Lage, teile: BlattTeil[],
   anm: Record<number, Anmerkung[]>, extras: BlattExtras, hilfe: () => HTMLCanvasElement) {
-  const { x: X, y: Y, b: W, h: H } = seite;
   ctx.fillStyle = '#fff';
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   for (const t of teile) {
     const objekte = anm[t.seite] ?? [];
+    const S = t.blattLage ?? seite;
+    const { x: X, y: Y, b: W, h: H } = S;
     ctx.save();
     ctx.beginPath(); ctx.rect(X, Y + t.y0 * H, W, (t.y1 - t.y0) * H); ctx.clip();
     ctx.drawImage(t.bild, t.lage.x, t.lage.y, t.lage.b, t.lage.h);
-    if (t.ebene) ebeneZeichnen(ctx, t.ebene, t.lage, objekte, seite, hilfe());
+    if (t.ebene) ebeneZeichnen(ctx, t.ebene, t.lage, objekte, S, hilfe());
     anmerkungenZeichnen(ctx, objekte, X, Y, W, H);
     for (const st of extras.stellen.filter((x) => x.seite === t.seite)) {
       ctx.strokeStyle = 'rgba(168, 120, 31, 0.55)'; ctx.lineWidth = Math.max(1, W / 600);
@@ -98,6 +103,12 @@ export function blattZeichnen(ctx: CanvasRenderingContext2D, seite: Lage, teile:
     }
     ctx.restore();
   }
+  if (extras.luecke) {
+    const l = extras.luecke;
+    ctx.fillStyle = 'rgba(29, 27, 23, 0.07)';
+    ctx.fillRect(l.x, l.y, l.b, l.h);
+  }
+  const { x: X, y: Y, b: W, h: H } = seite;
   if (extras.schnitt !== null) {
     // Übergangskante: hier endet die neue Seite, darunter steht noch die alte.
     const y = Y + extras.schnitt * H;

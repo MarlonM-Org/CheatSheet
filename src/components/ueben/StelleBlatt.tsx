@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { reserveVon, stelleFavorit, steigerung, tagesbeste, tempoStand, zielAusText, zielStand } from '@/domain/stellen';
-import { stelleAendern, type Stelle } from './lokal';
+import { stelleAendern, stelleLoeschen, type Stelle } from './lokal';
 import { speicherFehler } from './speicherfehler';
 import { Stern } from './Stern';
 import { useDialogFokus, useEscape } from './tasten';
@@ -12,9 +12,10 @@ const datum = (t: number) => new Date(t).toLocaleDateString('de-DE', { day: '2-d
 
 // Eine Stelle im Blick (F-12): Zieltempo setzen, Stand zum Ziel, Steigerung
 // der letzten drei Wochen und der Tempo-Verlauf als Kurve. Geöffnet aus der
-// Stellen-Leiste (Tipp auf den Namen der Stelle).
-export function StelleBlatt({ stelle, stueck, geaendert, schliessen }: {
-  stelle: Stelle; stueck: string; geaendert: () => void; schliessen: () => void;
+// Stellen-Leiste (Tipp auf den Namen der Stelle). Unten lässt sich die Stelle
+// löschen (F-18, mit Rückfrage); `geloescht` räumt danach auf.
+export function StelleBlatt({ stelle, stueck, geaendert, schliessen, geloescht }: {
+  stelle: Stelle; stueck: string; geaendert: () => void; schliessen: () => void; geloescht: () => void;
 }) {
   useEscape(schliessen);
   const fokus = useDialogFokus<HTMLDivElement>();
@@ -39,6 +40,12 @@ export function StelleBlatt({ stelle, stueck, geaendert, schliessen }: {
     try { await stelleAendern(stelle.id, { zielTempo: neu }); } catch (x) { speicherFehler(x); return; }
     setHinweis(neu ? `Ziel ${neu} gespeichert.` : 'Ziel entfernt.');
     geaendert();
+  }
+
+  async function loeschen() {
+    if (!stelleLoeschenBestaetigen(titel, stelle.tempi.length)) return;
+    try { await stelleLoeschen(stelle.id); } catch (x) { speicherFehler(x); return; }
+    geloescht();
   }
 
   async function favoritSetzen(an: boolean) {
@@ -111,7 +118,15 @@ export function StelleBlatt({ stelle, stueck, geaendert, schliessen }: {
           </details>
         )}
         {stelle.notiz && <p className="text-sm">{stelle.notiz}</p>}
+        <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => void loeschen()}>Stelle löschen</button>
       </div>
     </div>
   );
+}
+
+// Rückfrage vor dem Löschen einer Stelle — dieselbe im Stellen-Blatt und im
+// Stück-Blatt. Nennt, was mit ihr verschwindet.
+export function stelleLoeschenBestaetigen(titel: string, tempi: number): boolean {
+  const verlauf = tempi ? ` samt ${tempi === 1 ? 'einem geschafften Tempo' : `${tempi} geschafften Tempi`}` : '';
+  return confirm(`Stelle „${titel}“${verlauf} löschen? Die Noten bleiben.`);
 }

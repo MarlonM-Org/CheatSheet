@@ -24,9 +24,11 @@ export const MARKER_DICKEN = [
 // Kuratierte Palette (E-02). Die drei alten Standardfarben bleiben enthalten,
 // damit bestehende Anmerkungen zur Auswahl passen. Gold (#a8781f) ist seit
 // E-08 heraus: Sein Platz gehört der Pipette, jede andere Farbe geht über
-// den Farbwähler.
+// den Farbwähler. Statt Grau (#5f5b53) steht seit E-09 Weiß in der Palette
+// — zum Abdecken auf dem Blatt; ein gespeichertes Grau gilt weiter als
+// eigene Farbe.
 export const STIFTFARBEN = [
-  '#1b1b1b', '#5f5b53', '#d12d2d', '#e8740c',
+  '#1b1b1b', '#ffffff', '#d12d2d', '#e8740c',
   '#1f7a43', '#1f5fd1', '#7b3ff2', '#d12d8a',
 ] as const;
 

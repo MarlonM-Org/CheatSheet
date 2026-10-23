@@ -5,7 +5,7 @@
 // Stellen, Anmerkungen und Ausschnitte. Die Liste ist die Reihenfolge, in der
 // gesprungen wird (`nr` beim Speichern). Rein, getestet.
 
-import { hauptseite, type Ansicht } from './notenpult';
+import { hauptseite, zeigtGanz, type Ansicht } from './notenpult';
 import type { Rechteck } from './ueben';
 
 export type SprungArt = 'wdh' | 'ds' | 'dc' | 'coda';
@@ -132,14 +132,17 @@ export function artVorschlag(von: Punkt, nach: Punkt): SprungArt {
   return nach.seite > von.seite || (nach.seite === von.seite && nach.y > von.y) ? 'coda' : 'wdh';
 }
 
-// Welche Seite liegt an dieser Höhe der Ansicht? Halb: oben bis zum Schnitt
-// die nächste Seite, darunter der Rest der aktuellen.
-export function seiteAn(a: Ansicht, y: number): number {
-  return a.art === 'ganz' ? a.seite : y < a.schnitt ? a.oben : a.unten;
+// Welche Seite liegt an dieser Stelle der Ansicht? Halb: oben bis zum Schnitt
+// die nächste Seite, darunter der Rest der aktuellen. Doppel: links oder
+// rechts der Mitte (x über die ganze Doppelseite).
+export function seiteAn(a: Ansicht, y: number, x = 0): number {
+  if (a.art === 'ganz') return a.seite;
+  if (a.art === 'doppel') return x < 0.5 ? a.links : a.rechts;
+  return y < a.schnitt ? a.oben : a.unten;
 }
 
 export function punktSichtbar(a: Ansicht, p: Punkt): boolean {
-  if (a.art === 'ganz') return p.seite === a.seite;
+  if (a.art !== 'halb') return zeigtGanz(a, p.seite);
   return (p.seite === a.oben && p.y < a.schnitt) || (p.seite === a.unten && p.y >= a.schnitt);
 }
 
@@ -148,17 +151,18 @@ export const sichtbareMarken = (liste: Sprung[], a: Ansicht) => liste.filter((s)
 // Index der Ansicht, die die Einstiegsstelle zeigt: die ganze Zielseite.
 // Gibt es die Seite nicht (mehr), null.
 export function zielAnsicht(liste: Ansicht[], nach: Punkt): number | null {
-  const i = liste.findIndex((a) => a.art === 'ganz' && a.seite === nach.seite);
+  const i = liste.findIndex((a) => zeigtGanz(a, nach.seite));
   return i < 0 ? null : i;
 }
 
-// Dieselbe Ansicht in einer anderen Liste (Blätter-Modus gewechselt), sonst
-// die ganze Seite, die dort galt.
+// Dieselbe Ansicht in einer anderen Liste (Blätter-Modus gewechselt, zwei
+// Seiten an oder aus), sonst die Ansicht, die die geltende Seite ganz zeigt.
 export function ansichtFinden(liste: Ansicht[], a: Ansicht): number {
   const gleich = liste.findIndex((b) => (b.art === 'ganz' && a.art === 'ganz' && b.seite === a.seite)
-    || (b.art === 'halb' && a.art === 'halb' && b.oben === a.oben && b.unten === a.unten && Math.abs(b.schnitt - a.schnitt) < 1e-9));
+    || (b.art === 'halb' && a.art === 'halb' && b.oben === a.oben && b.unten === a.unten && Math.abs(b.schnitt - a.schnitt) < 1e-9)
+    || (b.art === 'doppel' && a.art === 'doppel' && b.links === a.links));
   if (gleich >= 0) return gleich;
-  const ganz = liste.findIndex((b) => b.art === 'ganz' && b.seite === hauptseite(a));
+  const ganz = liste.findIndex((b) => zeigtGanz(b, hauptseite(a)));
   return ganz < 0 ? 0 : ganz;
 }
 

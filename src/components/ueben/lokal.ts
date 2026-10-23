@@ -274,6 +274,8 @@ export function zuletztMerken(id: string) {
 }
 // Wann zuletzt eine Sicherung gespeichert wurde (H-01: Erinnerung in der Bibliothek).
 const LETZTE_SICHERUNG = 'ueben:letzte-sicherung';
+// Erinnerung an die Sicherung in der Bibliothek an/aus (je Gerät, Standard an).
+export const SICHERUNG_ERINNERN = 'ueben:sicherung-erinnern';
 export function letzteSicherung(): number | null {
   try { const t = Number(localStorage.getItem(LETZTE_SICHERUNG)); return t > 0 ? t : null; } catch { return null; }
 }

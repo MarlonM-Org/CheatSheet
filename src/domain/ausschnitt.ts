@@ -91,3 +91,24 @@ export function darstellung(platz: { b: number; h: number }, format: number, r: 
   const b = rahmen.b / r.b, h = rahmen.h / r.h;
   return { rahmen, blatt: { b, h, x: -r.x * b, y: -r.y * h } };
 }
+
+// Zwei Seiten nebeneinander (B-13): jede Seite bekommt die halbe Breite (mit
+// Lücke dazwischen), derselbe Ausschnitt gilt für beide. Das Blatt umfasst
+// beide ganzen Seiten; `lagen` sagt je Seite, wo sie auf dem Blatt liegt —
+// als Anteile des Blatts, damit Marken und Punkte in Seiten-Koordinaten
+// bleiben können.
+export interface SeitenLage { x: number; y: number; b: number; h: number }
+export function doppelDarstellung(platz: { b: number; h: number }, format: number, r: Rechteck, luecke = 10) {
+  const einzeln = darstellung({ b: (platz.b - luecke) / 2 + 8, h: platz.h }, format, r);
+  const { b: rb, h: rh } = einzeln.rahmen, pb = einzeln.blatt.b, ph = einzeln.blatt.h;
+  const versatz = rb + luecke;
+  const blatt = { b: versatz + pb, h: ph, x: einzeln.blatt.x, y: einzeln.blatt.y };
+  const lage = (x: number): SeitenLage => ({ x: x / blatt.b, y: 0, b: pb / blatt.b, h: 1 });
+  return {
+    rahmen: { b: 2 * rb + luecke, h: rh },
+    blatt,
+    lagen: { links: lage(0), rechts: lage(versatz) },
+    // Die Lücke zwischen den Seiten, als Anteile des Blatts.
+    luecke: { x: pb / blatt.b, y: 0, b: (versatz - pb) / blatt.b, h: 1 } as SeitenLage,
+  };
+}

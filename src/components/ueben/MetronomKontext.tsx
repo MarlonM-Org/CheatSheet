@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { EINSTELLUNG_STANDARD as STANDARD, type Akzent, type Trainer } from '@/domain/einstellungen';
+import { akzenteFuer, nennerPruefen, type Nenner } from '@/domain/takt';
 import { trainerTempo } from '@/domain/ueben';
 import {
   audioSitzung, gespeichert, klangPuffer, speichern, useBeimVerlassen, useEinstellungenGeladen, verwerfen, wachHalten, type Art, type Klang,
@@ -9,13 +10,12 @@ import {
 
 export type { Akzent, Trainer };
 
-const akzenteFuer = (takt: number, alt: Akzent[] = []): Akzent[] =>
-  Array.from({ length: takt }, (_, i) => alt[i] ?? (i === 0 ? 'betont' : 'normal'));
-
 interface MetronomWert {
   bpm: number; setBpm: (n: number) => void; laeuft: boolean; start: () => void; stopp: () => void;
   aktiv: { schlag: number; sub: number } | null;
-  takt: number; taktAendern: (n: number) => void; akzente: Akzent[]; akzentWechseln: (i: number) => void;
+  // Taktart (D-05): takt = Schläge je Takt (Zähler), nenner = Notenwert eines Schlags.
+  takt: number; nenner: Nenner; taktartSetzen: (zaehler: number, nenner: Nenner) => void;
+  akzente: Akzent[]; akzentWechseln: (i: number) => void;
   unter: number; setUnter: (n: number) => void; klang: Klang; setKlang: (k: Klang) => void;
   laut: number; setLaut: (n: number) => void; trainer: Trainer; setTrainer: (t: Trainer) => void;
 }
@@ -34,7 +34,9 @@ export function MetronomAnbieter({ children }: { children: React.ReactNode }) {
   const setBpm = useCallback((n: number) => { const w = Math.min(300, Math.max(20, Math.round(n))); setBpmRoh(w); speichern('metro:bpm', w); }, []);
   const [laeuft, setLaeuft] = useState(false);
   const [takt, setTakt] = useState(() => gespeichert('metro:takt', STANDARD['metro:takt']));
-  const [akzente, setAkzente] = useState<Akzent[]>(() => akzenteFuer(gespeichert('metro:takt', STANDARD['metro:takt']), gespeichert<Akzent[]>('metro:akzente', [])));
+  const [nenner, setNenner] = useState<Nenner>(() => nennerPruefen(gespeichert('metro:nenner', STANDARD['metro:nenner'])));
+  const [akzente, setAkzente] = useState<Akzent[]>(() => akzenteFuer(
+    gespeichert('metro:takt', STANDARD['metro:takt']), nennerPruefen(gespeichert('metro:nenner', STANDARD['metro:nenner'])), gespeichert<Akzent[]>('metro:akzente', [])));
   const [unter, setUnter] = useState(() => gespeichert('metro:unter', STANDARD['metro:unter']));
   const [klang, setKlang] = useState<Klang>(() => gespeichert('metro:klang', STANDARD['metro:klang']));
   const [laut, setLaut] = useState(() => gespeichert('metro:laut', STANDARD['metro:laut']));
@@ -44,8 +46,10 @@ export function MetronomAnbieter({ children }: { children: React.ReactNode }) {
   // der Effekt unten die alten Werte zurück. Das Tempo bleibt am Gerät.
   const neuLesen = useCallback(() => {
     const t = gespeichert('metro:takt', STANDARD['metro:takt']);
+    const n = nennerPruefen(gespeichert('metro:nenner', STANDARD['metro:nenner']));
     setTakt(t);
-    setAkzente(akzenteFuer(t, gespeichert<Akzent[]>('metro:akzente', [])));
+    setNenner(n);
+    setAkzente(akzenteFuer(t, n, gespeichert<Akzent[]>('metro:akzente', [])));
     setUnter(gespeichert('metro:unter', STANDARD['metro:unter']));
     setKlang(gespeichert('metro:klang', STANDARD['metro:klang']));
     setLaut(gespeichert('metro:laut', STANDARD['metro:laut']));
@@ -58,8 +62,8 @@ export function MetronomAnbieter({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     r.current = { ...r.current, bpm, takt, akzente, unter, klang, laut, trainer };
   }, [bpm, takt, akzente, unter, klang, laut, trainer]);
-  useEffect(() => { speichern('metro:takt', takt); speichern('metro:akzente', akzente); speichern('metro:unter', unter); speichern('metro:klang', klang); speichern('metro:laut', laut); speichern('metro:trainer', trainer); },
-    [takt, akzente, unter, klang, laut, trainer]);
+  useEffect(() => { speichern('metro:takt', takt); speichern('metro:nenner', nenner); speichern('metro:akzente', akzente); speichern('metro:unter', unter); speichern('metro:klang', klang); speichern('metro:laut', laut); speichern('metro:trainer', trainer); },
+    [takt, nenner, akzente, unter, klang, laut, trainer]);
 
   const audio = useRef<{ ctx: AudioContext; gain: GainNode; puffer: Map<string, AudioBuffer> } | null>(null);
   const lauf = useRef<{ timer: number; raf: number; naechster: number; schritt: number; taktNr: number; schlange: { zeit: number; schlag: number; sub: number }[]; freigeben: (() => void) | null } | null>(null);
@@ -163,12 +167,18 @@ export function MetronomAnbieter({ children }: { children: React.ReactNode }) {
     void audio.current?.ctx.close();
   }, []);
 
-  const taktAendern = (n: number) => { setTakt(n); setAkzente((a) => akzenteFuer(n, a)); };
+  // Taktart wechseln: Bei gleichem Nenner bleiben die gesetzten Akzente
+  // Schlag für Schlag; ein anderer Nenner bekommt die Standard-Betonung
+  // (6/8 betont die Eins und die Vier).
+  const taktartSetzen = (z: number, n: Nenner) => {
+    setTakt(z); setNenner(n);
+    setAkzente((a) => akzenteFuer(z, n, n === nenner ? a : []));
+  };
   const akzentWechseln = (i: number) => setAkzente((a) => a.map((x, j) => (j !== i ? x : x === 'betont' ? 'normal' : x === 'normal' ? 'stumm' : 'betont')));
 
   return (
     <Kontext.Provider value={{
-      bpm, setBpm, laeuft, start, stopp, aktiv, takt, taktAendern, akzente, akzentWechseln,
+      bpm, setBpm, laeuft, start, stopp, aktiv, takt, nenner, taktartSetzen, akzente, akzentWechseln,
       unter, setUnter, klang, setKlang, laut, setLaut, trainer, setTrainer,
     }}>
       {children}

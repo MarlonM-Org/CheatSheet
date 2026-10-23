@@ -13,16 +13,16 @@ const speicher = (werte: Record<string, unknown>) => {
 
 describe('Welche Einstellungen mitreisen', () => {
   it('Person und Instrument reisen mit', () => {
-    for (const k of ['stimm:st', 'stimm:a', 'metro:klang', 'metro:laut', 'metro:takt', 'metro:akzente', 'metro:unter', 'metro:trainer',
-      'ueben:stift', 'ueben:marker', 'ueben:text', 'ueben:wisch-umkehren', 'ueben:tonprofil-umfang']) {
+    for (const k of ['stimm:st', 'stimm:a', 'metro:klang', 'metro:laut', 'metro:takt', 'metro:nenner', 'metro:akzente', 'metro:unter', 'metro:trainer',
+      'ueben:stift', 'ueben:marker', 'ueben:text', 'ueben:wisch-umkehren', 'ueben:zoom-immer', 'ueben:tonprofil-umfang']) {
       expect(istMitreisend(k), k).toBe(true);
     }
-    expect(MITREISEND).toHaveLength(13);
+    expect(MITREISEND).toHaveLength(15);
   });
   it('Gerät, Tempo und was eigene Felder hat, bleibt', () => {
     for (const k of ['ueben:modus', 'ueben:thema-hell', 'ueben:thema-dunkel', 'ueben:lage-metronom', 'metro:bpm', 'ueben:metronom-an',
       'ueben:offen', 'ueben:zuletzt', 'ueben:sort', 'ueben:sammlung', 'ueben:tag', 'ueben:mix', 'ueben:mix-an', 'ueben:mix-offen',
-      'ueben:letzte-sicherung', 'ueben:geloescht', 'ueben:tags', 'ueben:tonprofile', 'ueben:tonleiter-grundton', 'ueben:tonleiter-art',
+      'ueben:letzte-sicherung', 'ueben:sicherung-erinnern', 'ueben:geloescht', 'ueben:tags', 'ueben:tonprofile', 'ueben:tonleiter-grundton', 'ueben:tonleiter-art',
       EINSTELLUNGEN_STAND, 'toString', '__proto__', 'constructor']) {
       expect(istMitreisend(k), k).toBe(false);
     }
@@ -70,6 +70,9 @@ describe('Prüfen der Werte', () => {
     expect(gilt('metro:takt', 12)).toBe(true);
     expect(gilt('metro:takt', 0)).toBe(false);
     expect(gilt('metro:takt', 3.5)).toBe(false);
+    expect(gilt('metro:nenner', 8)).toBe(true);
+    expect(gilt('metro:nenner', 3)).toBe(false);
+    expect(gilt('metro:nenner', '4')).toBe(false);
     expect(gilt('metro:unter', 4)).toBe(true);
     expect(gilt('metro:unter', 0)).toBe(false);
     expect(gilt('metro:akzente', ['betont', 'stumm', 'normal'])).toBe(true);
@@ -88,6 +91,8 @@ describe('Prüfen der Werte', () => {
     expect(gilt('ueben:stift', [])).toBe(false);
     expect(gilt('ueben:wisch-umkehren', false)).toBe(true);
     expect(gilt('ueben:wisch-umkehren', 'false')).toBe(false);
+    expect(gilt('ueben:zoom-immer', true)).toBe(true);
+    expect(gilt('ueben:zoom-immer', 1)).toBe(false);
     expect(gilt('ueben:tonprofil-umfang', { von: 50, bis: 84, stamm: true })).toBe(true);
     expect(gilt('ueben:tonprofil-umfang', { von: 84, bis: 50, stamm: true })).toBe(false);
     expect(gilt('ueben:tonprofil-umfang', { von: 50, bis: 84 })).toBe(false);

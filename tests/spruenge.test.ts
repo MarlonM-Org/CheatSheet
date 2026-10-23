@@ -246,3 +246,22 @@ describe('Sprünge einer neueren Version (unbekannte Art)', () => {
     expect(spruengeSchreiben([eigen], 'kaputt')).toEqual([{ ...eigen, nr: 1 }]);
   });
 });
+
+describe('Doppelseite (B-13)', () => {
+  const d = { art: 'doppel' as const, links: 3, rechts: 4 };
+  const liste: Ansicht[] = [{ art: 'doppel', links: 1, rechts: 2 }, d, { art: 'ganz', seite: 5 }];
+  it('Marken beider Seiten sind zu sehen, die Seite kommt aus x', () => {
+    expect(punktSichtbar(d, { seite: 3, x: 0.2, y: 0.9 })).toBe(true);
+    expect(punktSichtbar(d, { seite: 4, x: 0.2, y: 0.1 })).toBe(true);
+    expect(punktSichtbar(d, { seite: 2, x: 0.2, y: 0.1 })).toBe(false);
+    expect(seiteAn(d, 0.5, 0.2)).toBe(3);
+    expect(seiteAn(d, 0.5, 0.7)).toBe(4);
+  });
+  it('Ziel und Wiederfinden über die Doppelseite', () => {
+    expect(zielAnsicht(liste, { seite: 4, x: 0, y: 0 })).toBe(1);
+    expect(zielAnsicht(liste, { seite: 6, x: 0, y: 0 })).toBe(null);
+    expect(ansichtFinden(liste, { art: 'ganz', seite: 4 })).toBe(1);
+    expect(ansichtFinden(liste, { art: 'halb', oben: 5, unten: 4, schnitt: 0.5 })).toBe(2);
+    expect(ansichtFinden([{ art: 'ganz', seite: 1 }, { art: 'ganz', seite: 2 }, { art: 'ganz', seite: 3 }], d)).toBe(2);
+  });
+});

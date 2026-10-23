@@ -360,14 +360,15 @@ a { color: inherit; text-decoration: underline; text-decoration-color: var(--mes
 /* Metronom-Widget */
 .metro-zeile1 { display: flex; align-items: center; gap: 14px; padding: 8px 14px 2px; }
 .metro-start {
-  flex: none; width: 50px; height: 50px; display: grid; place-items: center;
+  flex: none; width: 44px; height: 44px; display: grid; place-items: center;
   border: 1px solid var(--linie-stark); border-radius: 5px; background: var(--papier); color: var(--tinte);
 }
 .metro-start svg { width: 20px; height: 20px; }
+.panel-zu.metro-breite { margin-right: -4px; }
 .metro-start[aria-pressed="true"] { background: var(--messing); border-color: var(--messing); color: var(--messing-text); }
 .metro-bpm { display: flex; align-items: baseline; gap: 7px; min-height: 44px; }
 .metro-zahl {
-  font-size: 34px; font-weight: 700; line-height: 1; letter-spacing: -0.02em;
+  font-size: 46px; font-weight: 700; line-height: 1; letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums; color: var(--tinte);
 }
 input.metro-zahl { width: 3ch; background: none; }
@@ -385,6 +386,25 @@ input.metro-zahl { width: 3ch; background: none; }
 @keyframes metro-pop { 0% { transform: scale(1.45); } 100% { transform: scale(1); } }
 .metro-zeile2 { display: flex; gap: 10px; padding: 12px 14px 0; }
 .metro-zeile3 { padding: 6px 14px 12px; }
+/* Schmal (D-06): eine Säule, alles so breit wie der Start-Knopf. */
+.panel.metro-schmal { width: 108px; }
+.panel.schwebt.metro-schmal { width: 108px; }
+.dock .panel.metro-schmal { align-self: flex-end; border-left: 1px solid var(--linie); border-top-left-radius: 6px; }
+.metro-schmal .panel-kopf { padding: 6px 8px 0; gap: 2px; }
+.metro-schmal .panel-kopf .panel-zu { margin: -4px 0; }
+.metro-schmal .panel-kopf .panel-zu.metro-breite { margin-left: auto; }
+.metro-saeule { display: flex; flex-direction: column; align-items: stretch; gap: 10px; padding: 8px 14px 12px; }
+.metro-saeule .metro-start { width: 100%; height: 46px; }
+.metro-saeule .metro-bpm { flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 0; }
+.metro-saeule .metro-zahl { font-size: 32px; }
+.metro-saeule input.metro-zahl { width: 100%; text-align: center; font-size: 32px; }
+.gruppe.senkrecht { flex: none; flex-direction: column; }
+.gruppe.senkrecht button { height: 42px; font-size: 13px; }
+.gruppe.senkrecht button + button { border-left: none; border-top: 1px solid var(--linie-stark); }
+.metro-saeule .metro-takt { margin-left: 0; align-items: center; gap: 6px; }
+.metro-saeule .metro-punkte { flex-wrap: wrap; justify-content: center; gap: 5px; max-width: 80px; }
+.metro-saeule .metro-punkte i { width: 8px; height: 8px; }
+.metro-saeule .text-knopf { align-self: center; }
 
 /* Stimmgerät-Widget */
 .stimm-zeile { display: flex; align-items: center; gap: 14px; padding: 10px 14px 14px; }
@@ -403,13 +423,14 @@ input.metro-zahl { width: 3ch; background: none; }
 }
 
 /* Bibliothek: Overlay über den Noten, flach angedockt */
+/* Immer die ganze Höhe (B-12): Kopf oben, die Liste rollt, darunter bleibt
+   Papier — egal, wie viele Stücke es gibt. */
 .bibliothek {
-  position: fixed; left: 0; right: 0; z-index: 45;
+  position: fixed; left: 0; right: 0; z-index: 45; top: 0;
   bottom: calc(var(--leiste-hoehe) + env(safe-area-inset-bottom, 0px));
+  padding-top: env(safe-area-inset-top, 0px);
   display: flex; flex-direction: column;
-  background: var(--papier); border-top: 1px solid var(--linie); box-shadow: var(--panel-schatten);
-  max-height: calc(100vh - var(--leiste-hoehe) - env(safe-area-inset-bottom, 0px) - env(safe-area-inset-top, 0px) - 64px);
-  max-height: calc(100dvh - var(--leiste-hoehe) - env(safe-area-inset-bottom, 0px) - env(safe-area-inset-top, 0px) - 64px);
+  background: var(--papier); box-shadow: var(--panel-schatten);
 }
 .bib-inhalt { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0.9rem 14px; }
 .bib-fuss { padding: 10px 14px; border-top: 1px solid var(--linie); font-size: 11px; line-height: 1.45; color: var(--leise); }
@@ -515,6 +536,19 @@ details[open] > summary::before { transform: rotate(90deg); }
 .ton-taste.an { background: var(--messing); border-color: var(--messing); color: var(--messing-text); }
 
 .tempo-eingabe { width: 4ch; border: none; border-bottom: 3px solid var(--messing); outline: none; padding: 0; }
+/* Taktart (D-05): Zähler über Nenner wie in den Noten, daneben Schnellwahl. */
+.taktart { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 1rem 1.75rem; }
+.taktart-bruch { display: inline-flex; flex-direction: column; align-items: center; gap: 0.35rem; }
+.taktart-zeile { display: flex; align-items: center; gap: 0.55rem; }
+.taktart-zahl { min-width: 2.4ch; text-align: center; font-size: 2.1rem; font-weight: 800; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.taktart-strich { width: 3rem; height: 2px; border-radius: 1px; background: var(--tinte); }
+.taktart-wahl { display: grid; grid-template-columns: repeat(3, minmax(3.6rem, 1fr)); gap: 6px; }
+.taktart-chip {
+  min-height: 2.5rem; padding: 0 0.6rem; border: 1px solid var(--linie-stark); border-radius: 5px; background: var(--papier);
+  font-size: 0.9rem; font-weight: 600; color: var(--gedaempft); font-variant-numeric: tabular-nums;
+}
+.taktart-chip[aria-pressed="true"] { background: var(--flaeche2); color: var(--tinte); border-color: var(--messing); }
+.taktart-chip:active { background: var(--flaeche); }
 .rund-knopf.breit { width: auto; min-width: 4.25rem; padding: 0 0.9rem; }
 
 /* Kleiner Beschriftungs-Knopf (z. B. „♩ laden" in der Stellenleiste) */
@@ -595,7 +629,7 @@ details[open] > summary::before { transform: rotate(90deg); }
 .nav-blase {
   position: absolute; top: calc(100% + 8px); right: 12px; z-index: 2;
   display: flex; flex-direction: column; align-items: stretch; gap: 10px;
-  min-width: 232px; padding: 12px; border-radius: 14px;
+  min-width: 288px; max-width: calc(100vw - 24px); padding: 12px; border-radius: 14px;
   background: var(--schleier); backdrop-filter: blur(16px);
   border: 1px solid var(--linie);
   box-shadow: 0 8px 20px rgb(0 0 0 / 14%), 0 20px 50px rgb(0 0 0 / 16%);
@@ -613,6 +647,18 @@ details[open] > summary::before { transform: rotate(90deg); }
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   font-size: 0.85rem; font-weight: 600; cursor: pointer; min-height: 32px;
 }
+/* Zeilen des Ansicht-Menüs (B-14): Symbol, Text mit Unterzeile, rechts
+   Schalter oder Pfeil. */
+.nav-zeile {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 44px; margin: -2px 0;
+  padding: 4px 6px; border-radius: 8px; font-size: 0.9rem; font-weight: 600; color: var(--tinte); text-align: left; cursor: pointer;
+}
+.nav-zeile:active { background: var(--flaeche); }
+.nav-zeile:disabled { opacity: 0.4; cursor: not-allowed; }
+.nav-symbol { width: 22px; height: 22px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; color: var(--gedaempft); }
+.nav-zeile-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; line-height: 1.25; }
+.nav-zeile-text small { font-size: 0.74rem; font-weight: 500; color: var(--gedaempft); }
+.nav-hinweis { margin-top: -4px; font-size: 0.74rem; line-height: 1.35; color: var(--gedaempft); }
 
 .b-leise { color: var(--gedaempft); }
 .b-hinweis { font-size: 0.78rem; color: var(--gedaempft); padding: 0.15rem 0.2rem 0; }
@@ -928,10 +974,11 @@ small .stern { display: inline-block; width: 0.95em; height: 0.95em; vertical-al
 
 /* Erinnerung an die Sicherung (H-01) */
 .sicherung-erinnerung {
-  display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px;
+  display: flex; width: 100%; align-items: center; gap: 10px; padding: 8px 12px;
   border: 1px solid var(--messing); border-radius: 6px; background: var(--messing-hell);
   font-size: 0.8rem; text-align: left; color: var(--tinte);
 }
+.sicherung-erinnerung-text { flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 10px; text-align: left; color: inherit; }
 .sicherung-erinnerung strong { flex: none; color: var(--messing); }
 
 /* ── Tags (F-14) ── Farben aus der geprüften Diagramm-Palette; für dunkle

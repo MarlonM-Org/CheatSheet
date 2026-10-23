@@ -6,7 +6,7 @@ Punkt ein; wer etwas fertigstellt, hakt ab und verschiebt den Punkt nach
 „Erledigt“ (unten). Größere Richtungsentscheidungen bitte als kurzen Absatz
 hier dokumentieren, nicht nur im Chat.
 
-Stand: 2026-10-14.
+Stand: 2026-10-23.
 
 ## Leitbild
 
@@ -240,6 +240,92 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
 ## Erledigt
 
 *(Abgeschlossene Punkte hierher verschieben, mit Datum und Commit.)*
+
+- **B-13 · Zwei Seiten nebeneinander** (2026-10-23): Wunsch Marlon. Ansicht →
+  „Zwei Seiten“ (je Gerät, `ueben:zwei-seiten`): Im Querformat stehen die
+  Seiten paarweise nebeneinander (1–2, 3–4 …, eine übrige letzte allein),
+  mit schmaler Lücke; der Ausschnitt gilt für beide Seiten gleich. Geblättert
+  wird je Doppelseite — Pedal, Ring, Tasten, Rand-Tippen, auch über Sprünge
+  (eine Marke liegt auf ihrer Seite, das Ziel ist die Doppelseite, die die
+  Seite zeigt). Kopf „Seiten 1–2 von 4“. Hochkant, beim Anmerken (offene
+  Palette), im Stellen-Modus und beim Blättern-Einstellen zeigt der
+  Betrachter weiter eine Seite; Halb und Linie gelten in der Doppelseite
+  nicht. Neue Ansicht-Art `doppel` in `src/domain/notenpult.ts`, Sprünge in
+  `spruenge.ts`, Geometrie `doppelDarstellung` in `ausschnitt.ts` (alles
+  getestet). Kein Schema-Sprung.
+- **B-14 · Ansicht-Menü aufgeräumt** (2026-10-23): Wunsch Marlon: „Seite für
+  Seite einstellen“ und „Seite 2 zuschneiden“ waren nicht unterscheidbar
+  genug. Das Menü hat jetzt Zeilen mit Symbol und Unterzeile: **Ansicht**
+  (Zwei Seiten, Immer zoomen als Schalter), **Blättern** (Ganz | Halb | Linie
+  gilt hier für alle Seiten, darunter „Blättern einstellen ›“ mit
+  Blatt-Symbol — die Leiste unten für Seite für Seite, Linie ziehen, „Für
+  alle“), **Seite** („Seite n zuschneiden ›“ mit Zuschneide-Symbol wie beim
+  Foto-Bearbeiten) und **Sprünge** („Sprung setzen ›“, Liste). Blättern
+  alle Seiten verschieden, steht das dabei; die Wahl im Menü setzt wieder
+  alle gleich.
+
+- **B-12 · Bibliothek immer in voller Höhe, Erinnerung abschaltbar**
+  (2026-10-23): Wunsch Marlon: Die Höhe der Bibliothek hing davon ab, wie
+  viele Stücke es gab. Jetzt setzt sie immer ganz oben an (Kopf „Bibliothek“
+  mit Zahnrad und Schließen), die Liste rollt, darunter bleibt Papier. Die
+  Erinnerung „Letzte Sicherung vor n Tagen“ lässt sich mit „ausblenden“ an
+  der Meldung oder in Einstellungen → Daten übertragen („In der Bibliothek
+  erinnern“) abschalten (je Gerät, `ueben:sicherung-erinnern`). Zur Frage,
+  ob Sicherungen wichtig sind: Die Daten liegen nur im Browser-Speicher
+  dieses Geräts (IndexedDB, localStorage) — sie werden nicht automatisch
+  woanders gespeichert. Löscht man Website-Daten, wechselt das Gerät oder
+  räumt iOS bei Speichermangel auf, sind sie weg. Die Sicherung ist die
+  einzige Kopie außerhalb des Browsers; darum erinnert die App.
+
+- **D-05 · Taktart mit Zähler und Nenner** (2026-10-23): Wunsch Marlon: 3/4,
+  6/8, 12/8 statt nur „Schläge je Takt“, und ohne System-Auswahlfeld. Im
+  großen Metronom steht die Taktart als Bruch wie in den Noten (Zähler über
+  Nenner, je − / +; Nenner 2, 4, 8, 16), daneben die Schnellwahl 2/4 · 3/4 ·
+  4/4 · 6/8 · 9/8 · 12/8. Das Tempo gilt je Nenner-Note („Andante · je
+  Achtel“), wie bei einem Metronom „♪ = 120“. Zusammengesetzte Takte (6/8,
+  9/8, 12/8) betonen jede Dreiergruppe; bei gleichem Nenner bleiben gesetzte
+  Akzente Schlag für Schlag. Das Widget zeigt „Takt 6/8“. Regeln in
+  `src/domain/takt.ts` (getestet). Daten: `metro:nenner` (reist mit der
+  Sicherung), `metro:takt` bleibt der Zähler.
+- **D-06 · Schmales Metronom-Widget, gleichmäßigere Größen** (2026-10-23):
+  Wunsch Marlon. Im Kopf des Widgets schaltet ⇥⇤ auf eine **schmale Säule**,
+  nur so breit wie der Start-Knopf: Start, Tempo (antippen zum Eingeben),
+  +10 % · +1 · −1 · −10 % übereinander, Taktart und Taktpunkte, „alles“; ohne
+  Regler. Angedockt sitzt sie rechts an der Leiste, frei geschoben wie
+  gehabt. Gemerkt je Gerät (`ueben:metronom-schmal`). In der breiten Ansicht
+  sind Start-Knopf und Tempozahl jetzt gleich groß (vorher war der Knopf
+  größer als die Zahl).
+- **E-11 · Palette merkt sich das Werkzeug** (2026-10-23): Wunsch Marlon.
+  Öffnet man die Stift-Palette wieder, steht das zuletzt gewählte Werkzeug
+  bereit (Marker, Stelle, Radierer, Text …) samt dessen Farbe und Dicke —
+  über Stückwechsel hinweg, solange die App läuft; nach einem Neustart
+  wieder der Stift.
+
+- **F-18 · Stelle löschen aus der Stellen-Leiste** (2026-10-23): Wunsch
+  Marlon: eine Option, Stellen zu löschen. Bisher ging das nur im Stück-Blatt
+  hinter „bearbeiten“. Jetzt steht **„Stelle löschen“** unten im Stellen-Blatt
+  (Tipp auf den Namen in der Stellen-Leiste) — mit Rückfrage, die nennt, wie
+  viele geschaffte Tempi mitgehen („Die Noten bleiben.“); dieselbe Rückfrage
+  jetzt auch im Stück-Blatt. War es die letzte Stelle, geht es zurück zum
+  Lesen; im Mix rückt die Runde nach (gelöschte fallen weg, wie gehabt).
+  Grabstein wie bisher (`stelleLoeschen`), kein Schema-Sprung.
+- **E-10 · Immer zoomen** (2026-10-23): Wunsch Marlon: zoomen nicht nur beim
+  Anmerken. **Ansicht → Zoom → „Immer zoomen“**: dann zoomen zwei Finger (am
+  Rechner Strg + Mausrad bzw. Trackpad) auch beim Lesen und im Stellen-Modus;
+  ein Finger schiebt das gezoomte Blatt, ein **Tipp** blättert weiter am Rand
+  bzw. zeigt die Leisten in der Mitte (vorher tat ein Tipp gezoomt nichts).
+  Die Knöpfe − / % / + erscheinen beim Lesen erst, sobald gezoomt ist; der
+  Zoom überlebt das Öffnen und Schließen der Palette, nicht aber Blättern
+  (E-06-Regel). Nur auf ganzen Seiten (Halb/Linie wie bisher nicht). Aus:
+  wie bisher nur bei offener Palette. Gemerkt als `ueben:zoom-immer`, reist
+  als persönliche Einstellung mit der Sicherung (`src/domain/einstellungen.ts`,
+  getestet).
+- **E-09 · Weiß statt Grau in der Stiftpalette** (2026-10-23): Wunsch Marlon.
+  Das Grau (#5f5b53) ist aus der Stift-/Textpalette heraus, an seiner Stelle
+  steht **Weiß** (#ffffff) — zum Abdecken auf dem Blatt. Ein früher gewähltes
+  Grau bleibt gültig (gilt als eigene Farbe, `einstellungPruefen`); die
+  Werkzeug-Vorschau in der Palette hat eine feine Kontur, damit Weiß zu sehen
+  ist. Marker unverändert. Regeln in `src/domain/stift.ts` (getestet).
 
 - **A-03 · Tests für die Speicherschicht** (2026-10-12, Branch
   `feature/speicher-tests`): `tests/lokal.test.ts` gegen einen echten
@@ -561,6 +647,7 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
     Anmerkungen; auch der laufende Strich ist scharf.
   - **Zurück auf ganz:** Palette zu, andere Seite oder Stelle, andere
     Fenstergröße. Kaum gezoomt (unter 108 %) rastet beim Loslassen ein.
+    *(Seit E-10 wahlweise auch beim Lesen, siehe unten.)*
 - **E-07 · Radierer schneidet, Breite wählbar** (2026-10-13): Wunsch Marlon:
   Der Radierer nahm ganze Striche weg. Jetzt verschwindet nur, worüber er
   fährt — eine lange Linie, in der Mitte radiert, wird zu zwei. Texte gehen

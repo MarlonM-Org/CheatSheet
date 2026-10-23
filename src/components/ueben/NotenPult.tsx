@@ -20,6 +20,7 @@ import { NotenBetrachter } from './NotenBetrachter';
 import { NeueVersionFehler, pdfLaden, seiteMitEbene } from './pdf';
 import { ladeFehler, speicherFehler } from './speicherfehler';
 import type { MixSteuerung } from './StellenMix';
+import { stelleLoeschenBestaetigen } from './StelleBlatt';
 import { SternKnopf } from './Stern';
 import { TempoKurve } from './TempoKurve';
 import { useDialogFokus, useEscape } from './tasten';
@@ -300,7 +301,10 @@ function UebeStelle({ stelle, breite, rand, seiteHolen, bpm, tempoSetzen, neuLad
           <input className="feld" name="notiz" defaultValue={stelle.notiz ?? ''} placeholder="Notiz, z. B. Atmung nach Takt 34" aria-label="Notiz" />
           <div className="flex gap-2">
             <button className="knopf knopf-klein" type="submit">Speichern</button>
-            <button className="knopf knopf-leise knopf-klein" type="button" onClick={() => { stelleLoeschen(stelle.id).then(neuLaden, speicherFehler); }}>Stelle löschen</button>
+            <button className="knopf knopf-leise knopf-klein" type="button" onClick={() => {
+              if (!stelleLoeschenBestaetigen(stelle.titel || `Stelle auf Seite ${stelle.seite}`, stelle.tempi.length)) return;
+              stelleLoeschen(stelle.id).then(neuLaden, speicherFehler);
+            }}>Stelle löschen</button>
           </div>
         </form>
       )}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ansichten, ansichtVonSeite, ausDateiname, blaetternLesen, einheitlich, getroffen, hauptseite, modusSetzen, radierWeg, seitenModus, strichKappen, zuordnen, type Anmerkung, type Blaettermodus, type Blaettern } from '@/domain/notenpult';
+import { ansichten, ansichtVonSeite, ausDateiname, blaetternLesen, einheitlich, getroffen, hauptseite, modusSetzen, radierWeg, seitenModus, seitenVon, strichKappen, zeigtGanz, zuordnen, type Anmerkung, type Blaettermodus, type Blaettern } from '@/domain/notenpult';
 
 describe('Blättern', () => {
   it('ganze Seiten: eine Ansicht je Seite', () => {
@@ -158,5 +158,22 @@ describe('Radieren schneidet', () => {
     expect(weg).toHaveLength(20);
     expect(weg.at(-1)).toEqual({ x: 0.1, y: 0.5 });
     for (let i = 1; i < weg.length; i++) expect(weg[i].x - weg[i - 1].x).toBeLessThanOrEqual(0.005 + 1e-12);
+  });
+});
+
+describe('Zwei Seiten nebeneinander (B-13)', () => {
+  it('paart 1–2, 3–4 …, eine übrige letzte Seite steht allein', () => {
+    expect(ansichten(4, 'halb', {}, {}, true)).toEqual([{ art: 'doppel', links: 1, rechts: 2 }, { art: 'doppel', links: 3, rechts: 4 }]);
+    expect(ansichten(3, 'linie', { 1: 0.3 }, {}, true)).toEqual([{ art: 'doppel', links: 1, rechts: 2 }, { art: 'ganz', seite: 3 }]);
+    expect(ansichten(1, 'ganz', {}, {}, true)).toEqual([{ art: 'ganz', seite: 1 }]);
+  });
+  it('Hauptseite ist die linke; beide gelten als ganz gezeigt', () => {
+    const d = ansichten(4, 'ganz', {}, {}, true);
+    expect(hauptseite(d[1])).toBe(3);
+    expect(seitenVon(d[1])).toEqual([3, 4]);
+    expect(zeigtGanz(d[1], 4)).toBe(true);
+    expect(zeigtGanz(d[1], 2)).toBe(false);
+    expect(ansichtVonSeite(d, 4)).toBe(1);
+    expect(ansichtVonSeite(d, 1)).toBe(0);
   });
 });

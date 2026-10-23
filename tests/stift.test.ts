@@ -20,6 +20,14 @@ describe('Dicken und Farben', () => {
     expect(STIFTFARBEN.length).toBeGreaterThanOrEqual(8);
     expect(STIFTFARBEN).not.toContain('#a8781f'); // Platz der Pipette (E-08)
   });
+  it('Weiß statt Grau (E-09): Weiß zum Abdecken, Grau nur noch als eigene Farbe', () => {
+    expect(STIFTFARBEN).toContain('#ffffff');
+    expect(STIFTFARBEN).not.toContain('#5f5b53');
+    expect(FARBEN.text).toContain('#ffffff');
+    expect(MARKERFARBEN).not.toContain('#ffffff');
+    // Ein früher gewähltes Grau bleibt gültig (Farbwähler-Form), nichts springt auf den Standard.
+    expect(einstellungPruefen('stift', { farbe: '#5f5b53', breite: 0.004 })).toEqual({ farbe: '#5f5b53', breite: 0.004 });
+  });
 });
 
 describe('einstellungPruefen', () => {

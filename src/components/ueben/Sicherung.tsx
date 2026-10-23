@@ -5,9 +5,10 @@ import { rueckfrage, ueberschreibt } from '@/domain/einspielen';
 import { SicherungsFehler, sicherungsName } from '@/domain/sicherung';
 import { zeitpunkt as kurzZeit } from '@/domain/notenpult';
 import {
-  letzteSicherung, sicherungErstellen, sicherungGespeichert, sicherungPruefen, sicherungSchreiben, vorgaengerDa, vorgaengerPruefen,
+  letzteSicherung, SICHERUNG_ERINNERN, sicherungErstellen, sicherungGespeichert, sicherungPruefen, sicherungSchreiben, vorgaengerDa, vorgaengerPruefen,
   type Einspielung,
 } from './lokal';
+import { gespeichert, speichern } from './klang';
 import { fehlerGrund } from './speicherfehler';
 
 type TeilenNavigator = Navigator & { canShare?: (d: { files: File[] }) => boolean };
@@ -114,6 +115,7 @@ export function Sicherung({ laden }: { laden: SicherungLaden }) {
   useEffect(() => { vorgaengerDa().then(setVorgaenger); }, []);
   // Wann zuletzt gespeichert (Herunterladen angetippt bzw. geteilt).
   const [letzte, setLetzte] = useState<number | null>(() => letzteSicherung());
+  const [erinnern, setErinnern] = useState(() => gespeichert(SICHERUNG_ERINNERN, true));
   const gemerkt = () => { sicherungGespeichert(); setLetzte(letzteSicherung()); };
   // Objekt-URL erst beim nächsten Vorbereiten oder beim Verlassen freigeben:
   // Ein Timer kann einen langsamen Download (großes PDF, iPad) abschneiden.
@@ -185,6 +187,14 @@ export function Sicherung({ laden }: { laden: SicherungLaden }) {
       <p className="text-sm" role="status">
         {letzte ? <>Letzte Sicherung: <strong>{kurzZeit(letzte)}</strong></> : <span className="gedaempft">Noch keine Sicherung gespeichert.</span>}
       </p>
+      <label className="flex items-center justify-between gap-3">
+        <span>
+          <span className="text-sm font-semibold">In der Bibliothek erinnern</span>
+          <span className="block text-xs gedaempft">Nach 7 Tagen mit Änderungen ohne Sicherung. Die Daten liegen nur in diesem Browser — die Sicherung ist die einzige Kopie außerhalb.</span>
+        </span>
+        <input type="checkbox" role="switch" className="ios-schalter" checked={erinnern}
+          onChange={(e) => { setErinnern(e.target.checked); speichern(SICHERUNG_ERINNERN, e.target.checked); }} />
+      </label>
       <div className="flex flex-wrap gap-2">
         <button type="button" className={`knopf ${fertig ? 'knopf-leise' : ''}`} onClick={() => void vorbereiten()} disabled={laeuft || laden.laeuft || laden.uebernimmt}>
           {laeuft ? 'Sicherung wird erstellt …' : fertig ? 'Neu erstellen' : 'Sicherung erstellen'}
