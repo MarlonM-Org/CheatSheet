@@ -21,7 +21,7 @@ import {
 } from '@/domain/stift';
 import {
   dehnung, istSticker, luecken, rechteckGedehnt, schnittEntfernen, schnittSetzen, schnitteVon, stickerAus,
-  stickerGetroffen, stickerHoehe, stickerRechteck, stickerSkalieren, teilstuecke, type Sticker,
+  stickerGetroffen, stickerHoehe, stickerRechteck, stickerSkalieren, teilstuecke, type Schnitt, type Sticker,
 } from '@/domain/schnitte';
 import { mitRand, rechteckAus, type Rechteck } from '@/domain/ueben';
 import {
@@ -42,7 +42,7 @@ import { StellenInfo } from './StellenInfo';
 import { SprungZeichen } from './SprungZeichen';
 import type { MixSteuerung } from './StellenMix';
 import { SternKnopf } from './Stern';
-import { blattZeichnen, stickerZeichnen, strichZeichnen, type BlattTeil } from './zeichnen';
+import { anmerkungenZeichnen, blattZeichnen, stickerZeichnen, strichZeichnen, type BlattTeil } from './zeichnen';
 
 const RAND = 0.06;
 const MAX_PX = 2800;
@@ -216,7 +216,13 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   // Beim Einstellen etwas kleiner: die Griffe an den Ecken bleiben greifbar.
   // Schnitte (E-12) gelten auf einer einzeln gezeigten ganzen Seite: Das Blatt
   // wird um die Lücken länger, die Seite behält ihre Koordinaten.
-  const schnitte = useMemo(() => (zeichenSeite !== null && bearbeitenSeite === null ? schnitteVon(anm[zeichenSeite] ?? []) : []), [zeichenSeite, bearbeitenSeite, anm]);
+  const schnitteRoh = useMemo(() => (zeichenSeite !== null && bearbeitenSeite === null ? schnitteVon(anm[zeichenSeite] ?? []) : []), [zeichenSeite, bearbeitenSeite, anm]);
+  // Dieselbe Liste behalten, solange sich nichts ändert: Teilstücke und
+  // Darstellung bleiben dann dieselben Objekte, und ein neuer Strich kann
+  // nachgezeichnet werden, statt das Blatt neu zu setzen (gleicheSchnitte).
+  const [schnitteStabil, setSchnitteStabil] = useState(schnitteRoh);
+  const schnitte = gleicheSchnitte(schnitteStabil, schnitteRoh) ? schnitteStabil : schnitteRoh;
+  if (schnitte !== schnitteStabil) setSchnitteStabil(schnitte);
   const dehn = dehnung(schnitte);
   // Doppelseite (B-13): beide Seiten nebeneinander auf einem Blatt, lagen sagt, wo jede liegt.
   const darst = useMemo(() => {
@@ -373,12 +379,35 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   }), [stelle, paletteOffen, stellen, ansicht, bearbeitenSeite, rechteckAufBlatt]);
   // Quellbilder der Sticker (je Quellseite), auch für den scharfen Ausschnitt beim Zoomen.
   const quellenRef = useRef<Map<number, SeitenBild>>(new Map());
+  // Was die Leinwand gerade zeigt — für das Nachzeichnen einzelner Striche.
+  const gezeichnet = useRef<{ stuecke: BlattStueck[]; extras: unknown; darst: unknown; px: number; anm: Record<number, Anmerkung[]> } | null>(null);
+  const nahGezeichnet = useRef<{ nah: unknown; extras: unknown; anm: Record<number, Anmerkung[]> } | null>(null);
   useEffect(() => {
     const c = leinwand.current;
     if (!c || !rahmen || !px || !darst || !stuecke.length) return;
     let weg = false;
     const W = px, H = Math.round(px * darst.blatt.h / darst.blatt.b);
     const inPx = (l: SeitenLage) => ({ x: Math.round(l.x * W), y: Math.round(l.y * H), b: Math.round(l.b * W), h: Math.round(l.h * H) });
+    // Nur ein Strich (Text) dazugekommen, sonst alles gleich: ihn nachzeichnen
+    // statt das ganze Blatt neu zu setzen — das hielt das Schreiben auf.
+    const g = gezeichnet.current;
+    if (g && g.stuecke === stuecke && g.extras === extras && g.darst === darst && g.px === px && c.width === W && c.height === H) {
+      const dazu = nurAngehaengt(g.anm, anm);
+      if (dazu) {
+        const ctx = c.getContext('2d')!;
+        for (const q of stuecke) {
+          const neu = dazu.get(q.seite);
+          if (!neu?.length) continue;
+          const S = inPx(q.lage);
+          ctx.save();
+          ctx.beginPath(); ctx.rect(S.x, S.y + q.y0 * S.h, S.b, (q.y1 - q.y0) * S.h); ctx.clip();
+          anmerkungenZeichnen(ctx, neu, S.x, S.y, S.b, S.h, q.luecke);
+          ctx.restore();
+        }
+        gezeichnet.current = { ...g, anm };
+        return;
+      }
+    }
     const zeichnen = async () => {
       const ganz = { x: 0, y: 0, b: W, h: H };
       // Je Teilstück: Seite oder Lücke, Höhenbereich, wo die ganze Seite liegt (dort auch ihr Bild).
@@ -394,7 +423,9 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       blattZeichnen(c.getContext('2d')!, ganz,
         teile.map((t, i): BlattTeil => ({ ...t, bild: bilder[i]?.seite ?? null, ebene: bilder[i]?.ebene ?? null })),
         anm, { ...extras, luecke: darst.lagen ? inPx(darst.luecke) : null, quellen }, () => (hilfe.current ??= document.createElement('canvas')));
+      gezeichnet.current = { stuecke, extras, darst, px, anm };
     };
+    gezeichnet.current = null;
     zeichnen().catch((e) => { if (!weg) console.error('Seite ließ sich nicht zeichnen', e); });
     return () => { weg = true; };
   }, [stuecke, anm, extras, rahmen, px, seiteBild, darst, hauptLage]);
@@ -524,11 +555,21 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     const c = nahLeinwand.current;
     if (!c || !nah || !nahGilt) return;
     const { seite, ebene } = nah.bild, r = nah.r;
-    c.width = seite.width; c.height = seite.height;
     const W = seite.width / r.b, H = seite.height / r.h;
+    const g = nahGezeichnet.current;
+    if (g && g.nah === nah && g.extras === extras && c.width === seite.width && c.height === seite.height) {
+      const dazu = nurAngehaengt(g.anm, anm)?.get(nah.seite);
+      if (dazu) {
+        if (dazu.length) anmerkungenZeichnen(c.getContext('2d')!, dazu, -r.x * W, -r.y * H, W, H);
+        nahGezeichnet.current = { ...g, anm };
+        return;
+      }
+    }
+    c.width = seite.width; c.height = seite.height;
     blattZeichnen(c.getContext('2d')!, { x: -r.x * W, y: -r.y * H, b: W, h: H },
       [{ seite: nah.seite, y0: 0, y1: 1, bild: seite, ebene, lage: { x: 0, y: 0, b: seite.width, h: seite.height } }],
       anm, { ...extras, quellen: quellenRef.current }, () => (nahHilfe.current ??= document.createElement('canvas')));
+    nahGezeichnet.current = { nah, extras, anm };
   }, [nah, nahGilt, anm, extras]);
 
   // Nachbarseiten vorab rendern: Blättern ohne Wartezeit — auch die Zielseite,
@@ -1750,6 +1791,24 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
 
 const BLAETTER_MODI = [['ganz', 'Ganz'], ['halb', 'Halb'], ['linie', 'Linie']] as const;
 const GANZES_BLATT: SeitenLage = { x: 0, y: 0, b: 1, h: 1 };
+const gleicheSchnitte = (a: readonly Schnitt[], b: readonly Schnitt[]) =>
+  a.length === b.length && a.every((x, i) => x.id === b[i].id && x.y === b[i].y && x.abstand === b[i].abstand);
+// Sind in `neu` gegenüber `alt` nur Striche oder Texte hinten angehängt (je
+// Seite)? Dann je Seite die neuen — sonst null (Radieren, Rückgängig,
+// Schnitte, Sticker: neu zeichnen).
+function nurAngehaengt(alt: Record<number, Anmerkung[]>, neu: Record<number, Anmerkung[]>): Map<number, Anmerkung[]> | null {
+  if (alt === neu) return new Map();
+  const dazu = new Map<number, Anmerkung[]>();
+  for (const k of new Set([...Object.keys(alt), ...Object.keys(neu)])) {
+    const a = alt[Number(k)] ?? [], n = neu[Number(k)] ?? [];
+    if (a === n) continue;
+    if (n.length < a.length || a.some((o, i) => o !== n[i])) return null;
+    const rest = n.slice(a.length);
+    if (rest.some((o) => o.art !== 'stift' && o.art !== 'marker' && o.art !== 'text')) return null;
+    dazu.set(Number(k), rest);
+  }
+  return dazu;
+}
 // Ein Teilstück des Blatts (siehe `stuecke` im Betrachter).
 interface BlattStueck { seite: number; luecke: string | null; y0: number; y1: number; lage: SeitenLage; sicht: SeitenLage }
 interface Ort { stueck: BlattStueck; seite: number; luecke: string | null; x: number; y: number }
