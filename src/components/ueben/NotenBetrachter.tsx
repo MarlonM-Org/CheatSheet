@@ -35,7 +35,7 @@ import {
 } from './lokal';
 import { useMetronom } from './MetronomKontext';
 import { ladeFehler, speicherFehler } from './speicherfehler';
-import { SPRUNG_STEMPEL, stempelAnlegen, type StempelZeichen } from '@/domain/stempel';
+import { faktorPruefen, SPRUNG_STEMPEL, STEMPEL_FAKTOR, stempelAnlegen, type StempelZeichen } from '@/domain/stempel';
 import { StiftPalette, type SchereModus, type Werkzeug } from './StiftPalette';
 import { ausschnittRendern, seiteMitEbene, type SeitenBild } from './pdf';
 import { StelleBlatt } from './StelleBlatt';
@@ -326,7 +326,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     spruengeSpeichern(sprungEinordnen(liste, spruenge, sprungNeu({ von, nach, art }, crypto.randomUUID())));
     // D.S. und Coda: ihr Zeichen als Stempel an die Einstiegsstelle (E-04) — eine Anmerkung, wie von Hand gesetzt.
     const zeichen = SPRUNG_STEMPEL[art];
-    if (zeichen) anmerkungenSetzen(nach.seite, [...(anm[nach.seite] ?? []), stempelAnlegen(crypto.randomUUID(), zeichen, nach.x, nach.y, einst.stift.farbe)]);
+    if (zeichen) anmerkungenSetzen(nach.seite, [...(anm[nach.seite] ?? []), stempelAnlegen(crypto.randomUUID(), zeichen, nach.x, nach.y, einst.stift.farbe, null, stempelFaktor)]);
     // Zurück zum Sprungzeichen: die neue Marke blinkt kurz.
     if (!punktSichtbar(ansicht, von)) setPos({ schritt, zeige: ansichtVonSeite(liste, von.seite), frei: true, liste, folge });
     setzenEnde();
@@ -749,6 +749,8 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
   const [schereModus, setSchereModus] = useState<SchereModus>('sticker');
   // Stempel (E-04): das gewählte Zeichen.
   const [stempel, setStempel] = useState<StempelZeichen>('segno');
+  const [stempelFaktor, setStempelFaktor] = useState(() => faktorPruefen(gespeicherterWert(STEMPEL_FAKTOR, 1)));
+  const stempelFaktorSetzen = (f: number) => { setStempelFaktor(f); speichern(STEMPEL_FAKTOR, f); };
   const [stickerWahlRoh, setStickerWahl] = useState<{ seite: number; id: string } | null>(null);
   // Gewählt nur, solange die Schere das Werkzeug ist.
   const stickerWahl = werkzeug === 'schere' ? stickerWahlRoh : null;
@@ -1051,7 +1053,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       setTextEingabe({ seite, luecke: z.luecke ?? null, x: z.punkte[0], y: z.punkte[1], text: '', seit: e.timeStamp });
     }
     if (werkzeug === 'stempel') {
-      anmerkungenSetzen(seite, [...(anm[seite] ?? []), stempelAnlegen(crypto.randomUUID(), stempel, z.punkte[0], z.punkte[1], einst.stift.farbe, z.luecke ?? null)]);
+      anmerkungenSetzen(seite, [...(anm[seite] ?? []), stempelAnlegen(crypto.randomUUID(), stempel, z.punkte[0], z.punkte[1], einst.stift.farbe, z.luecke ?? null, stempelFaktor)]);
     }
     if (werkzeug === 'stelle' || werkzeug === 'schere') {
       const p = aufSeiteVon(z.lage ?? GANZES_BLATT, relativ(e));
@@ -1810,7 +1812,8 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
           fingerZeichnen={fingerZeichnen} setFingerZeichnen={setFingerZeichnen}
           rueckgaengig={rueckgaengig} wiederholen={wiederholen}
           kannRueck={staende.rueck > 0} kannWieder={staende.wieder > 0}
-          schereModus={schereModus} schereEinstellen={setSchereModus} stempel={stempel} stempelEinstellen={setStempel} />
+          schereModus={schereModus} schereEinstellen={setSchereModus} stempel={stempel} stempelEinstellen={setStempel}
+          stempelFaktor={stempelFaktor} stempelFaktorEinstellen={stempelFaktorSetzen} />
       )}
     </div>
   );
