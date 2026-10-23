@@ -14,10 +14,10 @@ const speicher = (werte: Record<string, unknown>) => {
 describe('Welche Einstellungen mitreisen', () => {
   it('Person und Instrument reisen mit', () => {
     for (const k of ['stimm:st', 'stimm:a', 'metro:klang', 'metro:laut', 'metro:takt', 'metro:akzente', 'metro:unter', 'metro:trainer',
-      'ueben:stift', 'ueben:marker', 'ueben:text', 'ueben:wisch-umkehren', 'ueben:tonprofil-umfang']) {
+      'ueben:stift', 'ueben:marker', 'ueben:text', 'ueben:wisch-umkehren', 'ueben:zoom-immer', 'ueben:tonprofil-umfang']) {
       expect(istMitreisend(k), k).toBe(true);
     }
-    expect(MITREISEND).toHaveLength(13);
+    expect(MITREISEND).toHaveLength(14);
   });
   it('Gerät, Tempo und was eigene Felder hat, bleibt', () => {
     for (const k of ['ueben:modus', 'ueben:thema-hell', 'ueben:thema-dunkel', 'ueben:lage-metronom', 'metro:bpm', 'ueben:metronom-an',
@@ -88,6 +88,8 @@ describe('Prüfen der Werte', () => {
     expect(gilt('ueben:stift', [])).toBe(false);
     expect(gilt('ueben:wisch-umkehren', false)).toBe(true);
     expect(gilt('ueben:wisch-umkehren', 'false')).toBe(false);
+    expect(gilt('ueben:zoom-immer', true)).toBe(true);
+    expect(gilt('ueben:zoom-immer', 1)).toBe(false);
     expect(gilt('ueben:tonprofil-umfang', { von: 50, bis: 84, stamm: true })).toBe(true);
     expect(gilt('ueben:tonprofil-umfang', { von: 84, bis: 50, stamm: true })).toBe(false);
     expect(gilt('ueben:tonprofil-umfang', { von: 50, bis: 84 })).toBe(false);

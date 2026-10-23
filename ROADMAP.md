@@ -6,7 +6,7 @@ Punkt ein; wer etwas fertigstellt, hakt ab und verschiebt den Punkt nach
 „Erledigt“ (unten). Größere Richtungsentscheidungen bitte als kurzen Absatz
 hier dokumentieren, nicht nur im Chat.
 
-Stand: 2026-10-14.
+Stand: 2026-10-23.
 
 ## Leitbild
 
@@ -240,6 +240,32 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
 ## Erledigt
 
 *(Abgeschlossene Punkte hierher verschieben, mit Datum und Commit.)*
+
+- **F-18 · Stelle löschen aus der Stellen-Leiste** (2026-10-23): Wunsch
+  Marlon: eine Option, Stellen zu löschen. Bisher ging das nur im Stück-Blatt
+  hinter „bearbeiten“. Jetzt steht **„Stelle löschen“** unten im Stellen-Blatt
+  (Tipp auf den Namen in der Stellen-Leiste) — mit Rückfrage, die nennt, wie
+  viele geschaffte Tempi mitgehen („Die Noten bleiben.“); dieselbe Rückfrage
+  jetzt auch im Stück-Blatt. War es die letzte Stelle, geht es zurück zum
+  Lesen; im Mix rückt die Runde nach (gelöschte fallen weg, wie gehabt).
+  Grabstein wie bisher (`stelleLoeschen`), kein Schema-Sprung.
+- **E-10 · Immer zoomen** (2026-10-23): Wunsch Marlon: zoomen nicht nur beim
+  Anmerken. **Ansicht → Zoom → „Immer zoomen“**: dann zoomen zwei Finger (am
+  Rechner Strg + Mausrad bzw. Trackpad) auch beim Lesen und im Stellen-Modus;
+  ein Finger schiebt das gezoomte Blatt, ein **Tipp** blättert weiter am Rand
+  bzw. zeigt die Leisten in der Mitte (vorher tat ein Tipp gezoomt nichts).
+  Die Knöpfe − / % / + erscheinen beim Lesen erst, sobald gezoomt ist; der
+  Zoom überlebt das Öffnen und Schließen der Palette, nicht aber Blättern
+  (E-06-Regel). Nur auf ganzen Seiten (Halb/Linie wie bisher nicht). Aus:
+  wie bisher nur bei offener Palette. Gemerkt als `ueben:zoom-immer`, reist
+  als persönliche Einstellung mit der Sicherung (`src/domain/einstellungen.ts`,
+  getestet).
+- **E-09 · Weiß statt Grau in der Stiftpalette** (2026-10-23): Wunsch Marlon.
+  Das Grau (#5f5b53) ist aus der Stift-/Textpalette heraus, an seiner Stelle
+  steht **Weiß** (#ffffff) — zum Abdecken auf dem Blatt. Ein früher gewähltes
+  Grau bleibt gültig (gilt als eigene Farbe, `einstellungPruefen`); die
+  Werkzeug-Vorschau in der Palette hat eine feine Kontur, damit Weiß zu sehen
+  ist. Marker unverändert. Regeln in `src/domain/stift.ts` (getestet).
 
 - **A-03 · Tests für die Speicherschicht** (2026-10-12, Branch
   `feature/speicher-tests`): `tests/lokal.test.ts` gegen einen echten
@@ -561,6 +587,7 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
     Anmerkungen; auch der laufende Strich ist scharf.
   - **Zurück auf ganz:** Palette zu, andere Seite oder Stelle, andere
     Fenstergröße. Kaum gezoomt (unter 108 %) rastet beim Loslassen ein.
+    *(Seit E-10 wahlweise auch beim Lesen, siehe unten.)*
 - **E-07 · Radierer schneidet, Breite wählbar** (2026-10-13): Wunsch Marlon:
   Der Radierer nahm ganze Striche weg. Jetzt verschwindet nur, worüber er
   fährt — eine lange Linie, in der Mitte radiert, wird zu zwei. Texte gehen

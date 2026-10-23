@@ -21,7 +21,7 @@ import {
 } from '@/domain/stift';
 import { mitRand, rechteckAus, type Rechteck } from '@/domain/ueben';
 import {
-  begrenzen, einrasten, OHNE_ZOOM, sichtbarerTeil, ZOOM_MAX, zoomenUm, zweiFinger, type Punkt, type Zoom,
+  begrenzen, einrasten, OHNE_ZOOM, sichtbarerTeil, ZOOM_IMMER, ZOOM_MAX, zoomenUm, zweiFinger, type Punkt, type Zoom,
 } from '@/domain/zoom';
 import { AusschnittRahmen } from './Ausschnitt';
 import { gespeichert as gespeicherterWert, speichern, useEinstellungenGeladen } from './klang';
@@ -318,12 +318,16 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     return () => { weg = true; };
   }, [ansicht, stelle, bearbeitenSeite, anm, extras, rahmen, px, format, seiteBild]);
 
-  // ── Zoom beim Anmerken (E-06) ── Nur bei offener Stift-Palette auf einer
-  // ganzen Seite. Zwei Finger zoomen und schieben, ein Finger schiebt, solange
-  // gezoomt ist; am Rechner Strg + Rad bzw. Trackpad und die Knöpfe. Andere
-  // Seite, Palette zu, andere Fenstergröße: wieder ganz.
+  // ── Zoom beim Anmerken (E-06) ── Bei offener Stift-Palette auf einer ganzen
+  // Seite — oder immer (E-10, Ansicht → „Immer zoomen“), auch beim Lesen.
+  // Zwei Finger zoomen und schieben, ein Finger schiebt, solange gezoomt ist;
+  // am Rechner Strg + Rad bzw. Trackpad und die Knöpfe. Andere Seite,
+  // Palette zu (ohne „Immer zoomen“), andere Fenstergröße: wieder ganz.
   const rahmenEl = useRef<HTMLDivElement>(null);
-  const zoomSchluessel = paletteOffen && zeichenSeite !== null && bearbeitenSeite === null && rahmen
+  const [zoomImmer, setZoomImmer] = useState(() => gespeicherterWert(ZOOM_IMMER, false));
+  useEinstellungenGeladen(useCallback(() => setZoomImmer(gespeicherterWert(ZOOM_IMMER, false)), []));
+  const zoomImmerSetzen = (an: boolean) => { setZoomImmer(an); speichern(ZOOM_IMMER, an); };
+  const zoomSchluessel = (paletteOffen || zoomImmer) && zeichenSeite !== null && bearbeitenSeite === null && rahmen
     ? `${zeichenSeite}:${stelle?.id ?? ''}:${rahmen.b}x${rahmen.h}` : null;
   const zoomAktiv = zoomSchluessel !== null;
   const [zoom, setZoom] = useState<Zoom>(OHNE_ZOOM);
@@ -791,10 +795,15 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
     zug.current = null;
     if (e.pointerType === 'touch') kreisZeigen(null);
     if (!z) return;
-    if (z.art === 'schieben') { setZoom(einrasten(zoomLive.current)); return; }
-    if (z.art === 'tippen') {
+    if (z.art === 'schieben') {
+      setZoom(einrasten(zoomLive.current));
+      // Gezoomt schiebt der Finger; nur ein Tipp blättert am Rand bzw. zeigt
+      // die Leisten — sonst käme man beim Lesen (E-10) nicht mehr weiter.
+      if (zeigerGeste(e.clientX - z.x, e.clientY - z.y, e.timeStamp - z.t).art !== 'tippen') return;
+    }
+    if (z.art === 'tippen' || z.art === 'schieben') {
       // Wischen (Finger oder Scroll-Ring): nach oben/links weiter, nach unten/rechts zurück.
-      const g = zeigerGeste(e.clientX - z.x, e.clientY - z.y, e.timeStamp - z.t, umkehren());
+      const g = z.art === 'tippen' ? zeigerGeste(e.clientX - z.x, e.clientY - z.y, e.timeStamp - z.t, umkehren()) : { art: 'tippen' as const };
       if (g.art === 'wisch') { blaetternNach(g.aktion); return; }
       if (g.art !== 'tippen') return;
       nachzueglerSchlucken();
@@ -1144,6 +1153,15 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
                 Seite {seiteJetzt} {ausschnitte[seiteJetzt] ? 'anders zuschneiden' : 'zuschneiden'}
               </button>
               <p className="gedaempft text-xs">Nur den Bereich zeigen, den du brauchst — z. B. ohne breite Ränder. Gilt künftig für diese Seite.</p>
+              <p className="nav-blase-titel">Zoom</p>
+              <label className="nav-blase-reihe">
+                Immer zoomen
+                <input type="checkbox" role="switch" className="ios-schalter" checked={zoomImmer} onChange={(e) => zoomImmerSetzen(e.target.checked)} />
+              </label>
+              <p className="gedaempft text-xs">
+                {zoomImmer ? 'Zwei Finger (am Rechner Strg + Mausrad) zoomen auch beim Lesen; ein Finger schiebt, ein Tipp blättert. Beim Blättern wieder ganze Seite.'
+                  : 'Zoomen geht nur, solange die Stift-Palette offen ist.'}
+              </p>
               {modus === 'lesen' && (
                 <>
                   <p className="nav-blase-titel">Sprünge</p>
@@ -1245,7 +1263,7 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
             <span className="b-tippzone rechts" aria-hidden="true">›</span>
           </>
         )}
-        {zoomAktiv && (
+        {zoomAktiv && (paletteOffen || zoom.z > 1) && (
           <div className="b-zoom" role="group" aria-label="Zoom" {...greifbar}>
             <button type="button" onClick={() => zoomKnopf(1 / 1.5)} disabled={zoom.z <= 1} aria-label="Verkleinern" title="Verkleinern">−</button>
             <button type="button" className="b-zoom-wert tabular-nums" onClick={() => setZoom(OHNE_ZOOM)} disabled={zoom.z <= 1}
@@ -1384,7 +1402,13 @@ export function NotenBetrachter({ noten, pdf, stellen, geaendert, tastenAktiv, s
       {stellenInfo && <StellenInfo leer={stellenInfo === 'leer'} schliessen={() => setStellenInfo(null)} />}
 
       {stelleBlatt && stelle && (
-        <StelleBlatt stelle={stelle} stueck={noten.titel} geaendert={geaendert} schliessen={() => setStelleBlatt(false)} />
+        <StelleBlatt stelle={stelle} stueck={noten.titel} geaendert={geaendert} schliessen={() => setStelleBlatt(false)}
+          geloescht={() => {
+            setStelleBlatt(false);
+            // War es die letzte Stelle, geht es zurück zum Lesen (im Mix rückt die Runde nach).
+            if (!mix && stellen.length <= 1) setModus('lesen');
+            geaendert();
+          }} />
       )}
 
       {/* Beim Benennen einer neuen Stelle weicht die Palette der Eingabezeile. */}

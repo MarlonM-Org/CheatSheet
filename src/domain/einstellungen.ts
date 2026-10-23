@@ -1,7 +1,7 @@
 // Persönliche Einstellungen, die mit der Sicherung reisen: was zur Person und
 // zum Instrument gehört — Stimmung und Kammerton, Metronom (Klang, Lautstärke,
 // Takt, Akzente, Unterteilung, Trainer), Stift-, Marker- und Textfarbe,
-// Wischrichtung, Tonumfang fürs Tonprofil. Was zum Gerät gehört, bleibt:
+// Wischrichtung, Zoomen auch beim Lesen, Tonumfang fürs Tonprofil. Was zum Gerät gehört, bleibt:
 // Hell/Dunkel und Farbwelten, Lage der Fenster, zuletzt Geöffnetes, Filter,
 // das Tempo (folgt den Stellen). Tags und Tonprofile haben eigene Felder.
 //
@@ -33,6 +33,7 @@ export interface Einstellungswerte {
   'ueben:marker': StiftEinstellung;
   'ueben:text': StiftEinstellung;
   'ueben:wisch-umkehren': boolean;
+  'ueben:zoom-immer': boolean;
   'ueben:tonprofil-umfang': Tonumfang;
 }
 export type Mitreisend = keyof Einstellungswerte;
@@ -56,6 +57,7 @@ export const EINSTELLUNG_STANDARD: Einstellungswerte = {
   'ueben:marker': STIFT_STANDARD.marker,
   'ueben:text': STIFT_STANDARD.text,
   'ueben:wisch-umkehren': false,
+  'ueben:zoom-immer': false,
   'ueben:tonprofil-umfang': { von: 55, bis: 79, stamm: false },
 };
 
@@ -89,6 +91,7 @@ const PRUEFEN: Record<Mitreisend, (v: unknown) => boolean> = {
   'ueben:marker': stift,
   'ueben:text': stift,
   'ueben:wisch-umkehren': (v) => typeof v === 'boolean',
+  'ueben:zoom-immer': (v) => typeof v === 'boolean',
   'ueben:tonprofil-umfang': (v) => objekt(v) && ganz(v.von, 0, 127) && ganz(v.bis, 0, 127) && v.von <= v.bis && typeof v.stamm === 'boolean',
 };
 

@@ -24,6 +24,10 @@ const alsHex = (f: string) => hexVon(rgbAus(f) ?? { r: 0, g: 0, b: 0 });
 
 // ── Instrumente: gezeichnete Stifte, Spitze in der aktuellen Farbe ──────
 
+// Feine Kontur um die farbigen Teile: So bleibt auch Weiß (E-09) auf der
+// hellen Palette zu sehen; bei dunklen Farben fällt sie nicht auf.
+const KONTUR = 'rgba(0, 0, 0, 0.22)';
+
 function StiftKoerper({ farbe }: { farbe: string }) {
   return (
     <svg className="instrument" viewBox="0 0 28 92" aria-hidden="true">
@@ -37,10 +41,10 @@ function StiftKoerper({ farbe }: { farbe: string }) {
           <stop offset="0.7" stopColor="#c0c0c8" /><stop offset="1" stopColor="#8e8e96" />
         </linearGradient>
       </defs>
-      <path d="M14 2 L20.5 20 L7.5 20 Z" fill={farbe} />
+      <path d="M14 2 L20.5 20 L7.5 20 Z" fill={farbe} stroke={KONTUR} strokeWidth="0.7" strokeLinejoin="round" />
       <path d="M14 2 L16.2 8 L11.8 8 Z" fill="rgba(0,0,0,0.25)" />
       <rect x="7.5" y="20" width="13" height="5.5" fill="url(#ik-metall)" />
-      <rect x="7" y="25.5" width="14" height="6.5" fill={farbe} />
+      <rect x="7" y="25.5" width="14" height="6.5" fill={farbe} stroke={KONTUR} strokeWidth="0.7" />
       <path d="M7 32h14v56a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 7 88z" fill="url(#ik-stift)" />
     </svg>
   );
@@ -55,9 +59,9 @@ function MarkerKoerper({ farbe }: { farbe: string }) {
           <stop offset="0.7" stopColor="#e6e6ea" /><stop offset="1" stopColor="#b9b9c1" />
         </linearGradient>
       </defs>
-      <path d="M9 4 L19 4 L21.5 18 L6.5 18 Z" fill={farbe} />
+      <path d="M9 4 L19 4 L21.5 18 L6.5 18 Z" fill={farbe} stroke={KONTUR} strokeWidth="0.7" strokeLinejoin="round" />
       <path d="M9 4 L19 4 L19.6 7.5 L8.4 7.5 Z" fill="rgba(0,0,0,0.22)" />
-      <rect x="5.5" y="18" width="17" height="7" fill={farbe} />
+      <rect x="5.5" y="18" width="17" height="7" fill={farbe} stroke={KONTUR} strokeWidth="0.7" />
       <path d="M5.5 25h17v62a2.5 2.5 0 0 1-2.5 2.5h-12A2.5 2.5 0 0 1 5.5 87z" fill="url(#ik-marker)" />
     </svg>
   );
@@ -73,7 +77,7 @@ function TextKoerper({ farbe }: { farbe: string }) {
         </linearGradient>
       </defs>
       <path d="M7 8a7 7 0 0 1 14 0v80H7z" fill="url(#ik-text)" />
-      <rect x="7" y="22" width="14" height="5" fill={farbe} />
+      <rect x="7" y="22" width="14" height="5" fill={farbe} stroke={KONTUR} strokeWidth="0.7" />
       <text x="14" y="16" textAnchor="middle" fontSize="11" fontWeight="700" fill="#3a3a40"
         fontFamily="-apple-system, system-ui, sans-serif">Aa</text>
     </svg>

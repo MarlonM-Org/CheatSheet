@@ -10,6 +10,9 @@ export interface Punkt { x: number; y: number }
 
 export const OHNE_ZOOM: Zoom = { z: 1, x: 0, y: 0 };
 export const ZOOM_MAX = 6;
+// Einstellung (E-10): auch beim Lesen zoomen, nicht nur bei offener
+// Stift-Palette. Reist mit der Sicherung (@/domain/einstellungen).
+export const ZOOM_IMMER = 'ueben:zoom-immer';
 // Kaum gezoomt: beim Loslassen ganz zurück, kein Rest-Zoom von 1,03.
 const EINRASTEN = 1.08;
 
