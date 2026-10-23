@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  akzenteFuer, istZusammengesetzt, NENNER, nennerPruefen, nennerSchritt, TAKTARTEN, taktartText, zaehlerPruefen, ZAEHLER_MAX,
+  akzenteFuer, einheitenJeSchlag, istZusammengesetzt, klickDauer, NENNER, nennerPruefen, nennerSchritt, schlaegeJeTakt, schlagName, TAKTARTEN,
+  taktartText, unterPruefen, unterteilungen, zaehlerPruefen, ZAEHLER_MAX,
 } from '@/domain/takt';
 
 describe('Taktart', () => {
@@ -50,5 +51,37 @@ describe('akzenteFuer', () => {
     expect(akzenteFuer(5, 4, ['normal', 'stumm', 'betont'])).toEqual(['normal', 'stumm', 'betont', 'normal', 'normal']);
     expect(akzenteFuer(2, 4, ['normal', 'stumm', 'betont'])).toEqual(['normal', 'stumm']);
     expect(akzenteFuer(9, 8, akzenteFuer(6, 8))).toEqual(akzenteFuer(9, 8));
+  });
+});
+
+describe('Schlag und Einheit (D-07)', () => {
+  it('6/8 hat zwei Schläge zu drei Achteln, 4/4 vier Schläge zu einer Viertel', () => {
+    expect(einheitenJeSchlag(6, 8)).toBe(3);
+    expect(schlaegeJeTakt(6, 8)).toBe(2);
+    expect(schlaegeJeTakt(12, 8)).toBe(4);
+    expect(einheitenJeSchlag(4, 4)).toBe(1);
+    expect(schlaegeJeTakt(3, 4)).toBe(3);
+    expect(schlaegeJeTakt(7, 8)).toBe(7);
+  });
+  it('bei 6/8 und 120 kommen 360 Achtel in der Minute — ein Klick alle 1/6 Sekunde', () => {
+    expect(klickDauer(120, 6, 8, 1)).toBeCloseTo(1 / 6);
+    expect(klickDauer(120, 4, 4, 1)).toBeCloseTo(0.5);
+    expect(klickDauer(120, 4, 4, 2)).toBeCloseTo(0.25);
+    expect(klickDauer(60, 2, 2, 1)).toBeCloseTo(1);
+  });
+  it('Schlag in Worten', () => {
+    expect(schlagName(4, 4)).toBe('Viertel');
+    expect(schlagName(2, 2)).toBe('Halbe');
+    expect(schlagName(6, 8)).toBe('punktierte Viertel');
+    expect(schlagName(7, 8)).toBe('Achtel');
+    expect(schlagName(12, 16)).toBe('punktierte Achtel');
+  });
+  it('Unterteilung richtet sich nach dem Nenner, Unpassendes fällt auf die erste zurück', () => {
+    expect(unterteilungen(4, 4).map((x) => x.n)).toEqual([1, 2, 3, 4]);
+    expect(unterteilungen(6, 8).map((x) => x.n)).toEqual([1, 2]);
+    expect(unterteilungen(6, 8)[0].name).toBe('Achtel');
+    expect(unterteilungen(2, 2)[0].name).toBe('Halbe');
+    expect(unterPruefen(6, 8, 3)).toBe(1);
+    expect(unterPruefen(4, 4, 3)).toBe(3);
   });
 });

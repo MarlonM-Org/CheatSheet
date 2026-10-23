@@ -1,6 +1,8 @@
-// Taktart des Metronoms (D-05): Zähler (Schläge je Takt) und Nenner
-// (Notenwert eines Schlags). Das Tempo gilt je Nenner-Note — so wie ein
-// Metronom „♪ = 120“ bei 6/8 meint. Rein und getestet.
+// Taktart des Metronoms (D-05): Zähler (Einheiten je Takt, eine je
+// Taktpunkt) und Nenner (ihr Notenwert). Das Tempo gilt je **Schlag**, dem
+// gefühlten Puls: in 4/4 die Viertel, in 2/2 die Halbe, in 6/8 die
+// punktierte Viertel (drei Achtel). Bei 6/8 und 120 kommen also 360 Achtel
+// in der Minute, betont auf 1 und 4 (D-07). Rein und getestet.
 
 import type { Akzent } from './einstellungen';
 
@@ -40,4 +42,50 @@ export function akzenteFuer(zaehler: number, nenner: Nenner, alt: readonly Akzen
 export function nennerSchritt(nenner: Nenner, richtung: 1 | -1): Nenner {
   const i = NENNER.indexOf(nenner) + richtung;
   return NENNER[Math.max(0, Math.min(NENNER.length - 1, i))];
+}
+
+// ── Schlag und Einheit (D-07) ──
+// Einheiten je Schlag: zusammengesetzt 3 (die Achtel einer punktierten
+// Viertel), sonst 1 — der Schlag ist die Einheit selbst.
+export const einheitenJeSchlag = (zaehler: number, nenner: Nenner) => (istZusammengesetzt(zaehler, nenner) ? 3 : 1);
+export const schlaegeJeTakt = (zaehler: number, nenner: Nenner) => zaehler / einheitenJeSchlag(zaehler, nenner);
+
+// Der Notenwert eines Schlags, für „♩. = 120“ in Worten.
+export function schlagName(zaehler: number, nenner: Nenner): string {
+  const z = istZusammengesetzt(zaehler, nenner);
+  return nenner === 2 ? 'Halbe' : nenner === 4 ? 'Viertel' : nenner === 8 ? (z ? 'punktierte Viertel' : 'Achtel') : z ? 'punktierte Achtel' : 'Sechzehntel';
+}
+
+// Unterteilung: Klicks je Einheit, benannt nach dem Notenwert, der dabei
+// herauskommt. Hängt von der Taktart ab (in 4/4 teilt sie die Viertel, in
+// 6/8 die Achtel) — eine gespeicherte Unterteilung, die es hier nicht gibt,
+// fällt auf die erste zurück (unterPruefen).
+export interface Unterteilung { n: number; zeichen: string; name: string; kurz: string }
+const VIERTEL: Unterteilung[] = [
+  { n: 1, zeichen: '♩', name: 'Viertel', kurz: '4tel' }, { n: 2, zeichen: '♫', name: 'Achtel', kurz: '8tel' },
+  { n: 3, zeichen: '♪³', name: 'Triolen', kurz: 'Triole' }, { n: 4, zeichen: '♬', name: 'Sechzehntel', kurz: '16tel' },
+];
+const HALBE: Unterteilung[] = [
+  { n: 1, zeichen: '𝅗𝅥', name: 'Halbe', kurz: 'Halbe' }, { n: 2, zeichen: '♩', name: 'Viertel', kurz: '4tel' },
+  { n: 3, zeichen: '♩³', name: 'Triolen', kurz: 'Triole' }, { n: 4, zeichen: '♫', name: 'Achtel', kurz: '8tel' },
+];
+const ACHTEL: Unterteilung[] = [
+  { n: 1, zeichen: '♪', name: 'Achtel', kurz: '8tel' }, { n: 2, zeichen: '♬', name: 'Sechzehntel', kurz: '16tel' },
+];
+const SECHZEHNTEL: Unterteilung[] = [
+  { n: 1, zeichen: '♬', name: 'Sechzehntel', kurz: '16tel' }, { n: 2, zeichen: '♬♬', name: 'Zweiunddreißigstel', kurz: '32stel' },
+];
+export function unterteilungen(zaehler: number, nenner: Nenner): Unterteilung[] {
+  void zaehler;
+  return nenner === 2 ? HALBE : nenner === 4 ? VIERTEL : nenner === 8 ? ACHTEL : SECHZEHNTEL;
+}
+export function unterPruefen(zaehler: number, nenner: Nenner, unter: number): number {
+  const liste = unterteilungen(zaehler, nenner);
+  return liste.some((u) => u.n === unter) ? unter : liste[0].n;
+}
+
+// Dauer eines Klicks in Sekunden: der Schlag (60 / bpm) geteilt in seine
+// Einheiten und deren Unterteilung.
+export function klickDauer(bpm: number, zaehler: number, nenner: Nenner, unter: number): number {
+  return 60 / bpm / einheitenJeSchlag(zaehler, nenner) / unter;
 }
