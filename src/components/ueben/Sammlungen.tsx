@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { gleicheSammlung, imFilter, mitSammlung, ohneSammlung, sammlungenVon, sammlungName } from '@/domain/sammlungen';
 import type { Tag } from '@/domain/tags';
-import { MehrKnopf, useHalten } from './Kontext';
+import { useHalten } from './Kontext';
 import type { Stueck } from './lokal';
 import { TagPunkt } from './Tags';
 import { useDialogFokus, useEscape } from './tasten';
@@ -29,7 +29,9 @@ export function SammlungenLeiste({ uebersicht, aktiv, waehlen, halten }: {
       <div className="sammlungen" role="group" aria-label="Sammlungen">
         <button type="button" className="sammlung-chip" aria-pressed={aktiv === null} onClick={() => waehlen(null)}>Alle</button>
         {uebersicht.map((s) => (
-          <SammlungChip key={s.name} name={s.name} anzahl={s.anzahl} aktiv={aktiv !== null && gleicheSammlung(s.name, aktiv)} waehlen={() => waehlen(s.name)} halten={() => halten(s.name)} />
+          <SammlungChip key={s.name} name={s.name} anzahl={s.anzahl} aktiv={aktiv !== null && gleicheSammlung(s.name, aktiv)}
+            // Zweiter Tipp auf den gewählten Chip: wie Halten — das Kontext-Blatt (F-20, keine Kopfzeile mehr).
+            waehlen={() => (aktiv !== null && gleicheSammlung(s.name, aktiv) ? halten(s.name) : waehlen(s.name))} halten={() => halten(s.name)} />
         ))}
         {leer && <button type="button" className="sammlung-chip" aria-pressed="true">{aktiv}<span className="sammlung-zahl">0</span></button>}
         <button type="button" className="sammlung-chip sammlung-neu" onClick={() => setFormular(formular ? null : 'neu')} aria-expanded={formular === 'neu'}>+ Sammlung</button>
@@ -62,19 +64,6 @@ function NameFormular({ start = '', knopf, platzhalter, fertig, abbrechen }: {
       <button type="submit" className="knopf knopf-klein" disabled={!name}>{knopf}</button>
       <button type="button" className="text-knopf bib-fertig" onClick={abbrechen}>Abbrechen</button>
     </form>
-  );
-}
-
-// Die gewählte Sammlung: deutlich als Filter markiert; ⋯ öffnet ihr
-// Kontext-Blatt (Umbenennen, Auswählen, Auflösen — F-08).
-export function SammlungKopf({ name, anzahl, mehr }: { name: string; anzahl: number; mehr: () => void }) {
-  return (
-    <div className="sammlung-kopf flex items-center gap-1">
-      <p className="min-w-0 flex-1 text-sm">
-        <span className="gedaempft">Sammlung</span> <strong>„{name}“</strong> <span className="gedaempft">· {anzahl} {anzahl === 1 ? 'Stück' : 'Stücke'}</span>
-      </p>
-      <MehrKnopf tun={mehr} aria={`Mehr zur Sammlung „${name}“`} />
-    </div>
   );
 }
 

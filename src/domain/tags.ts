@@ -81,8 +81,11 @@ export const ohneTag = (ids: string[], id: string) => ids.filter((x) => x !== id
 export const imTagFilter = (n: { tags?: unknown }, tagId: string | null) => tagId === null || tagsVon(n).includes(tagId);
 
 // Jeder Tag mit der Zahl seiner Stücke, in der Reihenfolge der Tags.
-export function tagUebersicht(tags: Tag[], noten: { tags?: unknown }[]): { tag: Tag; anzahl: number }[] {
-  return tags.map((tag) => ({ tag, anzahl: noten.filter((n) => tagsVon(n).includes(tag.id)).length }));
+// nurVorhandene: Tags, die kein Stück der Liste trägt, fallen weg — in einer
+// Sammlung stehen nur ihre Tags (F-20); unter „Alle“ alle Tags mit der Summe.
+export function tagUebersicht(tags: Tag[], noten: { tags?: unknown }[], nurVorhandene = false): { tag: Tag; anzahl: number }[] {
+  const liste = tags.map((tag) => ({ tag, anzahl: noten.filter((n) => tagsVon(n).includes(tag.id)).length }));
+  return nurVorhandene ? liste.filter((x) => x.anzahl > 0) : liste;
 }
 
 // Tag-ids einer Liste über die Tabelle umschreiben (alte id → neue), jede einmal.
