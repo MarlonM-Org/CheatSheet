@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  alsAbc, effektivwert, FEINHEITEN, notenDateiname, rastern, taktDauer, tempoAusTipps, TONARTEN, tonartFinden, versatzSchaetzen,
-  zellenDauer, zellenJeSchlag, type Feinheit, type Raster, type Tonrahmen,
+  alsAbc, effektivwert, FEINHEITEN, mitschnittAb, notenDateiname, rastern, taktDauer, tempoAusTipps, TONARTEN, tonartFinden, versatzSchaetzen,
+  zellenDauer, zellenJeSchlag, type Feinheit, type Mitschnittstueck, type Raster, type Tonrahmen,
 } from '@/domain/notation';
 import { pdfBauen, type Seitenbild } from '@/domain/scan';
 import { schlaegeJeTakt, TAKTARTEN, taktartText, type Nenner } from '@/domain/takt';
@@ -23,6 +23,15 @@ import { useDialogFokus, useEscape } from './tasten';
 // mit gerenderter PDF an, die ABC-Quelle bleibt am Stück (`notation`).
 // Rechnen in @/domain/notation; Tonhöhen wie beim Stimmgerät (YIN), schon
 // notiert fürs Instrument (Stimmung aus dem Stimmgerät).
+//
+// Mikrofon: Mit „Lautsprecher“ (Vorgabe) läuft die Sprachverarbeitung des
+// Browsers — Verstärkung und Echo-Unterdrückung, auf dem iPhone dasselbe wie
+// Freisprechen beim Telefonieren: der Klick kommt aus dem Lautsprecher, das
+// Mikrofon hört auch aus Abstand, und der Klick bleibt aus der Aufnahme
+// draußen. Ohne ist es das rohe Mikrofon (iOS: dann Hörer statt Lautsprecher
+// und ohne Verstärkung) — nah am Mund, aber unverfälscht. Die Aufnahme
+// selbst schreibt ein AudioWorklet mit (public/mitschnitt.worklet.js), nur
+// zum Anhören im Dialog; gespeichert wird sie nicht.
 
 export type EinspielQuelle = 'mikro' | 'datei';
 type Phase = 'bereit' | 'zaehlt' | 'nimmt' | 'rechnet' | 'vorschlag';
@@ -30,6 +39,12 @@ type Phase = 'bereit' | 'zaehlt' | 'nimmt' | 'rechnet' | 'vorschlag';
 const FEINHEIT_SCHLUESSEL = 'ueben:einspiel-feinheit';
 const KLICK_SCHLUESSEL = 'ueben:einspiel-klick';
 const TONART_SCHLUESSEL = 'ueben:einspiel-tonart';
+const LAUTSPRECHER_SCHLUESSEL = 'ueben:einspiel-lautsprecher';
+const MITSCHNITT_MODUL = '/mitschnitt.worklet.js';
+// Pegel, ab dem ein Fenster als Ton gilt (−50 dBFS): das rohe Mikrofon ohne
+// Verstärkung liefert aus einem Meter Abstand deutlich weniger als das
+// Stimmgerät am Instrument gewohnt ist.
+const MINDEST_PEGEL = 0.003;
 // Längste Aufnahme in Takten — danach hält die App von selbst an.
 const MAX_TAKTE = 64;
 // Audio-Dateien: Abtastrate und Fenster der Tonerkennung (23 ms Fenster
@@ -57,6 +72,9 @@ function audioWaehlen(): Promise<File | null> {
 
 interface Mikro {
   stream: MediaStream; ctx: AudioContext; raf: number; quellen: AudioBufferSourceNode[]; t0: number; freigeben: (() => void) | null;
+  // Mitschnitt: der Worklet-Knoten (null, wo es keinen gibt) und seine Stücke;
+  // `latenz` = Eingangsweg in Sekunden, um den der Mitschnitt vorgezogen wird.
+  knoten: AudioWorkletNode | null; stuecke: Mitschnittstueck[]; latenz: number;
 }
 interface Wiedergabe { ctx: AudioContext; quelle: AudioBufferSourceNode; beginn: number; raf: number }
 
@@ -82,6 +100,8 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
   const setFeinheit = (f: Feinheit) => { setFeinheitRoh(f); speichern(FEINHEIT_SCHLUESSEL, f); };
   const [klickWeiter, setKlickWeiterRoh] = useState(() => gespeichert(KLICK_SCHLUESSEL, true));
   const setKlickWeiter = (an: boolean) => { setKlickWeiterRoh(an); speichern(KLICK_SCHLUESSEL, an); };
+  const [lautsprecher, setLautsprecherRoh] = useState(() => gespeichert(LAUTSPRECHER_SCHLUESSEL, true));
+  const setLautsprecher = (an: boolean) => { setLautsprecherRoh(an); speichern(LAUTSPRECHER_SCHLUESSEL, an); };
   // Tonart (notiert, wie das Stimmgerät zeigt): zieht die Töne auf die Leiter
   // und setzt die Vorzeichen; leer = keine Tonart, Töne bleiben, wie gehört.
   const [tonartAbc, setTonartAbcRoh] = useState(() => gespeichert<string>(TONART_SCHLUESSEL, 'C'));
@@ -97,7 +117,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
   // mit `start` = Taktanfang in Sekunden.
   const [spur, setSpur] = useState<Tonrahmen[]>([]);
   const [start, setStart] = useState(0);
-  const [dauer, setDauer] = useState(0); // Länge der Datei in Sekunden
+  const [dauer, setDauer] = useState(0); // Länge der Datei bzw. des Mitschnitts in Sekunden (0: noch keiner)
   const [dateiName, setDateiName] = useState('');
   const [titel, setTitel] = useState('');
   const [fehler, setFehler] = useState('');
@@ -138,8 +158,8 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
     g.clearRect(0, 0, b, h);
     const stil = getComputedStyle(c);
     const farbe = (name: string, sonst: string) => stil.getPropertyValue(name).trim() || sonst;
-    // Zeitfenster: Datei ganz, live die letzten acht Sekunden.
-    const live = quelle === 'mikro';
+    // Zeitfenster: Datei und fertiger Mitschnitt ganz, live die letzten acht Sekunden.
+    const live = quelle === 'mikro' && dauer === 0;
     const ende = live ? Math.max(8, jetzt ?? 0) : Math.max(dauer, 1);
     const anfang = live ? ende - 8 : 0;
     const x = (t: number) => ((t - anfang) / (ende - anfang)) * b;
@@ -186,6 +206,17 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
     return () => window.removeEventListener('resize', neu);
   }, [zeichnen, spur]);
 
+  // ── Wiedergabe aus (Datei oder Mitschnitt) ──
+  const wiedergabeAus = useCallback(() => {
+    const w = wiedergabe.current;
+    if (!w) return;
+    cancelAnimationFrame(w.raf);
+    try { w.quelle.stop(); } catch { /* schon vorbei */ }
+    void w.ctx.close();
+    wiedergabe.current = null;
+    setSpielt(false);
+  }, []);
+
   // ── Mikrofon ──
   const stoppen = useCallback((behalten: boolean) => {
     const m = mikro.current;
@@ -193,6 +224,20 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
     cancelAnimationFrame(m.raf);
     for (const q of m.quellen) { try { q.stop(); } catch { /* schon vorbei */ } }
     m.stream.getTracks().forEach((t) => t.stop());
+    if (m.knoten) { m.knoten.port.onmessage = null; m.knoten.disconnect(); }
+    // Mitschnitt ab Schlag 1 (ohne Einzähler), um den Eingangsweg vorgezogen —
+    // dann liegt Sekunde s der Wiedergabe auf Sekunde s der Spur.
+    if (behalten && m.stuecke.length) {
+      const rate = m.ctx.sampleRate;
+      const daten = mitschnittAb(m.stuecke, rate, m.t0 + m.latenz);
+      if (daten.length) {
+        const puffer = m.ctx.createBuffer(1, daten.length, rate);
+        puffer.copyToChannel(daten, 0);
+        audio.current = puffer;
+        setDauer(puffer.duration);
+      }
+    }
+    m.stuecke.length = 0;
     void m.ctx.close();
     m.freigeben?.();
     mikro.current = null;
@@ -203,13 +248,32 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
   const aufnehmen = useCallback(async () => {
     if (mikro.current) return;
     setFehler('');
+    wiedergabeAus(); audio.current = null; setDauer(0);
     try {
       audioSitzung('play-and-record');
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+      // Lautsprecher: Echo-Unterdrückung und Verstärkung (iOS schaltet damit
+      // auf Freisprechen um); ohne: das rohe Mikrofon. Rauschunterdrückung
+      // nie — sie nimmt gehaltene Töne als Dauergeräusch.
+      const audioWunsch: MediaTrackConstraints = lautsprecher
+        ? { echoCancellation: true, noiseSuppression: false, autoGainControl: true }
+        : { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: audioWunsch });
       const ctx = new AudioContext();
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 4096;
-      ctx.createMediaStreamSource(stream).connect(analyser);
+      const eingang = ctx.createMediaStreamSource(stream);
+      eingang.connect(analyser);
+      // Mitschnitt zum Anhören: ohne Worklet (alte Browser) läuft die Aufnahme
+      // trotzdem, nur ohne Anhören.
+      const stuecke: Mitschnittstueck[] = [];
+      let knoten: AudioWorkletNode | null = null;
+      try {
+        await ctx.audioWorklet.addModule(MITSCHNITT_MODUL);
+        knoten = new AudioWorkletNode(ctx, 'mitschnitt', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1] });
+        knoten.port.onmessage = (e: MessageEvent<Mitschnittstueck>) => { if (mikro.current?.knoten === knoten) stuecke.push(e.data); };
+        eingang.connect(knoten);
+        knoten.connect(ctx.destination); // stiller Ausgang; nur damit der Knoten rechnet
+      } catch { knoten = null; }
       const puffer = new Float32Array(analyser.fftSize);
       const r = rasterRef.current;
       const schlag = 60 / r.bpm, jeTakt = schlaegeJeTakt(r.zaehler, r.nenner), td = taktDauer(r);
@@ -237,7 +301,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
         if (jetzt - zuletzt >= 0.02) {
           zuletzt = jetzt;
           analyser.getFloatTimeDomainData(puffer);
-          const g = grundfrequenz(puffer, ctx.sampleRate);
+          const g = grundfrequenz(puffer, ctx.sampleRate, undefined, MINDEST_PEGEL);
           ton = g && g.klarheit > KLAR ? frequenzZuTon(g.frequenz, einst.current.kammerton, einst.current.stimmung) : null;
           const zeit = jetzt - versatz - t0;
           if (zeit >= -0.05) rahmen.current.push({ zeit, midi: ton ? ton.midi + ton.cent / 100 : null, pegel: effektivwert(puffer) });
@@ -255,7 +319,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
         if (rel > maxDauer) { stoppen(true); return; }
         m.raf = requestAnimationFrame(schleife);
       };
-      mikro.current = { stream, ctx, raf: requestAnimationFrame(schleife), quellen, t0, freigeben: null };
+      mikro.current = { stream, ctx, raf: requestAnimationFrame(schleife), quellen, t0, freigeben: null, knoten, stuecke, latenz: ctx.baseLatency || 0 };
       setPhase('zaehlt');
       setAnzeige({ zaehlt: jeTakt });
       const freigeben = await wachHalten();
@@ -265,7 +329,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
         ? 'Das Mikrofon ist nicht erlaubt. In den Einstellungen des Browsers für diese Seite erlauben.'
         : `Mikrofon nicht verfügbar (${(e as Error).name}).`);
     }
-  }, [metro.klang, metro.laut, klickWeiter, stoppen, zeichnen]);
+  }, [metro.klang, metro.laut, klickWeiter, lautsprecher, stoppen, zeichnen, wiedergabeAus]);
 
   // ── Audio-Datei ──
   const dateiLaden = useCallback(async (f: File) => {
@@ -285,7 +349,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
       let erster: number | null = null;
       for (let i = 0; i + FENSTER <= d.length; i += SCHRITT) {
         const fenster = d.subarray(i, i + FENSTER);
-        const g = grundfrequenz(fenster, RATE);
+        const g = grundfrequenz(fenster, RATE, undefined, MINDEST_PEGEL);
         const ton = g && g.klarheit > KLAR ? frequenzZuTon(g.frequenz, einst.current.kammerton, einst.current.stimmung) : null;
         const zeit = (i + FENSTER / 2) / RATE;
         liste.push({ zeit, midi: ton ? ton.midi + ton.cent / 100 : null, pegel: effektivwert(fenster) });
@@ -301,15 +365,6 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
     } finally { setLaeuft(null); }
   }, [titel]);
 
-  const wiedergabeAus = useCallback(() => {
-    const w = wiedergabe.current;
-    if (!w) return;
-    cancelAnimationFrame(w.raf);
-    try { w.quelle.stop(); } catch { /* schon vorbei */ }
-    void w.ctx.close();
-    wiedergabe.current = null;
-    setSpielt(false);
-  }, []);
   const abspielen = useCallback(() => {
     if (wiedergabe.current) return wiedergabeAus();
     const a = audio.current;
@@ -348,10 +403,10 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
   // Quelle wechseln: alles zurück auf Anfang.
   const quelleWechseln = (q: EinspielQuelle) => {
     if (q === quelle) return;
-    stoppen(false); wiedergabeAus();
+    stoppen(false); wiedergabeAus(); audio.current = null;
     setQuelle(q); setSpur([]); setStart(0); setDauer(0); setDateiName(''); setPhase('bereit'); setFehler('');
   };
-  const nochmal = () => { wiedergabeAus(); setSpur([]); setStart(0); setDauer(0); setDateiName(''); setPhase('bereit'); };
+  const nochmal = () => { wiedergabeAus(); audio.current = null; setSpur([]); setStart(0); setDauer(0); setDateiName(''); setPhase('bereit'); };
 
   // ── Vorschlag zeichnen (abcjs) ──
   useEffect(() => {
@@ -452,10 +507,16 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
             </select>
           </label>
           {quelle === 'mikro' && (
-            <label className="einspiel-feld">
-              <span>Klick während der Aufnahme</span>
-              <input type="checkbox" role="switch" className="ios-schalter" checked={klickWeiter} disabled={festesRaster} onChange={(e) => setKlickWeiter(e.target.checked)} />
-            </label>
+            <>
+              <label className="einspiel-feld">
+                <span>Klick während der Aufnahme</span>
+                <input type="checkbox" role="switch" className="ios-schalter" checked={klickWeiter} disabled={festesRaster} onChange={(e) => setKlickWeiter(e.target.checked)} />
+              </label>
+              <label className="einspiel-feld">
+                <span>Lautsprecher</span>
+                <input type="checkbox" role="switch" className="ios-schalter" checked={lautsprecher} disabled={festesRaster} onChange={(e) => setLautsprecher(e.target.checked)} />
+              </label>
+            </>
           )}
         </div>
 
@@ -470,6 +531,9 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
                   <span className="einspiel-punkt" aria-hidden="true" />
                 </button>
                 <p className="gedaempft text-sm">Ein Takt wird eingezählt, dann läuft die Aufnahme. Eine Stimme: singen, summen, Trompete, Bass{stimmungHinweis}.</p>
+                <p className="gedaempft text-xs">{lautsprecher
+                  ? 'Lautsprecher an: wie Freisprechen — der Klick kommt aus dem Lautsprecher, das Mikrofon hört auch aus etwas Abstand, der Klick bleibt aus der Aufnahme draußen.'
+                  : 'Lautsprecher aus: das rohe Mikrofon ohne Verstärkung — nah am Mund singen; auf dem iPhone kommt der Klick dann leise aus dem Hörer.'}</p>
               </>
             )}
             {mikroAktiv && (
@@ -488,7 +552,9 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
             )}
             {phase === 'vorschlag' && (
               <div className="einspiel-zeile">
+                {dauer > 0 && <button type="button" className="knopf knopf-leise knopf-klein" onClick={abspielen} aria-pressed={spielt}>{spielt ? '■ Anhalten' : '▶ Anhören'}</button>}
                 <button type="button" className="knopf knopf-leise knopf-klein" onClick={nochmal}>Nochmal aufnehmen</button>
+                {dauer > 0 && <span className="gedaempft text-xs">{Math.round(dauer)} s · nur zum Anhören, wird nicht gespeichert</span>}
               </div>
             )}
           </div>

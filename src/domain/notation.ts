@@ -26,6 +26,26 @@ export function effektivwert(puffer: ArrayLike<number>): number {
   return puffer.length ? Math.sqrt(s / puffer.length) : 0;
 }
 
+// ── Mitschnitt ──
+// Beim Einsingen schreibt ein AudioWorklet (public/mitschnitt.worklet.js)
+// das Mikrofon in Stücken mit, jedes mit der Kontextzeit seines ersten
+// Abtastwerts. Daraus wird eine Spur ab `ab` Sekunden (Schlag 1 von Takt 1,
+// also ohne Einzähler): Jedes Stück landet an seinem Platz, Lücken bleiben
+// still, Überlappendes gewinnt das spätere Stück. Leer, wenn nichts nach
+// `ab` liegt.
+export interface Mitschnittstueck { beginn: number; daten: Float32Array }
+export function mitschnittAb(stuecke: readonly Mitschnittstueck[], rate: number, ab: number): Float32Array<ArrayBuffer> {
+  let ende = 0;
+  for (const s of stuecke) ende = Math.max(ende, Math.round((s.beginn - ab) * rate) + s.daten.length);
+  const spur = new Float32Array(Math.max(0, ende));
+  for (const s of stuecke) {
+    const von = Math.round((s.beginn - ab) * rate);
+    const vorn = Math.max(0, -von);
+    if (vorn < s.daten.length) spur.set(s.daten.subarray(vorn), von + vorn);
+  }
+  return spur;
+}
+
 // ── Tonart ──
 // Die Tonart zieht erkannte Töne auf die Leiter (gleicht Intonation aus, die
 // um einen Halbton schwankt) und bestimmt Vorzeichen und Schreibweise im ABC.

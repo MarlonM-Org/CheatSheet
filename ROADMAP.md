@@ -275,6 +275,25 @@ G-02 getrennt — Rhythmus zuerst, Töne später.
   verspätet und ohne Tonart; legato gesungene gleiche Töne ohne Neuansatz
   bleiben eine Note (das bleibt die Grenze des Verfahrens). Zur
   Tonart-Auswahl im Dialog gehört „keine“ (Töne bleiben, wie gehört).
+- **Lautsprecher und Anhören (2026-10-26, Wunsch Marlon):** Auf dem iPhone
+  musste man mit dem Mund dicht ans Mikrofon. Zwei Gründe: Die Aufnahme lief
+  mit rohem Mikrofon (ohne Sprachverarbeitung — iOS schaltet dann auf den
+  Hörer um, verstärkt nichts), und die Tonerkennung galt erst ab −42 dBFS
+  (Stimmgerät am Instrument). Jetzt: Schalter **„Lautsprecher“** im Dialog
+  (Vorgabe an, Gerät-Einstellung `ueben:einspiel-lautsprecher`): Echo-
+  Unterdrückung und Verstärkung des Browsers, auf dem iPhone dasselbe wie
+  Freisprechen beim Telefonieren — Klick aus dem Lautsprecher, Mikrofon hört
+  auch aus Abstand, der Klick bleibt aus der Aufnahme draußen.
+  Rauschunterdrückung bleibt immer aus (nimmt gehaltene Töne als
+  Dauergeräusch). Aus = rohes Mikrofon, nah am Mund, unverfälscht. Die
+  Pegelschwelle fürs Einsingen liegt bei −50 dBFS (`grundfrequenz`,
+  Parameter `mindestPegel`; das Stimmgerät behält −42). Mehr geht im Browser
+  nicht: iOS kennt keinen Weg, Lautsprecher und rohes Mikrofon zu
+  kombinieren. Dazu **„▶ Anhören“** nach der Aufnahme: ein AudioWorklet
+  (`public/mitschnitt.worklet.js`) schreibt das Mikrofon mit,
+  `mitschnittAb` (notation.ts, getestet) setzt die Stücke ab Schlag 1 ohne
+  Einzähler zusammen; die Spur zeigt dann die ganze Aufnahme mit Abspielkopf.
+  Nur im Dialog — Audio wird weiterhin nicht gespeichert.
 
 ### G-04 · Vorspielen: Noten hörbar machen (Instrumente, Begleitung)
 
