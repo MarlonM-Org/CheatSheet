@@ -375,7 +375,8 @@ es genau so.
   (zuerst Variante 2, Server nur bei Bedarf). So bleibt das Leitbild
   unangetastet bis auf das Abspielen der eigenen Notation.
 - **Vor jeder Zeile Code: ein Nachmittag Experiment.** Demucs + Basic Pitch
-  gibt es fertig; einen Song durchjagen, das MusicXML in MuseScore öffnen
+  gibt es fertig — Prüfstand mit Anleitung in
+  `experimente/transkription/`; einen Song durchjagen, das MusicXML in MuseScore öffnen
   und ehrlich schauen, ob der Entwurf hilft oder frustriert. Alternativ
   Moises (Stems) und Klangio (Noten) mit demselben Song testen — wenn ein
   fertiges Produkt reicht, braucht es nur den Import in CheatSheet, kein
