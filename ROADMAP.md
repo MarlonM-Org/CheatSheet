@@ -177,7 +177,9 @@ komponieren → üben.
 **Konkretisiert (2026-10-23, Wunsch Marlon):**
 
 - **Einstieg über „+ Noten“:** neben „PDF-Dateien wählen“ und „Ordner
-  wählen“ ein dritter Punkt „Neues Stück schreiben“. Ist eine Sammlung oder
+  wählen“ ein dritter Punkt „Neues Stück schreiben“ (seit 2026-10-26 heißt
+  der Punkt „Selbst schreiben“ und ist zugleich der Einstieg zum Einsingen
+  und Audio laden, siehe Erledigt). Ist eine Sammlung oder
   ein Tag gewählt, gilt dasselbe wie beim Import: das neue Stück wird dort
   einsortiert bzw. markiert.
 - **Eigene Ansicht zum Komponieren:** ein Editor als eigener Bildschirm
@@ -221,8 +223,8 @@ schreiben und die Töne in der Höhe verschieben“):**
 
 - **Notenblatt** (`src/components/ueben/Notensatz.tsx`) im Einsingen-Dialog
   — für den Vorschlag aus Mikrofon oder Datei und für die dritte Quelle
-  **„Schreiben“** (leerer Takt; in der Bibliothek „+ Noten → Neues Stück
-  schreiben“ und im Leerzustand „Schreiben“; `art: geschrieben`). Eine
+  **„Schreiben“** (leerer Takt; in der Bibliothek „+ Noten → Selbst
+  schreiben“ und im Leerzustand „Selbst schreiben“; `art: geschrieben`). Eine
   Stimme, Violinschlüssel.
 - **Bedienung:** Note antippen wählt sie (Messing). ▲▼ Halbton, ▲8 ▼8
   Oktave; mit der Maus ziehen = Schritt auf der Leiter (Tonart, sonst
@@ -267,7 +269,9 @@ G-02 getrennt — Rhythmus zuerst, Töne später.
 **Konkretisiert und begonnen (2026-10-26, Branch `feature/einspielen-ui`):**
 
 - **Einstieg über „+ Noten“:** fünfter Punkt „Einsingen oder Audio laden“
-  (neben dem Leerzustand-Knopf „Einsingen“). Ein eigener Vollbild-Dialog
+  (neben dem Leerzustand-Knopf „Einsingen“; seit 2026-10-26 beides über
+  „Selbst schreiben“ — der Dialog öffnet mit der Quelle „Schreiben“, oben
+  wechselt man zu Mikrofon oder Audio-Datei). Ein eigener Vollbild-Dialog
   wie beim Scan: Quelle Mikrofon oder Audio-Datei (Sprachmemo m4a, mp3,
   wav — eine Stimme, kein ganzer Song), Tempo (Feld, Tippen), Taktart,
   kleinster Notenwert (Achtel/Sechzehntel), beim Mikrofon ein Takt
@@ -563,6 +567,29 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
 
 *(Abgeschlossene Punkte hierher verschieben, mit Datum und Commit.)*
 
+- **„+ Noten“ aufgeräumt** (2026-10-26): Wunsch Marlon. Aus sechs Punkten
+  mit Erklärzeilen werden drei Zeilen, nur Symbol und Name: **PDF-Dateien |
+  Ordner**, **Einscannen | Fotos**, **Selbst schreiben**. Der letzte ersetzt
+  „Einsingen oder Audio laden“ und „Neues Stück schreiben“ — beide führten in
+  denselben Dialog, der öffnet jetzt mit „Schreiben“ und hat oben weiter die
+  Quellen Mikrofon und Audio-Datei. Der Leerzustand bietet dieselben fünf
+  Knöpfe mit denselben Namen (ohne eigenes „Einsingen“).
+  - **PDF-Dateien und Ordner bleiben zwei Hälften** einer Zeile: Der Browser
+    hat zwei getrennte Dialoge (Dateiwahl und Ordnerwahl, auf dem iPhone
+    `webkitdirectory` ab iOS 18.4). Aus der Dateiwahl heraus lässt sich kein
+    Ordner „öffnen“ — die Schaltfläche oben rechts tut dort ohne gewählte
+    Datei nichts, das ist der Dialog des Systems. Einscannen und Fotos
+    genauso: Ein einzelner Knopf ohne `capture` zeigte auf dem iPhone erst
+    das Systemblatt „Fotomediathek / Foto aufnehmen / Datei auswählen“ —
+    ein Tipp mehr, darum zwei Hälften.
+  - **Verlorene Aufnahmen behoben:** Jede Dateiwahl hatte einen Behelf für
+    Browser ohne „cancel“-Ereignis — kam das Fenster zurück und nach 1,2–1,5 s
+    lag keine Datei an, galt die Wahl als abgebrochen. Nach der Kamera kommt
+    das Bild auf dem Telefon mitunter später: Der Behelf hatte die Wahl schon
+    verworfen, es „passierte nichts“ (Rückmeldung Marlon, mal ja, mal nein).
+    Jetzt nur noch in Browsern ohne `oncancel` (`dateiwahl.ts`), für alle
+    Dateiwahlen (PDF, Ordner, Bilder, Audio).
+
 - **B-15 · Doppeltipp in die Mitte: spielbereit** (2026-10-23): Wunsch
   Marlon. Ein Tipp in die Mitte blendet wie bisher die Leisten oben und
   unten aus und ein; ein **Doppeltipp** (zwei Tipps binnen 350 ms, nah
@@ -624,8 +651,8 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
 - **F-07 · Kamera-Scan und Foto-Import** (2026-10-23): Wunsch Marlon,
   vorgezogen. Unter „+ Noten“ zwei neue Punkte: **„Einscannen“** (Kamera,
   Seite für Seite) und **„Fotos wählen“** (vorhandene Bilder, mehrere auf
-  einmal); auch in der leeren Bibliothek. Sammlung und Tag gelten wie beim
-  Import.
+  einmal; seit 2026-10-26 „Fotos“, in einer Zeile mit „Einscannen“); auch
+  in der leeren Bibliothek. Sammlung und Tag gelten wie beim Import.
   - **Dialog** (`Scan.tsx`, am body, über allem): große Vorschau der
     aktiven Seite, Stufe **Foto / Scan / Schwarz-Weiß** (je Gerät gemerkt,
     `ueben:scan-stufe`), **„Rand anpassen“** zeigt das Foto mit Viereck und
