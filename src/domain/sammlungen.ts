@@ -48,6 +48,40 @@ export function sammlungenUebersicht(noten: { sammlungen?: unknown }[]): { name:
   return je.sort((a, b) => sammler.compare(a.name, b.name));
 }
 
+// ── Reihenfolge der Sammlungen ──
+// Persönlich (reist mit der Sicherung, `ueben:sammlungen-reihenfolge`): die
+// Namen in der Reihenfolge, in der die Leiste sie zeigt. Was in der Liste
+// fehlt (neue Sammlungen, aus einem Ordner übernommene), kommt dahinter in
+// der Reihenfolge der Übersicht (A–Z); was es nicht mehr gibt, stört nicht.
+export function sammlungenOrdnen<T extends { name: string }>(liste: T[], reihenfolge: string[]): T[] {
+  const vorn: T[] = [];
+  for (const name of reihenfolge) {
+    const da = liste.find((x) => gleich(x.name, name));
+    if (da && !vorn.includes(da)) vorn.push(da);
+  }
+  return [...vorn, ...liste.filter((x) => !vorn.includes(x))];
+}
+
+// Eine Sammlung in der gezeigten Reihenfolge verschieben; zurück kommt die
+// ganze neue Reihenfolge (zum Speichern). Unbekannter Name: unverändert.
+export function reihenfolgeVerschieben(namen: string[], name: string, wohin: 'anfang' | 'vor' | 'zurueck' | 'ende'): string[] {
+  const i = namen.findIndex((x) => gleich(x, name));
+  if (i < 0) return namen;
+  const ziel = wohin === 'anfang' ? 0 : wohin === 'ende' ? namen.length - 1 : wohin === 'vor' ? Math.max(0, i - 1) : Math.min(namen.length - 1, i + 1);
+  if (ziel === i) return namen;
+  const neu = [...namen];
+  neu.splice(i, 1);
+  neu.splice(ziel, 0, namen[i]);
+  return neu;
+}
+
+// Nach dem Umbenennen behält die Sammlung ihren Platz. Gab es den neuen
+// Namen schon (Zusammenlegen), bleibt dessen Platz, der alte fällt weg.
+export function reihenfolgeUmbenennen(reihenfolge: string[], alt: string, neu: string): string[] {
+  if (reihenfolge.some((x) => gleich(x, neu))) return reihenfolge.filter((x) => !gleich(x, alt));
+  return reihenfolge.map((x) => (gleich(x, alt) ? neu : x));
+}
+
 // ── Ordner übernehmen ──
 // Pfad wie „Noten/Orchester A/Florentiner.pdf“ (relativ zum gewählten
 // Ordner). Unterordner werden Sammlungen; der gewählte Ordner selbst nur,

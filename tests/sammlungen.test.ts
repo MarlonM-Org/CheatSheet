@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  imFilter, mitSammlung, ohneSammlung, ordnerPlanen, sammlungenAusPfad, sammlungenUebersicht, sammlungenVon, sammlungName,
+  imFilter, mitSammlung, ohneSammlung, ordnerPlanen, reihenfolgeUmbenennen, reihenfolgeVerschieben, sammlungenAusPfad, sammlungenOrdnen, sammlungenUebersicht, sammlungenVon, sammlungName,
   sammlungUmbenennen, sicherungFaellig,
 } from '@/domain/sammlungen';
 
@@ -97,5 +97,35 @@ describe('Erinnerung an die Sicherung', () => {
     expect(sicherungFaellig(null, 99 * tag, 90 * tag, jetzt)).toEqual({ faellig: true, tage: null });
     expect(sicherungFaellig(null, 99 * tag, 96 * tag, jetzt)).toEqual({ faellig: false, tage: null });
     expect(sicherungFaellig(null, 0, null, jetzt)).toEqual({ faellig: false, tage: null });
+  });
+});
+
+describe('Reihenfolge der Sammlungen', () => {
+  const ueber = [{ name: 'Blasorchester', anzahl: 2 }, { name: 'Märsche', anzahl: 5 }, { name: 'Solo', anzahl: 1 }, { name: 'Weihnachten', anzahl: 3 }];
+  it('ohne gemerkte Reihenfolge bleibt es bei A–Z', () => {
+    expect(sammlungenOrdnen(ueber, []).map((x) => x.name)).toEqual(['Blasorchester', 'Märsche', 'Solo', 'Weihnachten']);
+  });
+  it('gemerkte zuerst in ihrer Reihenfolge, der Rest dahinter A–Z; Unbekanntes und Doppeltes stören nicht', () => {
+    expect(sammlungenOrdnen(ueber, ['Solo', 'Aufgelöst', 'märsche', 'Solo']).map((x) => x.name)).toEqual(['Solo', 'Märsche', 'Blasorchester', 'Weihnachten']);
+  });
+  it('verschiebt nach vorn, zurück, an den Anfang und ans Ende', () => {
+    const n = ['A', 'B', 'C', 'D'];
+    expect(reihenfolgeVerschieben(n, 'C', 'vor')).toEqual(['A', 'C', 'B', 'D']);
+    expect(reihenfolgeVerschieben(n, 'C', 'zurueck')).toEqual(['A', 'B', 'D', 'C']);
+    expect(reihenfolgeVerschieben(n, 'c', 'anfang')).toEqual(['C', 'A', 'B', 'D']);
+    expect(reihenfolgeVerschieben(n, 'B', 'ende')).toEqual(['A', 'C', 'D', 'B']);
+    expect(n).toEqual(['A', 'B', 'C', 'D']);
+  });
+  it('am Rand und bei unbekanntem Namen bleibt alles, wie es ist', () => {
+    const n = ['A', 'B', 'C'];
+    expect(reihenfolgeVerschieben(n, 'A', 'vor')).toBe(n);
+    expect(reihenfolgeVerschieben(n, 'A', 'anfang')).toBe(n);
+    expect(reihenfolgeVerschieben(n, 'C', 'zurueck')).toBe(n);
+    expect(reihenfolgeVerschieben(n, 'X', 'ende')).toBe(n);
+  });
+  it('Umbenennen behält den Platz; beim Zusammenlegen bleibt der Platz des Ziels', () => {
+    expect(reihenfolgeUmbenennen(['A', 'B', 'C'], 'b', 'Neu')).toEqual(['A', 'Neu', 'C']);
+    expect(reihenfolgeUmbenennen(['A', 'B', 'C'], 'C', 'a')).toEqual(['A', 'B']);
+    expect(reihenfolgeUmbenennen(['A', 'B'], 'X', 'Y')).toEqual(['A', 'B']);
   });
 });
