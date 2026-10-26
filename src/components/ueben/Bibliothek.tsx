@@ -456,8 +456,8 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
             schreiben={() => { setMeldung(''); setWarnung(''); setEinspielen('leer'); }} />
           <span className="flex-1" />
           <div className="segment !mx-0" role="group" aria-label="Sortieren">
-            <button type="button" aria-pressed={sortierung === 'zuletzt'} onClick={() => { setSortierung('zuletzt'); speichern('ueben:sort', 'zuletzt'); }}>Zuletzt</button>
             <button type="button" aria-pressed={sortierung === 'abc'} onClick={() => { setSortierung('abc'); speichern('ueben:sort', 'abc'); }}>A–Z</button>
+            <button type="button" aria-pressed={sortierung === 'zuletzt'} onClick={() => { setSortierung('zuletzt'); speichern('ueben:sort', 'zuletzt'); }}>Zuletzt</button>
           </div>
           <button type="button" className="text-knopf bib-auswaehlen" onClick={() => setAuswaehlen(true)}>Auswählen</button>
         </div>
