@@ -17,24 +17,32 @@ type Uebersicht = { name: string; anzahl: number }[];
 // Filterzeile: „Alle“, jede Sammlung mit Zahl ihrer Stücke, „+ Sammlung“.
 // Eine gerade angelegte, noch leere Sammlung steht mit 0 da, solange sie
 // gewählt ist.
-export function SammlungenLeiste({ uebersicht, aktiv, waehlen, halten }: {
+// Rechts daneben, fest (scrollt nicht mit): der Pfeil zur großen Ansicht aller
+// Sammlungen (SammlungenAnsicht). Die Reihenfolge der Chips ist die gemerkte.
+export function SammlungenLeiste({ uebersicht, aktiv, waehlen, halten, alle }: {
   uebersicht: Uebersicht; aktiv: string | null; waehlen: (name: string | null) => void;
   // Halten oder Rechtsklick auf einen Chip: Kontext-Blatt der Sammlung (F-08).
   halten: (name: string) => void;
+  alle: () => void;
 }) {
   const [formular, setFormular] = useState<null | 'neu'>(null);
   const leer = aktiv !== null && !uebersicht.some((s) => gleicheSammlung(s.name, aktiv));
   return (
     <div className="space-y-2">
-      <div className="sammlungen" role="group" aria-label="Sammlungen">
-        <button type="button" className="sammlung-chip" aria-pressed={aktiv === null} onClick={() => waehlen(null)}>Alle</button>
-        {uebersicht.map((s) => (
-          <SammlungChip key={s.name} name={s.name} anzahl={s.anzahl} aktiv={aktiv !== null && gleicheSammlung(s.name, aktiv)}
-            // Zweiter Tipp auf den gewählten Chip: wie Halten — das Kontext-Blatt (F-20, keine Kopfzeile mehr).
-            waehlen={() => (aktiv !== null && gleicheSammlung(s.name, aktiv) ? halten(s.name) : waehlen(s.name))} halten={() => halten(s.name)} />
-        ))}
-        {leer && <button type="button" className="sammlung-chip" aria-pressed="true">{aktiv}<span className="sammlung-zahl">0</span></button>}
-        <button type="button" className="sammlung-chip sammlung-neu" onClick={() => setFormular(formular ? null : 'neu')} aria-expanded={formular === 'neu'}>+ Sammlung</button>
+      <div className="sammlungen-zeile">
+        <div className="sammlungen" role="group" aria-label="Sammlungen">
+          <button type="button" className="sammlung-chip" aria-pressed={aktiv === null} onClick={() => waehlen(null)}>Alle</button>
+          {uebersicht.map((s) => (
+            <SammlungChip key={s.name} name={s.name} anzahl={s.anzahl} aktiv={aktiv !== null && gleicheSammlung(s.name, aktiv)}
+              // Zweiter Tipp auf den gewählten Chip: wie Halten — das Kontext-Blatt (F-20, keine Kopfzeile mehr).
+              waehlen={() => (aktiv !== null && gleicheSammlung(s.name, aktiv) ? halten(s.name) : waehlen(s.name))} halten={() => halten(s.name)} />
+          ))}
+          {leer && <button type="button" className="sammlung-chip" aria-pressed="true">{aktiv}<span className="sammlung-zahl">0</span></button>}
+          <button type="button" className="sammlung-chip sammlung-neu" onClick={() => setFormular(formular ? null : 'neu')} aria-expanded={formular === 'neu'}>+ Sammlung</button>
+        </div>
+        <button type="button" className="sammlungen-alle" onClick={alle} aria-label="Alle Sammlungen groß zeigen" title="Alle Sammlungen">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+        </button>
       </div>
       {formular === 'neu' && (
         <NameFormular knopf="Anlegen" platzhalter="z. B. Märsche oder Orchester A" abbrechen={() => setFormular(null)}

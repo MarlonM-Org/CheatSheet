@@ -24,11 +24,13 @@ export interface Aktion {
   name: string; hinweis?: string; art?: 'prim' | 'warn'; tun: () => void; aus?: boolean;
 }
 
-export function KontextBlatt({ titel, untertitel, bild, aktionen, inhalt, schliessen, aria }: {
+export function KontextBlatt({ titel, untertitel, bild, aktionen, inhalt, oben, schliessen, aria }: {
   titel: string; untertitel?: ReactNode; bild?: ReactNode;
   aktionen: Aktion[];
   // Statt der Aktionen: ein Formular (Umbenennen, Bearbeiten) im selben Blatt.
   inhalt?: ReactNode;
+  // Zwischen Kopf und Aktionen (Reihenfolge der Sammlung).
+  oben?: ReactNode;
   schliessen: () => void; aria: string;
 }) {
   useEscape(schliessen);
@@ -43,6 +45,7 @@ export function KontextBlatt({ titel, untertitel, bild, aktionen, inhalt, schlie
             {untertitel && <p className="gedaempft text-sm">{untertitel}</p>}
           </div>
         </div>
+        {oben}
         {inhalt ?? (
           <ul className="kontext-aktionen">
             {aktionen.filter((a) => !a.aus).map((a) => (
@@ -224,9 +227,13 @@ export function StueckKontext({ stueck, stuecke, anzahlStellen, oeffnen, dateiNe
 
 // ── Sammlung ──
 
-export function SammlungKontext({ name, anzahl, aktiv, waehlen, umbenennen, auswaehlen, aufloesen, schliessen }: {
+export function SammlungKontext({ name, anzahl, aktiv, platz, waehlen, umbenennen, verschieben, auswaehlen, aufloesen, schliessen }: {
   name: string; anzahl: number; aktiv: boolean;
-  waehlen: () => void; umbenennen: (neu: string) => void; auswaehlen: () => void; aufloesen: () => void; schliessen: () => void;
+  // Platz in der Leiste (0-basiert) und wie viele es gibt — für „Nach vorn / hinten“.
+  platz: { i: number; von: number };
+  waehlen: () => void; umbenennen: (neu: string) => void;
+  verschieben: (wohin: 'anfang' | 'vor' | 'zurueck' | 'ende') => void;
+  auswaehlen: () => void; aufloesen: () => void; schliessen: () => void;
 }) {
   const [modus, setModus] = useState<'aktionen' | 'umbenennen'>('aktionen');
   const [text, setText] = useState(name);
@@ -240,6 +247,17 @@ export function SammlungKontext({ name, anzahl, aktiv, waehlen, umbenennen, ausw
     <KontextBlatt aria={`Sammlung: ${name}`} titel={name} untertitel={`Sammlung · ${anzahl} ${anzahl === 1 ? 'Stück' : 'Stücke'}`} schliessen={schliessen}
       bild={<div className="kontext-daumen symbol" aria-hidden="true">▤</div>}
       aktionen={aktionen}
+      // Reihenfolge in der Leiste: ganz nach vorn, eins vor, eins zurück — das
+      // Blatt bleibt offen, man sieht die Leiste dahinter umsortieren.
+      oben={platz.von > 1 ? (
+        <div className="kontext-reihe" role="group" aria-label="Platz in der Leiste">
+          <span className="gedaempft text-sm">Platz {platz.i + 1} von {platz.von}</span>
+          <span className="flex-1" />
+          <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => verschieben('anfang')} disabled={platz.i === 0} aria-label="Ganz nach vorn" title="Ganz nach vorn">⇤</button>
+          <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => verschieben('vor')} disabled={platz.i === 0} aria-label="Nach vorn" title="Nach vorn (links)">←</button>
+          <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => verschieben('zurueck')} disabled={platz.i >= platz.von - 1} aria-label="Nach hinten" title="Nach hinten (rechts)">→</button>
+        </div>
+      ) : undefined}
       inhalt={modus === 'umbenennen' ? (
         <form className="kontext-formular" onSubmit={(e) => { e.preventDefault(); const neu = text.trim(); if (neu && neu !== name) umbenennen(neu); schliessen(); }}>
           <input className="feld" value={text} onChange={(e) => setText(e.target.value)} aria-label="Name der Sammlung" maxLength={60} autoFocus />

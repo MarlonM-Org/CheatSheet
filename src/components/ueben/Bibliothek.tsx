@@ -5,8 +5,8 @@ import { loeschHinweis } from '@/domain/bestand';
 import { stand } from '@/domain/einspielen';
 import { ausDateiname, nachTitel, zeitpunkt, zuordnen } from '@/domain/notenpult';
 import {
-  dateiSchluessel, gleicheSammlung, imFilter, mitSammlung, ohneSammlung, ordnerPlanen, sammlungenUebersicht, sammlungenVon,
-  sammlungUmbenennen, sicherungFaellig,
+  dateiSchluessel, gleicheSammlung, imFilter, mitSammlung, ohneSammlung, ordnerPlanen, reihenfolgeUmbenennen, reihenfolgeVerschieben,
+  sammlungenOrdnen, sammlungenUebersicht, sammlungenVon, sammlungUmbenennen, sicherungFaellig,
 } from '@/domain/sammlungen';
 import { notationText } from '@/domain/notation';
 import { quellenText, stellenJeStueck } from '@/domain/sicht';
@@ -21,6 +21,7 @@ import {
 } from './lokal';
 import { MehrKnopf, SammlungKontext, StueckKontext, useHalten } from './Kontext';
 import { HinzufuegenMenue, SammlungenLeiste, SammlungWahl } from './Sammlungen';
+import { SammlungenAnsicht } from './SammlungenAnsicht';
 import { EinspielenDialog, type EinspielQuelle } from './Einspielen';
 import { bilderWaehlen, ScanDialog, type ScanArt } from './Scan';
 import { useSicherungLaden } from './Sicherung';
@@ -78,6 +79,8 @@ export function Bibliothek({ offen, oeffnen, schliessen, einstellungen, offenEnt
     </section>
   );
 }
+
+const REIHENFOLGE = 'ueben:sammlungen-reihenfolge';
 
 // ── Dateien wählen ──
 type HandleFenster = Window & {
@@ -164,6 +167,11 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
   const [sammlungNeu, setSammlungNeu] = useState<string | null>(null);
   const [einsortieren, setEinsortieren] = useState(true);
   const [sammlungBlatt, setSammlungBlatt] = useState<string[] | null>(null);
+  // Reihenfolge der Sammlungen in der Leiste (persönlich, reist mit der
+  // Sicherung) und die große Ansicht aller Sammlungen.
+  const [reihenfolge, setReihenfolge] = useState<string[]>(() => gespeichert<string[]>(REIHENFOLGE, []));
+  const reihenfolgeSetzen = (neu: string[]) => { setReihenfolge(neu); speichern(REIHENFOLGE, neu); };
+  const [ansicht, setAnsicht] = useState(false);
   // Tags (F-14): Definitionen, gewählter Tag-Filter (gemerkt), ob neue
   // Stücke damit markiert werden, Markier-Blatt.
   const [tags, setTags] = useState<Tag[]>([]);
@@ -173,7 +181,7 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
   const [fortschritt, setFortschritt] = useState('');
   // Kontext-Blatt (F-08): für ein Stück oder eine Sammlung.
   const [kontext, setKontext] = useState<{ art: 'stueck'; id: string } | { art: 'sammlung'; name: string } | null>(null);
-  useEffect(() => kontextMelden(kontext !== null), [kontext, kontextMelden]);
+  useEffect(() => kontextMelden(kontext !== null || ansicht), [kontext, ansicht, kontextMelden]);
   // Kamera-Scan / Foto-Import (F-07): offener Dialog mit den zuerst gewählten Bildern.
   const [scan, setScan] = useState<{ art: ScanArt; start: File[] } | null>(null);
   // Selbst schreiben, Einsingen oder Audio laden (G-01/G-02/G-03): offener
@@ -187,6 +195,7 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
   const laden = useCallback(() => {
     Promise.all([alleStuecke(), alleStellen()]).then(([l, st]) => {
       setZuletzt(zuletztListe()); setNoten(l); setStellen(st); setTags(tagsLaden());
+      setReihenfolge(gespeichert<string[]>(REIHENFOLGE, []));
       // Der gemerkte Tag-Filter (nach dem Zusammenlegen Doppelter womöglich umgestellt).
       setTagFilter(gespeichert<string | null>('ueben:tag', null));
       const aenderung = Math.max(0, ...l.map((n) => stand(n as unknown as Record<string, unknown>)), ...st.map((x) => stand(x as unknown as Record<string, unknown>)));
@@ -207,7 +216,7 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
   const sortiert = useMemo(() => [...(noten ?? [])].sort((a, b) => sortierung === 'abc'
     ? nachTitel(a, b)
     : (zuletztAus(zuletzt, b) ?? b.erstellt) - (zuletztAus(zuletzt, a) ?? a.erstellt)), [noten, sortierung, zuletzt]);
-  const uebersicht = useMemo(() => sammlungenUebersicht(noten ?? []), [noten]);
+  const uebersicht = useMemo(() => sammlungenOrdnen(sammlungenUebersicht(noten ?? []), reihenfolge), [noten, reihenfolge]);
   // Gewählt ist eine Sammlung, die es gibt — oder die gerade angelegte.
   const aktiv = sammlung !== null && (uebersicht.some((x) => gleicheSammlung(x.name, sammlung)) || (sammlungNeu !== null && gleicheSammlung(sammlungNeu, sammlung))) ? sammlung : null;
   const sammlungWaehlen = (name: string | null) => {
@@ -410,7 +419,7 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
         </div>
       )}
 
-      {!!noten?.length && <SammlungenLeiste uebersicht={uebersicht} aktiv={aktiv} waehlen={sammlungWaehlen} halten={(name) => setKontext({ art: 'sammlung', name })} />}
+      {!!noten?.length && <SammlungenLeiste uebersicht={uebersicht} aktiv={aktiv} waehlen={sammlungWaehlen} halten={(name) => setKontext({ art: 'sammlung', name })} alle={() => setAnsicht(true)} />}
 
       {!!noten?.length && tagUeber.length > 0 && <TagFilter uebersicht={tagUeber} aktiv={aktivTag} waehlen={tagWaehlen} />}
 
@@ -552,19 +561,33 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
         if (!n) return null;
         return (
           <StueckKontext stueck={n} stuecke={noten} anzahlStellen={stellenJe[n.id] ?? 0} schliessen={() => setKontext(null)}
-            oeffnen={(blatt) => { setKontext(null); oeffnen(n.id, blatt); }}
+            oeffnen={(blatt) => { setKontext(null); setAnsicht(false); oeffnen(n.id, blatt); }}
             teilen={() => { setKontext(null); oeffnen(n.id, 'teilen'); }}
             dateiNeu={() => { setKontext(null); void aktualisieren([n]); }}
             geaendert={() => laden()}
             geloescht={(ids) => { setKontext(null); setMeldung(`„${n.titel}“ gelöscht.`); if (offen && ids.includes(offen)) offenEntfernt(); laden(); }} />
         );
       })()}
+      {ansicht && noten && (
+        <SammlungenAnsicht uebersicht={uebersicht} noten={noten} stellenJe={stellenJe} aktiv={aktiv} escapeAktiv={kontext === null}
+          waehlen={(name) => { sammlungWaehlen(name); setAnsicht(false); }}
+          halten={(name) => setKontext({ art: 'sammlung', name })}
+          stueck={(id) => setKontext({ art: 'stueck', id })}
+          oeffnen={(id) => { setAnsicht(false); oeffnen(id); }}
+          anlegen={(name) => { sammlungWaehlen(name); setAnsicht(false); }}
+          schliessen={() => setAnsicht(false)} />
+      )}
       {kontext?.art === 'sammlung' && (
         <SammlungKontext name={kontext.name} anzahl={(noten ?? []).filter((n) => imFilter(n, kontext.name)).length}
           aktiv={aktiv !== null && gleicheSammlung(aktiv, kontext.name)} schliessen={() => setKontext(null)}
-          waehlen={() => sammlungWaehlen(kontext.name)}
-          umbenennen={(neu) => { void sammlungAendern(kontext.name, (l) => sammlungUmbenennen(l, kontext.name, neu)).then(() => { if (aktiv && gleicheSammlung(aktiv, kontext.name)) sammlungWaehlen(neu); }); }}
-          auswaehlen={() => { sammlungWaehlen(kontext.name); setAuswaehlen(true); }}
+          platz={{ i: uebersicht.findIndex((x) => gleicheSammlung(x.name, kontext.name)), von: uebersicht.length }}
+          verschieben={(wohin) => reihenfolgeSetzen(reihenfolgeVerschieben(uebersicht.map((x) => x.name), kontext.name, wohin))}
+          waehlen={() => { sammlungWaehlen(kontext.name); setAnsicht(false); }}
+          umbenennen={(neu) => {
+            reihenfolgeSetzen(reihenfolgeUmbenennen(uebersicht.map((x) => x.name), kontext.name, neu));
+            void sammlungAendern(kontext.name, (l) => sammlungUmbenennen(l, kontext.name, neu)).then(() => { if (aktiv && gleicheSammlung(aktiv, kontext.name)) sammlungWaehlen(neu); });
+          }}
+          auswaehlen={() => { sammlungWaehlen(kontext.name); setAuswaehlen(true); setAnsicht(false); }}
           aufloesen={() => {
             const z = (noten ?? []).filter((n) => imFilter(n, kontext.name)).length;
             if (!confirm(`Sammlung „${kontext.name}“ auflösen? Die ${z} Stücke bleiben in der Bibliothek, nur die Sammlung verschwindet.`)) return;

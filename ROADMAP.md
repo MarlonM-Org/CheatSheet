@@ -152,7 +152,17 @@ Speicher steht (A-02): `merker`, einer je Seite.
 
 PDFs aus dem Datei-Manager in die Bibliothek ziehen = Import. Noten in
 Setlisten ziehen, Setlisten-Einträge umsortieren. (Desktop zuerst; Touch
-soweit sinnvoll.)
+soweit sinnvoll.) Auch Sammlungen in der Leiste und in der großen Ansicht
+ziehen statt der Pfeile (F-21).
+
+### F-22 · Sammlungen: eine Farbe je Sammlung
+
+Wunsch Marlon (2026-10-26, „muss nicht sofort sein“): Einer Sammlung eine
+Farbe geben — wie bei den Tags aus einer kleinen Palette —, sichtbar am Chip
+in der Leiste und am Abschnitt in der großen Ansicht. **Kein Icon** je
+Sammlung (bewusst weggelassen: nervt mehr, als es hilft). Speicher: Farben
+je Name, persönlich (reisen mit der Sicherung wie die Reihenfolge,
+`ueben:sammlungen-reihenfolge`), beim Umbenennen mitnehmen.
 
 ---
 
@@ -566,6 +576,31 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
 ## Erledigt
 
 *(Abgeschlossene Punkte hierher verschieben, mit Datum und Commit.)*
+
+- **F-21 · Sammlungen sortieren und große Ansicht** (2026-10-26): Wunsch
+  Marlon: Manche Sammlungen immer vorn auf Abruf, andere hinten; und bei
+  vielen Sammlungen eine Ansicht, die alle mit ihren Stücken zeigt.
+  - **Reihenfolge:** Im Kontext-Blatt der Sammlung (Chip halten oder zweiter
+    Tipp, in der großen Ansicht „⋯“) eine Zeile „Platz 2 von 5“ mit **⇤ ganz
+    nach vorn, ← nach vorn, → nach hinten**; das Blatt bleibt offen, die
+    Leiste sortiert sich dahinter um. Gemerkt als Namensliste im
+    localStorage `ueben:sammlungen-reihenfolge` — persönlich, **reist mit der
+    Sicherung** (Einstellung in `src/domain/einstellungen.ts`). Sammlungen,
+    die in der Liste fehlen (neu angelegt, aus einem Ordner), kommen
+    dahinter A–Z; Umbenennen behält den Platz, Zusammenlegen den Platz des
+    Ziels. Regeln `sammlungenOrdnen`, `reihenfolgeVerschieben`,
+    `reihenfolgeUmbenennen` in `src/domain/sammlungen.ts`, getestet.
+  - **Große Ansicht** (`SammlungenAnsicht.tsx`): rechts an der Leiste ein
+    fester Pfeil „›“ (scrollt nicht mit). Vollflächig über der Bibliothek:
+    jede Sammlung als Abschnitt in der gemerkten Reihenfolge, darunter ihre
+    Stücke A–Z (Stimme, Stellen, „auch in 2 weiteren Sammlungen“); Tipp auf
+    den Kopf klappt zu oder auf (je Gerät gemerkt, `ueben:sammlungen-zu`),
+    „⋯“ oder Halten öffnet das Kontext-Blatt der Sammlung (umbenennen,
+    verschieben, nur diese zeigen, Stücke auswählen, auflösen), Tipp auf
+    ein Stück öffnet es, „⋯“ am Stück sein Blatt (dort auch Sammlungen
+    ändern). Zuletzt „Ohne Sammlung“; unten „+ Sammlung“ und „Alle Stücke
+    zeigen“. Escape schließt erst die Ansicht, dann die Bibliothek.
+  - Farbe je Sammlung als F-22 notiert, kein Icon.
 
 - **„+ Noten“ aufgeräumt** (2026-10-26): Wunsch Marlon. Aus sechs Punkten
   mit Erklärzeilen werden drei Zeilen, nur Symbol und Name: **PDF-Dateien |

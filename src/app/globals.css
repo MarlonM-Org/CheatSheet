@@ -982,6 +982,41 @@ small .stern { display: inline-block; width: 0.95em; height: 0.95em; vertical-al
 /* ── Sammlungen (F-13) ── */
 .sammlungen { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
 .sammlungen::-webkit-scrollbar { display: none; }
+/* Leiste mit festem Pfeil am rechten Rand: die große Ansicht aller Sammlungen. */
+.sammlungen-zeile { display: flex; align-items: center; gap: 4px; }
+.sammlungen-zeile > .sammlungen { flex: 1; min-width: 0; mask-image: linear-gradient(to right, #000 calc(100% - 16px), transparent); -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 16px), transparent); }
+.sammlungen-alle {
+  flex: none; display: grid; place-items: center; width: 34px; min-height: 34px; border-radius: 999px;
+  border: 1px solid var(--linie-stark); background: var(--papier); color: var(--gedaempft);
+}
+.sammlungen-alle svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.sammlungen-alle:hover, .sammlungen-alle:active { color: var(--tinte); background: var(--flaeche); }
+@media (pointer: coarse) { .sammlungen-alle { width: 2.5rem; min-height: 2.5rem; } }
+/* Große Ansicht: wie die Bibliothek, darüber (z 50), unter den Kontext-Blättern (80). */
+.sammlungen-ansicht {
+  position: fixed; left: 0; right: 0; z-index: 50; top: 0;
+  bottom: calc(var(--leiste-hoehe) + env(safe-area-inset-bottom, 0px));
+  padding-top: env(safe-area-inset-top, 0px);
+  display: flex; flex-direction: column;
+  background: var(--papier); box-shadow: var(--panel-schatten);
+}
+.sammlungen-ansicht .bib-fuss { display: flex; justify-content: center; }
+/* Jede Sammlung als Abschnitt mit ihren Stücken darunter. */
+.sammlung-abschnitt { border: 1px solid var(--linie); border-radius: 8px; background: var(--karte); overflow: hidden; }
+.sammlung-abschnitt-kopf { display: flex; align-items: center; gap: 4px; padding: 0 4px 0 0; }
+.sammlung-abschnitt-titel {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 12px; text-align: left;
+}
+.sammlung-abschnitt-titel strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 1.02rem; font-weight: 750; }
+.sammlung-abschnitt-titel .sammlung-zahl { color: var(--gedaempft); }
+.sammlung-abschnitt-pfeil { width: 18px; height: 18px; flex: none; fill: none; stroke: var(--leise); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform 0.15s; }
+.sammlung-abschnitt.zu .sammlung-abschnitt-pfeil { transform: rotate(-90deg); }
+.sammlung-abschnitt-titel[aria-pressed="true"] strong { color: var(--messing); }
+.sammlung-abschnitt .bib-liste { border: 0; border-radius: 0; border-top: 1px solid var(--linie); }
+.sammlung-abschnitt .bib-zeile { padding-left: 24px; }
+.sammlung-abschnitt-leer { padding: 8px 24px 12px; border-top: 1px solid var(--linie); }
+.kontext-reihe { display: flex; align-items: center; gap: 6px; padding: 4px 0 10px; }
+.kontext-reihe .knopf-klein { min-height: 34px; padding: 0 0.7rem; font-size: 1rem; }
 .sammlung-chip {
   flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 12px;
   border: 1px solid var(--linie-stark); border-radius: 999px; background: var(--papier);
