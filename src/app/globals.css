@@ -1010,11 +1010,14 @@ small .stern { display: inline-block; width: 0.95em; height: 0.95em; vertical-al
   box-shadow: 0 6px 18px rgb(0 0 0 / 10%);
 }
 .bib-menue-punkt {
-  display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 9px 10px; border-radius: 8px;
+  display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 8px;
   text-align: left; font-weight: 650;
 }
-.bib-menue-punkt span { font-size: 0.75rem; font-weight: 500; color: var(--gedaempft); }
 .bib-menue-punkt:active, .bib-menue-punkt:hover { background: var(--flaeche); }
+.bib-menue-symbol { width: 20px; height: 20px; flex: none; color: var(--gedaempft); }
+/* Zwei Punkte in einer Zeile (Dateien | Ordner, Einscannen | Fotos). */
+.bib-menue-zeile { display: flex; gap: 4px; }
+.bib-menue-zeile > .bib-menue-punkt { flex: 1 1 0; min-width: 0; }
 .bib-menue-ziel {
   display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 10px; border-radius: 8px;
   border: 1px dashed var(--linie-stark); cursor: pointer;
