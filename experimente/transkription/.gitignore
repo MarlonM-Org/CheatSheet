@@ -1,0 +1,9 @@
+﻿.venv/
+ergebnis/
+__pycache__/
+*.mp3
+*.wav
+*.flac
+*.m4a
+*.ogg
+aufnahmen/

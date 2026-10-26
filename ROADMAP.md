@@ -383,6 +383,29 @@ es genau so.
   eigenes Werkzeug. Das Ergebnis entscheidet, ob G-06 überhaupt gebaut
   wird.
 
+**Ergebnis des Experiments (2026-10-26, Windows-Rechner, CPU):**
+
+- **Ganze Songs (G-06): bleibt Vision.** Demucs + Basic Pitch an Metallica
+  „The Unforgiven II“: Stems brauchbar, Noten nicht — 4215 „Gitarrennoten“
+  aus Verzerrung und Obertönen, Gesang und Bass kaum lesbar. Die Tempo-
+  Schätzung verdoppelt bei langsamen Songs. Korrigieren wäre langsamer als
+  Abschreiben. Kommerzielle Werkzeuge (Klangio, ScoreCloud, Moises) sind
+  besser, aber auch dort bleibt viel Nacharbeit. Keine Zeile dafür bauen.
+- **Einzelne Stimme monophon (G-03/G-05): funktioniert.** `monophon.py`
+  (pYIN statt Basic Pitch, Hysterese gegen Vibrato, Teilen an Anschlägen,
+  Oktav-/Ansatz-Korrektur, Tonart-Rundung, Latenz aus den Einsätzen,
+  Sechzehntelraster, MusicXML mit Schlüssel/Tonart/Taktart) gegen eine
+  Referenz-Partitur „Alle meine Entchen“ (`referenz/`, `vergleichen.py`):
+  Klavier-Rendering 27/27 Noten exakt; eigene Stimme zum Metronom 19 von 22
+  Noten getroffen, 4 überzählige Fragmente. Rest sind Sänger-Fehler (zu
+  tief, zu spät) und Wiederholungen ohne hörbaren Neuansatz.
+- **Folgerung:** G-05/G-03 in die App, ohne Modelle — die Kette ist reines
+  Rechnen und läuft im Browser mit der Tonerkennung des Stimmgeräts.
+  Übertragen nach `src/domain/notation.ts` (Branch `feature/einspielen-ui`);
+  `monophon.py` bleibt als Referenz, `vergleichen.py` als Messlatte.
+  Bass-Stems aus Demucs lassen sich mit derselben monophonen Lesart lesen
+  (318 statt 1821 Noten, Intro-Linie sauber) — ein Nebenweg für später.
+
 ---
 
 ## H — Geräteübergreifend: Noten und Daten in der eigenen Cloud (Vision)

@@ -1,0 +1,6 @@
+# Stand 2026-10-26, geprueft mit Python 3.11.17 auf Windows 11 (CPU)
+demucs
+basic-pitch
+music21
+librosa
+numpy<2   # TensorFlow 2.14 (von basic-pitch gepinnt) laeuft nicht mit NumPy 2

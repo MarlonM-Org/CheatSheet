@@ -22,14 +22,20 @@ from pathlib import Path
 
 # Je Stem: General-MIDI-Programm, Frequenzgrenzen (Hz) und Mindestlänge (ms).
 # Bass eng begrenzen (sonst Obertöne als Noten), Gesang nach oben offen.
+# Programme bestimmen, welches Instrument MuseScore beim MIDI-Import anlegt:
+# General MIDI kennt keine Solostimme, darum Altsaxophon (65) für den Gesang
+# statt Chor (52); Rest als E-Piano (4) statt Streicher (48); Gitarre clean (27).
 STIMMEN = {
-    "vocals": dict(programm=52, von=80.0, bis=1200.0, mindest=80, name="Gesang"),
+    "vocals": dict(programm=65, von=80.0, bis=1200.0, mindest=80, name="Gesang"),
     "bass": dict(programm=33, von=30.0, bis=400.0, mindest=100, name="Bass"),
-    "guitar": dict(programm=29, von=70.0, bis=1500.0, mindest=60, name="Gitarre"),
+    "guitar": dict(programm=27, von=70.0, bis=1500.0, mindest=60, name="Gitarre"),
     "piano": dict(programm=0, von=27.0, bis=4200.0, mindest=60, name="Klavier"),
-    "other": dict(programm=48, von=60.0, bis=2000.0, mindest=80, name="Rest"),
+    "other": dict(programm=4, von=60.0, bis=2000.0, mindest=80, name="Rest"),
     "mix": dict(programm=0, von=30.0, bis=4200.0, mindest=60, name="Mix"),
 }
+
+# Reihenfolge der Spuren in der Partitur: Melodie oben, Begleitung, Bass unten.
+REIHENFOLGE = ["vocals", "mix", "guitar", "piano", "other", "bass"]
 
 
 def stimmen_trennen(datei: Path, ziel: Path, modell: str, geraet: str) -> dict[str, Path]:
@@ -77,12 +83,16 @@ def noten_erkennen(audio: Path, regeln: dict, ziel: Path):
     return midi
 
 
-def zusammenfuehren(teile: list[tuple[dict, object]], tempo: float, ziel: Path) -> None:
-    """Alle Stimmen in eine mehrspurige MIDI-Datei mit Tempo."""
+def zusammenfuehren(teile: list[tuple[str, dict, object]], tempo: float, ziel: Path) -> None:
+    """Alle Stimmen in eine mehrspurige MIDI-Datei mit Tempo, in Partitur-Reihenfolge."""
     import pretty_midi
 
+    def rang(teil):
+        name = teil[0]
+        return REIHENFOLGE.index(name) if name in REIHENFOLGE else len(REIHENFOLGE)
+
     gesamt = pretty_midi.PrettyMIDI(initial_tempo=tempo)
-    for regeln, midi in teile:
+    for _, regeln, midi in sorted(teile, key=rang):
         spur = pretty_midi.Instrument(program=regeln["programm"], name=regeln["name"])
         for instrument in midi.instruments:
             spur.notes.extend(instrument.notes)
@@ -115,12 +125,32 @@ def main() -> None:
     p.add_argument("--geraet", default="cpu", help="cpu, cuda (Nvidia) oder mps (Apple)")
     p.add_argument("--ohne-trennung", action="store_true", help="keine Stems, Datei direkt transkribieren (für eine einzelne Stimme)")
     p.add_argument("--tempo", type=float, help="Tempo vorgeben statt schätzen")
+    p.add_argument("--nur-zusammenfuehren", action="store_true", help="vorhandene <stem>.mid aus dem Ergebnisordner neu zu gesamt.mid/.musicxml bauen (Instrumente, Reihenfolge, Tempo ändern ohne Neuberechnung)")
     args = p.parse_args()
 
     if not args.datei.is_file():
         sys.exit(f"Datei nicht gefunden: {args.datei}")
     ordner = args.ausgabe / args.datei.stem
     ordner.mkdir(parents=True, exist_ok=True)
+
+    if args.nur_zusammenfuehren:
+        import pretty_midi
+
+        teile = []
+        for m in sorted(ordner.glob("*.mid")):
+            if m.stem == "gesamt":
+                continue
+            regeln = STIMMEN.get(m.stem, STIMMEN["other"] | {"name": m.stem})
+            teile.append((m.stem, regeln, pretty_midi.PrettyMIDI(str(m))))
+        if not teile:
+            sys.exit(f"Keine Stimmen-MIDIs in {ordner}")
+        schlagzeug = ordner / "stem-drums.wav"
+        tempo = args.tempo or tempo_schaetzen(schlagzeug if schlagzeug.is_file() else args.datei)
+        gesamt = ordner / "gesamt.mid"
+        zusammenfuehren(teile, tempo, gesamt)
+        musicxml_schreiben(gesamt, ordner / "gesamt.musicxml")
+        print(f"\nFertig: {ordner}/ — gesamt.mid in MuseScore öffnen.")
+        return
 
     if args.ohne_trennung:
         quellen = {"mix": args.datei}
@@ -136,7 +166,7 @@ def main() -> None:
         if name == "drums":
             continue  # Schlagzeug: keine Tonhöhen, eigenes Thema (ADT)
         regeln = STIMMEN.get(name, STIMMEN["other"] | {"name": name})
-        teile.append((regeln, noten_erkennen(pfad, regeln, ordner / f"{name}.mid")))
+        teile.append((name, regeln, noten_erkennen(pfad, regeln, ordner / f"{name}.mid")))
 
     gesamt = ordner / "gesamt.mid"
     zusammenfuehren(teile, tempo, gesamt)
