@@ -602,6 +602,15 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
     zeigen“. Escape schließt erst die Ansicht, dann die Bibliothek.
   - Farbe je Sammlung als F-22 notiert, kein Icon.
 
+- **D-07 · Taktart im Metronom-Widget, schmale Säule aufgeräumt**
+  (2026-10-26): Wunsch Marlon. In beiden Widget-Ansichten sind **Taktart
+  und Taktpunkte ein Knopf**: Antippen klappt ein kleines Kästchen mit den
+  üblichen Taktarten (4/4 · 3/4 · 6/8 · 2/4, die Schnellwahl aus D-05) auf,
+  Antippen wählt und schließt; danebentippen schließt. Zähler/Nenner frei
+  weiter nur in der großen Ansicht („alles“). Die **schmale Säule** hat nur
+  noch **+1 und −1** (±10 % entfallen dort; die Knöpfe sind so hoch wie der
+  Start-Knopf, 46 px — ersetzt die Nachbesserung zu D-06), Reihenfolge:
+  Start → Taktart mit Punkten → Tempo → +1 / −1 → „alles“.
 - **C-05 · Stimmgerät sofort an, hört auch aus Abstand** (2026-10-26):
   Wunsch Marlon (iPad als Home-Bildschirm-App): Der Tipp auf „Stimmgerät“
   in der unteren Leiste **startet das Mikrofon gleich mit** — er ist die
