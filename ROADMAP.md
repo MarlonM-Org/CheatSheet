@@ -33,9 +33,10 @@ ob das ins Leitbild passt (dann auch CLAUDE.md anpassen: „kein Login“).
 Takt für Takt) und **Song-Transkription** als Vision G-04…G-07
 aufgenommen. Die App bleibt on-device; die schwere Song-Transkription
 kann ein separates Werkzeug sein (Rechner oder Server), Schnittstelle ist
-MusicXML — Einschätzung in G-08. Vor der Umsetzung entscheidet Marlon, ob
-„MIDI, Audio-Begleitspuren, Soundbearbeitung“ dafür aus der Außen-vor-Liste
-genommen wird.
+MusicXML — Einschätzung in G-08. Entschieden (Marlon, 2026-10-26): Das
+**Vorspielen der eigenen Notation** gehört in die App (begonnen, G-04);
+außen vor bleiben MIDI-Dateien, Audio-Begleitspuren als Dateien und
+Soundbearbeitung.
 
 ## Meilensteine (Reihenfolge)
 
@@ -215,6 +216,37 @@ komponieren → üben.
   Stempel-Palette aus E-04 und der Editor sollten dasselbe
   Bedienmuster teilen (Element wählen → antippen/platzieren → verschieben).
 
+**Begonnen (2026-10-26, Wunsch Marlon: „wie in MuseScore selber Noten
+schreiben und die Töne in der Höhe verschieben“):**
+
+- **Notenblatt** (`src/components/ueben/Notensatz.tsx`) im Einsingen-Dialog
+  — für den Vorschlag aus Mikrofon oder Datei und für die dritte Quelle
+  **„Schreiben“** (leerer Takt; in der Bibliothek „+ Noten → Neues Stück
+  schreiben“ und im Leerzustand „Schreiben“; `art: geschrieben`). Eine
+  Stimme, Violinschlüssel.
+- **Bedienung:** Note antippen wählt sie (Messing). ▲▼ Halbton, ▲8 ▼8
+  Oktave; mit der Maus ziehen = Schritt auf der Leiter (Tonart, sonst
+  C-Dur). Auf Touch verschiebt Ziehen nichts (es scrollt) — dort die
+  Pfeile. Palette: Notenwert (ganze bis kleinster Wert, punktiert) ändert
+  die gewählte Note wie in MuseScore (kürzer: Pause füllt auf; länger:
+  frisst die folgenden Noten des Takts, nie über den Taktstrich); „Note“
+  schreibt mit dem Palettenwert in die gewählte Stelle (Höhe der vorigen
+  Note) und rückt zur nächsten; „Pause“; „Bogen“ bindet an die vorige Note
+  (gleiche Höhe, auch über den Taktstrich) bzw. löst; „Takt +“/„Takt −“.
+  Tastatur: ↑↓ Halbton, ⇧↑↓ Oktave, ←→ Note, Entf Pause.
+- **Rechnen rein in `src/domain/notensatz.ts`** (getestet): Takte als
+  Strecken (gebundene gleiche Noten = eine Strecke, Bogen über den
+  Taktstrich als Flag), jede Änderung legt den Takt neu in erlaubte Werte
+  (`zerlegen`); Bögen wandern beim Verschieben mit, Pausen lösen sie.
+- **Raster beim Schreiben:** Taktart und kleinster Wert sind fest, sobald
+  etwas auf dem Blatt steht (sonst wäre es weg); Tempo und Tonart bleiben
+  frei. Bei Mikrofon/Datei verfällt die Bearbeitung mit neuer Aufnahme oder
+  neuem Raster (die Grundlage ist dann eine andere).
+- **Noch offen aus der Liste oben:** Notenschlüssel, Vorzeichen setzen
+  (heute über Halbtonschritte), Wiederholungszeichen, Bindebögen als
+  Phrasierung, mehrere Stimmen, „Bearbeiten“ eines gespeicherten Stücks
+  (ABC → Takte lesen), Import/Export `.abc`.
+
 ### G-02 · Rhythmus-Transkription
 
 Einsingen oder klatschen → die App erkennt die Einsätze (Onset-Erkennung)
@@ -275,6 +307,22 @@ G-02 getrennt — Rhythmus zuerst, Töne später.
   verspätet und ohne Tonart; legato gesungene gleiche Töne ohne Neuansatz
   bleiben eine Note (das bleibt die Grenze des Verfahrens). Zur
   Tonart-Auswahl im Dialog gehört „keine“ (Töne bleiben, wie gehört).
+- **Lautsprecher und Anhören (2026-10-26, Wunsch Marlon):** Auf dem iPhone
+  musste man mit dem Mund dicht ans Mikrofon. Zwei Gründe: Die Aufnahme lief
+  mit rohem Mikrofon (ohne Sprachverarbeitung — iOS schaltet dann auf den
+  Hörer um, verstärkt nichts), und die Tonerkennung galt erst ab −42 dBFS
+  (Stimmgerät am Instrument). Jetzt: Schalter **„Lautsprecher“** im Dialog
+  (Vorgabe an, Gerät-Einstellung `ueben:einspiel-lautsprecher`): Echo-
+  Unterdrückung und Verstärkung des Browsers, auf dem iPhone dasselbe wie
+  Freisprechen beim Telefonieren — Klick aus dem Lautsprecher, Mikrofon hört
+  auch aus Abstand, der Klick bleibt aus der Aufnahme draußen.
+  Rauschunterdrückung bleibt immer aus (nimmt gehaltene Töne als
+  Dauergeräusch). Aus = rohes Mikrofon, nah am Mund, unverfälscht. Die
+  Pegelschwelle fürs Einsingen liegt bei −50 dBFS (`grundfrequenz`,
+  Parameter `mindestPegel`; das Stimmgerät behält −42). Mehr geht im Browser
+  nicht: iOS kennt keinen Weg, Lautsprecher und rohes Mikrofon zu
+  kombinieren. Die eigene Aufnahme wird nicht behalten — angehört wird das
+  Transkribierte (G-04), korrigiert im Notensatz (G-01).
 
 ### G-04 · Vorspielen: Noten hörbar machen (Instrumente, Begleitung)
 
@@ -295,8 +343,20 @@ darauf. Grenze: ein Synth, keine „echten“ Aufnahmen — es klingt nach
 
 **Leitbild:** „MIDI, Audio-Begleitspuren“ stehen bewusst außen vor. Das hier
 ist keine Begleitspur als Audio-Datei, sondern das Abspielen der eigenen
-Notation — trotzdem entscheidet Marlon vor dem Start, ob das Leitbild dafür
-geöffnet wird (dann dort anpassen).
+Notation — Marlon hat es 2026-10-26 ins Leitbild genommen (s. dort).
+
+**Begonnen (2026-10-26):** „▶ Vorspielen“ im Notenblatt (G-01) spielt die
+Takte — ab der gewählten Note („▶ Ab hier“) — mit einem **Klavier-ähnlichen
+Ton aus Web Audio** (`src/components/ueben/klavier.ts`: Obertonwelle,
+Tiefpass, der nach dem Anschlag zugeht, Hüllkurve; zwei leicht verstimmte
+Oszillatoren), klingend fürs Instrument (Stimmung und Kammerton des
+Stimmgeräts), Lautstärke wie das Metronom. Die gerade klingende Note wird
+grün markiert. Kein Soundfont nötig — läuft offline und wiegt nichts; echte
+Instrumentklänge (Soundfonts in `public/`, wie oben eingeschätzt) bleiben
+die Ausbaustufe, dann mit Instrumentwahl je Stimme (G-07). Die Klänge
+(`klaenge` in `src/domain/notensatz.ts`, getestet) verschmelzen gebundene
+Noten; Pausen klingen nicht. Noch nicht: Klick dazu, Einzählen, mehrere
+Stimmen, Stummschalten.
 
 ### G-05 · Einspielen Takt für Takt (Aufnehmen → Transkribieren → Einfügen)
 

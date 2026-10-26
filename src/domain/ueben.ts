@@ -23,11 +23,14 @@ export function frequenzZuTon(frequenz: number, kammerton = 442, stimmung: Stimm
 // Grundfrequenz nach dem YIN-Verfahren (de Cheveigné & Kawahara, 2002):
 // robuster gegen Oktavfehler als einfache Autokorrelation, gut für Blasinstrumente.
 // Liefert Frequenz und Klarheit (0..1) oder null bei Stille/Geräusch.
-export function grundfrequenz(puffer: Float32Array, abtastrate: number, schwelle = 0.15): { frequenz: number; klarheit: number } | null {
+// `mindestPegel`: Effektivwert, unter dem das Fenster als Stille gilt
+// (Vorgabe −42 dBFS, fürs Stimmgerät nah am Instrument; das Einsingen hört
+// mit rohem Mikrofon ohne Verstärkung auch aus Abstand und setzt tiefer an).
+export function grundfrequenz(puffer: Float32Array, abtastrate: number, schwelle = 0.15, mindestPegel = 0.008): { frequenz: number; klarheit: number } | null {
   const n = puffer.length;
   let rms = 0;
   for (let i = 0; i < n; i++) rms += puffer[i] * puffer[i];
-  if (Math.sqrt(rms / n) < 0.008) return null;
+  if (Math.sqrt(rms / n) < mindestPegel) return null;
 
   const haelfte = Math.floor(n / 2);
   const minTau = Math.max(2, Math.floor(abtastrate / 2500));
