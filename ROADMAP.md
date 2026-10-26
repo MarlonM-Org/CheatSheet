@@ -631,20 +631,28 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
     passte nicht mehr. WebKit lässt einen Kontext bei laufender Aufnahme
     auch ohne Geste laufen (deshalb geht das Tonprofil von allein an).
 - **„+ Noten“ aufgeräumt** (2026-10-26): Wunsch Marlon. Aus sechs Punkten
-  mit Erklärzeilen werden drei Zeilen, nur Symbol und Name: **PDF-Dateien |
-  Ordner**, **Einscannen | Fotos**, **Selbst schreiben**. Der letzte ersetzt
+  mit Erklärzeilen werden fünf untereinander, nur Symbol und Name:
+  **PDF-Dateien**, **Ordner**, **Einscannen**, **Fotos**, **Selbst
+  schreiben** (ein erster Wurf mit zwei Punkten je Zeile gefiel nicht —
+  untereinander bleibt es). Der letzte ersetzt
   „Einsingen oder Audio laden“ und „Neues Stück schreiben“ — beide führten in
   denselben Dialog, der öffnet jetzt mit „Schreiben“ und hat oben weiter die
   Quellen Mikrofon und Audio-Datei. Der Leerzustand bietet dieselben fünf
   Knöpfe mit denselben Namen (ohne eigenes „Einsingen“).
-  - **PDF-Dateien und Ordner bleiben zwei Hälften** einer Zeile: Der Browser
-    hat zwei getrennte Dialoge (Dateiwahl und Ordnerwahl, auf dem iPhone
-    `webkitdirectory` ab iOS 18.4). Aus der Dateiwahl heraus lässt sich kein
-    Ordner „öffnen“ — die Schaltfläche oben rechts tut dort ohne gewählte
-    Datei nichts, das ist der Dialog des Systems. Einscannen und Fotos
+  - **PDF-Dateien und Ordner bleiben zwei Punkte** (Wunsch war einer, in dem
+    man wahlweise Dateien oder einen Ordner öffnet): Der Browser hat zwei
+    getrennte Dialoge (Dateiwahl und Ordnerwahl, auf dem iPhone
+    `webkitdirectory` ab iOS 18.4). Im WebKit-Quelltext
+    (`WKFileUploadPanel.mm`, `showFilePickerMenu`) nachgesehen: Mit
+    Ordner-Erlaubnis bekommt der Dialog nur `UTTypeFolder`, sonst nur die
+    Dateitypen — nie beides. Aus der Dateiwahl heraus lässt sich darum kein
+    Ordner „öffnen“ (die Schaltfläche oben rechts tut ohne gewählte Datei
+    nichts, das ist der Dialog des Systems), und in der Ordnerwahl sind
+    Dateien ausgegraut. Ein einzelner Punkt müsste in der App erst fragen
+    „Dateien oder Ordner?“ — ein Tipp mehr, nicht weniger. Am Rechner
+    könnte Drag & Drop beides auf einmal (F-09). Einscannen und Fotos
     genauso: Ein einzelner Knopf ohne `capture` zeigte auf dem iPhone erst
-    das Systemblatt „Fotomediathek / Foto aufnehmen / Datei auswählen“ —
-    ein Tipp mehr, darum zwei Hälften.
+    das Systemblatt „Fotomediathek / Foto aufnehmen / Datei auswählen“.
   - **Verlorene Aufnahmen behoben:** Jede Dateiwahl hatte einen Behelf für
     Browser ohne „cancel“-Ereignis — kam das Fenster zurück und nach 1,2–1,5 s
     lag keine Datei an, galt die Wahl als abgebrochen. Nach der Kamera kommt

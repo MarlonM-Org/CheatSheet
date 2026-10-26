@@ -91,12 +91,13 @@ function Symbol({ art }: { art: 'dokument' | 'ordner' | 'kamera' | 'bild' | 'sti
   );
 }
 
-// „+ Noten“ mit kleinem Menü in drei Zeilen: PDF-Dateien oder ein ganzer
-// Ordner (der Browser hat dafür zwei getrennte Dialoge — ein Ordner lässt
-// sich aus der Dateiwahl heraus nicht öffnen, darum zwei Hälften), Kamera
-// (Einscannen) oder Fotos (F-07), und „Selbst schreiben“ (G-01/G-02/G-03):
-// ein Dialog für Schreiben, Einsingen und Audio laden — die Quelle wechselt
-// man darin. Nur Symbol und Name, keine Erklärzeilen.
+// „+ Noten“ mit kleinem Menü, fünf Punkte untereinander, nur Symbol und
+// Name: PDF-Dateien, Ordner, Einscannen, Fotos (F-07), Selbst schreiben
+// (G-01/G-02/G-03: ein Dialog für Schreiben, Einsingen und Audio laden —
+// die Quelle wechselt man darin). PDF-Dateien und Ordner bleiben zwei
+// Punkte: Der Browser hat zwei getrennte Dialoge, iOS zeigt mit
+// Ordner-Erlaubnis nur Ordner (UTTypeFolder), sonst nur Dateien
+// (WebKit, WKFileUploadPanel.mm) — ein Dialog für beides gibt es nicht.
 // Ist eine Sammlung gewählt, steht oben unübersehbar, dass neue Stücke dort
 // einsortiert werden — mit Schalter zum Abwählen.
 export function HinzufuegenMenue({ ziel, einsortieren, setEinsortieren, tagZiel, markieren, setMarkieren, dateien, ordner, scannen, fotos, schreiben, gesperrt }: {
@@ -141,14 +142,10 @@ export function HinzufuegenMenue({ ziel, einsortieren, setEinsortieren, tagZiel,
                 <input type="checkbox" role="switch" className="ios-schalter" checked={markieren} onChange={(e) => setMarkieren(e.target.checked)} />
               </label>
             )}
-            <div className="bib-menue-zeile">
-              {punkt('dokument', 'PDF-Dateien', dateien)}
-              {punkt('ordner', 'Ordner', ordner)}
-            </div>
-            <div className="bib-menue-zeile">
-              {punkt('kamera', 'Einscannen', scannen)}
-              {punkt('bild', 'Fotos', fotos)}
-            </div>
+            {punkt('dokument', 'PDF-Dateien', dateien)}
+            {punkt('ordner', 'Ordner', ordner)}
+            {punkt('kamera', 'Einscannen', scannen)}
+            {punkt('bild', 'Fotos', fotos)}
             {punkt('stift', 'Selbst schreiben', schreiben)}
           </div>
         </>
