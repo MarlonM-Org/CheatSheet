@@ -27,6 +27,7 @@ import { useSicherungLaden } from './Sicherung';
 import { MixZeile } from './StellenMix';
 import { TagEtikett, TagFilter, TagWahl } from './Tags';
 import { fehlerGrund } from './speicherfehler';
+import { ohneCancelAbbrechen } from './dateiwahl';
 import { useEscape } from './tasten';
 
 // Bibliothek (B-02): Overlay über den Noten — Sammlungen (F-13), Stellen-Mix,
@@ -106,8 +107,7 @@ async function dateienWaehlen(): Promise<{ datei: File; handle?: FileSystemFileH
     input.type = 'file'; input.accept = 'application/pdf,.pdf'; input.multiple = true;
     input.onchange = () => ende([...(input.files ?? [])].map((datei) => ({ datei })));
     input.oncancel = () => ende([]);
-    // Ältere Browser kennen kein „cancel“: kommt das Fenster zurück ohne Auswahl, abbrechen.
-    window.addEventListener('focus', () => window.setTimeout(() => { if (!input.files?.length) ende([]); }, 1200), { once: true });
+    ohneCancelAbbrechen(input, () => ende([]));
     input.click();
   });
 }
@@ -123,7 +123,7 @@ function ordnerWaehlen(): Promise<File[]> {
     input.type = 'file'; input.multiple = true; input.webkitdirectory = true;
     input.onchange = () => ende([...(input.files ?? [])]);
     input.oncancel = () => ende([]);
-    window.addEventListener('focus', () => window.setTimeout(() => { if (!input.files?.length) ende([]); }, 1200), { once: true });
+    ohneCancelAbbrechen(input, () => ende([]));
     input.click();
   });
 }
@@ -176,7 +176,8 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
   useEffect(() => kontextMelden(kontext !== null), [kontext, kontextMelden]);
   // Kamera-Scan / Foto-Import (F-07): offener Dialog mit den zuerst gewählten Bildern.
   const [scan, setScan] = useState<{ art: ScanArt; start: File[] } | null>(null);
-  // Einsingen oder Audio laden (G-02/G-03): offener Dialog mit der gewünschten Quelle.
+  // Selbst schreiben, Einsingen oder Audio laden (G-01/G-02/G-03): offener
+  // Dialog mit der Startquelle — aus dem Menü „Schreiben“, umschaltbar.
   const [einspielen, setEinspielen] = useState<EinspielQuelle | null>(null);
   // Erinnerung an die Sicherung (H-01)
   const [erinnerung, setErinnerung] = useState<{ faellig: boolean; tage: number | null } | null>(null);
@@ -443,7 +444,7 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
             tagZiel={zielTag} markieren={markieren} setMarkieren={setMarkieren}
             dateien={() => void hinzufuegen('dateien')} ordner={() => void hinzufuegen('ordner')}
             scannen={() => void scannen('kamera')} fotos={() => void scannen('fotos')}
-            einspielen={() => { setMeldung(''); setWarnung(''); setEinspielen('mikro'); }} />
+            schreiben={() => { setMeldung(''); setWarnung(''); setEinspielen('leer'); }} />
           <span className="flex-1" />
           <div className="segment !mx-0" role="group" aria-label="Sortieren">
             <button type="button" aria-pressed={sortierung === 'zuletzt'} onClick={() => { setSortierung('zuletzt'); speichern('ueben:sort', 'zuletzt'); }}>Zuletzt</button>
@@ -478,11 +479,11 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
             <button type="button" className={`knopf ${vorgaenger ? 'knopf-leise' : ''}`} onClick={sicherung.waehlen} disabled={sicherung.laeuft || sicherung.uebernimmt || laeuft}>
               {sicherung.laeuft ? 'Sicherung wird geladen …' : 'Sicherung laden'}
             </button>
-            <button type="button" className="knopf knopf-leise" onClick={() => void hinzufuegen('dateien')} disabled={sicherung.laeuft || sicherung.uebernimmt || laeuft}>+ Noten hinzufügen</button>
-            <button type="button" className="knopf knopf-leise" onClick={() => void hinzufuegen('ordner')} disabled={sicherung.laeuft || sicherung.uebernimmt || laeuft}>Ordner wählen</button>
+            <button type="button" className="knopf knopf-leise" onClick={() => void hinzufuegen('dateien')} disabled={sicherung.laeuft || sicherung.uebernimmt || laeuft}>PDF-Dateien</button>
+            <button type="button" className="knopf knopf-leise" onClick={() => void hinzufuegen('ordner')} disabled={sicherung.laeuft || sicherung.uebernimmt || laeuft}>Ordner</button>
             <button type="button" className="knopf knopf-leise" onClick={() => void scannen('kamera')} disabled={sicherung.laeuft || sicherung.uebernimmt || laeuft}>Einscannen</button>
-            <button type="button" className="knopf knopf-leise" onClick={() => void scannen('fotos')} disabled={sicherung.laeuft || sicherung.uebernimmt || laeuft}>Fotos wählen</button>
-            <button type="button" className="knopf knopf-leise" onClick={() => setEinspielen('mikro')} disabled={sicherung.laeuft || sicherung.uebernimmt || laeuft}>Einsingen</button>
+            <button type="button" className="knopf knopf-leise" onClick={() => void scannen('fotos')} disabled={sicherung.laeuft || sicherung.uebernimmt || laeuft}>Fotos</button>
+            <button type="button" className="knopf knopf-leise" onClick={() => setEinspielen('leer')} disabled={sicherung.laeuft || sicherung.uebernimmt || laeuft}>Selbst schreiben</button>
           </div>
         </div>
       )}

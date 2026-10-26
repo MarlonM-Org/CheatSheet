@@ -33,9 +33,10 @@ ob das ins Leitbild passt (dann auch CLAUDE.md anpassen: „kein Login“).
 Takt für Takt) und **Song-Transkription** als Vision G-04…G-07
 aufgenommen. Die App bleibt on-device; die schwere Song-Transkription
 kann ein separates Werkzeug sein (Rechner oder Server), Schnittstelle ist
-MusicXML — Einschätzung in G-08. Vor der Umsetzung entscheidet Marlon, ob
-„MIDI, Audio-Begleitspuren, Soundbearbeitung“ dafür aus der Außen-vor-Liste
-genommen wird.
+MusicXML — Einschätzung in G-08. Entschieden (Marlon, 2026-10-26): Das
+**Vorspielen der eigenen Notation** gehört in die App (begonnen, G-04);
+außen vor bleiben MIDI-Dateien, Audio-Begleitspuren als Dateien und
+Soundbearbeitung.
 
 ## Meilensteine (Reihenfolge)
 
@@ -176,7 +177,9 @@ komponieren → üben.
 **Konkretisiert (2026-10-23, Wunsch Marlon):**
 
 - **Einstieg über „+ Noten“:** neben „PDF-Dateien wählen“ und „Ordner
-  wählen“ ein dritter Punkt „Neues Stück schreiben“. Ist eine Sammlung oder
+  wählen“ ein dritter Punkt „Neues Stück schreiben“ (seit 2026-10-26 heißt
+  der Punkt „Selbst schreiben“ und ist zugleich der Einstieg zum Einsingen
+  und Audio laden, siehe Erledigt). Ist eine Sammlung oder
   ein Tag gewählt, gilt dasselbe wie beim Import: das neue Stück wird dort
   einsortiert bzw. markiert.
 - **Eigene Ansicht zum Komponieren:** ein Editor als eigener Bildschirm
@@ -215,6 +218,37 @@ komponieren → üben.
   Stempel-Palette aus E-04 und der Editor sollten dasselbe
   Bedienmuster teilen (Element wählen → antippen/platzieren → verschieben).
 
+**Begonnen (2026-10-26, Wunsch Marlon: „wie in MuseScore selber Noten
+schreiben und die Töne in der Höhe verschieben“):**
+
+- **Notenblatt** (`src/components/ueben/Notensatz.tsx`) im Einsingen-Dialog
+  — für den Vorschlag aus Mikrofon oder Datei und für die dritte Quelle
+  **„Schreiben“** (leerer Takt; in der Bibliothek „+ Noten → Selbst
+  schreiben“ und im Leerzustand „Selbst schreiben“; `art: geschrieben`). Eine
+  Stimme, Violinschlüssel.
+- **Bedienung:** Note antippen wählt sie (Messing). ▲▼ Halbton, ▲8 ▼8
+  Oktave; mit der Maus ziehen = Schritt auf der Leiter (Tonart, sonst
+  C-Dur). Auf Touch verschiebt Ziehen nichts (es scrollt) — dort die
+  Pfeile. Palette: Notenwert (ganze bis kleinster Wert, punktiert) ändert
+  die gewählte Note wie in MuseScore (kürzer: Pause füllt auf; länger:
+  frisst die folgenden Noten des Takts, nie über den Taktstrich); „Note“
+  schreibt mit dem Palettenwert in die gewählte Stelle (Höhe der vorigen
+  Note) und rückt zur nächsten; „Pause“; „Bogen“ bindet an die vorige Note
+  (gleiche Höhe, auch über den Taktstrich) bzw. löst; „Takt +“/„Takt −“.
+  Tastatur: ↑↓ Halbton, ⇧↑↓ Oktave, ←→ Note, Entf Pause.
+- **Rechnen rein in `src/domain/notensatz.ts`** (getestet): Takte als
+  Strecken (gebundene gleiche Noten = eine Strecke, Bogen über den
+  Taktstrich als Flag), jede Änderung legt den Takt neu in erlaubte Werte
+  (`zerlegen`); Bögen wandern beim Verschieben mit, Pausen lösen sie.
+- **Raster beim Schreiben:** Taktart und kleinster Wert sind fest, sobald
+  etwas auf dem Blatt steht (sonst wäre es weg); Tempo und Tonart bleiben
+  frei. Bei Mikrofon/Datei verfällt die Bearbeitung mit neuer Aufnahme oder
+  neuem Raster (die Grundlage ist dann eine andere).
+- **Noch offen aus der Liste oben:** Notenschlüssel, Vorzeichen setzen
+  (heute über Halbtonschritte), Wiederholungszeichen, Bindebögen als
+  Phrasierung, mehrere Stimmen, „Bearbeiten“ eines gespeicherten Stücks
+  (ABC → Takte lesen), Import/Export `.abc`.
+
 ### G-02 · Rhythmus-Transkription
 
 Einsingen oder klatschen → die App erkennt die Einsätze (Onset-Erkennung)
@@ -235,7 +269,9 @@ G-02 getrennt — Rhythmus zuerst, Töne später.
 **Konkretisiert und begonnen (2026-10-26, Branch `feature/einspielen-ui`):**
 
 - **Einstieg über „+ Noten“:** fünfter Punkt „Einsingen oder Audio laden“
-  (neben dem Leerzustand-Knopf „Einsingen“). Ein eigener Vollbild-Dialog
+  (neben dem Leerzustand-Knopf „Einsingen“; seit 2026-10-26 beides über
+  „Selbst schreiben“ — der Dialog öffnet mit der Quelle „Schreiben“, oben
+  wechselt man zu Mikrofon oder Audio-Datei). Ein eigener Vollbild-Dialog
   wie beim Scan: Quelle Mikrofon oder Audio-Datei (Sprachmemo m4a, mp3,
   wav — eine Stimme, kein ganzer Song), Tempo (Feld, Tippen), Taktart,
   kleinster Notenwert (Achtel/Sechzehntel), beim Mikrofon ein Takt
@@ -275,6 +311,22 @@ G-02 getrennt — Rhythmus zuerst, Töne später.
   verspätet und ohne Tonart; legato gesungene gleiche Töne ohne Neuansatz
   bleiben eine Note (das bleibt die Grenze des Verfahrens). Zur
   Tonart-Auswahl im Dialog gehört „keine“ (Töne bleiben, wie gehört).
+- **Lautsprecher und Anhören (2026-10-26, Wunsch Marlon):** Auf dem iPhone
+  musste man mit dem Mund dicht ans Mikrofon. Zwei Gründe: Die Aufnahme lief
+  mit rohem Mikrofon (ohne Sprachverarbeitung — iOS schaltet dann auf den
+  Hörer um, verstärkt nichts), und die Tonerkennung galt erst ab −42 dBFS
+  (Stimmgerät am Instrument). Jetzt: Schalter **„Lautsprecher“** im Dialog
+  (Vorgabe an, Gerät-Einstellung `ueben:einspiel-lautsprecher`): Echo-
+  Unterdrückung und Verstärkung des Browsers, auf dem iPhone dasselbe wie
+  Freisprechen beim Telefonieren — Klick aus dem Lautsprecher, Mikrofon hört
+  auch aus Abstand, der Klick bleibt aus der Aufnahme draußen.
+  Rauschunterdrückung bleibt immer aus (nimmt gehaltene Töne als
+  Dauergeräusch). Aus = rohes Mikrofon, nah am Mund, unverfälscht. Die
+  Pegelschwelle fürs Einsingen liegt bei −50 dBFS (`grundfrequenz`,
+  Parameter `mindestPegel`; das Stimmgerät behält −42). Mehr geht im Browser
+  nicht: iOS kennt keinen Weg, Lautsprecher und rohes Mikrofon zu
+  kombinieren. Die eigene Aufnahme wird nicht behalten — angehört wird das
+  Transkribierte (G-04), korrigiert im Notensatz (G-01).
 
 ### G-04 · Vorspielen: Noten hörbar machen (Instrumente, Begleitung)
 
@@ -295,8 +347,20 @@ darauf. Grenze: ein Synth, keine „echten“ Aufnahmen — es klingt nach
 
 **Leitbild:** „MIDI, Audio-Begleitspuren“ stehen bewusst außen vor. Das hier
 ist keine Begleitspur als Audio-Datei, sondern das Abspielen der eigenen
-Notation — trotzdem entscheidet Marlon vor dem Start, ob das Leitbild dafür
-geöffnet wird (dann dort anpassen).
+Notation — Marlon hat es 2026-10-26 ins Leitbild genommen (s. dort).
+
+**Begonnen (2026-10-26):** „▶ Vorspielen“ im Notenblatt (G-01) spielt die
+Takte — ab der gewählten Note („▶ Ab hier“) — mit einem **Klavier-ähnlichen
+Ton aus Web Audio** (`src/components/ueben/klavier.ts`: Obertonwelle,
+Tiefpass, der nach dem Anschlag zugeht, Hüllkurve; zwei leicht verstimmte
+Oszillatoren), klingend fürs Instrument (Stimmung und Kammerton des
+Stimmgeräts), Lautstärke wie das Metronom. Die gerade klingende Note wird
+grün markiert. Kein Soundfont nötig — läuft offline und wiegt nichts; echte
+Instrumentklänge (Soundfonts in `public/`, wie oben eingeschätzt) bleiben
+die Ausbaustufe, dann mit Instrumentwahl je Stimme (G-07). Die Klänge
+(`klaenge` in `src/domain/notensatz.ts`, getestet) verschmelzen gebundene
+Noten; Pausen klingen nicht. Noch nicht: Klick dazu, Einzählen, mehrere
+Stimmen, Stummschalten.
 
 ### G-05 · Einspielen Takt für Takt (Aufnehmen → Transkribieren → Einfügen)
 
@@ -503,6 +567,29 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
 
 *(Abgeschlossene Punkte hierher verschieben, mit Datum und Commit.)*
 
+- **„+ Noten“ aufgeräumt** (2026-10-26): Wunsch Marlon. Aus sechs Punkten
+  mit Erklärzeilen werden drei Zeilen, nur Symbol und Name: **PDF-Dateien |
+  Ordner**, **Einscannen | Fotos**, **Selbst schreiben**. Der letzte ersetzt
+  „Einsingen oder Audio laden“ und „Neues Stück schreiben“ — beide führten in
+  denselben Dialog, der öffnet jetzt mit „Schreiben“ und hat oben weiter die
+  Quellen Mikrofon und Audio-Datei. Der Leerzustand bietet dieselben fünf
+  Knöpfe mit denselben Namen (ohne eigenes „Einsingen“).
+  - **PDF-Dateien und Ordner bleiben zwei Hälften** einer Zeile: Der Browser
+    hat zwei getrennte Dialoge (Dateiwahl und Ordnerwahl, auf dem iPhone
+    `webkitdirectory` ab iOS 18.4). Aus der Dateiwahl heraus lässt sich kein
+    Ordner „öffnen“ — die Schaltfläche oben rechts tut dort ohne gewählte
+    Datei nichts, das ist der Dialog des Systems. Einscannen und Fotos
+    genauso: Ein einzelner Knopf ohne `capture` zeigte auf dem iPhone erst
+    das Systemblatt „Fotomediathek / Foto aufnehmen / Datei auswählen“ —
+    ein Tipp mehr, darum zwei Hälften.
+  - **Verlorene Aufnahmen behoben:** Jede Dateiwahl hatte einen Behelf für
+    Browser ohne „cancel“-Ereignis — kam das Fenster zurück und nach 1,2–1,5 s
+    lag keine Datei an, galt die Wahl als abgebrochen. Nach der Kamera kommt
+    das Bild auf dem Telefon mitunter später: Der Behelf hatte die Wahl schon
+    verworfen, es „passierte nichts“ (Rückmeldung Marlon, mal ja, mal nein).
+    Jetzt nur noch in Browsern ohne `oncancel` (`dateiwahl.ts`), für alle
+    Dateiwahlen (PDF, Ordner, Bilder, Audio).
+
 - **B-15 · Doppeltipp in die Mitte: spielbereit** (2026-10-23): Wunsch
   Marlon. Ein Tipp in die Mitte blendet wie bisher die Leisten oben und
   unten aus und ein; ein **Doppeltipp** (zwei Tipps binnen 350 ms, nah
@@ -564,8 +651,8 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
 - **F-07 · Kamera-Scan und Foto-Import** (2026-10-23): Wunsch Marlon,
   vorgezogen. Unter „+ Noten“ zwei neue Punkte: **„Einscannen“** (Kamera,
   Seite für Seite) und **„Fotos wählen“** (vorhandene Bilder, mehrere auf
-  einmal); auch in der leeren Bibliothek. Sammlung und Tag gelten wie beim
-  Import.
+  einmal; seit 2026-10-26 „Fotos“, in einer Zeile mit „Einscannen“); auch
+  in der leeren Bibliothek. Sammlung und Tag gelten wie beim Import.
   - **Dialog** (`Scan.tsx`, am body, über allem): große Vorschau der
     aktiven Seite, Stufe **Foto / Scan / Schwarz-Weiß** (je Gerät gemerkt,
     `ueben:scan-stufe`), **„Rand anpassen“** zeigt das Foto mit Viereck und

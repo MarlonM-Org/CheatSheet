@@ -67,22 +67,44 @@ function NameFormular({ start = '', knopf, platzhalter, fertig, abbrechen }: {
   );
 }
 
-// „+ Noten“ mit kleinem Menü: PDF-Dateien, einen ganzen Ordner, die Kamera
-// (Einscannen) oder Fotos (F-07) wählen. Dazu „Einsingen oder Audio laden“
-// (G-02/G-03): eine Stimme aufnehmen, die App schreibt mit.
+// Kleine Strich-Symbole für das Menü (wie das Zahnrad im Kopf).
+function Symbol({ art }: { art: 'dokument' | 'ordner' | 'kamera' | 'bild' | 'stift' }) {
+  const pfad = {
+    dokument: <><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5" /></>,
+    ordner: <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />,
+    kamera: <><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" /><circle cx="12" cy="13" r="3.5" /></>,
+    bild: <><rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="8.5" cy="10" r="1.5" /><path d="m21 16-5-5-9 8" /></>,
+    stift: <><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4" /><path d="M14 3v5h5" /><path d="m20.5 12.5-7 7-2.5.5.5-2.5 7-7a1.4 1.4 0 0 1 2 2z" /></>,
+  }[art];
+  return (
+    <svg className="bib-menue-symbol" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      {pfad}
+    </svg>
+  );
+}
+
+// „+ Noten“ mit kleinem Menü in drei Zeilen: PDF-Dateien oder ein ganzer
+// Ordner (der Browser hat dafür zwei getrennte Dialoge — ein Ordner lässt
+// sich aus der Dateiwahl heraus nicht öffnen, darum zwei Hälften), Kamera
+// (Einscannen) oder Fotos (F-07), und „Selbst schreiben“ (G-01/G-02/G-03):
+// ein Dialog für Schreiben, Einsingen und Audio laden — die Quelle wechselt
+// man darin. Nur Symbol und Name, keine Erklärzeilen.
 // Ist eine Sammlung gewählt, steht oben unübersehbar, dass neue Stücke dort
 // einsortiert werden — mit Schalter zum Abwählen.
-export function HinzufuegenMenue({ ziel, einsortieren, setEinsortieren, tagZiel, markieren, setMarkieren, dateien, ordner, scannen, fotos, einspielen, gesperrt }: {
+export function HinzufuegenMenue({ ziel, einsortieren, setEinsortieren, tagZiel, markieren, setMarkieren, dateien, ordner, scannen, fotos, schreiben, gesperrt }: {
   ziel: string | null; einsortieren: boolean; setEinsortieren: (an: boolean) => void;
   // Gewählter Tag (F-14): neue Stücke damit markieren — genauso sichtbar.
   tagZiel: Tag | null; markieren: boolean; setMarkieren: (an: boolean) => void;
-  dateien: () => void; ordner: () => void; scannen: () => void; fotos: () => void; einspielen: () => void; gesperrt: boolean;
+  dateien: () => void; ordner: () => void; scannen: () => void; fotos: () => void; schreiben: () => void; gesperrt: boolean;
 }) {
   const [offen, setOffen] = useState(false);
   const menue = useRef<HTMLDivElement>(null);
   // Beim Öffnen einmal ins Bild holen (die Bibliothek scrollt).
   useEffect(() => { if (offen) menue.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, [offen]);
   const waehlen = (f: () => void) => { setOffen(false); f(); };
+  const punkt = (art: 'dokument' | 'ordner' | 'kamera' | 'bild' | 'stift', name: string, f: () => void) => (
+    <button type="button" role="menuitem" className="bib-menue-punkt" onClick={() => waehlen(f)}><Symbol art={art} />{name}</button>
+  );
   return (
     <div className="bib-menue-huelle">
       <button type="button" className="knopf knopf-klein" aria-expanded={offen} aria-haspopup="menu" onClick={() => setOffen(!offen)} disabled={gesperrt}
@@ -111,21 +133,15 @@ export function HinzufuegenMenue({ ziel, einsortieren, setEinsortieren, tagZiel,
                 <input type="checkbox" role="switch" className="ios-schalter" checked={markieren} onChange={(e) => setMarkieren(e.target.checked)} />
               </label>
             )}
-            <button type="button" role="menuitem" className="bib-menue-punkt" onClick={() => waehlen(dateien)}>
-              PDF-Dateien wählen<span>eine oder mehrere</span>
-            </button>
-            <button type="button" role="menuitem" className="bib-menue-punkt" onClick={() => waehlen(ordner)}>
-              Ordner wählen<span>alle PDFs darin · Unterordner werden Sammlungen</span>
-            </button>
-            <button type="button" role="menuitem" className="bib-menue-punkt" onClick={() => waehlen(scannen)}>
-              Einscannen<span>Papiernoten mit der Kamera, Seite für Seite</span>
-            </button>
-            <button type="button" role="menuitem" className="bib-menue-punkt" onClick={() => waehlen(fotos)}>
-              Fotos wählen<span>vorhandene Fotos von Noten · Schatten werden entfernt</span>
-            </button>
-            <button type="button" role="menuitem" className="bib-menue-punkt" onClick={() => waehlen(einspielen)}>
-              Einsingen oder Audio laden<span>eine Stimme aufnehmen oder Sprachmemo wählen · die App schreibt mit</span>
-            </button>
+            <div className="bib-menue-zeile">
+              {punkt('dokument', 'PDF-Dateien', dateien)}
+              {punkt('ordner', 'Ordner', ordner)}
+            </div>
+            <div className="bib-menue-zeile">
+              {punkt('kamera', 'Einscannen', scannen)}
+              {punkt('bild', 'Fotos', fotos)}
+            </div>
+            {punkt('stift', 'Selbst schreiben', schreiben)}
           </div>
         </>
       )}
