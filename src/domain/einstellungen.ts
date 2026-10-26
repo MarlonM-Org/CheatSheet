@@ -1,7 +1,8 @@
 // Persönliche Einstellungen, die mit der Sicherung reisen: was zur Person und
 // zum Instrument gehört — Stimmung und Kammerton, Metronom (Klang, Lautstärke,
 // Taktart, Akzente, Unterteilung, Trainer), Stift-, Marker- und Textfarbe,
-// Wischrichtung, Zoomen auch beim Lesen, Tonumfang fürs Tonprofil. Was zum Gerät gehört, bleibt:
+// Wischrichtung, Zoomen auch beim Lesen, Tonumfang fürs Tonprofil, Reihenfolge der
+// Sammlungen. Was zum Gerät gehört, bleibt:
 // Hell/Dunkel und Farbwelten, Lage der Fenster, zuletzt Geöffnetes, Filter,
 // das Tempo (folgt den Stellen). Tags und Tonprofile haben eigene Felder.
 //
@@ -37,6 +38,8 @@ export interface Einstellungswerte {
   'ueben:wisch-umkehren': boolean;
   'ueben:zoom-immer': boolean;
   'ueben:tonprofil-umfang': Tonumfang;
+  // Namen der Sammlungen in der Reihenfolge der Leiste (F-13; fehlende kommen dahinter, A–Z).
+  'ueben:sammlungen-reihenfolge': string[];
 }
 export type Mitreisend = keyof Einstellungswerte;
 export type Werte = Partial<Einstellungswerte>;
@@ -62,6 +65,7 @@ export const EINSTELLUNG_STANDARD: Einstellungswerte = {
   'ueben:wisch-umkehren': false,
   'ueben:zoom-immer': false,
   'ueben:tonprofil-umfang': { von: 55, bis: 79, stamm: false },
+  'ueben:sammlungen-reihenfolge': [],
 };
 
 // Zeitpunkt der letzten echten Änderung eines mitreisenden Werts (ms).
@@ -97,6 +101,7 @@ const PRUEFEN: Record<Mitreisend, (v: unknown) => boolean> = {
   'ueben:wisch-umkehren': (v) => typeof v === 'boolean',
   'ueben:zoom-immer': (v) => typeof v === 'boolean',
   'ueben:tonprofil-umfang': (v) => objekt(v) && ganz(v.von, 0, 127) && ganz(v.bis, 0, 127) && v.von <= v.bis && typeof v.stamm === 'boolean',
+  'ueben:sammlungen-reihenfolge': (v) => Array.isArray(v) && v.length <= 1000 && v.every((x) => typeof x === 'string' && x.length > 0 && x.length <= 60),
 };
 
 export const MITREISEND = Object.keys(PRUEFEN) as Mitreisend[];

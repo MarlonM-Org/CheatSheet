@@ -268,7 +268,17 @@ Speicher steht (A-02): `merker`, einer je Seite.
 
 PDFs aus dem Datei-Manager in die Bibliothek ziehen = Import. Noten in
 Setlisten ziehen, Setlisten-Einträge umsortieren. (Desktop zuerst; Touch
-soweit sinnvoll.)
+soweit sinnvoll.) Auch Sammlungen in der Leiste und in der großen Ansicht
+ziehen statt der Pfeile (F-21).
+
+### F-22 · Sammlungen: eine Farbe je Sammlung
+
+Wunsch Marlon (2026-10-26, „muss nicht sofort sein“): Einer Sammlung eine
+Farbe geben — wie bei den Tags aus einer kleinen Palette —, sichtbar am Chip
+in der Leiste und am Abschnitt in der großen Ansicht. **Kein Icon** je
+Sammlung (bewusst weggelassen: nervt mehr, als es hilft). Speicher: Farben
+je Name, persönlich (reisen mit der Sicherung wie die Reihenfolge,
+`ueben:sammlungen-reihenfolge`), beim Umbenennen mitnehmen.
 
 ---
 
@@ -293,7 +303,9 @@ komponieren → üben.
 **Konkretisiert (2026-10-23, Wunsch Marlon):**
 
 - **Einstieg über „+ Noten“:** neben „PDF-Dateien wählen“ und „Ordner
-  wählen“ ein dritter Punkt „Neues Stück schreiben“. Ist eine Sammlung oder
+  wählen“ ein dritter Punkt „Neues Stück schreiben“ (seit 2026-10-26 heißt
+  der Punkt „Selbst schreiben“ und ist zugleich der Einstieg zum Einsingen
+  und Audio laden, siehe Erledigt). Ist eine Sammlung oder
   ein Tag gewählt, gilt dasselbe wie beim Import: das neue Stück wird dort
   einsortiert bzw. markiert.
 - **Eigene Ansicht zum Komponieren:** ein Editor als eigener Bildschirm
@@ -337,8 +349,8 @@ schreiben und die Töne in der Höhe verschieben“):**
 
 - **Notenblatt** (`src/components/ueben/Notensatz.tsx`) im Einsingen-Dialog
   — für den Vorschlag aus Mikrofon oder Datei und für die dritte Quelle
-  **„Schreiben“** (leerer Takt; in der Bibliothek „+ Noten → Neues Stück
-  schreiben“ und im Leerzustand „Schreiben“; `art: geschrieben`). Eine
+  **„Schreiben“** (leerer Takt; in der Bibliothek „+ Noten → Selbst
+  schreiben“ und im Leerzustand „Selbst schreiben“; `art: geschrieben`). Eine
   Stimme, Violinschlüssel.
 - **Bedienung:** Note antippen wählt sie (Messing). ▲▼ Halbton, ▲8 ▼8
   Oktave; mit der Maus ziehen = Schritt auf der Leiter (Tonart, sonst
@@ -422,7 +434,9 @@ G-02 getrennt — Rhythmus zuerst, Töne später.
 **Konkretisiert und begonnen (2026-10-26, Branch `feature/einspielen-ui`):**
 
 - **Einstieg über „+ Noten“:** fünfter Punkt „Einsingen oder Audio laden“
-  (neben dem Leerzustand-Knopf „Einsingen“). Ein eigener Vollbild-Dialog
+  (neben dem Leerzustand-Knopf „Einsingen“; seit 2026-10-26 beides über
+  „Selbst schreiben“ — der Dialog öffnet mit der Quelle „Schreiben“, oben
+  wechselt man zu Mikrofon oder Audio-Datei). Ein eigener Vollbild-Dialog
   wie beim Scan: Quelle Mikrofon oder Audio-Datei (Sprachmemo m4a, mp3,
   wav — eine Stimme, kein ganzer Song), Tempo (Feld, Tippen), Taktart,
   kleinster Notenwert (Achtel/Sechzehntel), beim Mikrofon ein Takt
@@ -780,6 +794,99 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
 
 *(Abgeschlossene Punkte hierher verschieben, mit Datum und Commit.)*
 
+- **F-21 · Sammlungen sortieren und große Ansicht** (2026-10-26): Wunsch
+  Marlon: Manche Sammlungen immer vorn auf Abruf, andere hinten; und bei
+  vielen Sammlungen eine Ansicht, die alle mit ihren Stücken zeigt.
+  - **Reihenfolge:** Im Kontext-Blatt der Sammlung (Chip halten oder zweiter
+    Tipp, in der großen Ansicht „⋯“) eine Zeile „Platz 2 von 5“ mit **⇤ ganz
+    nach vorn, ← nach vorn, → nach hinten**; das Blatt bleibt offen, die
+    Leiste sortiert sich dahinter um. Gemerkt als Namensliste im
+    localStorage `ueben:sammlungen-reihenfolge` — persönlich, **reist mit der
+    Sicherung** (Einstellung in `src/domain/einstellungen.ts`). Sammlungen,
+    die in der Liste fehlen (neu angelegt, aus einem Ordner), kommen
+    dahinter A–Z; Umbenennen behält den Platz, Zusammenlegen den Platz des
+    Ziels. Regeln `sammlungenOrdnen`, `reihenfolgeVerschieben`,
+    `reihenfolgeUmbenennen` in `src/domain/sammlungen.ts`, getestet.
+  - **Große Ansicht** (`SammlungenAnsicht.tsx`): rechts an der Leiste ein
+    fester Pfeil „›“ (scrollt nicht mit). Vollflächig über der Bibliothek:
+    jede Sammlung als Abschnitt in der gemerkten Reihenfolge, darunter ihre
+    Stücke A–Z (Stimme, Stellen, „auch in 2 weiteren Sammlungen“); Tipp auf
+    den Kopf klappt zu oder auf (je Gerät gemerkt, `ueben:sammlungen-zu`),
+    „⋯“ oder Halten öffnet das Kontext-Blatt der Sammlung (umbenennen,
+    verschieben, nur diese zeigen, Stücke auswählen, auflösen), Tipp auf
+    ein Stück öffnet es, „⋯“ am Stück sein Blatt (dort auch Sammlungen
+    ändern). Zuletzt „Ohne Sammlung“; unten „+ Sammlung“ und „Alle Stücke
+    zeigen“. Escape schließt erst die Ansicht, dann die Bibliothek.
+  - Farbe je Sammlung als F-22 notiert, kein Icon.
+
+- **D-07 · Taktart im Metronom-Widget, schmale Säule aufgeräumt**
+  (2026-10-26): Wunsch Marlon. In beiden Widget-Ansichten sind **Taktart
+  und Taktpunkte ein Knopf**: Antippen klappt ein kleines Kästchen mit den
+  üblichen Taktarten (4/4 · 3/4 · 6/8 · 2/4, die Schnellwahl aus D-05) auf,
+  Antippen wählt und schließt; danebentippen schließt. Zähler/Nenner frei
+  weiter nur in der großen Ansicht („alles“). Die **schmale Säule** hat nur
+  noch **+1 und −1** (±10 % entfallen dort; die Knöpfe sind so hoch wie der
+  Start-Knopf, 46 px — ersetzt die Nachbesserung zu D-06), Reihenfolge:
+  Start → Taktart mit Punkten → Tempo → +1 / −1 → „alles“.
+- **C-05 · Stimmgerät sofort an, hört auch aus Abstand** (2026-10-26):
+  Wunsch Marlon (iPad als Home-Bildschirm-App): Der Tipp auf „Stimmgerät“
+  in der unteren Leiste **startet das Mikrofon gleich mit** — er ist die
+  Geste, die der Browser für Mikrofon und Ton verlangt; der zweite Tipp im
+  Widget entfällt (Pause/Weiter bleibt dort). Beim Start der App geht das
+  Mikrofon weiterhin nie von allein an. Ob der Browser die Mikrofon-Erlaubnis
+  behält, entscheidet er selbst: Home-Bildschirm-App auf iPhone/iPad ab
+  iOS 17 und Chrome merken sich „Erlauben“, Safari im Tab fragt je Sitzung
+  (Safari am Mac: Einstellungen für diese Website → Mikrofon → Erlauben).
+  Dazu zwei Gründe, warum das Stimmgerät gesungene Töne nicht hörte:
+  - Es lief mit **rohem Mikrofon** ohne Verstärkung (wie das Einsingen vor
+    dem Lautsprecher-Schalter, G-03): aus Abstand blieb der Pegel unter der
+    Schwelle. Jetzt Schalter **„Mikrofon verstärken“** in der großen Ansicht
+    (Vorgabe an, Gerät-Einstellung `ueben:stimm-verstaerken`): Echo-
+    Unterdrückung und Verstärkung des Browsers, hört Singen und Instrument
+    auch aus Abstand; aus = rohes Mikrofon, nah ans Instrument. Umschalten
+    startet ein laufendes Mikrofon neu. Die Pegelschwelle bleibt −42 dBFS.
+    Mikrofon-Wunsch für Stimmgerät und Einsingen gemeinsam in
+    `klang.ts` (`mikrofonWunsch`).
+  - Lief das Metronom neben dem Stimmgerät an, setzte es die Audio-Sitzung
+    auf „playback“ — damit **stellt iOS das Mikrofon stumm**. Jetzt gilt,
+    solange ein Mikrofon offen ist (`mikrofonOffen` in `klang.ts`), immer
+    „play-and-record“; die Wiedergabe-Wahl greift wieder, wenn das letzte
+    Mikrofon zu ist.
+  - Reihenfolge bleibt: erst `getUserMedia`, dann der `AudioContext` — iOS
+    stellt mit dem Mikrofon die Abtastrate um, ein vorher angelegter Kontext
+    passte nicht mehr. WebKit lässt einen Kontext bei laufender Aufnahme
+    auch ohne Geste laufen (deshalb geht das Tonprofil von allein an).
+- **„+ Noten“ aufgeräumt** (2026-10-26): Wunsch Marlon. Aus sechs Punkten
+  mit Erklärzeilen werden fünf untereinander, nur Symbol und Name:
+  **PDF-Dateien**, **Ordner**, **Einscannen**, **Fotos**, **Selbst
+  schreiben** (ein erster Wurf mit zwei Punkten je Zeile gefiel nicht —
+  untereinander bleibt es). Der letzte ersetzt
+  „Einsingen oder Audio laden“ und „Neues Stück schreiben“ — beide führten in
+  denselben Dialog, der öffnet jetzt mit „Schreiben“ und hat oben weiter die
+  Quellen Mikrofon und Audio-Datei. Der Leerzustand bietet dieselben fünf
+  Knöpfe mit denselben Namen (ohne eigenes „Einsingen“).
+  - **PDF-Dateien und Ordner bleiben zwei Punkte** (Wunsch war einer, in dem
+    man wahlweise Dateien oder einen Ordner öffnet): Der Browser hat zwei
+    getrennte Dialoge (Dateiwahl und Ordnerwahl, auf dem iPhone
+    `webkitdirectory` ab iOS 18.4). Im WebKit-Quelltext
+    (`WKFileUploadPanel.mm`, `showFilePickerMenu`) nachgesehen: Mit
+    Ordner-Erlaubnis bekommt der Dialog nur `UTTypeFolder`, sonst nur die
+    Dateitypen — nie beides. Aus der Dateiwahl heraus lässt sich darum kein
+    Ordner „öffnen“ (die Schaltfläche oben rechts tut ohne gewählte Datei
+    nichts, das ist der Dialog des Systems), und in der Ordnerwahl sind
+    Dateien ausgegraut. Ein einzelner Punkt müsste in der App erst fragen
+    „Dateien oder Ordner?“ — ein Tipp mehr, nicht weniger. Am Rechner
+    könnte Drag & Drop beides auf einmal (F-09). Einscannen und Fotos
+    genauso: Ein einzelner Knopf ohne `capture` zeigte auf dem iPhone erst
+    das Systemblatt „Fotomediathek / Foto aufnehmen / Datei auswählen“.
+  - **Verlorene Aufnahmen behoben:** Jede Dateiwahl hatte einen Behelf für
+    Browser ohne „cancel“-Ereignis — kam das Fenster zurück und nach 1,2–1,5 s
+    lag keine Datei an, galt die Wahl als abgebrochen. Nach der Kamera kommt
+    das Bild auf dem Telefon mitunter später: Der Behelf hatte die Wahl schon
+    verworfen, es „passierte nichts“ (Rückmeldung Marlon, mal ja, mal nein).
+    Jetzt nur noch in Browsern ohne `oncancel` (`dateiwahl.ts`), für alle
+    Dateiwahlen (PDF, Ordner, Bilder, Audio).
+
 - **B-15 · Doppeltipp in die Mitte: spielbereit** (2026-10-23): Wunsch
   Marlon. Ein Tipp in die Mitte blendet wie bisher die Leisten oben und
   unten aus und ein; ein **Doppeltipp** (zwei Tipps binnen 350 ms, nah
@@ -841,8 +948,8 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
 - **F-07 · Kamera-Scan und Foto-Import** (2026-10-23): Wunsch Marlon,
   vorgezogen. Unter „+ Noten“ zwei neue Punkte: **„Einscannen“** (Kamera,
   Seite für Seite) und **„Fotos wählen“** (vorhandene Bilder, mehrere auf
-  einmal); auch in der leeren Bibliothek. Sammlung und Tag gelten wie beim
-  Import.
+  einmal; seit 2026-10-26 „Fotos“, in einer Zeile mit „Einscannen“); auch
+  in der leeren Bibliothek. Sammlung und Tag gelten wie beim Import.
   - **Dialog** (`Scan.tsx`, am body, über allem): große Vorschau der
     aktiven Seite, Stufe **Foto / Scan / Schwarz-Weiß** (je Gerät gemerkt,
     `ueben:scan-stufe`), **„Rand anpassen“** zeigt das Foto mit Viereck und

@@ -10,6 +10,7 @@ import { gespeichert, speichern } from './klang';
 import { stueckAnlegen } from './lokal';
 import { fehlerGrund } from './speicherfehler';
 import { useDialogFokus, useEscape } from './tasten';
+import { ohneCancelAbbrechen } from './dateiwahl';
 
 // Kamera-Scan und Foto-Import (F-07): Fotos von Papiernoten werden Seiten
 // eines neuen Stücks. Je Seite: Blattrand (automatisch, Ecken ziehbar),
@@ -34,7 +35,9 @@ export const istTouchGeraet = () => typeof window !== 'undefined' && window.matc
 const kannLiveKamera = () => typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia && !istTouchGeraet();
 
 // Bilder wählen: Kamera (capture) oder Fotos aus der Mediathek. Mehrere Fotos
-// auf einmal; die Kamera liefert je Aufnahme eine Datei.
+// auf einmal; die Kamera liefert je Aufnahme eine Datei. Kein Fokus-Fallback,
+// solange der Browser „cancel“ kennt: Nach der Kamera kam das Bild mitunter
+// erst nach dem Fallback — und ging verloren (dateiwahl.ts).
 export function bilderWaehlen(art: ScanArt): Promise<File[]> {
   return new Promise((ok) => {
     let fertig = false;
@@ -44,7 +47,7 @@ export function bilderWaehlen(art: ScanArt): Promise<File[]> {
     if (art === 'kamera') input.setAttribute('capture', 'environment'); else input.multiple = true;
     input.onchange = () => ende([...(input.files ?? [])]);
     input.oncancel = () => ende([]);
-    window.addEventListener('focus', () => window.setTimeout(() => { if (!input.files?.length) ende([]); }, 1500), { once: true });
+    ohneCancelAbbrechen(input, () => ende([]));
     input.click();
   });
 }

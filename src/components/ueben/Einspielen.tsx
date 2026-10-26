@@ -10,7 +10,7 @@ import type { Stueck } from '@/domain/bestand';
 import { schlaegeJeTakt, TAKTARTEN, taktartText, type Nenner } from '@/domain/takt';
 import { aufBlatt, aufsBlattStimmen, einstimmig, leeresBlatt, skalieren } from '@/domain/notensatz';
 import { frequenzZuTon, grundfrequenz, type Stimmung } from '@/domain/ueben';
-import { audioSitzung, gespeichert, klangPuffer, speichern, wachHalten } from './klang';
+import { audioSitzung, gespeichert, klangPuffer, mikrofonOffen, mikrofonWunsch, speichern, wachHalten } from './klang';
 import { stueckAnlegen, stueckNeuSchreiben } from './lokal';
 import { useMetronom } from './MetronomKontext';
 import { Notenblatt } from './Notensatz';
@@ -18,6 +18,7 @@ import { useStimmgeraetApi } from './StimmgeraetKontext';
 import { notationPdf } from './notenpdf';
 import { fehlerGrund } from './speicherfehler';
 import { useDialogFokus, useEscape } from './tasten';
+import { ohneCancelAbbrechen } from './dateiwahl';
 
 // Einsingen, Audio laden oder Schreiben (G-01/G-02/G-03): eine Stimme wird
 // aufgenommen — live über das Mikrofon mit Einzähler und Klick, oder aus
@@ -67,13 +68,14 @@ function audioWaehlen(): Promise<File | null> {
     input.type = 'file'; input.accept = ACCEPT;
     input.onchange = () => ende(input.files?.[0] ?? null);
     input.oncancel = () => ende(null);
-    window.addEventListener('focus', () => window.setTimeout(() => { if (!input.files?.length) ende(null); }, 1500), { once: true });
+    ohneCancelAbbrechen(input, () => ende(null));
     input.click();
   });
 }
 
 interface Mikro {
   stream: MediaStream; ctx: AudioContext; raf: number; quellen: AudioBufferSourceNode[]; t0: number; freigeben: (() => void) | null;
+  abmelden: () => void;
 }
 interface Wiedergabe { ctx: AudioContext; quelle: AudioBufferSourceNode; beginn: number; raf: number }
 
@@ -233,6 +235,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
     m.stream.getTracks().forEach((t) => t.stop());
     void m.ctx.close();
     m.freigeben?.();
+    m.abmelden();
     mikro.current = null;
     setAnzeige({});
     if (behalten) { setSpur([...rahmen.current]); setStart(0); setPhase('vorschlag'); } else setPhase('bereit');
@@ -244,12 +247,9 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
     try {
       audioSitzung('play-and-record');
       // Lautsprecher: Echo-Unterdrückung und Verstärkung (iOS schaltet damit
-      // auf Freisprechen um); ohne: das rohe Mikrofon. Rauschunterdrückung
-      // nie — sie nimmt gehaltene Töne als Dauergeräusch.
-      const audioWunsch: MediaTrackConstraints = lautsprecher
-        ? { echoCancellation: true, noiseSuppression: false, autoGainControl: true }
-        : { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: audioWunsch });
+      // auf Freisprechen um); ohne: das rohe Mikrofon (mikrofonWunsch).
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: mikrofonWunsch(lautsprecher) });
+      const abmelden = mikrofonOffen();
       const ctx = new AudioContext();
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 4096;
@@ -299,7 +299,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
         if (rel > maxDauer) { stoppen(true); return; }
         m.raf = requestAnimationFrame(schleife);
       };
-      mikro.current = { stream, ctx, raf: requestAnimationFrame(schleife), quellen, t0, freigeben: null };
+      mikro.current = { stream, ctx, raf: requestAnimationFrame(schleife), quellen, t0, freigeben: null, abmelden };
       setPhase('zaehlt');
       setAnzeige({ zaehlt: jeTakt });
       const freigeben = await wachHalten();
@@ -444,7 +444,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
   const stimmungHinweis = stimm.stimmung !== 'C' ? ` · notiert für ${stimm.stimmung}-Instrument` : '';
 
   return createPortal(
-    <div className="scan-dialog" role="dialog" aria-modal="true" aria-label="Einsingen oder Audio laden" ref={fokus} tabIndex={-1}>
+    <div className="scan-dialog" role="dialog" aria-modal="true" aria-label="Selbst schreiben, einsingen oder Audio laden" ref={fokus} tabIndex={-1}>
       <div className="panel-kopf mit-linie">
         <h2>{vorlage ? 'Komponieren' : quelle === 'mikro' ? 'Einsingen' : quelle === 'leer' ? 'Schreiben' : 'Aus Audio'}</h2>
         <span className="bib-anzahl">{phase === 'vorschlag' && takte.length ? `· ${takte.length} ${takte.length === 1 ? 'Takt' : 'Takte'}` : ''}</span>

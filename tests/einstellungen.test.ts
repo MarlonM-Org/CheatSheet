@@ -14,10 +14,10 @@ const speicher = (werte: Record<string, unknown>) => {
 describe('Welche Einstellungen mitreisen', () => {
   it('Person und Instrument reisen mit', () => {
     for (const k of ['stimm:st', 'stimm:a', 'metro:klang', 'metro:laut', 'metro:takt', 'metro:nenner', 'metro:akzente', 'metro:unter', 'metro:trainer',
-      'ueben:stift', 'ueben:marker', 'ueben:text', 'ueben:wisch-umkehren', 'ueben:zoom-immer', 'ueben:tonprofil-umfang']) {
+      'ueben:stift', 'ueben:marker', 'ueben:text', 'ueben:wisch-umkehren', 'ueben:zoom-immer', 'ueben:tonprofil-umfang', 'ueben:sammlungen-reihenfolge']) {
       expect(istMitreisend(k), k).toBe(true);
     }
-    expect(MITREISEND).toHaveLength(15);
+    expect(MITREISEND).toHaveLength(16);
   });
   it('Gerät, Tempo und was eigene Felder hat, bleibt', () => {
     for (const k of ['ueben:modus', 'ueben:thema-hell', 'ueben:thema-dunkel', 'ueben:lage-metronom', 'metro:bpm', 'ueben:metronom-an',

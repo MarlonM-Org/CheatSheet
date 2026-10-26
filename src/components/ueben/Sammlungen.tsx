@@ -17,24 +17,32 @@ type Uebersicht = { name: string; anzahl: number }[];
 // Filterzeile: „Alle“, jede Sammlung mit Zahl ihrer Stücke, „+ Sammlung“.
 // Eine gerade angelegte, noch leere Sammlung steht mit 0 da, solange sie
 // gewählt ist.
-export function SammlungenLeiste({ uebersicht, aktiv, waehlen, halten }: {
+// Rechts daneben, fest (scrollt nicht mit): der Pfeil zur großen Ansicht aller
+// Sammlungen (SammlungenAnsicht). Die Reihenfolge der Chips ist die gemerkte.
+export function SammlungenLeiste({ uebersicht, aktiv, waehlen, halten, alle }: {
   uebersicht: Uebersicht; aktiv: string | null; waehlen: (name: string | null) => void;
   // Halten oder Rechtsklick auf einen Chip: Kontext-Blatt der Sammlung (F-08).
   halten: (name: string) => void;
+  alle: () => void;
 }) {
   const [formular, setFormular] = useState<null | 'neu'>(null);
   const leer = aktiv !== null && !uebersicht.some((s) => gleicheSammlung(s.name, aktiv));
   return (
     <div className="space-y-2">
-      <div className="sammlungen" role="group" aria-label="Sammlungen">
-        <button type="button" className="sammlung-chip" aria-pressed={aktiv === null} onClick={() => waehlen(null)}>Alle</button>
-        {uebersicht.map((s) => (
-          <SammlungChip key={s.name} name={s.name} anzahl={s.anzahl} aktiv={aktiv !== null && gleicheSammlung(s.name, aktiv)}
-            // Zweiter Tipp auf den gewählten Chip: wie Halten — das Kontext-Blatt (F-20, keine Kopfzeile mehr).
-            waehlen={() => (aktiv !== null && gleicheSammlung(s.name, aktiv) ? halten(s.name) : waehlen(s.name))} halten={() => halten(s.name)} />
-        ))}
-        {leer && <button type="button" className="sammlung-chip" aria-pressed="true">{aktiv}<span className="sammlung-zahl">0</span></button>}
-        <button type="button" className="sammlung-chip sammlung-neu" onClick={() => setFormular(formular ? null : 'neu')} aria-expanded={formular === 'neu'}>+ Sammlung</button>
+      <div className="sammlungen-zeile">
+        <div className="sammlungen" role="group" aria-label="Sammlungen">
+          <button type="button" className="sammlung-chip" aria-pressed={aktiv === null} onClick={() => waehlen(null)}>Alle</button>
+          {uebersicht.map((s) => (
+            <SammlungChip key={s.name} name={s.name} anzahl={s.anzahl} aktiv={aktiv !== null && gleicheSammlung(s.name, aktiv)}
+              // Zweiter Tipp auf den gewählten Chip: wie Halten — das Kontext-Blatt (F-20, keine Kopfzeile mehr).
+              waehlen={() => (aktiv !== null && gleicheSammlung(s.name, aktiv) ? halten(s.name) : waehlen(s.name))} halten={() => halten(s.name)} />
+          ))}
+          {leer && <button type="button" className="sammlung-chip" aria-pressed="true">{aktiv}<span className="sammlung-zahl">0</span></button>}
+          <button type="button" className="sammlung-chip sammlung-neu" onClick={() => setFormular(formular ? null : 'neu')} aria-expanded={formular === 'neu'}>+ Sammlung</button>
+        </div>
+        <button type="button" className="sammlungen-alle" onClick={alle} aria-label="Alle Sammlungen groß zeigen" title="Alle Sammlungen">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+        </button>
       </div>
       {formular === 'neu' && (
         <NameFormular knopf="Anlegen" platzhalter="z. B. Märsche oder Orchester A" abbrechen={() => setFormular(null)}
@@ -67,22 +75,45 @@ function NameFormular({ start = '', knopf, platzhalter, fertig, abbrechen }: {
   );
 }
 
-// „+ Noten“ mit kleinem Menü: PDF-Dateien, einen ganzen Ordner, die Kamera
-// (Einscannen) oder Fotos (F-07) wählen. Dazu „Einsingen oder Audio laden“
-// (G-02/G-03): eine Stimme aufnehmen, die App schreibt mit.
+// Kleine Strich-Symbole für das Menü (wie das Zahnrad im Kopf).
+function Symbol({ art }: { art: 'dokument' | 'ordner' | 'kamera' | 'bild' | 'stift' }) {
+  const pfad = {
+    dokument: <><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5" /></>,
+    ordner: <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />,
+    kamera: <><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" /><circle cx="12" cy="13" r="3.5" /></>,
+    bild: <><rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="8.5" cy="10" r="1.5" /><path d="m21 16-5-5-9 8" /></>,
+    stift: <><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4" /><path d="M14 3v5h5" /><path d="m20.5 12.5-7 7-2.5.5.5-2.5 7-7a1.4 1.4 0 0 1 2 2z" /></>,
+  }[art];
+  return (
+    <svg className="bib-menue-symbol" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      {pfad}
+    </svg>
+  );
+}
+
+// „+ Noten“ mit kleinem Menü, fünf Punkte untereinander, nur Symbol und
+// Name: PDF-Dateien, Ordner, Einscannen, Fotos (F-07), Selbst schreiben
+// (G-01/G-02/G-03: ein Dialog für Schreiben, Einsingen und Audio laden —
+// die Quelle wechselt man darin). PDF-Dateien und Ordner bleiben zwei
+// Punkte: Der Browser hat zwei getrennte Dialoge, iOS zeigt mit
+// Ordner-Erlaubnis nur Ordner (UTTypeFolder), sonst nur Dateien
+// (WebKit, WKFileUploadPanel.mm) — ein Dialog für beides gibt es nicht.
 // Ist eine Sammlung gewählt, steht oben unübersehbar, dass neue Stücke dort
 // einsortiert werden — mit Schalter zum Abwählen.
-export function HinzufuegenMenue({ ziel, einsortieren, setEinsortieren, tagZiel, markieren, setMarkieren, dateien, ordner, scannen, fotos, einspielen, schreiben, gesperrt }: {
+export function HinzufuegenMenue({ ziel, einsortieren, setEinsortieren, tagZiel, markieren, setMarkieren, dateien, ordner, scannen, fotos, schreiben, gesperrt }: {
   ziel: string | null; einsortieren: boolean; setEinsortieren: (an: boolean) => void;
   // Gewählter Tag (F-14): neue Stücke damit markieren — genauso sichtbar.
   tagZiel: Tag | null; markieren: boolean; setMarkieren: (an: boolean) => void;
-  dateien: () => void; ordner: () => void; scannen: () => void; fotos: () => void; einspielen: () => void; schreiben: () => void; gesperrt: boolean;
+  dateien: () => void; ordner: () => void; scannen: () => void; fotos: () => void; schreiben: () => void; gesperrt: boolean;
 }) {
   const [offen, setOffen] = useState(false);
   const menue = useRef<HTMLDivElement>(null);
   // Beim Öffnen einmal ins Bild holen (die Bibliothek scrollt).
   useEffect(() => { if (offen) menue.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, [offen]);
   const waehlen = (f: () => void) => { setOffen(false); f(); };
+  const punkt = (art: 'dokument' | 'ordner' | 'kamera' | 'bild' | 'stift', name: string, f: () => void) => (
+    <button type="button" role="menuitem" className="bib-menue-punkt" onClick={() => waehlen(f)}><Symbol art={art} />{name}</button>
+  );
   return (
     <div className="bib-menue-huelle">
       <button type="button" className="knopf knopf-klein" aria-expanded={offen} aria-haspopup="menu" onClick={() => setOffen(!offen)} disabled={gesperrt}
@@ -111,24 +142,11 @@ export function HinzufuegenMenue({ ziel, einsortieren, setEinsortieren, tagZiel,
                 <input type="checkbox" role="switch" className="ios-schalter" checked={markieren} onChange={(e) => setMarkieren(e.target.checked)} />
               </label>
             )}
-            <button type="button" role="menuitem" className="bib-menue-punkt" onClick={() => waehlen(dateien)}>
-              PDF-Dateien wählen<span>eine oder mehrere</span>
-            </button>
-            <button type="button" role="menuitem" className="bib-menue-punkt" onClick={() => waehlen(ordner)}>
-              Ordner wählen<span>alle PDFs darin · Unterordner werden Sammlungen</span>
-            </button>
-            <button type="button" role="menuitem" className="bib-menue-punkt" onClick={() => waehlen(scannen)}>
-              Einscannen<span>Papiernoten mit der Kamera, Seite für Seite</span>
-            </button>
-            <button type="button" role="menuitem" className="bib-menue-punkt" onClick={() => waehlen(fotos)}>
-              Fotos wählen<span>vorhandene Fotos von Noten · Schatten werden entfernt</span>
-            </button>
-            <button type="button" role="menuitem" className="bib-menue-punkt" onClick={() => waehlen(einspielen)}>
-              Einsingen oder Audio laden<span>eine Stimme aufnehmen oder Sprachmemo wählen · die App schreibt mit</span>
-            </button>
-            <button type="button" role="menuitem" className="bib-menue-punkt" onClick={() => waehlen(schreiben)}>
-              Neues Stück schreiben<span>Noten setzen, verschieben, vorspielen · als Stück speichern</span>
-            </button>
+            {punkt('dokument', 'PDF-Dateien', dateien)}
+            {punkt('ordner', 'Ordner', ordner)}
+            {punkt('kamera', 'Einscannen', scannen)}
+            {punkt('bild', 'Fotos', fotos)}
+            {punkt('stift', 'Selbst schreiben', schreiben)}
           </div>
         </>
       )}

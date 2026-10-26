@@ -23,7 +23,7 @@ export function UebeZentrale() {
 }
 
 function Zentrale() {
-  const { stopp: stimmStopp } = useStimmgeraetApi();
+  const { start: stimmStart, stopp: stimmStopp } = useStimmgeraetApi();
   const [offen, setOffen] = useState<string | null>(() => gespeichert('ueben:offen', null));
   // Fassung erzwingt einen Neuaufbau desselben Stücks (nach „aktualisieren"
   // oder erneutem Antippen) — zusammen mit `offen` der key des NotenPults.
@@ -39,7 +39,8 @@ function Zentrale() {
   // die Bibliothek liest ihre Liste dann neu.
   const [bibStand, setBibStand] = useState(0);
   const [metroAn, setMetroAn] = useState(() => gespeichert('ueben:metronom-an', false));
-  const [stimmAn, setStimmAn] = useState(false); // Mikrofon nie von allein
+  // Nicht gemerkt: Das Mikrofon geht nur auf einen Tipp an, nie beim Start der App.
+  const [stimmAn, setStimmAn] = useState(false);
   // Die „alles"-Dialoge der Widgets liegen hier, damit tastenAktiv sie kennt.
   const [metroVoll, setMetroVoll] = useState(false);
   const [stimmVoll, setStimmVoll] = useState(false);
@@ -96,7 +97,9 @@ function Zentrale() {
   // Nach „aktualisieren" in der Bibliothek: offenes Stück neu aufbauen.
   const aktualisiert = (ids: string[]) => { if (angezeigt && ids.includes(angezeigt)) setFassung((f) => f + 1); };
   const metroUmschalten = (an: boolean) => { setMetroAn(an); speichern('ueben:metronom-an', an); if (!an) setMetroVoll(false); };
-  const stimmUmschalten = (an: boolean) => { setStimmAn(an); if (!an) { stimmStopp(); setStimmVoll(false); } };
+  // Einblenden startet das Mikrofon gleich mit — der Tipp auf „Stimmgerät" ist
+  // die Geste dafür, ein zweiter Tipp im Widget entfällt (C-05).
+  const stimmUmschalten = (an: boolean) => { setStimmAn(an); if (an) void stimmStart(); else { stimmStopp(); setStimmVoll(false); } };
 
   const umschalten = (ziel: 'bibliothek' | 'metronom' | 'stimmgeraet') => {
     if (ziel === 'bibliothek') setBibliothek(!bibliothek);

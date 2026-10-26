@@ -387,7 +387,19 @@ a { color: inherit; text-decoration: underline; text-decoration-color: var(--mes
 }
 input.metro-zahl { width: 3ch; background: none; }
 .metro-einheit { font-size: 10px; font-weight: 700; letter-spacing: 0.16em; color: var(--leise); }
-.metro-takt { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.metro-takt {
+  margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+  padding: 6px 8px; margin-right: -8px; border-radius: 5px; color: inherit;
+}
+.metro-takt:active, .metro-takt[aria-expanded="true"] { background: var(--flaeche); }
+/* Kästchen mit den üblichen Taktarten (D-07): klappt im Fluss unter der
+   Zeile auf, die Fang-Fläche (nav-fang) schließt daneben. */
+.metro-taktwahl {
+  position: relative; z-index: 2; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+  margin: 8px 14px 0; padding: 8px; border-radius: 10px;
+  background: var(--papier); border: 1px solid var(--linie-stark); box-shadow: 0 6px 18px rgb(0 0 0 / 10%);
+}
+.metro-taktwahl .taktart-chip { min-height: 2.4rem; padding: 0 0.4rem; }
 .metro-taktlabel {
   font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;
   color: var(--leise); font-variant-numeric: tabular-nums;
@@ -413,10 +425,11 @@ input.metro-zahl { width: 3ch; background: none; }
 .metro-saeule .metro-zahl { font-size: 32px; }
 .metro-saeule input.metro-zahl { width: 100%; text-align: center; font-size: 32px; }
 .gruppe.senkrecht { flex: none; flex-direction: column; }
-/* Doppelt so hoch wie in der Zeile (Wunsch Marlon): lang darf die Säule sein, breit nicht. */
-.gruppe.senkrecht button { height: 84px; font-size: 15px; }
+/* +1 und −1 je so hoch wie der Start-Knopf der Säule (Wunsch Marlon, D-07). */
+.gruppe.senkrecht button { flex: none; height: 46px; font-size: 16px; }
 .gruppe.senkrecht button + button { border-left: none; border-top: 1px solid var(--linie-stark); }
-.metro-saeule .metro-takt { margin-left: 0; align-items: center; gap: 6px; }
+.metro-saeule .metro-takt { margin: 0; align-items: center; gap: 6px; padding: 4px 6px; }
+.metro-saeule .metro-taktwahl { grid-template-columns: 1fr; margin: 0; padding: 6px; }
 .metro-saeule .metro-punkte { flex-wrap: wrap; justify-content: center; gap: 5px; max-width: 80px; }
 .metro-saeule .metro-punkte i { width: 8px; height: 8px; }
 .metro-saeule .text-knopf { align-self: center; }
@@ -774,7 +787,21 @@ details[open] > summary::before { transform: rotate(90deg); }
 .betrachter.nav-da .b-unten { transform: translateY(calc(-1 * var(--leiste-hoehe))); }
 .b-unten .feld { flex: 1; color: var(--tinte); }
 
-.auswahl-box { width: 1.35rem; height: 1.35rem; flex-shrink: 0; accent-color: var(--messing); }
+/* Häkchen selbst gezeichnet statt als natives Steuerelement: Safari ließ
+   nach Auswählen/Abwählen und „Fertig“ ein weißes Kästchen über dem ersten
+   Titel stehen (verwaiste Zeichenebene des entfernten Steuerelements). */
+.auswahl-box {
+  appearance: none; -webkit-appearance: none; position: relative; width: 1.35rem; height: 1.35rem; margin: 0; flex-shrink: 0;
+  border: 1.5px solid var(--linie-stark); border-radius: 4px; background: var(--karte); cursor: pointer;
+}
+.auswahl-box:checked, .auswahl-box:indeterminate { border-color: var(--messing); background: var(--messing); }
+.auswahl-box::after { content: ""; position: absolute; display: none; }
+.auswahl-box:checked::after {
+  display: block; left: 0.4rem; top: 0.14rem; width: 0.4rem; height: 0.72rem;
+  border: solid var(--messing-text); border-width: 0 2.5px 2.5px 0; transform: rotate(45deg);
+}
+.auswahl-box:indeterminate::after { display: block; left: 0.28rem; right: 0.28rem; top: 50%; height: 2.5px; margin-top: -1.25px; background: var(--messing-text); }
+.auswahl-box:focus-visible { outline-offset: 1px; border-radius: 4px; }
 .karte.gewaehlt { outline: 2px solid var(--messing); outline-offset: -2px; }
 /* Das gerade geöffnete Stück: Messing-Streifen am linken Rand. */
 .karte.offen-markiert { position: relative; }
@@ -982,6 +1009,41 @@ small .stern { display: inline-block; width: 0.95em; height: 0.95em; vertical-al
 /* ── Sammlungen (F-13) ── */
 .sammlungen { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
 .sammlungen::-webkit-scrollbar { display: none; }
+/* Leiste mit festem Pfeil am rechten Rand: die große Ansicht aller Sammlungen. */
+.sammlungen-zeile { display: flex; align-items: center; gap: 4px; }
+.sammlungen-zeile > .sammlungen { flex: 1; min-width: 0; mask-image: linear-gradient(to right, #000 calc(100% - 16px), transparent); -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 16px), transparent); }
+.sammlungen-alle {
+  flex: none; display: grid; place-items: center; width: 34px; min-height: 34px; border-radius: 999px;
+  border: 1px solid var(--linie-stark); background: var(--papier); color: var(--gedaempft);
+}
+.sammlungen-alle svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.sammlungen-alle:hover, .sammlungen-alle:active { color: var(--tinte); background: var(--flaeche); }
+@media (pointer: coarse) { .sammlungen-alle { width: 2.5rem; min-height: 2.5rem; } }
+/* Große Ansicht: wie die Bibliothek, darüber (z 50), unter den Kontext-Blättern (80). */
+.sammlungen-ansicht {
+  position: fixed; left: 0; right: 0; z-index: 50; top: 0;
+  bottom: calc(var(--leiste-hoehe) + env(safe-area-inset-bottom, 0px));
+  padding-top: env(safe-area-inset-top, 0px);
+  display: flex; flex-direction: column;
+  background: var(--papier); box-shadow: var(--panel-schatten);
+}
+.sammlungen-ansicht .bib-fuss { display: flex; justify-content: center; }
+/* Jede Sammlung als Abschnitt mit ihren Stücken darunter. */
+.sammlung-abschnitt { border: 1px solid var(--linie); border-radius: 8px; background: var(--karte); overflow: hidden; }
+.sammlung-abschnitt-kopf { display: flex; align-items: center; gap: 4px; padding: 0 4px 0 0; }
+.sammlung-abschnitt-titel {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 12px; text-align: left;
+}
+.sammlung-abschnitt-titel strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 1.02rem; font-weight: 750; }
+.sammlung-abschnitt-titel .sammlung-zahl { color: var(--gedaempft); }
+.sammlung-abschnitt-pfeil { width: 18px; height: 18px; flex: none; fill: none; stroke: var(--leise); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform 0.15s; }
+.sammlung-abschnitt.zu .sammlung-abschnitt-pfeil { transform: rotate(-90deg); }
+.sammlung-abschnitt-titel[aria-pressed="true"] strong { color: var(--messing); }
+.sammlung-abschnitt .bib-liste { border: 0; border-radius: 0; border-top: 1px solid var(--linie); }
+.sammlung-abschnitt .bib-zeile { padding-left: 24px; }
+.sammlung-abschnitt-leer { padding: 8px 24px 12px; border-top: 1px solid var(--linie); }
+.kontext-reihe { display: flex; align-items: center; gap: 6px; padding: 4px 0 10px; }
+.kontext-reihe .knopf-klein { min-height: 34px; padding: 0 0.7rem; font-size: 1rem; }
 .sammlung-chip {
   flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 12px;
   border: 1px solid var(--linie-stark); border-radius: 999px; background: var(--papier);
@@ -1010,11 +1072,11 @@ small .stern { display: inline-block; width: 0.95em; height: 0.95em; vertical-al
   box-shadow: 0 6px 18px rgb(0 0 0 / 10%);
 }
 .bib-menue-punkt {
-  display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 9px 10px; border-radius: 8px;
+  display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 8px;
   text-align: left; font-weight: 650;
 }
-.bib-menue-punkt span { font-size: 0.75rem; font-weight: 500; color: var(--gedaempft); }
 .bib-menue-punkt:active, .bib-menue-punkt:hover { background: var(--flaeche); }
+.bib-menue-symbol { width: 20px; height: 20px; flex: none; color: var(--gedaempft); }
 .bib-menue-ziel {
   display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 10px; border-radius: 8px;
   border: 1px dashed var(--linie-stark); cursor: pointer;
