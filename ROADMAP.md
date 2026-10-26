@@ -376,6 +376,15 @@ Transcoda: zu groß oder ohne ONNX). Braucht F-07, G-01, A-02.
   Metronom-Ansicht hat −1/+1 als harte BPM-Schritte (±5 % wich dafür,
   ±10 % und Regler bleiben); das Metronom-Widget auf den Noten hatte
   −1/+1, ±10 % und Regler schon seit B-03.
+- **D-02 · Ton nach App-Wechsel** (2026-10-11): Auf dem iPhone (vor allem
+  als Home-Bildschirm-App) blieb das Metronom stumm, wenn man die App kurz
+  verließ und zurückkam — iOS unterbricht dabei den AudioContext, und der
+  alte Kontext wurde weiterverwendet. Jetzt halten Metronom und Stimmgerät
+  (Mikrofon, Referenzton) beim Verlassen der App an und schließen ihren
+  Kontext; ein unterbrochener Kontext wird nie weiterverwendet, der nächste
+  Tipp legt einen frischen an (`verwerfen`, `useBeimVerlassen` in
+  `klang.ts`). Folge: Auch am Rechner läuft das Metronom in einem
+  Hintergrund-Tab nicht mehr weiter.
 - **B-05 · Design-Überarbeitung** (2026-10-10): **Entscheidung Marlon:
   Studio.** Drei helle Entwürfe (Blatt · Studio · Galerie, identischer
   Funktionsumfang) liegen als antippbare HTML-Mockups in `docs/design/` und
