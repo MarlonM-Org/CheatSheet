@@ -6,7 +6,7 @@ Punkt ein; wer etwas fertigstellt, hakt ab und verschiebt den Punkt nach
 „Erledigt“ (unten). Größere Richtungsentscheidungen bitte als kurzen Absatz
 hier dokumentieren, nicht nur im Chat.
 
-Stand: 2026-10-10.
+Stand: 2026-10-18.
 
 ## Leitbild
 
@@ -32,7 +32,7 @@ nicht in der Breite, aber in der Sorgfalt.
 | M4 | **Notenmanagement I** | Metadaten, Bookmarks, Flags, Kontextmenüs, Drag & Drop | F-01, F-03, F-04, F-08, F-09 |
 | M5 | **Üben & Setlisten** | Setlisten, Wiederholungs-Links, Halbseiten-Blättern, Intonations-Trainer | F-02, F-05, F-06, C-04 |
 | M6 | **Design & Extras** | Themes, Stempel/Formen, Kamera-Scan | B-04, B-05, E-04, F-07 |
-| M7 | **Komponieren** (Vision) | Noteneingabe, Rhythmus-/Melodie-Transkription | G-01…G-03 |
+| M7 | **Komponieren** (Vision) | Noteneingabe, Noten-Erkennung aus PDF/Foto, Rhythmus-/Melodie-Transkription | G-01…G-05 |
 
 **Quick Wins** (klein, unabhängig, jederzeit zwischenschieben — guter
 Einstieg): C-01, C-02, C-03, D-01 — *alle am 2026-10-10 erledigt.*
@@ -198,8 +198,11 @@ Bluetooth-Pedale funktionieren bereits und bleiben erhalten.
 ### F-07 · Kamera-Scan
 
 Papiernoten mit der Gerätekamera abfotografieren → zuschneiden/entzerren →
-als PDF in die Bibliothek. Im Browser machbar (getUserMedia + Canvas), aber
-aufwendig — bewusst spät in der Roadmap.
+als PDF in die Bibliothek. Im Browser machbar (getUserMedia + Canvas,
+Entzerrung mit jscanify/OpenCV.js), aber aufwendig — bewusst spät in der
+Roadmap. Einstieg über den Datei-Dialog mit `capture` (native Kamera-App)
+ist robuster als eine Live-Vorschau in der Home-Screen-App. Liefert zugleich
+das Foto für G-05.
 
 ### F-08 · Kontextmenüs
 
@@ -221,17 +224,28 @@ Langfristperspektive: CheatSheet nicht nur zum Lesen und Üben, sondern auch
 zum **Schreiben** von Musik. Bewusst als Vision hinter M1–M6 — nichts davon
 anfangen, bevor die Noten-Grundpfeiler stehen. Und es gilt weiterhin: alles
 lokal, kein Server. „KI“ heißt hier on-device (Modelle, die im Browser
-laufen), kein Cloud-Dienst.
+laufen), kein Cloud-Dienst. Reihenfolge innerhalb von G: erst G-01, dann
+G-04 (braucht kein Modell), dann G-05 — ohne Editor ist jede Erkennung
+nutzlos.
 
 ### G-01 · Noteneingabe
 
 Ein cleanes, interaktives Eingabe-UI, um Noten direkt einzutippen: Tonhöhe,
 Notenwert, Pausen, Taktart, Vorzeichen — gedacht fürs schnelle Festhalten
 von Ideen und Stimmen, kein Notensatz-Programm-Ersatz. Technik-Kandidaten
-fürs Rendern: VexFlow oder abcjs (beides rein lokal lauffähig); als
-Speicherformat etwas Offenes (ABC-Notation oder MusicXML), nichts Eigenes.
-Export als PDF in die eigene Bibliothek — damit schließt sich der Kreis:
-komponieren → üben.
+fürs Rendern: VexFlow, abcjs oder Verovio (alle rein lokal lauffähig;
+Verovio liest MusicXML, schreibt es aber nicht, und seine Editor-API ist
+experimentell — Bearbeiten deshalb in einer eigenen Schicht kapseln). Als
+Speicherformat etwas Offenes, nichts Eigenes — MusicXML liegt nahe, weil
+G-04/G-05 es liefern; Entscheidung vor dem Start, dann gilt sie für G-01
+bis G-05. Der Editor ist zugleich die Korrekturwerkstatt für G-04/G-05
+(Muster ScanScore, Soundslice): Originalseite und erkannte Notation
+untereinander, Takte mit falscher Notenwert-Summe markiert, nicht Gelesenes
+sichtbar als „fehlt“, Rückfragen nur bei wenigen klaren Unsicherheiten
+(Schlüssel, Tonart, Taktart) statt stillem Raten. Abhören als Fehlerfinder
+ist bei allen Vorbildern Standard, kollidiert aber mit „MIDI/Audio außen
+vor“ — Entscheidung offen. Export als PDF in die eigene Bibliothek — damit
+schließt sich der Kreis: komponieren → üben, erkennen → korrigieren → üben.
 
 ### G-02 · Rhythmus-Transkription
 
@@ -249,6 +263,49 @@ wird vollständige Notation. Deutlich schwerer (Gesang schwankt,
 Oktavfehler, Übergänge); Kandidat wäre ein On-Device-Modell im Browser
 (ONNX/WASM, Richtung Basic Pitch). Eigenes Forschungsthema, bewusst von
 G-02 getrennt — Rhythmus zuerst, Töne später.
+
+### G-04 · Noten aus Notensatz-PDFs (PDF-nativ)
+
+PDFs direkt aus MuseScore, Dorico oder LilyPond tragen die Notensymbole als
+Schrift-Glyphen (SMuFL-Codepoints bzw. Emmentaler-Glyphnamen) und die
+Notenlinien als Vektorpfade; das vorhandene pdfjs-dist liefert beides
+(`getTextContent`, `getOperatorList`). Daraus Schlüssel, Taktart, Tonhöhen,
+Notenwerte und Takte rekonstruieren — ohne Modell, offline, fürs iPad
+unkritisch. Die Symbole selbst sind praktisch fehlerfrei, Fehler entstehen
+beim Zusammensetzen (Hals vs. Taktstrich, Balken, Triolen, Stimmen); das
+Grundprinzip ist in einem kurzen Versuch mit pdf.js belegt. Zuerst
+einstimmig und nur SMuFL/Emmentaler, mit Takt-Summen-Prüfung und sichtbarer
+Markierung des nicht Gelesenen; Legacy-Schriften (Sibelius Opus, altes
+Finale Maestro) nur mit echten Testdateien nachrüsten. Eine Heuristik über
+die Operatorliste erkennt Scans und geflattete „Drucken als PDF“-Dateien
+und reicht sie an G-05. Nichts Fertiges vorhanden (PDFtoMusic ist
+kommerziell und Desktop), also Eigenbau auf pdfjs. Vorher messen, wie viele
+PDFs der eigenen Bibliothek so lesbar sind — Scans und Kopien sind es nicht.
+Ausgabe MusicXML. Braucht G-01, A-02.
+
+### G-05 · Noten aus Foto und Scan (Bild-OMR, experimentell)
+
+Kamerafoto (F-07) oder gerasterte Scan-PDF → On-Device-Modell im Browser
+(onnxruntime-web) → MusicXML → Korrektur in G-01. Kandidaten: homr-web
+(TypeScript-Port von homr; läuft als Prototyp, aber AGPL, Lizenz der
+Trainingsdaten unklar, 134–189 MB Modelle, Ein-Personen-Projekt),
+copista-2m (Apache-2.0, 16 MB, beste gemeldete Werte, aber von niemandem
+nachgerechnet und ohne ONNX-Export), oemer (MIT, 109 MB, Modelle von 2021).
+Ehrliche Erwartung: ein Rohentwurf zum Korrigieren — selbst die besten
+Systeme machen auf echten Scans 10–50 % Fehler; brauchbar nur sauberer
+Druck mit ein bis zwei Systemen und gerade, scharfe Fotos; Liedtext liest
+kein Kandidat, Dynamik, Stichnoten und Sprunganweisungen bleiben Handarbeit.
+Auf dem iPad läuft nur der reine WASM-Pfad stabil (WebGPU über
+onnxruntime-web sprengt in Safari 26 den Speicher), bisher auf keinem iPad
+gemessen — eher Minuten als Sekunden pro Seite. Modelle erst beim ersten
+Scan laden (Cache Storage, nicht Vorab-Cache); was das Gerät nicht schafft,
+heißt ehrlich „nicht verfügbar“. Vor dem Start: Spike mit fünf eigenen
+Seiten auf dem iPad, und die Lizenz des Repos festlegen (es gibt noch
+keine; AGPL wäre bindend). **Bewusst ausgeschlossen:** Handschrift (bester
+Forschungswert 33 % Fehler, alle Anbieter schließen sie aus), dichte
+Partituren vom Handyfoto, Cloud-OMR, Audiveris im Browser (braucht JDK 25,
+CheerpJ kann Java 17), große End-to-End-Transformer (Legato, rokot, Clarity,
+Transcoda: zu groß oder ohne ONNX). Braucht F-07, G-01, A-02.
 
 ---
 
