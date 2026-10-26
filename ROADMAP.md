@@ -242,10 +242,36 @@ schreiben und die Töne in der Höhe verschieben“):**
   etwas auf dem Blatt steht (sonst wäre es weg); Tempo und Tonart bleiben
   frei. Bei Mikrofon/Datei verfällt die Bearbeitung mit neuer Aufnahme oder
   neuem Raster (die Grundlage ist dann eine andere).
+- **Zweite Runde (2026-10-26, Wunsch Marlon):**
+  - **Blattraster 96 Zellen je Ganze** (`BLATT` in notensatz.ts): 32tel und
+    Triolen (Achtel-, Sechzehntel-, Vierteltriole) sind ganze Zellen. Die
+    Transkription rundet weiter auf Achtel/Sechzehntel und wird aufs Blatt
+    skaliert; „Kleinster Wert“ ist nur noch eine Einstellung der Erkennung.
+    `legen` erkennt Triolen-Schläge (Einsätze auf Zwölfteln des Schlags
+    statt auf 32teln) und Vierteltriolen über die Takthälfte, schreibt sie
+    anderthalbfach mit `(3:2:k`; was sich nicht notieren lässt (etwa eine
+    um ein 32tel verschobene Triole), wird in diesem Schlag aufs binäre
+    Raster gerundet. Palette: 1/1 … 1/32, Schalter „punktiert“ und „Triole“.
+  - **Löschen** (Note raus, alles rückt nach — auch über Taktstriche, der
+    letzte Takt füllt sich mit Pause) und **Einfügen** (Platz im
+    Palettenwert vor der Note, alles rückt weiter; ein Takt wächst dazu).
+    Tastatur: Rückschritt löscht, Entf macht eine Pause.
+  - **Mikrofon → Schreiben** nimmt den Vorschlag mit (vorher war er weg).
+  - **Komponieren am gespeicherten Stück:** Knopf (Notensymbol) in der Leiste
+    der Notenansicht und im Stück-Blatt, nur bei Stücken mit Quelle (nicht
+    bei importierten oder gescannten PDFs — die haben keine Noten als
+    Daten, bleiben außen vor). `abcLesen` (notation.ts, Round-trip
+    getestet) liest die ABC-Quelle zurück, auch ältere mit `L:1/16`; der
+    Dialog öffnet als „Komponieren“ mit Vorspielen und Palette; Speichern
+    schreibt PDF, Quelle und Titel neu (`stueckNeuSchreiben`, lokal.ts).
+    Stellen, Anmerkungen, Lesezeichen und Merker bleiben auf ihrer Seite;
+    was über der neuen Seitenzahl liegt, verfällt (`ueberzaehlig`, mit
+    Grabsteinen für die Sicherung — Regel als Test).
 - **Noch offen aus der Liste oben:** Notenschlüssel, Vorzeichen setzen
   (heute über Halbtonschritte), Wiederholungszeichen, Bindebögen als
-  Phrasierung, mehrere Stimmen, „Bearbeiten“ eines gespeicherten Stücks
-  (ABC → Takte lesen), Import/Export `.abc`.
+  Phrasierung, mehrere Stimmen, Import/Export `.abc`, Triolen auch in
+  der Erkennung, Noten aus einer gescannten PDF (wäre Notenerkennung aus
+  Bildern — eigenes Thema, nicht kurzfristig).
 
 ### G-02 · Rhythmus-Transkription
 

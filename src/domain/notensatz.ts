@@ -11,13 +11,31 @@
 // Takts. Die Oberfläche sieht die gezeichneten Noten (Note k im Takt t);
 // jede Änderung trifft die Strecke, zu der die Note gehört.
 
-import { leiter, notenwerte, zellenDauer, zellenJeTakt, zerlegen, type Note, type Raster, type Takt, type Tonart } from './notation';
+import { leiter, notenwerte, zellenDauer, zellenJeGruppe, zellenJeSchlag, zellenJeTakt, zerlegen, type Note, type Raster, type Takt, type Tonart } from './notation';
 import { istZusammengesetzt } from './takt';
 
 // Lage einer gezeichneten Note: Takt t, darin Note k (Pausen zählen mit).
 export interface NotenPos { takt: number; note: number }
 
 export const TON_MIN = 24, TON_MAX = 108; // C1 … C8
+
+// Das Blatt rechnet mit 96 Zellen je ganzer Note: 32tel (3), Sechzehntel
+// (6), Achtel (12) … und Triolen (Achteltriole 8, Sechzehnteltriole 4,
+// Vierteltriole 16) bleiben ganze Zellen.
+export const BLATT = 96;
+export const aufBlatt = (r: Raster): Raster => ({ ...r, feinheit: BLATT });
+// Takte eines gröberen Rasters (Transkription: 8 oder 16) aufs Blatt bringen.
+export function skalieren(takte: readonly Takt[], von: number, nach = BLATT): Takt[] {
+  if (von === nach) return [...takte];
+  const f = nach / von;
+  return takte.map((t) => ({ noten: t.noten.map((n) => ({ ...n, dauer: n.dauer * f })) }));
+}
+// Gelesene Takte (abcLesen) aufs Blatt: skaliert und jeder Takt neu gelegt
+// (Werte, Bindungen, Triolen-Klammern wie das Blatt sie schreibt).
+export function aufsBlatt(takte: readonly Takt[], von: number, r: Raster): Takt[] {
+  const b = aufBlatt(r);
+  return skalieren(takte, von).map((t) => legen(strecken(t), b));
+}
 
 interface Strecke { midi: number | null; dauer: number; bindung?: true }
 
@@ -38,20 +56,126 @@ export function strecken(t: Takt): Strecke[] {
 
 // Strecken → Noten in erlaubten Werten, gebunden. Pausen ohne Punktierung —
 // außer in zusammengesetzten Taktarten (6/8: der Schlag ist punktiert).
-export function legen(liste: readonly Strecke[], r: Raster): Takt {
+//
+// Triolen: Ein Schlag, dessen Einsätze nicht aufs binäre Raster (32tel)
+// fallen, aber auf Zwölftel des Schlags, ist ein Triolen-Schlag — seine
+// Noten werden anderthalbfach geschrieben und mit `(3:2:k` geklammert.
+// Fallen die Einsätze einer Takthälfte (4/4) auf deren Drittel, ist es eine
+// Vierteltriole über die Hälfte. Nur in einfachen Taktarten.
+export function legen(roh: readonly Strecke[], r: Raster): Takt {
+  const zusammengesetzt = istZusammengesetzt(r.zaehler, r.nenner);
+  const liste = bereinigen(roh, r);
+  const bereiche = triolenBereiche(liste, r);
   const noten: Note[] = [];
   let ab = 0;
-  const zusammengesetzt = istZusammengesetzt(r.zaehler, r.nenner);
   for (const s of liste) {
-    const teile = zerlegen(ab, s.dauer, r, s.midi !== null || zusammengesetzt);
-    teile.forEach((dauer, i) => {
-      const letzter = i === teile.length - 1;
-      const bindung = s.midi !== null && (!letzter || s.bindung);
-      noten.push(bindung ? { midi: s.midi, dauer, bindung: true } : { midi: s.midi, dauer });
+    const punktiert = s.midi !== null || zusammengesetzt;
+    // Die Strecke in Stücke je Bereich (binär oder Triole) schneiden.
+    const stuecke: { ab: number; dauer: number; triole: boolean }[] = [];
+    let pos = ab;
+    const ende = ab + s.dauer;
+    while (pos < ende) {
+      const b = bereiche.find((x) => x.von <= pos && pos < x.bis)!;
+      const bis = Math.min(ende, b.bis);
+      stuecke.push({ ab: pos, dauer: bis - pos, triole: b.triole });
+      pos = bis;
+    }
+    const werte = notenwerte(r, punktiert);
+    stuecke.forEach((st, si) => {
+      // Binär: zerlegen kennt Schlag- und Gruppengrenzen. Triole: die
+      // geschriebene Länge (anderthalbfach) gierig in erlaubte Werte.
+      const teile = st.triole ? gierig((st.dauer * 3) / 2, werte).map((w) => (w * 2) / 3) : zerlegen(st.ab, st.dauer, r, punktiert);
+      teile.forEach((dauer, i) => {
+        const letzter = si === stuecke.length - 1 && i === teile.length - 1;
+        const n: Note = { midi: s.midi, dauer };
+        if (s.midi !== null && (!letzter || s.bindung)) n.bindung = true;
+        if (st.triole) n.triole = true;
+        noten.push(n);
+      });
     });
     ab += s.dauer;
   }
+  // Je Triolen-Bereich: die Klammer an die erste Note, mit der Anzahl.
+  const anfaenge: number[] = [];
+  let von = 0;
+  for (const n of noten) { anfaenge.push(von); von += n.dauer; }
+  for (const b of bereiche.filter((x) => x.triole)) {
+    const drin = noten.filter((_, k) => anfaenge[k] >= b.von && anfaenge[k] < b.bis);
+    if (drin.length) drin[0].gruppe = drin.length;
+  }
   return { noten };
+}
+
+// Gierig in Werte zerlegen (größter zuerst); was nicht aufgeht, bleibt in
+// kleinsten Werten (sollte nicht vorkommen — die Palette gibt nur Werte her,
+// die aufgehen).
+function gierig(dauer: number, werte: readonly number[]): number[] {
+  const teile: number[] = [];
+  let rest = dauer;
+  while (rest > 0) { const w = werte.find((x) => x <= rest) ?? werte[werte.length - 1]; teile.push(w); rest -= w; }
+  return teile;
+}
+
+// Was sich nicht notieren lässt (ein Schlag, dessen Einsätze weder aufs
+// binäre noch aufs Triolen-Raster fallen — etwa eine Triole, vor die ein
+// 32tel geschoben wurde), wird in diesem Schlag aufs binäre Raster gerundet;
+// die anderen Schläge bleiben, wie sie sind. Das ändert den Rhythmus dort
+// hörbar — aber eine lesbare Note ist besser als ein Haufen 1/96.
+function bereinigen(liste: readonly Strecke[], r: Raster): Strecke[] {
+  const jt = zellenJeTakt(r), js = zellenJeSchlag(r);
+  const kleinste = Math.min(...notenwerte(r, false));
+  const grenzen: number[] = [];
+  let pos = 0;
+  for (const s of liste) { pos += s.dauer; grenzen.push(pos); }
+  const bereiche = triolenBereiche(liste, r);
+  const kaputt = (g: number) => {
+    const b = bereiche.find((x) => x.von <= g && g < x.bis);
+    if (!b || b.triole || g % kleinste === 0) return false;
+    // Im binären Bereich, aber nicht auf dem Raster: der Schlag ist kaputt.
+    void js; void jt;
+    return true;
+  };
+  if (!grenzen.some(kaputt)) return [...liste];
+  const neu: Strecke[] = [];
+  let von = 0;
+  liste.forEach((s, i) => {
+    let bis = grenzen[i];
+    if (kaputt(bis)) bis = Math.round(bis / kleinste) * kleinste;
+    if (i === liste.length - 1) bis = grenzen[i];
+    if (bis > von) neu.push({ ...s, dauer: bis - von });
+    von = Math.max(von, bis);
+  });
+  return neu;
+}
+
+// Die Bereiche des Takts: binär oder Triole, lückenlos von 0 bis Taktende.
+function triolenBereiche(liste: readonly Strecke[], r: Raster): { von: number; bis: number; triole: boolean }[] {
+  const jt = zellenJeTakt(r), js = zellenJeSchlag(r), jg = zellenJeGruppe(r);
+  const grenzen = new Set<number>();
+  let pos = 0;
+  for (const s of liste) { grenzen.add(pos); pos += s.dauer; grenzen.add(pos); }
+  const kleinste = Math.min(...notenwerte(r, false));
+  const innen = (von: number, bis: number) => [...grenzen].filter((g) => von < g && g < bis).map((g) => g - von);
+  const binaer = (von: number, bis: number) => innen(von, bis).every((g) => g % kleinste === 0);
+  const auf = (von: number, bis: number, einheit: number) => Number.isInteger(einheit) && innen(von, bis).every((g) => g % einheit === 0);
+  const bereiche: { von: number; bis: number; triole: boolean }[] = [];
+  const einfach = !istZusammengesetzt(r.zaehler, r.nenner);
+  for (let von = 0; von < jt; ) {
+    // Takthälfte als Vierteltriole?
+    if (einfach && jg === 2 * js && von % jg === 0 && !binaer(von, von + jg) && auf(von, von + jg, jg / 3)) {
+      bereiche.push({ von, bis: von + jg, triole: true }); von += jg; continue;
+    }
+    const bis = Math.min(jt, von + js);
+    bereiche.push({ von, bis, triole: einfach && !binaer(von, bis) && auf(von, bis, js / 12) });
+    von = bis;
+  }
+  // Benachbarte binäre Bereiche verschmelzen (zerlegen sieht dann die ganze Strecke).
+  const verschmolzen: typeof bereiche = [];
+  for (const b of bereiche) {
+    const v = verschmolzen[verschmolzen.length - 1];
+    if (v && !v.triole && !b.triole) v.bis = b.bis; else verschmolzen.push({ ...b });
+  }
+  return verschmolzen;
 }
 
 export const leererTakt = (r: Raster): Takt => legen([{ midi: null, dauer: zellenJeTakt(r) }], r);
@@ -278,6 +402,74 @@ export function bogenUmschalten(takte: readonly Takt[], r: Raster, pos: NotenPos
   return ersetzen(takte, pos.takt, legen(liste, r));
 }
 
+// ── Löschen und Einfügen: alles rückt nach ──
+
+// Die ganze Stimme als eine Folge von Strecken, Bögen über Taktstriche
+// verschmolzen; `teile` sagt, aus welchen [takt, strecke] eine Folge-Strecke besteht.
+interface Folge { midi: number | null; dauer: number; teile: [number, number][] }
+function folge(takte: readonly Takt[]): Folge[] {
+  const liste: Folge[] = [];
+  let offen = false;
+  takte.forEach((t, ti) => {
+    strecken(t).forEach((s, si) => {
+      const l = liste[liste.length - 1];
+      if (si === 0 && offen && l && l.midi !== null && l.midi === s.midi) { l.dauer += s.dauer; l.teile.push([ti, si]); }
+      else liste.push({ midi: s.midi, dauer: s.dauer, teile: [[ti, si]] });
+      offen = !!s.bindung;
+    });
+  });
+  return liste;
+}
+
+// Die Folge wieder in Takte schneiden: an Taktgrenzen geteilt und gebunden,
+// der letzte Takt mit Pause gefüllt, mindestens ein Takt.
+function schneiden(liste: readonly Folge[], r: Raster): Takt[] {
+  const jt = zellenJeTakt(r);
+  const gesamt = liste.reduce((a, s) => a + s.dauer, 0);
+  const anzahl = Math.max(1, Math.ceil(gesamt / jt));
+  const takte: Strecke[][] = Array.from({ length: anzahl }, () => []);
+  let ab = 0;
+  for (const s of liste) {
+    let rest = s.dauer;
+    while (rest > 0) {
+      const takt = Math.floor(ab / jt), imTakt = ab % jt;
+      const hier = Math.min(rest, jt - imTakt);
+      takte[takt].push(hier < rest && s.midi !== null ? { midi: s.midi, dauer: hier, bindung: true } : { midi: s.midi, dauer: hier });
+      ab += hier; rest -= hier;
+    }
+  }
+  const frei = anzahl * jt - gesamt;
+  if (frei > 0) takte[anzahl - 1].push({ midi: null, dauer: frei });
+  return takte.map((l) => legen(l, r));
+}
+
+function folgeDerNote(takte: readonly Takt[], pos: NotenPos): { liste: Folge[]; i: number } | null {
+  const t = takte[pos.takt];
+  if (!t) return null;
+  const { strecke } = streckeDerNote(t, pos.note);
+  const liste = folge(takte);
+  const i = liste.findIndex((f) => f.teile.some(([ti, si]) => ti === pos.takt && si === strecke));
+  return i < 0 ? null : { liste, i };
+}
+
+// Note (oder Pause) herausnehmen — alles danach rückt nach, auch über
+// Taktstriche; der letzte Takt füllt sich mit Pause.
+export function entfernen(takte: readonly Takt[], r: Raster, pos: NotenPos): Takt[] {
+  const f = folgeDerNote(takte, pos);
+  if (!f) return [...takte];
+  return schneiden(f.liste.filter((_, k) => k !== f.i), r);
+}
+
+// Vor der Note eine Pause dieser Dauer einfügen — alles danach rückt weiter
+// (wird der Platz knapp, wächst ein Takt dazu).
+export function einfuegen(takte: readonly Takt[], r: Raster, pos: NotenPos, dauer: number): Takt[] {
+  const f = folgeDerNote(takte, pos);
+  if (!f || dauer < 1) return [...takte];
+  const liste = [...f.liste];
+  liste.splice(f.i, 0, { midi: null, dauer, teile: [] });
+  return schneiden(liste, r);
+}
+
 // ── Takte ──
 
 export const taktEinfuegen = (takte: readonly Takt[], r: Raster, nach: number): Takt[] =>
@@ -301,20 +493,23 @@ export function taktLoeschen(takte: readonly Takt[], r: Raster, i: number): Takt
 export const leeresBlatt = (r: Raster): Takt[] => [leererTakt(r)];
 
 // Notenwerte für die Palette: Zellen je Wert, vom größten (ganze Note, soweit
-// sie in den Takt passt) bis zur Zelle, ohne Punktierungen; `kurz` als
-// Bruch für schmale Bildschirme.
+// sie in den Takt passt) bis zum kleinsten ganzzahligen (Blatt: 32tel),
+// ohne Punktierungen; `kurz` als Bruch für schmale Bildschirme.
 export function paletteWerte(r: Raster): { zellen: number; name: string; kurz: string }[] {
-  const namen: Record<number, string> = { 1: 'Ganze', 2: 'Halbe', 4: 'Viertel', 8: 'Achtel', 16: 'Sechzehntel' };
+  const namen: Record<number, string> = { 1: 'Ganze', 2: 'Halbe', 4: 'Viertel', 8: 'Achtel', 16: 'Sechzehntel', 32: 'Zweiunddreißigstel' };
   const jt = zellenJeTakt(r);
   const liste: { zellen: number; name: string; kurz: string }[] = [];
-  for (let wert = 1; wert <= r.feinheit; wert *= 2) {
+  for (let wert = 1; wert <= 32; wert *= 2) {
     const zellen = r.feinheit / wert;
+    if (!Number.isInteger(zellen)) break;
     if (zellen <= jt) liste.push({ zellen, name: namen[wert], kurz: `1/${wert}` });
   }
   return liste;
 }
 // Punktiert = anderthalbfach, wenn das ein erlaubter Wert ist.
 export const punktiert = (zellen: number, r: Raster) => (notenwerte(r).includes(zellen * 1.5) ? zellen * 1.5 : null);
+// Triole = zwei Drittel, wenn das ganze Zellen sind (und die Taktart einfach ist).
+export const triole = (zellen: number, r: Raster) => (Number.isInteger((zellen * 2) / 3) && !istZusammengesetzt(r.zaehler, r.nenner) ? (zellen * 2) / 3 : null);
 
 // ── Vorspielen ──
 

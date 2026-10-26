@@ -9,7 +9,7 @@
 // Stelle, damit sie ohne Oberfläche verbessert werden kann.
 
 import type { Notation } from './bestand';
-import { einheitenJeSchlag, istZusammengesetzt, type Nenner } from './takt';
+import { einheitenJeSchlag, istNenner, istZusammengesetzt, type Nenner } from './takt';
 import { median } from './ueben';
 
 // Ein Rahmen der Tonhöhenspur: `zeit` in Sekunden ab Schlag 1 von Takt 1
@@ -70,15 +70,20 @@ export function aufLeiter(tonhoehe: number, t: Tonart | null | undefined): numbe
   return best;
 }
 
-// Das Raster: Tempo je Schlag (wie das Metronom), Taktart, und der kleinste
-// Notenwert, auf den gerundet wird (Achtel oder Sechzehntel).
+// Das Raster: Tempo je Schlag (wie das Metronom), Taktart, und die Zelle —
+// `feinheit` Zellen je ganzer Note. Beim Transkribieren ist das der kleinste
+// Notenwert, auf den gerundet wird (Achtel oder Sechzehntel); das Notenblatt
+// (./notensatz) rechnet feiner, mit 96 Zellen (32tel und Triolen).
 export type Feinheit = 8 | 16;
-export interface Raster { bpm: number; zaehler: number; nenner: Nenner; feinheit: Feinheit }
+export interface Raster { bpm: number; zaehler: number; nenner: Nenner; feinheit: number }
 export const FEINHEITEN: { feinheit: Feinheit; name: string }[] = [{ feinheit: 8, name: 'Achtel' }, { feinheit: 16, name: 'Sechzehntel' }];
 
 // Eine Note (oder Pause: midi null) mit Dauer in Zellen (1/feinheit).
 // `bindung`: geht in die nächste Note über (Haltebogen, gleiche Tonhöhe).
-export interface Note { midi: number | null; dauer: number; bindung?: true }
+// `triole`: Teil einer Triole — geschrieben wird sie anderthalbfach so lang,
+// wie sie klingt; `gruppe` steht an der ersten Note der Triole und zählt
+// ihre Noten (ABC: `(3:2:gruppe`).
+export interface Note { midi: number | null; dauer: number; bindung?: true; triole?: true; gruppe?: number }
 export interface Takt { noten: Note[] }
 
 // Zellen je Takt: 4/4 in Sechzehnteln = 16, 6/8 in Sechzehnteln = 12, 3/4 in Achteln = 6.
@@ -268,15 +273,17 @@ export function versatzSchaetzen(rahmen: readonly Tonrahmen[], r: Raster, mindes
   return versatz < 0.015 ? 0 : versatz;
 }
 
-// Erlaubte Notenwerte in Zellen, absteigend: ganze Zweierpotenzen und ihre
-// punktierten Formen, höchstens ein Takt lang.
-// Pausen bleiben ohne Punktierung (eine punktierte halbe Pause liest niemand gern).
+// Erlaubte Notenwerte in Zellen, absteigend: die ganze Note und ihre
+// Halbierungen, solange sie ganze Zellen bleiben (16: bis zur Zelle; 96:
+// bis zum 32tel = 3 Zellen), dazu die punktierten Formen, höchstens ein
+// Takt lang. Pausen bleiben ohne Punktierung (eine punktierte halbe Pause
+// liest niemand gern).
 export function notenwerte(r: Raster, punktiert = true): number[] {
   const max = zellenJeTakt(r);
   const werte = new Set<number>();
-  for (let v = 1; v <= max; v *= 2) {
-    werte.add(v);
-    if (punktiert && v >= 2 && (v * 3) / 2 <= max) werte.add((v * 3) / 2);
+  for (let v = r.feinheit; v >= 1 && Number.isInteger(v); v /= 2) {
+    if (v <= max) werte.add(v);
+    if (punktiert && Number.isInteger(v * 1.5) && v * 1.5 <= max && v / 2 >= 1) werte.add(v * 1.5);
   }
   return [...werte].sort((a, b) => b - a);
 }
@@ -411,8 +418,10 @@ export function alsAbc(takte: readonly Takt[], r: Raster, kopf: AbcKopf, tonart:
     let pos = 0;
     vorzeichen.neuerTakt();
     const noten = t.noten.map((n) => {
-      const d = n.dauer === 1 ? '' : String(n.dauer);
-      const s = (n.midi === null ? 'z' : vorzeichen.schreiben(n.midi)) + d + (n.bindung ? '-' : '');
+      // Triole: geschrieben anderthalbfach, die Klammer `(3:2:k` vor der ersten Note.
+      const w = n.triole ? (n.dauer * 3) / 2 : n.dauer;
+      const d = w === 1 ? '' : String(w);
+      const s = (n.gruppe ? `(3:2:${n.gruppe}` : '') + (n.midi === null ? 'z' : vorzeichen.schreiben(n.midi)) + d + (n.bindung ? '-' : '');
       pos += n.dauer;
       return pos % js === 0 ? `${s} ` : s;
     }).join('');
@@ -421,7 +430,89 @@ export function alsAbc(takte: readonly Takt[], r: Raster, kopf: AbcKopf, tonart:
   return zeilen.join('\n') + '\n' + (text.length ? text.join('') : 'z |]') + '\n';
 }
 
+// ABC zurücklesen — nur die Schreibweise von alsAbc (eine Stimme; Kopf
+// X/T/C/M/L/Q/K; Noten mit Vorzeichen nach Notationsregel, Oktavzeichen,
+// Dauer in Zellen, `-` Bindung; `z` Pause; `(3:2:k` Triole; `|` und `|]`).
+// Damit lässt sich ein gespeichertes Stück wieder bearbeiten. null, wenn der
+// Text nicht so aussieht.
+export interface Gelesen { takte: Takt[]; raster: Raster; tonart: Tonart | null; titel: string }
+const STAMMTOENE: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+export function abcLesen(text: string): Gelesen | null {
+  const zeilen = text.split(/\r?\n/);
+  let titel = '', zaehler = 4, nenner: Nenner = 4, feinheit = 16, bpm = 80, tonart: Tonart | null = null;
+  let kopf = true;
+  const koerper: string[] = [];
+  for (const z of zeilen) {
+    const m = kopf ? /^([A-Za-z]):(.*)$/.exec(z) : null;
+    if (m) {
+      const wert = m[2].trim();
+      if (m[1] === 'T') titel = wert;
+      else if (m[1] === 'M') { const t = /^(\d+)\/(\d+)$/.exec(wert); if (!t || !istNenner(Number(t[2]))) return null; zaehler = Number(t[1]); nenner = Number(t[2]) as Nenner; }
+      else if (m[1] === 'L') { const t = /^1\/(\d+)$/.exec(wert); if (!t) return null; feinheit = Number(t[1]); }
+      else if (m[1] === 'Q') { const t = /=(\d+)$/.exec(wert); if (t) bpm = Number(t[1]); }
+      else if (m[1] === 'K') { tonart = tonartFinden(wert); kopf = false; }
+    } else if (!kopf) koerper.push(z);
+  }
+  if (kopf) return null;
+  const r: Raster = { bpm, zaehler, nenner, feinheit };
+  const vorzeichenTonart = vorzeichenDerTonart(tonart);
+  const stand = new Map<string, string>();
+  const takte: Takt[] = [];
+  let noten: Note[] = [];
+  let triole = 0;
+  const VZ: Record<string, number> = { '^': 1, _: -1, '=': 0 };
+  const muster = /\s+|\(3:2:(\d+)|(\|\]?)|([\^_=]?)([A-Ga-gz])([',]*)(\d*)(-?)/y;
+  const quelle = koerper.join(' ');
+  muster.lastIndex = 0;
+  while (muster.lastIndex < quelle.length) {
+    const m = muster.exec(quelle);
+    if (!m) return null;
+    if (m[0].trim() === '') continue;
+    if (m[1]) { triole = Number(m[1]); continue; } // Klammer: gilt für die nächsten k Noten
+    if (m[2]) { if (noten.length) { takte.push({ noten }); noten = []; } stand.clear(); continue; }
+    const [, , , vz, buchstabe, oktaven, dauerText, bindung] = m;
+    const w = dauerText ? Number(dauerText) : 1;
+    const n: Note = { midi: null, dauer: triole ? (w * 2) / 3 : w };
+    if (triole) n.triole = true;
+    if (buchstabe !== 'z') {
+      const gross = buchstabe === buchstabe.toUpperCase();
+      const name = buchstabe.toUpperCase();
+      let oktave = gross ? 4 : 5;
+      for (const o of oktaven) oktave += o === "'" ? 1 : -1;
+      const schluessel = `${name}${oktave}`;
+      const vorzeichen = vz ? VZ[vz] : (stand.has(schluessel) ? VZ[stand.get(schluessel)!] : VZ[vorzeichenTonart.get(name) ?? '=']);
+      if (vz) stand.set(schluessel, vz);
+      n.midi = (oktave + 1) * 12 + STAMMTOENE[name] + vorzeichen;
+      if (bindung) n.bindung = true;
+    }
+    noten.push(n);
+    if (triole) triole--;
+  }
+  if (noten.length) takte.push({ noten });
+  if (!takte.length) return null;
+  // Triolen-Gruppen: aufeinanderfolgende Triolen-Noten je Takt bilden eine Gruppe.
+  for (const t of takte) {
+    let k = 0;
+    while (k < t.noten.length) {
+      if (!t.noten[k].triole) { k++; continue; }
+      let ende = k;
+      while (ende < t.noten.length && t.noten[ende].triole) ende++;
+      t.noten[k].gruppe = ende - k;
+      k = ende;
+    }
+  }
+  return { takte, raster: r, tonart, titel };
+}
+
 // ── Stück ──
+
+// Nach dem Neuschreiben der PDF (Bearbeiten, G-01): Was an Seiten hängt,
+// bleibt auf seiner Seitennummer; was über der neuen Seitenzahl liegt,
+// verfällt. Liefert die ids, die wegfallen.
+export function ueberzaehlig(seiten: number, listen: { stellen: { id: string; seite: number }[]; anmerkungen: { id: string; seite: number }[]; lesezeichen: { id: string; seite: number }[]; merker: { id: string; seite: number }[] }) {
+  const weg = (l: { id: string; seite: number }[]) => l.filter((x) => x.seite > seiten).map((x) => x.id);
+  return { stellen: weg(listen.stellen), anmerkungen: weg(listen.anmerkungen), lesezeichen: weg(listen.lesezeichen), merker: weg(listen.merker) };
+}
 
 export function notationText(n: Notation | undefined): string {
   if (!n) return '';

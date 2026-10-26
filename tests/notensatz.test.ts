@@ -1,14 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { tonartFinden, type Raster, type Takt } from '@/domain/notation';
 import {
-  angebunden, bogenUmschalten, dauerSetzen, klaenge, leererTakt, leeresBlatt, legen, leiterSchritt, leiterVerschieben, letzteHoehe, noteSchreiben,
-  notenZeiten, paletteWerte, punktiert, strecken, taktEinfuegen, taktLoeschen, tonSetzen, verschieben,
+  angebunden, aufBlatt, bogenUmschalten, dauerSetzen, klaenge, leererTakt, leeresBlatt, legen, leiterSchritt, leiterVerschieben, letzteHoehe, noteSchreiben,
+  einfuegen, entfernen, notenZeiten, paletteWerte, punktiert, skalieren, strecken, taktEinfuegen, taktLoeschen, tonSetzen, triole, verschieben,
 } from '@/domain/notensatz';
+import { alsAbc, notenwerte } from '@/domain/notation';
 
 const R: Raster = { bpm: 120, zaehler: 4, nenner: 4, feinheit: 16 };
 const SECHSACHTEL: Raster = { bpm: 60, zaehler: 6, nenner: 8, feinheit: 16 };
 const takt = (...noten: [number | null, number, boolean?][]): Takt => ({ noten: noten.map(([midi, dauer, b]) => (b ? { midi, dauer, bindung: true } : { midi, dauer })) });
-const kurz = (t: Takt) => t.noten.map((n) => `${n.midi ?? 'z'}/${n.dauer}${n.bindung ? '-' : ''}`).join(' ');
+const kurz = (t: Takt) => t.noten.map((n) => `${n.gruppe ? `(${n.gruppe}` : ''}${n.midi ?? 'z'}/${n.dauer}${n.triole ? 't' : ''}${n.bindung ? '-' : ''}`).join(' ');
 
 describe('Strecken und Legen', () => {
   it('fasst gebundene gleiche Noten zu einer Strecke zusammen, Bogen über den Taktstrich bleibt', () => {
@@ -137,6 +138,24 @@ describe('Bogen', () => {
   });
 });
 
+describe('Löschen und Einfügen', () => {
+  it('nimmt eine Note heraus, alles rückt nach — auch über den Taktstrich', () => {
+    const t = [takt([60, 4], [62, 4], [64, 8]), takt([65, 8], [67, 8])];
+    expect(entfernen(t, R, { takt: 0, note: 1 }).map(kurz)).toEqual(['60/4 64/4- 64/4 65/4-', '65/4 67/4- 67/4 z/4']);
+    expect(entfernen(t, R, { takt: 1, note: 1 }).map(kurz)).toEqual(['60/4 62/4 64/8', '65/8 z/8']);
+  });
+  it('nimmt eine gebundene Note ganz heraus und lässt einen Takt übrig', () => {
+    const t = [takt([60, 8], [62, 8, true]), takt([62, 8], [64, 8])];
+    expect(entfernen(t, R, { takt: 1, note: 0 }).map(kurz)).toEqual(['60/8 64/8']);
+    expect(entfernen([takt([60, 16])], R, { takt: 0, note: 0 }).map(kurz)).toEqual(['z/16']);
+  });
+  it('fügt vor der Note eine Pause ein, der Rest rückt weiter und ein Takt wächst dazu', () => {
+    const t = [takt([60, 8], [62, 8])];
+    expect(einfuegen(t, R, { takt: 0, note: 1 }, 4).map(kurz)).toEqual(['60/8 z/4 62/4-', '62/4 z/4 z/8']);
+    expect(einfuegen(t, R, { takt: 0, note: 0 }, 16).map(kurz)).toEqual(['z/16', '60/8 62/8']);
+  });
+});
+
 describe('Takte', () => {
   it('fügt leere Takte ein und löscht; der letzte wird leer, Bögen ins Gelöschte lösen sich', () => {
     const t = [takt([60, 16, true]), takt([60, 16]), takt([62, 16])];
@@ -158,5 +177,59 @@ describe('Vorspielen', () => {
     const z = notenZeiten(t, R);
     expect(z.zeiten).toEqual([0, 0.5, 1, 2, 3]);
     expect(z.gesamt).toBe(4);
+  });
+});
+
+describe('Blatt mit 96 Zellen: 32tel und Triolen', () => {
+  const B = aufBlatt(R); // 4/4, 96 Zellen je Takt, 24 je Schlag
+  it('kennt die Werte bis zum 32tel und skaliert Takte aufs Blatt', () => {
+    expect(notenwerte(B)).toEqual([96, 72, 48, 36, 24, 18, 12, 9, 6, 3]);
+    expect(paletteWerte(B).map((w) => w.kurz)).toEqual(['1/1', '1/2', '1/4', '1/8', '1/16', '1/32']);
+    expect(punktiert(24, B)).toBe(36);
+    expect(punktiert(3, B)).toBeNull();
+    expect(triole(24, B)).toBe(16);
+    expect(triole(12, B)).toBe(8);
+    expect(triole(3, B)).toBe(2);
+    expect(triole(12, aufBlatt(SECHSACHTEL))).toBeNull();
+    expect(kurz(skalieren([takt([60, 4], [null, 12])], 16)[0])).toBe('60/24 z/72');
+    expect(kurz(leererTakt(B))).toBe('z/96');
+  });
+  it('schreibt eine Achteltriole im Schlag mit Klammer, der Rest bleibt binär', () => {
+    const t = legen([{ midi: 60, dauer: 24 }, { midi: 62, dauer: 8 }, { midi: 64, dauer: 8 }, { midi: 65, dauer: 8 }, { midi: 67, dauer: 48 }], B);
+    expect(kurz(t)).toBe('60/24 (362/8t 64/8t 65/8t 67/48');
+    expect(alsAbc([t], B, { titel: 'T' })).toContain('C24 (3:2:3D12E12F12 G48 |]');
+  });
+  it('erkennt Sechzehnteltriolen und gemischte Triolen-Schläge', () => {
+    const t = legen([{ midi: 60, dauer: 4 }, { midi: 62, dauer: 4 }, { midi: 64, dauer: 4 }, { midi: 65, dauer: 12 }, { midi: null, dauer: 72 }], B);
+    expect(kurz(t)).toBe('(460/4t 62/4t 64/4t 65/12t z/24 z/48');
+    expect(alsAbc([t], B, { titel: 'T' })).toContain('(3:2:4C6D6E6F18 z24 z48 |]');
+  });
+  it('erkennt eine Vierteltriole über die Takthälfte', () => {
+    const t = legen([{ midi: 60, dauer: 16 }, { midi: 62, dauer: 16 }, { midi: 64, dauer: 16 }, { midi: 65, dauer: 48 }], B);
+    expect(kurz(t)).toBe('(360/16t 62/16t 64/16t 65/48');
+    expect(alsAbc([t], B, { titel: 'T' })).toContain('(3:2:3C24D24E24 F48 |]');
+  });
+  it('teilt eine Strecke am Rand eines Triolen-Schlags und bindet', () => {
+    const t = legen([{ midi: 60, dauer: 32 }, { midi: 62, dauer: 8 }, { midi: 64, dauer: 8 }, { midi: null, dauer: 48 }], B);
+    expect(kurz(t)).toBe('60/24- (360/8t 62/8t 64/8t z/48');
+  });
+  it('32tel bleiben binär, Pausen füllen mit 32teln auf', () => {
+    const t = legen([{ midi: 60, dauer: 3 }, { midi: 62, dauer: 3 }, { midi: 64, dauer: 6 }, { midi: null, dauer: 84 }], B);
+    expect(kurz(t)).toBe('60/3 62/3 64/6 z/12 z/24 z/48');
+    expect(kurz(dauerSetzen([leererTakt(B)], B, { takt: 0, note: 0 }, 2)[0])).toBe('(4z/2t z/16t z/4t z/2t z/24 z/48');
+  });
+  it('rundet, was sich nicht notieren lässt, im betroffenen Schlag aufs binäre Raster', () => {
+    // Ein 32tel vor eine Achteltriole geschoben: die Triole liegt schief — der Schlag wird binär.
+    const t = legen([{ midi: 60, dauer: 3 }, { midi: 62, dauer: 8 }, { midi: 64, dauer: 8 }, { midi: 65, dauer: 8 }, { midi: 67, dauer: 69 }], B);
+    expect(t.noten.every((n) => n.dauer % 3 === 0)).toBe(true);
+    expect(t.noten.reduce((a, n) => a + n.dauer, 0)).toBe(96);
+    expect(strecken(t).filter((n) => n.midi === 62 || n.midi === 64 || n.midi === 65)).toHaveLength(3);
+    // Eine saubere Triole im nächsten Schlag bleibt.
+    const u = legen([{ midi: 60, dauer: 3 }, { midi: 62, dauer: 21 }, { midi: 64, dauer: 8 }, { midi: 65, dauer: 8 }, { midi: 67, dauer: 8 }, { midi: null, dauer: 48 }], B);
+    expect(u.noten.filter((n) => n.triole)).toHaveLength(3);
+  });
+  it('spielt Triolen in echter Zeit', () => {
+    const t = legen([{ midi: 60, dauer: 8 }, { midi: 62, dauer: 8 }, { midi: 64, dauer: 8 }, { midi: null, dauer: 72 }], B);
+    expect(klaenge([t], B).map((k) => [k.beginn, k.dauer])).toEqual([[0, 1 / 6], [1 / 6, 1 / 6], [1 / 3, 1 / 6]]);
   });
 });

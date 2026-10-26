@@ -13,6 +13,7 @@ import {
   type EinstellungsStand,
 } from '@/domain/einstellungen';
 import { nurLesbare } from '@/domain/lesbar';
+import { ueberzaehlig } from '@/domain/notation';
 import type { Anmerkung } from '@/domain/notenpult';
 import { sicherungLesen, sicherungPacken, SicherungsFehler, type Zusatz } from '@/domain/sicherung';
 import { verbindungVerloren, type SpeicherDauer } from '@/domain/speicher';
@@ -237,6 +238,34 @@ export async function stueckAendern(id: string, felder: Partial<Omit<Stueck, 'id
   if (!alt) return;
   if (alt.quelle) throw new Error('Dieses Stück zeigt Seiten aus einem anderen — seine PDF lässt sich nicht ersetzen.');
   await mitDatei({ ...alt, ...rest, id, geaendert: Date.now(), groesse: daten.byteLength }, daten, typVon(datei));
+}
+
+// Ein geschriebenes oder eingesungenes Stück (G-01) nach dem Bearbeiten
+// neu schreiben: neue PDF und Quelle, Titel; Stellen, Anmerkungen,
+// Lesezeichen und Merker bleiben auf ihrer Seite — was über der neuen
+// Seitenzahl liegt, verfällt (ueberzaehlig, mit Grabsteinen für die Sicherung).
+export async function stueckNeuSchreiben(id: string, n: { datei: Blob; dateiname: string; titel: string; notation: NonNullable<Stueck['notation']>; seiten: number }) {
+  const { datei, seiten, ...felder } = n;
+  await stueckAendern(id, { ...felder, datei });
+  const [stellen, anmerkungen, lesezeichen, merker] = await Promise.all([stellenVon(id), anmerkungenVon(id), lesezeichenVon(id), merkerVon(id)]);
+  const weg = ueberzaehlig(seiten, { stellen, anmerkungen, lesezeichen, merker });
+  if (!weg.stellen.length && !weg.anmerkungen.length && !weg.lesezeichen.length && !weg.merker.length) return;
+  await transaktion<void>(['stellen', 'anmerkungen', 'lesezeichen', 'merker', 'setlisten'], 'readwrite', (t, abbrechen) => {
+    for (const k of weg.stellen) t.objectStore('stellen').delete(k);
+    for (const k of weg.anmerkungen) t.objectStore('anmerkungen').delete(k);
+    for (const k of weg.lesezeichen) t.objectStore('lesezeichen').delete(k);
+    for (const k of weg.merker) t.objectStore('merker').delete(k);
+    if (weg.lesezeichen.length) {
+      const s = t.objectStore('setlisten');
+      const r = s.getAll() as IDBRequest<Setliste[]>;
+      r.onsuccess = () => {
+        try { for (const sl of setlistenOhne(r.result, new Set(), new Set(weg.lesezeichen), Date.now())) s.put(sl); } catch (x) { abbrechen(x); }
+      };
+    }
+  });
+  begraben('stelle', weg.stellen);
+  begraben('lesezeichen', weg.lesezeichen);
+  begraben('merker', weg.merker);
 }
 
 // Ein virtuelles Stück: die Seiten von–bis aus der PDF eines echten Stücks

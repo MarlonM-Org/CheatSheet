@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AbcElem, ClickListenerDrag, TuneObject } from 'abcjs';
 import { alsAbc, type Raster, type Takt, type Tonart } from '@/domain/notation';
 import {
-  angebunden, bogenUmschalten, dauerSetzen, klaenge, leiterVerschieben, letzteHoehe, noteSchreiben, notenZeiten, paletteWerte, punktiert,
-  taktEinfuegen, taktLoeschen, tonSetzen, verschieben, type NotenPos,
+  angebunden, bogenUmschalten, dauerSetzen, einfuegen, entfernen, klaenge, leiterVerschieben, letzteHoehe, noteSchreiben, notenZeiten, paletteWerte,
+  punktiert, taktEinfuegen, taktLoeschen, tonSetzen, triole, verschieben, type NotenPos,
 } from '@/domain/notensatz';
 import { audioSitzung, gespeichert, speichern } from './klang';
 import { vorspielen, type Vorspiel } from './klavier';
@@ -47,6 +47,7 @@ export function Notenblatt({ takte, raster, tonart, titel, aendern }: {
   }, [auswahlRoh, takte]);
   const [wert, setWertRoh] = useState(() => gespeichert<number>(WERT_SCHLUESSEL, 4));
   const [punkt, setPunkt] = useState(false);
+  const [tri, setTri] = useState(false);
   const [fehler, setFehler] = useState('');
   const [spielt, setSpielt] = useState(false);
   const vorspiel = useRef<(Vorspiel & { zeit: () => number; raf: number; zeiger: number }) | null>(null);
@@ -162,15 +163,17 @@ export function Notenblatt({ takte, raster, tonart, titel, aendern }: {
   useEffect(() => { if (vorspiel.current) anhalten(); }, [takte, anhalten]);
 
   // ── Palette ──
-  const setWert = (z: number) => { setWertRoh(z); speichern(WERT_SCHLUESSEL, z); if (auswahl && aendern) aendern(dauerSetzen(takte, raster, auswahl, dauerMitPunkt(z, punkt))); };
-  const dauerMitPunkt = (z: number, p: boolean) => (p ? punktiert(z, raster) ?? z : z);
-  const setPunktUnd = (p: boolean) => { setPunkt(p); if (auswahl && aendern) aendern(dauerSetzen(takte, raster, auswahl, dauerMitPunkt(wert, p))); };
+  // Der Wert aus der Palette: Triole (zwei Drittel) oder punktiert (anderthalb).
+  const dauerAus = (z: number, p: boolean, t: boolean) => (t ? triole(z, raster) ?? z : p ? punktiert(z, raster) ?? z : z);
+  const setWert = (z: number) => { setWertRoh(z); speichern(WERT_SCHLUESSEL, z); if (auswahl && aendern) aendern(dauerSetzen(takte, raster, auswahl, dauerAus(z, punkt, tri))); };
+  const setPunktUnd = (p: boolean) => { setPunkt(p); if (p) setTri(false); if (auswahl && aendern) aendern(dauerSetzen(takte, raster, auswahl, dauerAus(wert, p, false))); };
+  const setTriUnd = (t: boolean) => { setTri(t); if (t) setPunkt(false); if (auswahl && aendern) aendern(dauerSetzen(takte, raster, auswahl, dauerAus(wert, false, t))); };
   const note = auswahl ? takte[auswahl.takt]?.noten[auswahl.note] : undefined;
   const schreiben = () => {
     if (!aendern) return;
     const pos = auswahl ?? { takt: 0, note: 0 };
     const hoehe = takte[pos.takt]?.noten[pos.note]?.midi ?? letzteHoehe(takte, pos);
-    const { takte: neu, naechste } = noteSchreiben(takte, raster, pos, hoehe, dauerMitPunkt(wert, punkt));
+    const { takte: neu, naechste } = noteSchreiben(takte, raster, pos, hoehe, dauerAus(wert, punkt, tri));
     aendern(neu);
     setAuswahl(naechste ?? pos);
   };
@@ -179,7 +182,8 @@ export function Notenblatt({ takte, raster, tonart, titel, aendern }: {
     if (!aendern || (e.target as HTMLElement).closest('input, select, textarea')) return;
     if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); if (auswahl) aendern(verschieben(takte, raster, auswahl, (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 12 : 1))); }
     else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); bewegen(e.key === 'ArrowLeft' ? -1 : 1); }
-    else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); if (auswahl) aendern(tonSetzen(takte, raster, auswahl, null)); }
+    else if (e.key === 'Delete') { e.preventDefault(); if (auswahl) aendern(tonSetzen(takte, raster, auswahl, null)); }
+    else if (e.key === 'Backspace') { e.preventDefault(); if (auswahl) aendern(entfernen(takte, raster, auswahl)); }
   };
 
   return (
@@ -198,7 +202,9 @@ export function Notenblatt({ takte, raster, tonart, titel, aendern }: {
             <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => auswahl && aendern(verschieben(takte, raster, auswahl, -12))} disabled={!note || note.midi === null} aria-label="Oktave tiefer">▼8</button>
             <span className="notensatz-trenner" aria-hidden="true" />
             <button type="button" className="knopf knopf-leise knopf-klein" onClick={schreiben} disabled={!lagen.length}>Note</button>
+            <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => auswahl && aendern(einfuegen(takte, raster, auswahl, dauerAus(wert, punkt, tri)))} disabled={!auswahl} title="Vor der gewählten Note Platz einfügen — alles danach rückt weiter">Einfügen</button>
             <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => auswahl && aendern(tonSetzen(takte, raster, auswahl, null))} disabled={!note || note.midi === null}>Pause</button>
+            <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => auswahl && aendern(entfernen(takte, raster, auswahl))} disabled={!auswahl} title="Note herausnehmen — alles danach rückt nach">Löschen</button>
             <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => auswahl && aendern(bogenUmschalten(takte, raster, auswahl))} disabled={!note || note.midi === null}>
               {auswahl && angebunden(takte, auswahl) ? 'Bogen lösen' : 'Bogen'}
             </button>
@@ -212,6 +218,9 @@ export function Notenblatt({ takte, raster, tonart, titel, aendern }: {
           </div>
           <label className="einspiel-feld"><span>punktiert</span>
             <input type="checkbox" role="switch" className="ios-schalter" checked={punkt} onChange={(e) => setPunktUnd(e.target.checked)} disabled={punktiert(wert, raster) === null} />
+          </label>
+          <label className="einspiel-feld"><span>Triole</span>
+            <input type="checkbox" role="switch" className="ios-schalter" checked={tri} onChange={(e) => setTriUnd(e.target.checked)} disabled={triole(wert, raster) === null} />
           </label>
           <span className="notensatz-trenner" aria-hidden="true" />
           <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => { const nach = auswahl ? auswahl.takt : takte.length - 1; aendern(taktEinfuegen(takte, raster, nach)); setAuswahl({ takt: nach + 1, note: 0 }); }}>Takt +</button>

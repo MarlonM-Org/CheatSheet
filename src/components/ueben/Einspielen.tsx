@@ -4,14 +4,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   alsAbc, effektivwert, FEINHEITEN, notenDateiname, rastern, taktDauer, tempoAusTipps, TONARTEN, tonartFinden, versatzSchaetzen,
-  zellenDauer, zellenJeSchlag, type Feinheit, type Raster, type Takt, type Tonrahmen,
+  zellenDauer, zellenJeSchlag, type Feinheit, type Gelesen, type Raster, type Takt, type Tonrahmen,
 } from '@/domain/notation';
+import type { Stueck } from '@/domain/bestand';
 import { pdfBauen, type Seitenbild } from '@/domain/scan';
 import { schlaegeJeTakt, TAKTARTEN, taktartText, type Nenner } from '@/domain/takt';
-import { leeresBlatt } from '@/domain/notensatz';
+import { aufBlatt, aufsBlatt, leeresBlatt, skalieren } from '@/domain/notensatz';
 import { frequenzZuTon, grundfrequenz, type Stimmung } from '@/domain/ueben';
 import { audioSitzung, gespeichert, klangPuffer, speichern, wachHalten } from './klang';
-import { stueckAnlegen } from './lokal';
+import { stueckAnlegen, stueckNeuSchreiben } from './lokal';
 import { useMetronom } from './MetronomKontext';
 import { Notenblatt } from './Notensatz';
 import { useStimmgeraetApi } from './StimmgeraetKontext';
@@ -77,24 +78,29 @@ interface Mikro {
 }
 interface Wiedergabe { ctx: AudioContext; quelle: AudioBufferSourceNode; beginn: number; raf: number }
 
-export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig, schliessen }: {
+// Vorlage: ein gespeichertes Stück mit Quelle zum Weiterbearbeiten
+// („Komponieren“ in der Notenansicht) — Speichern schreibt es neu.
+export interface Vorlage { stueck: Stueck; gelesen: Gelesen }
+
+export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlage, fertig, schliessen }: {
   quelle: EinspielQuelle;
   sammlungen: string[]; tags: string[];
+  vorlage?: Vorlage;
   fertig: (meldung: string) => void;
   schliessen: () => void;
 }) {
   const metro = useMetronom();
   const stimm = useStimmgeraetApi();
-  const [quelle, setQuelle] = useState<EinspielQuelle>(quelleStart);
-  const [phase, setPhase] = useState<Phase>(quelleStart === 'leer' ? 'vorschlag' : 'bereit');
-  // Raster: Vorgaben vom Metronom, hier nur für diese Aufnahme geändert.
-  const [bpm, setBpmRoh] = useState(metro.bpm);
+  const [quelle, setQuelle] = useState<EinspielQuelle>(vorlage ? 'leer' : quelleStart);
+  const [phase, setPhase] = useState<Phase>(vorlage || quelleStart === 'leer' ? 'vorschlag' : 'bereit');
+  // Raster: Vorgaben vom Metronom (bei einer Vorlage: aus ihr), hier nur für diese Aufnahme geändert.
+  const [bpm, setBpmRoh] = useState(vorlage ? vorlage.gelesen.raster.bpm : metro.bpm);
   const setBpm = (n: number) => setBpmRoh(Math.min(300, Math.max(20, Math.round(n))));
   // Das Tempo-Feld: frei tippen (Text nur während der Eingabe), übernommen
   // und begrenzt beim Verlassen oder mit Enter.
   const [tempoText, setTempoText] = useState<string | null>(null);
   const tempoUebernehmen = () => { const n = Number(tempoText); if (n) setBpm(n); setTempoText(null); };
-  const [taktart, setTaktart] = useState<[number, Nenner]>([metro.takt, metro.nenner]);
+  const [taktart, setTaktart] = useState<[number, Nenner]>(vorlage ? [vorlage.gelesen.raster.zaehler, vorlage.gelesen.raster.nenner] : [metro.takt, metro.nenner]);
   const [feinheit, setFeinheitRoh] = useState<Feinheit>(() => (gespeichert<number>(FEINHEIT_SCHLUESSEL, 16) === 8 ? 8 : 16));
   const setFeinheit = (f: Feinheit) => { setFeinheitRoh(f); speichern(FEINHEIT_SCHLUESSEL, f); };
   const [klickWeiter, setKlickWeiterRoh] = useState(() => gespeichert(KLICK_SCHLUESSEL, true));
@@ -103,7 +109,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
   const setLautsprecher = (an: boolean) => { setLautsprecherRoh(an); speichern(LAUTSPRECHER_SCHLUESSEL, an); };
   // Tonart (notiert, wie das Stimmgerät zeigt): zieht die Töne auf die Leiter
   // und setzt die Vorzeichen; leer = keine Tonart, Töne bleiben, wie gehört.
-  const [tonartAbc, setTonartAbcRoh] = useState(() => gespeichert<string>(TONART_SCHLUESSEL, 'C'));
+  const [tonartAbc, setTonartAbcRoh] = useState(() => (vorlage ? vorlage.gelesen.tonart?.abc ?? '' : gespeichert<string>(TONART_SCHLUESSEL, 'C')));
   const setTonartAbc = (a: string) => { setTonartAbcRoh(a); speichern(TONART_SCHLUESSEL, a); };
   const tonart = useMemo(() => tonartFinden(tonartAbc), [tonartAbc]);
   const raster = useMemo<Raster>(() => ({ bpm, zaehler: taktart[0], nenner: taktart[1], feinheit }), [bpm, taktart, feinheit]);
@@ -118,7 +124,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
   const [start, setStart] = useState(0);
   const [dauer, setDauer] = useState(0); // Länge der Datei in Sekunden
   const [dateiName, setDateiName] = useState('');
-  const [titel, setTitel] = useState('');
+  const [titel, setTitel] = useState(vorlage?.stueck.titel ?? '');
   const [fehler, setFehler] = useState('');
   const [laeuft, setLaeuft] = useState<string | null>(null);
   // Live-Anzeige (sparsam aktualisiert): Einzähler, Takt/Schlag, gehörter Ton.
@@ -139,15 +145,18 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
     if (phase !== 'vorschlag' || quelle === 'leer') return [];
     const abStart = spur.map((f) => ({ ...f, zeit: f.zeit - start }));
     const versatz = versatzSchaetzen(abStart, raster);
-    return rastern(versatz ? abStart.map((f) => ({ ...f, zeit: f.zeit - versatz })) : abStart, raster, { tonart });
+    // Aufs Blattraster (96 Zellen: 32tel, Triolen) gebracht.
+    return skalieren(rastern(versatz ? abStart.map((f) => ({ ...f, zeit: f.zeit - versatz })) : abStart, raster, { tonart }), raster.feinheit);
   }, [phase, quelle, spur, start, raster, tonart]);
+  const blattRaster = useMemo(() => aufBlatt(raster), [raster]);
   // Schreiben: ein leerer Takt in der Taktart (Tempo und Tonart ändern das Blatt nicht).
   const [zaehler, nenner] = taktart;
-  const leer = useMemo(() => leeresBlatt({ bpm: 60, zaehler, nenner, feinheit }), [zaehler, nenner, feinheit]);
+  const leer = useMemo(() => leeresBlatt(aufBlatt({ bpm: 60, zaehler, nenner, feinheit: 16 })), [zaehler, nenner]);
   const basis = quelle === 'leer' ? leer : erkannt;
   // Bearbeitet im Notenblatt — gilt, solange die Grundlage dieselbe ist
   // (neue Aufnahme, anderes Raster: alles von vorn).
-  const [bearbeitet, setBearbeitet] = useState<{ basis: Takt[]; takte: Takt[] } | null>(null);
+  const [bearbeitet, setBearbeitet] = useState<{ basis: Takt[]; takte: Takt[] } | null>(
+    () => (vorlage ? { basis: leer, takte: aufsBlatt(vorlage.gelesen.takte, vorlage.gelesen.raster.feinheit, vorlage.gelesen.raster) } : null));
   const takte = bearbeitet && bearbeitet.basis === basis ? bearbeitet.takte : basis;
   const aendern = useCallback((neu: Takt[]) => setBearbeitet({ basis, takte: neu }), [basis]);
 
@@ -381,7 +390,9 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
   const quelleWechseln = (q: EinspielQuelle) => {
     if (q === quelle) return;
     stoppen(false); wiedergabeAus();
-    setQuelle(q); setSpur([]); setStart(0); setDauer(0); setDateiName(''); setBearbeitet(null); setPhase(q === 'leer' ? 'vorschlag' : 'bereit'); setFehler('');
+    setQuelle(q); setSpur([]); setStart(0); setDauer(0); setDateiName(''); setPhase(q === 'leer' ? 'vorschlag' : 'bereit'); setFehler('');
+    // Zum Schreiben wechseln nimmt den Vorschlag mit — da geht es ja weiter.
+    setBearbeitet(q === 'leer' && phase === 'vorschlag' && takte.length ? { basis: leer, takte } : null);
   };
   const nochmal = () => { wiedergabeAus(); setSpur([]); setStart(0); setDauer(0); setDateiName(''); setBearbeitet(null); setPhase('bereit'); };
 
@@ -389,8 +400,8 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
   async function speichernUndSchliessen() {
     if (!takte.length || laeuft) return;
     setFehler('');
-    const name = titel.trim() || (quelle === 'mikro' ? 'Eingesungen' : quelle === 'leer' ? 'Neues Stück' : dateiName.replace(/\.[^.]+$/, '') || 'Aus Audio');
-    const text = alsAbc(takte, raster, { titel: name }, tonart);
+    const name = titel.trim() || vorlage?.stueck.titel || (quelle === 'mikro' ? 'Eingesungen' : quelle === 'leer' ? 'Neues Stück' : dateiName.replace(/\.[^.]+$/, '') || 'Aus Audio');
+    const text = alsAbc(takte, blattRaster, { titel: name }, tonart);
     try {
       setLaeuft('Noten werden gezeichnet …');
       await luft();
@@ -398,6 +409,14 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
       setLaeuft('PDF wird geschrieben …');
       await luft();
       const datei = new Blob([pdfBauen(seiten, name)], { type: 'application/pdf' });
+      if (vorlage) {
+        await stueckNeuSchreiben(vorlage.stueck.id, {
+          datei, dateiname: notenDateiname(name, new Date()), titel: name, seiten: seiten.length,
+          notation: { format: 'abc', text, art: vorlage.stueck.notation?.art ?? 'geschrieben' },
+        });
+        fertig(`„${name}“ neu geschrieben: ${takte.length} ${takte.length === 1 ? 'Takt' : 'Takte'}, ${seiten.length} ${seiten.length === 1 ? 'Seite' : 'Seiten'}.`);
+        return;
+      }
       await stueckAnlegen({
         titel: name, stimme: '', datei, dateiname: notenDateiname(name, new Date()),
         ...(sammlungen.length ? { sammlungen } : {}), ...(tags.length ? { tags } : {}),
@@ -425,7 +444,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
   return createPortal(
     <div className="scan-dialog" role="dialog" aria-modal="true" aria-label="Einsingen oder Audio laden" ref={fokus} tabIndex={-1}>
       <div className="panel-kopf mit-linie">
-        <h2>{quelle === 'mikro' ? 'Einsingen' : quelle === 'leer' ? 'Schreiben' : 'Aus Audio'}</h2>
+        <h2>{vorlage ? 'Komponieren' : quelle === 'mikro' ? 'Einsingen' : quelle === 'leer' ? 'Schreiben' : 'Aus Audio'}</h2>
         <span className="bib-anzahl">{phase === 'vorschlag' && takte.length ? `· ${takte.length} ${takte.length === 1 ? 'Takt' : 'Takte'}` : ''}</span>
         <span className="flex-1" />
         <button type="button" className="panel-zu" onClick={schliessen} disabled={beschaeftigt} aria-label="Abbrechen">
@@ -436,11 +455,13 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
       <div className="scan-inhalt">
         {fehler && <p className="karte warnung" role="alert">{fehler}</p>}
 
-        <div className="segment !mx-0" role="group" aria-label="Quelle">
-          <button type="button" aria-pressed={quelle === 'mikro'} onClick={() => quelleWechseln('mikro')} disabled={beschaeftigt}>Mikrofon</button>
-          <button type="button" aria-pressed={quelle === 'datei'} onClick={() => quelleWechseln('datei')} disabled={beschaeftigt}>Audio-Datei</button>
-          <button type="button" aria-pressed={quelle === 'leer'} onClick={() => quelleWechseln('leer')} disabled={beschaeftigt}>Schreiben</button>
-        </div>
+        {!vorlage && (
+          <div className="segment !mx-0" role="group" aria-label="Quelle">
+            <button type="button" aria-pressed={quelle === 'mikro'} onClick={() => quelleWechseln('mikro')} disabled={beschaeftigt}>Mikrofon</button>
+            <button type="button" aria-pressed={quelle === 'datei'} onClick={() => quelleWechseln('datei')} disabled={beschaeftigt}>Audio-Datei</button>
+            <button type="button" aria-pressed={quelle === 'leer'} onClick={() => quelleWechseln('leer')} disabled={beschaeftigt}>Schreiben</button>
+          </div>
+        )}
 
         <div className="karte einspiel-raster">
           <label className="einspiel-feld">
@@ -460,14 +481,16 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
               ))}
             </div>
           </div>
-          <div className="einspiel-feld">
-            <span>Kleinster Wert</span>
-            <div className="segment !mx-0" role="group" aria-label="Kleinster Notenwert">
-              {FEINHEITEN.map((f) => (
-                <button key={f.feinheit} type="button" aria-pressed={feinheit === f.feinheit} disabled={quelle === 'leer' && festesRaster} onClick={() => setFeinheit(f.feinheit)}>{f.name}</button>
-              ))}
+          {quelle !== 'leer' && (
+            <div className="einspiel-feld">
+              <span>Kleinster Wert</span>
+              <div className="segment !mx-0" role="group" aria-label="Kleinster Notenwert (Erkennung)">
+                {FEINHEITEN.map((f) => (
+                  <button key={f.feinheit} type="button" aria-pressed={feinheit === f.feinheit} disabled={festesRaster} onClick={() => setFeinheit(f.feinheit)}>{f.name}</button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
           <label className="einspiel-feld">
             <span>Tonart</span>
             <select className="feld feld-zahl" value={tonartAbc} onChange={(e) => setTonartAbc(e.target.value)} aria-label="Tonart (zieht die Töne auf die Leiter)">
@@ -554,7 +577,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
         {phase === 'vorschlag' && (
           <div className="karte space-y-2">
             {takte.length
-              ? <Notenblatt takte={takte} raster={raster} tonart={tonart} titel={titel} aendern={aendern} />
+              ? <Notenblatt takte={takte} raster={blattRaster} tonart={tonart} titel={titel} aendern={aendern} />
               : (
                 <div className="einspiel-zeile">
                   <p className="gedaempft text-sm">Kein Ton erkannt. Näher ans Mikrofon, lauter, oder eine andere Datei.</p>
@@ -568,7 +591,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
 
       <form className="scan-fuss" onSubmit={(e) => { e.preventDefault(); void speichernUndSchliessen(); }}>
         <input className="feld" value={titel} onChange={(e) => setTitel(e.target.value)} placeholder="Titel des Stücks" aria-label="Titel" disabled={!!laeuft} />
-        <button type="submit" className="knopf" disabled={phase !== 'vorschlag' || !takte.length || !!laeuft}>{laeuft ?? 'Als Stück speichern'}</button>
+        <button type="submit" className="knopf" disabled={phase !== 'vorschlag' || !takte.length || !!laeuft}>{laeuft ?? (vorlage ? 'Speichern' : 'Als Stück speichern')}</button>
       </form>
     </div>,
     document.body,

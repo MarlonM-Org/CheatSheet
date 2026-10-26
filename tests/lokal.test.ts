@@ -204,6 +204,29 @@ describe('Stücke', () => {
     expect(await (await g.lokal.stueckDatei({ id })).text()).toBe('%PDF-1.4 zwei');
   });
 
+  it('schreibt ein bearbeitetes Stück neu: PDF, Quelle, Titel — Überzähliges über der neuen Seitenzahl verfällt', async () => {
+    const id = await anlegen('A', 'eins');
+    await g.lokal.stelleAnlegen(stelle(id, 1, 0.2));
+    await g.lokal.stelleAnlegen(stelle(id, 3, 0.2, 'T. 9'));
+    await g.lokal.anmerkungenSpeichern(id, 1, [strich]);
+    await g.lokal.anmerkungenSpeichern(id, 2, [strich]);
+    const lz = await g.lokal.lesezeichenAnlegen({ stueckId: id, seite: 2, titel: 'Trio' });
+    await g.lokal.merkerSetzen(id, 1, true);
+    await g.lokal.merkerSetzen(id, 2, true);
+    const notation = { format: 'abc' as const, text: 'X:1\nK:C\nC4 |]', art: 'geschrieben' as const };
+    await g.lokal.stueckNeuSchreiben(id, { datei: pdf('zwei'), dateiname: 'A (Noten).pdf', titel: 'A neu', notation, seiten: 1 });
+    const s = await g.lokal.stueckHolen(id);
+    expect(s?.titel).toBe('A neu');
+    expect(s?.notation).toEqual(notation);
+    expect(await (await g.lokal.stueckDatei({ id })).text()).toBe('%PDF-1.4 zwei');
+    expect((await g.lokal.stellenVon(id)).map((x) => x.seite)).toEqual([1]);
+    expect((await g.lokal.anmerkungenVon(id)).map((x) => x.seite)).toEqual([1]);
+    expect(await g.lokal.lesezeichenVon(id)).toEqual([]);
+    expect((await g.lokal.merkerVon(id)).map((x) => x.seite)).toEqual([1]);
+    expect(g.lokal.grabsteineHier().map((x) => x.art).sort()).toEqual(['lesezeichen', 'merker', 'stelle']);
+    expect(g.lokal.grabsteineHier().some((x) => x.id === lz)).toBe(true);
+  });
+
   it('ändert nichts an einem Stück, das es nicht gibt', async () => {
     await g.lokal.stueckAendern('gibtsnicht', { titel: 'X' });
     await g.lokal.stueckAendern('gibtsnicht', { titel: 'X', datei: pdf('x') });

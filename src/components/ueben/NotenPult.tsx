@@ -4,6 +4,7 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { dateiVon, istVirtuell, type Lesezeichen } from '@/domain/bestand';
 import { istNachladeFehler } from '@/domain/nachladen';
+import { abcLesen } from '@/domain/notation';
 import type { Anmerkung } from '@/domain/notenpult';
 import { sammlungenVon } from '@/domain/sammlungen';
 import { bereichLesen, inSicht, neueLesezeichen, quellenText, stueckeAusLesezeichen, zurPdf } from '@/domain/sicht';
@@ -16,6 +17,7 @@ import {
   stelleAendern, zuletztMerken, stellenVon, tagsLaden, tempoGeschafft, virtuellesAnlegen,
   type Stueck, type Stelle,
 } from './lokal';
+import { EinspielenDialog, type Vorlage } from './Einspielen';
 import { LesezeichenKontext, MehrKnopf, StueckKontext, useHalten } from './Kontext';
 import { TagEtikett } from './Tags';
 import { useMetronom } from './MetronomKontext';
@@ -55,6 +57,16 @@ export function NotenPult({ notenId, tastenAktiv, verschwunden, mix = null, leis
   const [lesezeichen, setLesezeichen] = useState<Lesezeichen[]>([]);
   const [blatt, setBlatt] = useState(!!blattAnfang);
   const [sprung, setSprung] = useState<Ziel | null>(null);
+  // Komponieren (G-01): das Stück mit seiner Quelle im Notenblatt weiterbearbeiten.
+  const [vorlage, setVorlage] = useState<Vorlage | null>(null);
+  const [neuGeladen, setNeuGeladen] = useState(0);
+  const komponieren = useCallback(() => {
+    if (!noten?.notation) return;
+    const gelesen = abcLesen(noten.notation.text);
+    if (!gelesen) { setFehler('Die Quelle dieses Stücks lässt sich nicht lesen.'); return; }
+    mix?.beenden();
+    setVorlage({ stueck: noten, gelesen });
+  }, [noten, mix]);
   const mixAbgleichen = mix?.abgleichen;
   const neuLaden = useCallback(() => {
     if (!noten) return;
@@ -89,9 +101,10 @@ export function NotenPult({ notenId, tastenAktiv, verschwunden, mix = null, leis
     // freigeben — sonst bleibt jedes je geöffnete Stück im Speicher, bis
     // iOS die App wegen Speichermangels hakeln lässt.
     return () => { weg = true; dokument?.then((d) => d.loadingTask.destroy(), () => { /* nie geladen */ }); };
-    // verschwunden ändert sich nicht fachlich — nur die Noten-ID zählt.
+    // verschwunden ändert sich nicht fachlich — nur die Noten-ID zählt
+    // (und ein Neuladen nach dem Komponieren).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [notenId]);
+  }, [notenId, neuGeladen]);
 
   if (neueVersion) return <div className="leer"><NeueVersion /></div>;
   if (fehler) return (
@@ -111,11 +124,18 @@ export function NotenPult({ notenId, tastenAktiv, verschwunden, mix = null, leis
     <>
       <NotenBetrachter noten={noten} pdf={pdf} stellen={stellen} lesezeichen={lesezeichen} lesezeichenGeaendert={lesezeichenLaden}
         geaendert={neuLaden} mix={mix} {...leisten}
-        tastenAktiv={tastenAktiv && !blatt} sprung={sprung} titelTipp={() => setBlatt(true)} />
+        tastenAktiv={tastenAktiv && !blatt && !vorlage} sprung={sprung} titelTipp={() => setBlatt(true)}
+        komponieren={noten.notation && !noten.quelle ? komponieren : undefined} />
+      {vorlage && (
+        <EinspielenDialog quelle="leer" vorlage={vorlage} sammlungen={[]} tags={[]}
+          fertig={() => { setVorlage(null); setBlatt(false); setNeuGeladen((n) => n + 1); }}
+          schliessen={() => setVorlage(null)} />
+      )}
       {blatt && (
         <StueckBlatt noten={noten} quelle={quelle} pdf={pdf} stellen={stellen} lesezeichen={lesezeichen} lesezeichenGeaendert={lesezeichenLaden}
           bpm={bpm} tempoSetzen={setBpm} neuLaden={neuLaden} geloescht={verschwunden} teilenAnfang={blattAnfang === 'teilen'}
           umbenannt={(neu) => setNoten({ ...noten, ...neu })}
+          komponieren={noten.notation && !noten.quelle ? komponieren : undefined}
           zeigen={(id) => { mix?.beenden(); setSprung({ stelle: id, n: Date.now() }); setBlatt(false); }}
           seiteZeigen={(seite) => { mix?.beenden(); setSprung({ seite, n: Date.now() }); setBlatt(false); }}
           schliessen={() => setBlatt(false)} />
@@ -126,10 +146,12 @@ export function NotenPult({ notenId, tastenAktiv, verschwunden, mix = null, leis
 
 // ── Stück-Blatt: Umbenennen und Stellen-Übersicht ───────────────────────
 
-function StueckBlatt({ noten, quelle, pdf, stellen, lesezeichen, lesezeichenGeaendert, bpm, tempoSetzen, neuLaden, umbenannt, geloescht, zeigen, seiteZeigen, schliessen, teilenAnfang = false }: {
+function StueckBlatt({ noten, quelle, pdf, stellen, lesezeichen, lesezeichenGeaendert, bpm, tempoSetzen, neuLaden, umbenannt, geloescht, komponieren, zeigen, seiteZeigen, schliessen, teilenAnfang = false }: {
   noten: Stueck; quelle: Stueck | null; pdf: Dokument; stellen: Stelle[]; lesezeichen: Lesezeichen[]; lesezeichenGeaendert: () => void;
   bpm: number; tempoSetzen: (n: number) => void;
   neuLaden: () => void; umbenannt: (neu: Partial<Stueck>) => void; geloescht: () => void;
+  // Nur bei Stücken mit Quelle (geschrieben, eingesungen, aus Audio).
+  komponieren?: () => void;
   zeigen: (id: string) => void; seiteZeigen: (seite: number) => void; schliessen: () => void; teilenAnfang?: boolean;
 }) {
   // Aktionen am Stück (umbenennen, Sammlungen, Tags, löschen) im Kontext-Blatt (F-08).
@@ -149,6 +171,7 @@ function StueckBlatt({ noten, quelle, pdf, stellen, lesezeichen, lesezeichenGeae
           <h2 className="text-xl font-extrabold">{noten.titel}</h2>
           {noten.stimme && <span className="gedaempft">{noten.stimme}</span>}
           <span className="flex-1" />
+          {komponieren && <button type="button" className="knopf knopf-leise knopf-klein" onClick={komponieren}>Komponieren</button>}
           <MehrKnopf tun={kontextOeffnen} aria={`Mehr zu „${noten.titel}“`} />
           <button type="button" className="knopf knopf-leise knopf-klein" onClick={schliessen}>Fertig</button>
         </div>
