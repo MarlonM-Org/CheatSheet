@@ -602,6 +602,34 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
     zeigen“. Escape schließt erst die Ansicht, dann die Bibliothek.
   - Farbe je Sammlung als F-22 notiert, kein Icon.
 
+- **C-05 · Stimmgerät sofort an, hört auch aus Abstand** (2026-10-26):
+  Wunsch Marlon (iPad als Home-Bildschirm-App): Der Tipp auf „Stimmgerät“
+  in der unteren Leiste **startet das Mikrofon gleich mit** — er ist die
+  Geste, die der Browser für Mikrofon und Ton verlangt; der zweite Tipp im
+  Widget entfällt (Pause/Weiter bleibt dort). Beim Start der App geht das
+  Mikrofon weiterhin nie von allein an. Ob der Browser die Mikrofon-Erlaubnis
+  behält, entscheidet er selbst: Home-Bildschirm-App auf iPhone/iPad ab
+  iOS 17 und Chrome merken sich „Erlauben“, Safari im Tab fragt je Sitzung
+  (Safari am Mac: Einstellungen für diese Website → Mikrofon → Erlauben).
+  Dazu zwei Gründe, warum das Stimmgerät gesungene Töne nicht hörte:
+  - Es lief mit **rohem Mikrofon** ohne Verstärkung (wie das Einsingen vor
+    dem Lautsprecher-Schalter, G-03): aus Abstand blieb der Pegel unter der
+    Schwelle. Jetzt Schalter **„Mikrofon verstärken“** in der großen Ansicht
+    (Vorgabe an, Gerät-Einstellung `ueben:stimm-verstaerken`): Echo-
+    Unterdrückung und Verstärkung des Browsers, hört Singen und Instrument
+    auch aus Abstand; aus = rohes Mikrofon, nah ans Instrument. Umschalten
+    startet ein laufendes Mikrofon neu. Die Pegelschwelle bleibt −42 dBFS.
+    Mikrofon-Wunsch für Stimmgerät und Einsingen gemeinsam in
+    `klang.ts` (`mikrofonWunsch`).
+  - Lief das Metronom neben dem Stimmgerät an, setzte es die Audio-Sitzung
+    auf „playback“ — damit **stellt iOS das Mikrofon stumm**. Jetzt gilt,
+    solange ein Mikrofon offen ist (`mikrofonOffen` in `klang.ts`), immer
+    „play-and-record“; die Wiedergabe-Wahl greift wieder, wenn das letzte
+    Mikrofon zu ist.
+  - Reihenfolge bleibt: erst `getUserMedia`, dann der `AudioContext` — iOS
+    stellt mit dem Mikrofon die Abtastrate um, ein vorher angelegter Kontext
+    passte nicht mehr. WebKit lässt einen Kontext bei laufender Aufnahme
+    auch ohne Geste laufen (deshalb geht das Tonprofil von allein an).
 - **„+ Noten“ aufgeräumt** (2026-10-26): Wunsch Marlon. Aus sechs Punkten
   mit Erklärzeilen werden drei Zeilen, nur Symbol und Name: **PDF-Dateien |
   Ordner**, **Einscannen | Fotos**, **Selbst schreiben**. Der letzte ersetzt

@@ -43,11 +43,37 @@ export function klangPuffer(ctx: BaseAudioContext, klang: Klang, art: Art): Audi
 }
 
 type AudioSessionNavigator = Navigator & { audioSession?: { type: string } };
+type Sitzung = 'playback' | 'play-and-record';
 // iPhone/iPad: Wiedergabe auch bei Stummschalter (wo der Browser es kann).
-export function audioSitzung(typ: 'playback' | 'play-and-record') {
+// Solange ein Mikrofon offen ist (mikrofonOffen), gilt immer
+// „play-and-record" — mit „playback" (Metronom startet, während das
+// Stimmgerät hört) stellte iOS das Mikrofon stumm.
+let gewuenscht: Sitzung = 'playback';
+let mikrofone = 0;
+function sitzungSetzen() {
   const nav = navigator as AudioSessionNavigator;
-  try { if (nav.audioSession) nav.audioSession.type = typ; } catch { /* egal */ }
+  try { if (nav.audioSession) nav.audioSession.type = mikrofone > 0 ? 'play-and-record' : gewuenscht; } catch { /* egal */ }
 }
+export function audioSitzung(typ: Sitzung) {
+  gewuenscht = typ;
+  sitzungSetzen();
+}
+// Ein offenes Mikrofon anmelden; die Rückgabe meldet es wieder ab.
+export function mikrofonOffen(): () => void {
+  mikrofone++;
+  sitzungSetzen();
+  let offen = true;
+  return () => { if (!offen) return; offen = false; mikrofone--; sitzungSetzen(); };
+}
+
+// Was das Mikrofon liefern soll. `verarbeitet`: Echo-Unterdrückung und
+// Verstärkung des Browsers — auf iPhone/iPad dasselbe wie Freisprechen:
+// hört auch aus Abstand, Ton kommt aus dem Lautsprecher. Sonst das rohe
+// Mikrofon, unverfälscht, nah dran (iPhone: Hörer statt Lautsprecher).
+// Rauschunterdrückung nie — sie nimmt gehaltene Töne als Dauergeräusch.
+export const mikrofonWunsch = (verarbeitet: boolean): MediaTrackConstraints => (verarbeitet
+  ? { echoCancellation: true, noiseSuppression: false, autoGainControl: true }
+  : { echoCancellation: false, noiseSuppression: false, autoGainControl: false });
 
 // iPhone/iPad, vor allem als Home-Bildschirm-App: Geht die App in den
 // Hintergrund, unterbricht iOS jeden AudioContext. Zurück im Vordergrund

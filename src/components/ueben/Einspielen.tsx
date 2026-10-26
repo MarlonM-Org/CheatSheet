@@ -10,7 +10,7 @@ import { pdfBauen, type Seitenbild } from '@/domain/scan';
 import { schlaegeJeTakt, TAKTARTEN, taktartText, type Nenner } from '@/domain/takt';
 import { leeresBlatt } from '@/domain/notensatz';
 import { frequenzZuTon, grundfrequenz, type Stimmung } from '@/domain/ueben';
-import { audioSitzung, gespeichert, klangPuffer, speichern, wachHalten } from './klang';
+import { audioSitzung, gespeichert, klangPuffer, mikrofonOffen, mikrofonWunsch, speichern, wachHalten } from './klang';
 import { stueckAnlegen } from './lokal';
 import { useMetronom } from './MetronomKontext';
 import { Notenblatt } from './Notensatz';
@@ -75,6 +75,7 @@ function audioWaehlen(): Promise<File | null> {
 
 interface Mikro {
   stream: MediaStream; ctx: AudioContext; raf: number; quellen: AudioBufferSourceNode[]; t0: number; freigeben: (() => void) | null;
+  abmelden: () => void;
 }
 interface Wiedergabe { ctx: AudioContext; quelle: AudioBufferSourceNode; beginn: number; raf: number }
 
@@ -222,6 +223,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
     m.stream.getTracks().forEach((t) => t.stop());
     void m.ctx.close();
     m.freigeben?.();
+    m.abmelden();
     mikro.current = null;
     setAnzeige({});
     if (behalten) { setSpur([...rahmen.current]); setStart(0); setPhase('vorschlag'); } else setPhase('bereit');
@@ -233,12 +235,9 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
     try {
       audioSitzung('play-and-record');
       // Lautsprecher: Echo-Unterdrückung und Verstärkung (iOS schaltet damit
-      // auf Freisprechen um); ohne: das rohe Mikrofon. Rauschunterdrückung
-      // nie — sie nimmt gehaltene Töne als Dauergeräusch.
-      const audioWunsch: MediaTrackConstraints = lautsprecher
-        ? { echoCancellation: true, noiseSuppression: false, autoGainControl: true }
-        : { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: audioWunsch });
+      // auf Freisprechen um); ohne: das rohe Mikrofon (mikrofonWunsch).
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: mikrofonWunsch(lautsprecher) });
+      const abmelden = mikrofonOffen();
       const ctx = new AudioContext();
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 4096;
@@ -288,7 +287,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
         if (rel > maxDauer) { stoppen(true); return; }
         m.raf = requestAnimationFrame(schleife);
       };
-      mikro.current = { stream, ctx, raf: requestAnimationFrame(schleife), quellen, t0, freigeben: null };
+      mikro.current = { stream, ctx, raf: requestAnimationFrame(schleife), quellen, t0, freigeben: null, abmelden };
       setPhase('zaehlt');
       setAnzeige({ zaehlt: jeTakt });
       const freigeben = await wachHalten();
