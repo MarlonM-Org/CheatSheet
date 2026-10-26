@@ -6,7 +6,7 @@ Punkt ein; wer etwas fertigstellt, hakt ab und verschiebt den Punkt nach
 „Erledigt“ (unten). Größere Richtungsentscheidungen bitte als kurzen Absatz
 hier dokumentieren, nicht nur im Chat.
 
-Stand: 2026-10-23.
+Stand: 2026-10-26.
 
 ## Leitbild
 
@@ -28,6 +28,13 @@ OneDrive, Google Drive), ohne eigenen Server, ohne eigene Konten. Das heißt
 aber: Anmelden beim Cloud-Anbieter. Vor der Umsetzung entscheidet Marlon,
 ob das ins Leitbild passt (dann auch CLAUDE.md anpassen: „kein Login“).
 
+*MIDI und Begleitung* stehen ebenfalls oben. Seit 2026-10-26 sind
+**Vorspielen der eigenen Notation** (Instrumente, Begleitung, Einspielen
+Takt für Takt) und **Song-Transkription** als Vision G-04…G-07
+aufgenommen — alles on-device, kein Server. Vor der Umsetzung entscheidet
+Marlon, ob „MIDI, Audio-Begleitspuren, Soundbearbeitung“ dafür aus der
+Außen-vor-Liste genommen wird.
+
 ## Meilensteine (Reihenfolge)
 
 | # | Meilenstein | Inhalt | Backlog-Punkte |
@@ -38,7 +45,7 @@ ob das ins Leitbild passt (dann auch CLAUDE.md anpassen: „kein Login“).
 | M4 | **Notenmanagement I** | Metadaten, Flags, Drag & Drop (Sammlungen F-13, Lesezeichen/virtuelle Stücke F-03 und Kontext-Blatt F-08 erledigt) | F-01, F-04, F-09 |
 | M5 | **Üben & Setlisten** | Setlisten (Stellen-Mix F-11, Tonprofil C-04, Sprünge F-05, Halbseiten-Blättern F-06, Blättern je Seite F-16 und Favoriten im Mix F-17 schon erledigt) — *zurückgestellt 2026-10-23: Marlon ordnet bisher über Dateinamen, Setlisten sind Zukunftsthema* | F-02 |
 | M6 | **Extras** | Stempel/Formen (Kamera-Scan F-07, Themes B-04 und Design B-05 erledigt) — *vorgezogen 2026-10-23, vor M4 und M5* | E-04 |
-| M7 | **Komponieren** (Vision) | Noteneingabe, Rhythmus-/Melodie-Transkription | G-01…G-03 |
+| M7 | **Komponieren** (Vision) | Noteneingabe, Rhythmus-/Melodie-Transkription; Ausbau: Vorspielen, Einspielen Takt für Takt, Song-Transkription, Klänge (Wunsch 2026-10-26, Leitbild-Entscheidung offen) | G-01…G-07 |
 | M8 | **Geräteübergreifend** (Vision, Entscheidung offen) | Noten und Übe-Daten über die eigene Cloud auf mehreren Geräten | H-01…H-05 |
 
 **Quick Wins** (klein, unabhängig, jederzeit zwischenschieben — guter
@@ -222,6 +229,91 @@ wird vollständige Notation. Deutlich schwerer (Gesang schwankt,
 Oktavfehler, Übergänge); Kandidat wäre ein On-Device-Modell im Browser
 (ONNX/WASM, Richtung Basic Pitch). Eigenes Forschungsthema, bewusst von
 G-02 getrennt — Rhythmus zuerst, Töne später.
+
+### G-04 · Vorspielen: Noten hörbar machen (Instrumente, Begleitung)
+
+Wunsch Marlon (2026-10-26): Was als Noten in der App liegt (G-01 geschrieben
+oder G-02/G-03 transkribiert), soll die App **vorspielen** können — mit
+wählbarem Instrument je Stimme, und so, dass man sich **begleiten lassen**
+kann: eigene Stimme stumm, die anderen laufen, Tempo wie im Metronom.
+
+**Einschätzung:** gut machbar, rein lokal. abcjs bringt einen Synth mit
+(`abcjs/synth`), der ABC-Stimmen über General-MIDI-Instrumente abspielt;
+die Instrumentklänge (Soundfont-Samples) liegen dann in `public/` und
+kommen über den Vorab-Cache offline mit (je Instrument einige MB — nur die
+gewählten laden, nicht alle 128). Instrumentwahl = MIDI-Programmnummer je
+ABC-Stimme (`%%MIDI program`), reist in der Quelle mit. Stummschalten,
+Lautstärke je Stimme, Metronom-Klick dazu und Einzählen sind Kleinkram
+darauf. Grenze: ein Synth, keine „echten“ Aufnahmen — es klingt nach
+Übe-Begleitung, nicht nach Band.
+
+**Leitbild:** „MIDI, Audio-Begleitspuren“ stehen bewusst außen vor. Das hier
+ist keine Begleitspur als Audio-Datei, sondern das Abspielen der eigenen
+Notation — trotzdem entscheidet Marlon vor dem Start, ob das Leitbild dafür
+geöffnet wird (dann dort anpassen).
+
+### G-05 · Einspielen Takt für Takt (Aufnehmen → Transkribieren → Einfügen)
+
+Wunsch Marlon (2026-10-26): Aus G-04 eine Art **Sampler/Backing-Track-Bauer**:
+Stimmen zusammenstellen, darüber spielen oder singen, das Gespielte wird
+aufgenommen und — wenn man es behalten will — transkribiert und als neue
+Stimme bzw. als nächster Takt eingefügt. So entsteht ein Stück Takt für Takt.
+
+**Einschätzung:** machbar als Verbund aus G-02, G-03 und G-04; der
+Kreislauf ist der eigentliche Wert, nicht ein einzelnes Modell:
+
+- Begleitung läuft (G-04), Mikrofon nimmt auf; Takt und Tempo sind bekannt,
+  deshalb kann die App auf dem Metronom-Raster quantisieren (G-02) statt
+  den Takt raten zu müssen. Latenz zwischen Abspielen und Aufnahme muss
+  einmal gemessen und abgezogen werden (Einzähl-Klick als Referenz).
+- Einstimmig (eine Stimme vorsingen, Trompete, Bass): Tonerkennung ist
+  heute schon da (`grundfrequenz`/YIN im Stimmgerät); für saubere Noten
+  braucht es Glätten, Oktav-Korrektur und Mindestdauer je Ton (G-03).
+  Ergebnis immer als **Vorschlag** zeigen und im Editor (G-01) korrigieren
+  lassen — Erkennung wird nie fehlerfrei sein, deshalb ist der Editor die
+  Voraussetzung, nicht die Kür.
+- Wiedergabe der eigenen Aufnahme bleibt Audio (Blob im Speicher, nicht in
+  IndexedDB — s. CLAUDE.md); gespeichert wird nur die Transkription.
+
+### G-06 · Ganze Songs transkribieren (Audio-Datei → Stimmen)
+
+Wunsch Marlon (2026-10-26): einen Song als Datei hineinschieben (Beispiel:
+Metallica) und Noten daraus bekommen, möglichst nach Stimmen getrennt.
+
+**Einschätzung — ehrlich:** die „Endstufe“, und die mit dem größten
+Abstand zwischen Wunsch und dem, was dabei herauskommt.
+
+- **Technisch im Browser möglich:** Audio lokal dekodieren (Web Audio), dann
+  *Quellentrennung* (Demucs läuft als WebAssembly komplett im Browser,
+  Vorbild freemusicdemixer.com: Gesang, Bass, Schlagzeug, Rest) und je
+  Stimme *Audio → MIDI* (Basic Pitch von Spotify, Apache-2.0, läuft mit
+  TensorFlow.js im Browser, Vorbild basicpitch.io). Beides „on-device“,
+  passt also ins Leitbild.
+- **Kosten:** Modelle sind groß (Demucs ≈ 80 MB je Modell, Basic Pitch
+  wenige MB) — nicht in den Vorab-Cache, sondern erst bei Bedarf laden und
+  im Cache halten. Ein Song dauert auf dem Telefon Minuten und braucht viel
+  Arbeitsspeicher; auf dem iPhone ist Scheitern wegen Speicher realistisch.
+- **Qualität:** Einstimmiges (Gesangslinie, Basslinie) wird brauchbar grob.
+  Verzerrte Gitarren, Akkorde, Schlagzeug: Basic Pitch liefert Notenwolken,
+  kein spielbares Blatt. Realistisches Ziel ist ein **Lead Sheet als
+  Rohfassung** (Melodie + Bass + Tempo/Taktgerüst), das man im Editor
+  nachbessert — nicht „Metallica-Partitur auf Knopfdruck“. Das muss in der
+  Oberfläche auch so heißen („Entwurf“).
+- **Reihenfolge:** erst G-05 (einstimmig, mit bekanntem Takt) solide, dann
+  G-06. Wer G-06 vorzieht, baut auf Sand: ohne Editor und Quantisierung ist
+  die Rohfassung wertlos.
+- **Recht:** Dateien bleiben auf dem Gerät, Transkription fürs eigene
+  Üben. Die App teilt nichts — das bleibt so.
+
+### G-07 · Klänge einstellen (Endstufe)
+
+Wunsch Marlon (2026-10-26): die Instrumentklänge selbst einstellen.
+
+**Einschätzung:** erst nach G-04 sinnvoll. Günstig: Instrument tauschen,
+Lautstärke, Hall, Hüllkurve (Anschlag/Ausklingen) über Web Audio. Teuer
+und laut Leitbild „Soundbearbeitung“ außen vor: eigene Samples, Effekte,
+Mischpult. Vorschlag: nur die günstige Stufe, als Einstellung je Stimme in
+der Quelle.
 
 ---
 
