@@ -443,7 +443,8 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
             tagZiel={zielTag} markieren={markieren} setMarkieren={setMarkieren}
             dateien={() => void hinzufuegen('dateien')} ordner={() => void hinzufuegen('ordner')}
             scannen={() => void scannen('kamera')} fotos={() => void scannen('fotos')}
-            einspielen={() => { setMeldung(''); setWarnung(''); setEinspielen('mikro'); }} />
+            einspielen={() => { setMeldung(''); setWarnung(''); setEinspielen('mikro'); }}
+            schreiben={() => { setMeldung(''); setWarnung(''); setEinspielen('leer'); }} />
           <span className="flex-1" />
           <div className="segment !mx-0" role="group" aria-label="Sortieren">
             <button type="button" aria-pressed={sortierung === 'zuletzt'} onClick={() => { setSortierung('zuletzt'); speichern('ueben:sort', 'zuletzt'); }}>Zuletzt</button>
@@ -483,6 +484,7 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
             <button type="button" className="knopf knopf-leise" onClick={() => void scannen('kamera')} disabled={sicherung.laeuft || sicherung.uebernimmt || laeuft}>Einscannen</button>
             <button type="button" className="knopf knopf-leise" onClick={() => void scannen('fotos')} disabled={sicherung.laeuft || sicherung.uebernimmt || laeuft}>Fotos wählen</button>
             <button type="button" className="knopf knopf-leise" onClick={() => setEinspielen('mikro')} disabled={sicherung.laeuft || sicherung.uebernimmt || laeuft}>Einsingen</button>
+            <button type="button" className="knopf knopf-leise" onClick={() => setEinspielen('leer')} disabled={sicherung.laeuft || sicherung.uebernimmt || laeuft}>Schreiben</button>
           </div>
         </div>
       )}

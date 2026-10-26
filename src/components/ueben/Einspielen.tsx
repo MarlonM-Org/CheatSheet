@@ -4,32 +4,49 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   alsAbc, effektivwert, FEINHEITEN, notenDateiname, rastern, taktDauer, tempoAusTipps, TONARTEN, tonartFinden, versatzSchaetzen,
-  zellenDauer, zellenJeSchlag, type Feinheit, type Raster, type Tonrahmen,
+  zellenDauer, zellenJeSchlag, type Feinheit, type Raster, type Takt, type Tonrahmen,
 } from '@/domain/notation';
 import { pdfBauen, type Seitenbild } from '@/domain/scan';
 import { schlaegeJeTakt, TAKTARTEN, taktartText, type Nenner } from '@/domain/takt';
+import { leeresBlatt } from '@/domain/notensatz';
 import { frequenzZuTon, grundfrequenz, type Stimmung } from '@/domain/ueben';
-import { audioSitzung, gespeichert, klangPuffer, speichern, wachHalten } from './klang';
+import { audioSitzung, gespeichert, klangPuffer, mikrofonOffen, mikrofonWunsch, speichern, wachHalten } from './klang';
 import { stueckAnlegen } from './lokal';
 import { useMetronom } from './MetronomKontext';
+import { Notenblatt } from './Notensatz';
 import { useStimmgeraetApi } from './StimmgeraetKontext';
 import { fehlerGrund } from './speicherfehler';
 import { useDialogFokus, useEscape } from './tasten';
 
-// Einsingen oder Audio laden (G-02/G-03): eine Stimme wird aufgenommen —
-// live über das Mikrofon mit Einzähler und Klick, oder aus einer Audio-Datei
-// (Sprachmemo, mp3, wav) — und auf dem Taktraster zu Noten. Das Ergebnis ist
-// ein Vorschlag (abcjs zeichnet ihn); „Als Stück speichern“ legt ein Stück
-// mit gerenderter PDF an, die ABC-Quelle bleibt am Stück (`notation`).
+// Einsingen, Audio laden oder Schreiben (G-01/G-02/G-03): eine Stimme wird
+// aufgenommen — live über das Mikrofon mit Einzähler und Klick, oder aus
+// einer Audio-Datei (Sprachmemo, mp3, wav) — und auf dem Taktraster zu
+// Noten; oder man fängt mit einem leeren Takt an. Das Ergebnis ist ein
+// Vorschlag im Notenblatt (./Notensatz: antippen, verschieben, Werte,
+// Vorspielen mit Klavierklang); „Als Stück speichern“ legt ein Stück mit
+// gerenderter PDF an, die ABC-Quelle bleibt am Stück (`notation`).
 // Rechnen in @/domain/notation; Tonhöhen wie beim Stimmgerät (YIN), schon
 // notiert fürs Instrument (Stimmung aus dem Stimmgerät).
+//
+// Mikrofon: Mit „Lautsprecher“ (Vorgabe) läuft die Sprachverarbeitung des
+// Browsers — Verstärkung und Echo-Unterdrückung, auf dem iPhone dasselbe wie
+// Freisprechen beim Telefonieren: der Klick kommt aus dem Lautsprecher, das
+// Mikrofon hört auch aus Abstand, und der Klick bleibt aus der Aufnahme
+// draußen. Ohne ist es das rohe Mikrofon (iOS: dann Hörer statt Lautsprecher
+// und ohne Verstärkung) — nah am Mund, aber unverfälscht. Die Aufnahme
+// selbst wird nicht behalten: Angehört wird das Transkribierte (Notensatz).
 
-export type EinspielQuelle = 'mikro' | 'datei';
+export type EinspielQuelle = 'mikro' | 'datei' | 'leer';
 type Phase = 'bereit' | 'zaehlt' | 'nimmt' | 'rechnet' | 'vorschlag';
 
 const FEINHEIT_SCHLUESSEL = 'ueben:einspiel-feinheit';
 const KLICK_SCHLUESSEL = 'ueben:einspiel-klick';
 const TONART_SCHLUESSEL = 'ueben:einspiel-tonart';
+const LAUTSPRECHER_SCHLUESSEL = 'ueben:einspiel-lautsprecher';
+// Pegel, ab dem ein Fenster als Ton gilt (−50 dBFS): das rohe Mikrofon ohne
+// Verstärkung liefert aus einem Meter Abstand deutlich weniger als das
+// Stimmgerät am Instrument gewohnt ist.
+const MINDEST_PEGEL = 0.003;
 // Längste Aufnahme in Takten — danach hält die App von selbst an.
 const MAX_TAKTE = 64;
 // Audio-Dateien: Abtastrate und Fenster der Tonerkennung (23 ms Fenster
@@ -57,6 +74,7 @@ function audioWaehlen(): Promise<File | null> {
 
 interface Mikro {
   stream: MediaStream; ctx: AudioContext; raf: number; quellen: AudioBufferSourceNode[]; t0: number; freigeben: (() => void) | null;
+  abmelden: () => void;
 }
 interface Wiedergabe { ctx: AudioContext; quelle: AudioBufferSourceNode; beginn: number; raf: number }
 
@@ -69,7 +87,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
   const metro = useMetronom();
   const stimm = useStimmgeraetApi();
   const [quelle, setQuelle] = useState<EinspielQuelle>(quelleStart);
-  const [phase, setPhase] = useState<Phase>('bereit');
+  const [phase, setPhase] = useState<Phase>(quelleStart === 'leer' ? 'vorschlag' : 'bereit');
   // Raster: Vorgaben vom Metronom, hier nur für diese Aufnahme geändert.
   const [bpm, setBpmRoh] = useState(metro.bpm);
   const setBpm = (n: number) => setBpmRoh(Math.min(300, Math.max(20, Math.round(n))));
@@ -82,6 +100,8 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
   const setFeinheit = (f: Feinheit) => { setFeinheitRoh(f); speichern(FEINHEIT_SCHLUESSEL, f); };
   const [klickWeiter, setKlickWeiterRoh] = useState(() => gespeichert(KLICK_SCHLUESSEL, true));
   const setKlickWeiter = (an: boolean) => { setKlickWeiterRoh(an); speichern(KLICK_SCHLUESSEL, an); };
+  const [lautsprecher, setLautsprecherRoh] = useState(() => gespeichert(LAUTSPRECHER_SCHLUESSEL, true));
+  const setLautsprecher = (an: boolean) => { setLautsprecherRoh(an); speichern(LAUTSPRECHER_SCHLUESSEL, an); };
   // Tonart (notiert, wie das Stimmgerät zeigt): zieht die Töne auf die Leiter
   // und setzt die Vorzeichen; leer = keine Tonart, Töne bleiben, wie gehört.
   const [tonartAbc, setTonartAbcRoh] = useState(() => gespeichert<string>(TONART_SCHLUESSEL, 'C'));
@@ -111,19 +131,26 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
   const audio = useRef<AudioBuffer | null>(null);
   const wiedergabe = useRef<Wiedergabe | null>(null);
   const spurBild = useRef<HTMLCanvasElement>(null);
-  const notenBild = useRef<HTMLDivElement>(null);
   const fokus = useDialogFokus<HTMLDivElement>();
 
   // Rastern: Spur ab Taktanfang, um die geschätzte Latenz vorgezogen
   // (Aufnahmeweg und Einrasten der Tonerkennung verspäten alle Einsätze
   // gleichmäßig), mit Tonart.
-  const takte = useMemo(() => {
-    if (phase !== 'vorschlag') return [];
+  const erkannt = useMemo(() => {
+    if (phase !== 'vorschlag' || quelle === 'leer') return [];
     const abStart = spur.map((f) => ({ ...f, zeit: f.zeit - start }));
     const versatz = versatzSchaetzen(abStart, raster);
     return rastern(versatz ? abStart.map((f) => ({ ...f, zeit: f.zeit - versatz })) : abStart, raster, { tonart });
-  }, [phase, spur, start, raster, tonart]);
-  const abc = useMemo(() => alsAbc(takte, raster, { titel }, tonart), [takte, raster, titel, tonart]);
+  }, [phase, quelle, spur, start, raster, tonart]);
+  // Schreiben: ein leerer Takt in der Taktart (Tempo und Tonart ändern das Blatt nicht).
+  const [zaehler, nenner] = taktart;
+  const leer = useMemo(() => leeresBlatt({ bpm: 60, zaehler, nenner, feinheit }), [zaehler, nenner, feinheit]);
+  const basis = quelle === 'leer' ? leer : erkannt;
+  // Bearbeitet im Notenblatt — gilt, solange die Grundlage dieselbe ist
+  // (neue Aufnahme, anderes Raster: alles von vorn).
+  const [bearbeitet, setBearbeitet] = useState<{ basis: Takt[]; takte: Takt[] } | null>(null);
+  const takte = bearbeitet && bearbeitet.basis === basis ? bearbeitet.takte : basis;
+  const aendern = useCallback((neu: Takt[]) => setBearbeitet({ basis, takte: neu }), [basis]);
 
   // ── Spur zeichnen ──
   const zeichnen = useCallback((liste: readonly Tonrahmen[], jetzt: number | null) => {
@@ -195,6 +222,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
     m.stream.getTracks().forEach((t) => t.stop());
     void m.ctx.close();
     m.freigeben?.();
+    m.abmelden();
     mikro.current = null;
     setAnzeige({});
     if (behalten) { setSpur([...rahmen.current]); setStart(0); setPhase('vorschlag'); } else setPhase('bereit');
@@ -205,7 +233,10 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
     setFehler('');
     try {
       audioSitzung('play-and-record');
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+      // Lautsprecher: Echo-Unterdrückung und Verstärkung (iOS schaltet damit
+      // auf Freisprechen um); ohne: das rohe Mikrofon (mikrofonWunsch).
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: mikrofonWunsch(lautsprecher) });
+      const abmelden = mikrofonOffen();
       const ctx = new AudioContext();
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 4096;
@@ -237,7 +268,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
         if (jetzt - zuletzt >= 0.02) {
           zuletzt = jetzt;
           analyser.getFloatTimeDomainData(puffer);
-          const g = grundfrequenz(puffer, ctx.sampleRate);
+          const g = grundfrequenz(puffer, ctx.sampleRate, undefined, MINDEST_PEGEL);
           ton = g && g.klarheit > KLAR ? frequenzZuTon(g.frequenz, einst.current.kammerton, einst.current.stimmung) : null;
           const zeit = jetzt - versatz - t0;
           if (zeit >= -0.05) rahmen.current.push({ zeit, midi: ton ? ton.midi + ton.cent / 100 : null, pegel: effektivwert(puffer) });
@@ -255,7 +286,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
         if (rel > maxDauer) { stoppen(true); return; }
         m.raf = requestAnimationFrame(schleife);
       };
-      mikro.current = { stream, ctx, raf: requestAnimationFrame(schleife), quellen, t0, freigeben: null };
+      mikro.current = { stream, ctx, raf: requestAnimationFrame(schleife), quellen, t0, freigeben: null, abmelden };
       setPhase('zaehlt');
       setAnzeige({ zaehlt: jeTakt });
       const freigeben = await wachHalten();
@@ -265,7 +296,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
         ? 'Das Mikrofon ist nicht erlaubt. In den Einstellungen des Browsers für diese Seite erlauben.'
         : `Mikrofon nicht verfügbar (${(e as Error).name}).`);
     }
-  }, [metro.klang, metro.laut, klickWeiter, stoppen, zeichnen]);
+  }, [metro.klang, metro.laut, klickWeiter, lautsprecher, stoppen, zeichnen]);
 
   // ── Audio-Datei ──
   const dateiLaden = useCallback(async (f: File) => {
@@ -285,7 +316,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
       let erster: number | null = null;
       for (let i = 0; i + FENSTER <= d.length; i += SCHRITT) {
         const fenster = d.subarray(i, i + FENSTER);
-        const g = grundfrequenz(fenster, RATE);
+        const g = grundfrequenz(fenster, RATE, undefined, MINDEST_PEGEL);
         const ton = g && g.klarheit > KLAR ? frequenzZuTon(g.frequenz, einst.current.kammerton, einst.current.stimmung) : null;
         const zeit = (i + FENSTER / 2) / RATE;
         liste.push({ zeit, midi: ton ? ton.midi + ton.cent / 100 : null, pegel: effektivwert(fenster) });
@@ -349,28 +380,15 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
   const quelleWechseln = (q: EinspielQuelle) => {
     if (q === quelle) return;
     stoppen(false); wiedergabeAus();
-    setQuelle(q); setSpur([]); setStart(0); setDauer(0); setDateiName(''); setPhase('bereit'); setFehler('');
+    setQuelle(q); setSpur([]); setStart(0); setDauer(0); setDateiName(''); setBearbeitet(null); setPhase(q === 'leer' ? 'vorschlag' : 'bereit'); setFehler('');
   };
-  const nochmal = () => { wiedergabeAus(); setSpur([]); setStart(0); setDauer(0); setDateiName(''); setPhase('bereit'); };
-
-  // ── Vorschlag zeichnen (abcjs) ──
-  useEffect(() => {
-    const el = notenBild.current;
-    if (!el || phase !== 'vorschlag') return;
-    if (!takte.length) { el.replaceChildren(); return; }
-    let aktuell = true;
-    void import('abcjs').then((m) => {
-      if (!aktuell || !notenBild.current) return;
-      m.renderAbc(notenBild.current, abc, { responsive: 'resize', paddingtop: 0, paddingbottom: 0, paddingleft: 0, paddingright: 0 });
-    }).catch((x) => setFehler(`Die Noten ließen sich nicht zeichnen: ${fehlerGrund(x)}`));
-    return () => { aktuell = false; };
-  }, [phase, takte, abc]);
+  const nochmal = () => { wiedergabeAus(); setSpur([]); setStart(0); setDauer(0); setDateiName(''); setBearbeitet(null); setPhase('bereit'); };
 
   // ── Speichern: ABC → Seiten (JPEG) → PDF → Stück ──
   async function speichernUndSchliessen() {
     if (!takte.length || laeuft) return;
     setFehler('');
-    const name = titel.trim() || (quelle === 'mikro' ? 'Eingesungen' : dateiName.replace(/\.[^.]+$/, '') || 'Aus Audio');
+    const name = titel.trim() || (quelle === 'mikro' ? 'Eingesungen' : quelle === 'leer' ? 'Neues Stück' : dateiName.replace(/\.[^.]+$/, '') || 'Aus Audio');
     const text = alsAbc(takte, raster, { titel: name }, tonart);
     try {
       setLaeuft('Noten werden gezeichnet …');
@@ -382,7 +400,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
       await stueckAnlegen({
         titel: name, stimme: '', datei, dateiname: notenDateiname(name, new Date()),
         ...(sammlungen.length ? { sammlungen } : {}), ...(tags.length ? { tags } : {}),
-        notation: { format: 'abc', text, art: quelle === 'mikro' ? 'eingesungen' : 'audio' },
+        notation: { format: 'abc', text, art: quelle === 'mikro' ? 'eingesungen' : quelle === 'leer' ? 'geschrieben' : 'audio' },
       });
       fertig(`„${name}“ mit ${takte.length} ${takte.length === 1 ? 'Takt' : 'Takten'} angelegt${sammlungen.length ? `, in „${sammlungen.join(', ')}“` : ''}.`);
     } catch (x) {
@@ -396,13 +414,17 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
   useEffect(() => () => { stoppen(false); wiedergabeAus(); }, [stoppen, wiedergabeAus]);
 
   const mikroAktiv = phase === 'zaehlt' || phase === 'nimmt';
-  const festesRaster = quelle === 'mikro' && phase !== 'bereit';
+  // Mikrofon: ab dem Einzähler ist das Raster fest (die Spur ist dagegen
+  // aufgenommen). Schreiben: Taktart und kleinster Wert, sobald etwas auf
+  // dem Blatt steht — sonst wäre es weg; das Tempo bleibt frei.
+  const festesTempo = quelle === 'mikro' && phase !== 'bereit';
+  const festesRaster = festesTempo || (quelle === 'leer' && !!bearbeitet);
   const stimmungHinweis = stimm.stimmung !== 'C' ? ` · notiert für ${stimm.stimmung}-Instrument` : '';
 
   return createPortal(
     <div className="scan-dialog" role="dialog" aria-modal="true" aria-label="Einsingen oder Audio laden" ref={fokus} tabIndex={-1}>
       <div className="panel-kopf mit-linie">
-        <h2>{quelle === 'mikro' ? 'Einsingen' : 'Aus Audio'}</h2>
+        <h2>{quelle === 'mikro' ? 'Einsingen' : quelle === 'leer' ? 'Schreiben' : 'Aus Audio'}</h2>
         <span className="bib-anzahl">{phase === 'vorschlag' && takte.length ? `· ${takte.length} ${takte.length === 1 ? 'Takt' : 'Takte'}` : ''}</span>
         <span className="flex-1" />
         <button type="button" className="panel-zu" onClick={schliessen} disabled={beschaeftigt} aria-label="Abbrechen">
@@ -416,16 +438,17 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
         <div className="segment !mx-0" role="group" aria-label="Quelle">
           <button type="button" aria-pressed={quelle === 'mikro'} onClick={() => quelleWechseln('mikro')} disabled={beschaeftigt}>Mikrofon</button>
           <button type="button" aria-pressed={quelle === 'datei'} onClick={() => quelleWechseln('datei')} disabled={beschaeftigt}>Audio-Datei</button>
+          <button type="button" aria-pressed={quelle === 'leer'} onClick={() => quelleWechseln('leer')} disabled={beschaeftigt}>Schreiben</button>
         </div>
 
         <div className="karte einspiel-raster">
           <label className="einspiel-feld">
             <span>Tempo</span>
             <span className="flex items-center gap-2">
-              <input className="feld feld-zahl" type="number" inputMode="numeric" min={20} max={300} value={tempoText ?? String(bpm)} disabled={festesRaster}
+              <input className="feld feld-zahl" type="number" inputMode="numeric" min={20} max={300} value={tempoText ?? String(bpm)} disabled={festesTempo}
                 onChange={(e) => setTempoText(e.target.value)} onBlur={tempoUebernehmen}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); tempoUebernehmen(); } }} aria-label="Tempo in Schlägen je Minute" />
-              <button type="button" className="knopf knopf-leise knopf-klein" onClick={tippen} disabled={festesRaster}>Tempo tippen</button>
+              <button type="button" className="knopf knopf-leise knopf-klein" onClick={tippen} disabled={festesTempo}>Tempo tippen</button>
             </span>
           </label>
           <div className="einspiel-feld">
@@ -440,7 +463,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
             <span>Kleinster Wert</span>
             <div className="segment !mx-0" role="group" aria-label="Kleinster Notenwert">
               {FEINHEITEN.map((f) => (
-                <button key={f.feinheit} type="button" aria-pressed={feinheit === f.feinheit} onClick={() => setFeinheit(f.feinheit)}>{f.name}</button>
+                <button key={f.feinheit} type="button" aria-pressed={feinheit === f.feinheit} disabled={quelle === 'leer' && festesRaster} onClick={() => setFeinheit(f.feinheit)}>{f.name}</button>
               ))}
             </div>
           </div>
@@ -452,15 +475,23 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
             </select>
           </label>
           {quelle === 'mikro' && (
-            <label className="einspiel-feld">
-              <span>Klick während der Aufnahme</span>
-              <input type="checkbox" role="switch" className="ios-schalter" checked={klickWeiter} disabled={festesRaster} onChange={(e) => setKlickWeiter(e.target.checked)} />
-            </label>
+            <>
+              <label className="einspiel-feld">
+                <span>Klick während der Aufnahme</span>
+                <input type="checkbox" role="switch" className="ios-schalter" checked={klickWeiter} disabled={festesRaster} onChange={(e) => setKlickWeiter(e.target.checked)} />
+              </label>
+              <label className="einspiel-feld">
+                <span>Lautsprecher</span>
+                <input type="checkbox" role="switch" className="ios-schalter" checked={lautsprecher} disabled={festesRaster} onChange={(e) => setLautsprecher(e.target.checked)} />
+              </label>
+            </>
           )}
         </div>
 
-        <canvas ref={spurBild} className={`einspiel-spur ${quelle === 'datei' && spur.length ? 'tippbar' : ''}`} onPointerDown={spurTippen}
-          aria-label="Tonhöhenspur" role="img" />
+        {quelle !== 'leer' && (
+          <canvas ref={spurBild} className={`einspiel-spur ${quelle === 'datei' && spur.length ? 'tippbar' : ''}`} onPointerDown={spurTippen}
+            aria-label="Tonhöhenspur" role="img" />
+        )}
 
         {quelle === 'mikro' && (
           <div className="einspiel-mitte">
@@ -470,6 +501,9 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
                   <span className="einspiel-punkt" aria-hidden="true" />
                 </button>
                 <p className="gedaempft text-sm">Ein Takt wird eingezählt, dann läuft die Aufnahme. Eine Stimme: singen, summen, Trompete, Bass{stimmungHinweis}.</p>
+                <p className="gedaempft text-xs">{lautsprecher
+                  ? 'Lautsprecher an: wie Freisprechen — der Klick kommt aus dem Lautsprecher, das Mikrofon hört auch aus etwas Abstand, der Klick bleibt aus der Aufnahme draußen.'
+                  : 'Lautsprecher aus: das rohe Mikrofon ohne Verstärkung — nah am Mund singen; auf dem iPhone kommt der Klick dann leise aus dem Hörer.'}</p>
               </>
             )}
             {mikroAktiv && (
@@ -519,9 +553,14 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
         {phase === 'vorschlag' && (
           <div className="karte space-y-2">
             {takte.length
-              ? <div ref={notenBild} className="einspiel-noten" aria-label="Vorschlag als Noten" />
-              : <p className="gedaempft text-sm">Kein Ton erkannt. Näher ans Mikrofon, lauter, oder eine andere Datei.</p>}
-            <p className="gedaempft text-xs">Ein Vorschlag — die Erkennung ist nie fehlerfrei. Der Editor zum Korrigieren kommt als Nächstes; bis dahin lässt sich die Quelle (ABC) am Stück weiterverwenden.</p>
+              ? <Notenblatt takte={takte} raster={raster} tonart={tonart} titel={titel} aendern={aendern} />
+              : (
+                <div className="einspiel-zeile">
+                  <p className="gedaempft text-sm">Kein Ton erkannt. Näher ans Mikrofon, lauter, oder eine andere Datei.</p>
+                  <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => aendern(leer)}>Trotzdem schreiben</button>
+                </div>
+              )}
+            {quelle !== 'leer' && <p className="gedaempft text-xs">Ein Vorschlag — die Erkennung ist nie fehlerfrei; hier lässt er sich korrigieren. Die Quelle (ABC) bleibt am Stück.</p>}
           </div>
         )}
       </div>

@@ -3,7 +3,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { EINSTELLUNG_STANDARD as STANDARD } from '@/domain/einstellungen';
 import { frequenzZuTon, grundfrequenz, median, STIMMUNGEN, tonFrequenz, type Stimmung, type Ton } from '@/domain/ueben';
-import { audioSitzung, gespeichert, speichern, useBeimVerlassen, useEinstellungenGeladen, verwerfen, wachHalten } from './klang';
+import { audioSitzung, gespeichert, mikrofonOffen, mikrofonWunsch, speichern, useBeimVerlassen, useEinstellungenGeladen, verwerfen, wachHalten } from './klang';
+
+// Gerät-Einstellung: Mikrofon mit Verstärkung des Browsers (hört auch aus
+// Abstand) oder roh. Reist nicht mit der Sicherung.
+const VERSTAERKEN_SCHLUESSEL = 'ueben:stimm-verstaerken';
 
 // Ein Stimmgerät für die ganze App: große Ansicht und schwebendes Widget
 // teilen sich Mikrofon, Messung und Einstellungen — wie beim Metronom.
@@ -16,6 +20,9 @@ interface StimmApi {
   an: boolean; start: () => Promise<void>; stopp: () => void; fehler: string;
   kammerton: number; setKammerton: (n: number) => void;
   stimmung: Stimmung; setStimmung: (s: Stimmung) => void;
+  // Mikrofon mit Verstärkung (Vorgabe) oder roh; Umschalten startet ein
+  // laufendes Mikrofon neu.
+  verstaerken: boolean; setVerstaerken: (an: boolean) => void;
   refTon: number | null; refOktave: number; refOktaveWechseln: (o: number) => void;
   referenzSpielen: (halbton: number) => void; referenzAus: () => void;
   // Jede klare Ablesung (geglättet, ~20 pro Sekunde) an einen Zuhörer geben —
@@ -59,6 +66,8 @@ export function StimmgeraetAnbieter({ children }: { children: React.ReactNode })
   useEinstellungenGeladen(neuLesen);
   const [refTon, setRefTon] = useState<number | null>(null);
   const [refOktave, setRefOktave] = useState(4);
+  const [verstaerken, setVerstaerkenRoh] = useState(() => gespeichert(VERSTAERKEN_SCHLUESSEL, true));
+  const verstaerkenRef = useRef(verstaerken);
   const einst = useRef({ kammerton, stimmung });
   const zuhoerer = useRef(new Set<(ton: Ton) => void>());
   const ablesungen = useCallback((z: (ton: Ton) => void) => {
@@ -67,7 +76,7 @@ export function StimmgeraetAnbieter({ children }: { children: React.ReactNode })
   }, []);
   useEffect(() => { einst.current = { kammerton, stimmung }; speichern('stimm:a', kammerton); speichern('stimm:st', stimmung); }, [kammerton, stimmung]);
 
-  const mikro = useRef<{ stream: MediaStream; ctx: AudioContext; raf: number; freigeben: (() => void) | null } | null>(null);
+  const mikro = useRef<{ stream: MediaStream; ctx: AudioContext; raf: number; freigeben: (() => void) | null; abmelden: () => void } | null>(null);
   const referenz = useRef<{ ctx: AudioContext; osc: OscillatorNode; gain: GainNode } | null>(null);
   // Zählt Start/Stopp-Generationen: ein stopp() macht jeden noch laufenden
   // start()-Anlauf ungültig (getUserMedia/wachHalten sind asynchron).
@@ -88,6 +97,7 @@ export function StimmgeraetAnbieter({ children }: { children: React.ReactNode })
     m.stream.getTracks().forEach((t) => t.stop());
     void m.ctx.close();
     m.freigeben?.();
+    m.abmelden();
     mikro.current = null;
     setAn(false); setTon(null); setFrisch(false);
   }, [referenzAus]);
@@ -99,8 +109,11 @@ export function StimmgeraetAnbieter({ children }: { children: React.ReactNode })
     const gen = ++generation.current;
     try {
       audioSitzung('play-and-record');
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+      // Erst das Mikrofon, dann der Kontext: iOS stellt die Abtastrate mit
+      // dem Mikrofon um, ein vorher angelegter Kontext passte nicht mehr.
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: mikrofonWunsch(verstaerkenRef.current) });
       if (gen !== generation.current) { stream.getTracks().forEach((t) => t.stop()); return; }
+      const abmelden = mikrofonOffen();
       const ctx = new AudioContext();
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 4096;
@@ -132,7 +145,7 @@ export function StimmgeraetAnbieter({ children }: { children: React.ReactNode })
         }
         m.raf = requestAnimationFrame(schleife);
       };
-      mikro.current = { stream, ctx, raf: requestAnimationFrame(schleife), freigeben: null };
+      mikro.current = { stream, ctx, raf: requestAnimationFrame(schleife), freigeben: null, abmelden };
       setAn(true);
       const freigeben = await wachHalten();
       const m = mikro.current;
@@ -187,18 +200,25 @@ export function StimmgeraetAnbieter({ children }: { children: React.ReactNode })
   const refOktaveWechseln = useCallback((o: number) => { setRefOktave(o); referenzAus(); }, [referenzAus]);
   const setKammerton = useCallback((n: number) => setKammertonRoh(Math.max(430, Math.min(450, n))), []);
   const setStimmung = useCallback((s: Stimmung) => setStimmungRoh(s), []);
+  const setVerstaerken = useCallback((an: boolean) => {
+    verstaerkenRef.current = an;
+    setVerstaerkenRoh(an);
+    speichern(VERSTAERKEN_SCHLUESSEL, an);
+    // Läuft das Mikrofon, gilt die Wahl sofort — noch in der Tipp-Geste.
+    if (mikro.current) { stopp(); void start(); }
+  }, [start, stopp]);
 
   useEffect(() => () => {
     const m = mikro.current;
-    if (m) { cancelAnimationFrame(m.raf); m.stream.getTracks().forEach((t) => t.stop()); void m.ctx.close(); m.freigeben?.(); }
+    if (m) { cancelAnimationFrame(m.raf); m.stream.getTracks().forEach((t) => t.stop()); void m.ctx.close(); m.freigeben?.(); m.abmelden(); }
     void referenz.current?.ctx.close();
   }, []);
 
   const api = useMemo<StimmApi>(() => ({
     an, start, stopp, fehler,
-    kammerton, setKammerton, stimmung, setStimmung,
+    kammerton, setKammerton, stimmung, setStimmung, verstaerken, setVerstaerken,
     refTon, refOktave, refOktaveWechseln, referenzSpielen, referenzAus, ablesungen,
-  }), [an, start, stopp, fehler, kammerton, setKammerton, stimmung, setStimmung, refTon, refOktave, refOktaveWechseln, referenzSpielen, referenzAus, ablesungen]);
+  }), [an, start, stopp, fehler, kammerton, setKammerton, stimmung, setStimmung, verstaerken, setVerstaerken, refTon, refOktave, refOktaveWechseln, referenzSpielen, referenzAus, ablesungen]);
   const messung = useMemo<StimmMessung>(() => ({ ton, frisch }), [ton, frisch]);
 
   return (

@@ -33,6 +33,13 @@ describe('Stimmgerät', () => {
     const rauschen = new Float32Array(4096).map(() => { x = (x * 16807) % 2147483647; return (x / 2147483647 - 0.5) * 0.5; });
     expect(grundfrequenz(rauschen, 48000)).toBeNull();
   });
+  it('hört einen leisen Ton nur mit tieferer Pegelschwelle', () => {
+    const leise = sinus(442, 48000, 4096).map((v) => v * 0.006); // Effektivwert ≈ 0,004
+    expect(grundfrequenz(leise, 48000)).toBeNull();
+    const r = grundfrequenz(leise, 48000, 0.15, 0.002)!;
+    expect(Math.abs(r.frequenz - 442) / 442).toBeLessThan(0.003);
+    expect(grundfrequenz(new Float32Array(4096), 48000, 0.15, 0.002)).toBeNull();
+  });
   it('glättet mit dem Median', () => {
     expect(median([440, 441, 880, 442, 439])).toBe(441);
   });
