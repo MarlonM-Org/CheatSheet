@@ -125,6 +125,8 @@ oder iPad. Vorher auf jedem Gerät eine Sicherung erstellen.
   - Speichern, öffnen, Komponieren: beide Stimmen kommen zurück; die PDF zeigt die Akkolade auf dem iPad lesbar.
 - Titel-Abgleich (G-01) · Umbenennen eines geschriebenen Stücks (⋯ → Umbenennen) schreibt PDF und Quelle neu, der Titel auf dem Blatt folgt · nur im Browser gesehen.
   - Umbenennen → Notenansicht zeigt die neue PDF mit neuem Titel; Stellen und Anmerkungen bleiben.
+- G-10 · Notationsregeln mit Hinweisen (`notenregeln.ts` getestet) · Chips unter dem Blatt; Regeln und Vorschläge zum Bearbeiten in G-10.
+  - Einen Ton über den Tonumfang schieben, einen Oktavsprung schreiben, Takte leer lassen: kommen die Hinweise, springt Antippen hin? Stimmt der Tonumfang aus dem Tonprofil für dein Instrument?
 - G-09 · Aufnahmen beim Üben (`Aufnahmen.tsx`, `lokal.ts` getestet) · MediaRecorder auf iOS (AAC in `audio/mp4`) ist nur aus der Doku bekannt.
   - Roter Knopf in der Notenansicht: Aufnahme startet (Erlaubnis), Zeit läuft, Metronom hörbar? Stopp speichert; im Stück-Blatt erscheint die Aufnahme mit Seite bzw. Stelle (im Stellen-Modus).
   - Abspielen auf dem iPhone bei Stummschalter; zwei Aufnahmen „zusammen“ übereinander; Name, Löschen.
@@ -651,6 +653,88 @@ Sorge: der Speicher.
   den Freisprech-Modus (leiser, Klick aus dem Lautsprecher, siehe G-03);
   Aufnahme im Hintergrund (Bildschirm aus) hält Safari nicht durch —
   dafür der Wach-Halter, solange die App vorn ist.
+
+### G-10 · Notationsregeln fürs Komponieren
+
+Wunsch Marlon (2026-10-26): feste Regeln, nach denen das Blatt notiert —
+etwa Töne und Pausen so, dass der Schlag sichtbar bleibt — und kurze
+Hinweise im Notenblatt, wo etwas für den Musiker schlecht lesbar ist. Diese
+Liste ist zum Bearbeiten gedacht: Regeln streichen, ergänzen, umformulieren
+— der Code folgt der Liste (`src/domain/notensatz.ts` hält A ein,
+`src/domain/notenregeln.ts` prüft B; beides getestet).
+
+**Quellen:** Elaine Gould, *Behind Bars* (Faber; die
+[General-Conventions-Ausgabe](https://www.fabermusic.com/news/new-behind-bars-general-conventions-published-22062023)
+mit Ground Rules, Dotted Notes and Ties, Accidentals, Metre and Tuplets);
+die Pausen-Regeln daraus zusammengefasst im
+[CPDL-Forum](https://forums1.cpdl.org/phpBB3/viewtopic.php?p=19653); die
+Unterlagen des Steirischen Blasmusikverbands
+([MHV 1](https://verwaltung.steiermark.at/cms/dokumente/11720609_76976100/4a0482b8/MHV%201%20Unterlagen_2022.pdf):
+im 3/4 jeder Schlag sichtbar, im 4/4 die Taktmitte); das
+[MuseScore-Handbuch](https://musescore.org/de/print/book/export/html/278600)
+(Balken nach Taktart) und [bonedo, Rhythmik-Grundlagen](https://www.bonedo.de/artikel/basics-grundlagenforschung-rhythmik-1/3).
+
+**A · Regeln, die das Blatt von selbst einhält (nichts zu tun):**
+
+1. **Der Schlag bleibt sichtbar.** Jede Note und Pause wird an Schlag- und
+   Gruppengrenzen geteilt und gebunden: zwischen den Schlägen bis zur
+   nächsten Schlaggrenze, auf dem Schlag bis zur Gruppengrenze. Im 4/4 ist
+   die Gruppe die Takthälfte („gedachter Taktstrich“), im 3/4 der Schlag,
+   im 6/8 der punktierte Schlag.
+2. **Gebundene gleiche Noten werden eine** (punktiert, wo es geht); nichts
+   wird in kleinere Werte zerhackt als nötig.
+3. **Pausen ohne Punktierung** in geraden Taktarten; im 6/8 ist die
+   punktierte Viertelpause der Schlag und erlaubt. Ein leerer Takt ist eine
+   ganze Pause.
+4. **Balken je Schlag** (abcjs balkt, was ohne Leerzeichen steht; das Blatt
+   setzt an jeder Schlaggrenze eines), Fähnchen bleiben einzeln.
+5. **Vorzeichen nach Notationsregel:** die Tonart setzt sie, ein gesetztes
+   Vorzeichen gilt bis zum Taktstrich für diesen Ton, Auflösungszeichen wo
+   nötig; in B-Tonarten mit Bs, sonst mit Kreuzen.
+6. **Triolen geklammert** (`3`), Achtel-, Sechzehntel- und Vierteltriolen;
+   gemischte Werte in der Klammer sind erlaubt. Was sich nicht notieren
+   lässt, wird im betroffenen Schlag aufs binäre Raster gerundet.
+7. **Mehrere Stimmen** teilen Taktart, Tonart und Taktzahl; die zweite
+   bekommt den Bassschlüssel.
+
+**B · Regeln mit Hinweis (Chips unter dem Blatt, Antippen springt hin):**
+
+| Regel | Hinweis | Art |
+|---|---|---|
+| Ton außerhalb des Tonumfangs (notiert; Umfang aus dem Tonprofil, Stimmgerät → Tonprofil) | „Takt 4: C6 liegt über dem Tonumfang (bis G5).“ | spielbar |
+| Sprung über eine Oktave zwischen zwei Tönen (Pause dazwischen zählt nicht) | „Takt 2: Sprung C4 → E5 (16 Halbtöne) — schwer zu treffen.“ | spielbar |
+| Acht und mehr Takte ohne eine Pause | „Takt 1–8: keine Pause zum Atmen.“ | spielbar |
+| Punktierter Wert in einer Triole | „Takt 3: punktierter Wert in einer Triole — schwer zu lesen; lieber zwei gebundene Noten.“ | lesbar |
+| Stimmen kreuzen sich (untere liegt über der oberen) | „Takt 5: Bass liegt über Melodie.“ | lesbar |
+| Viele Töne außerhalb der Tonart, eine andere passt deutlich besser (ab 8 Tönen, 3 fremde, 3 weniger) | „4 Töne liegen außerhalb von C-Dur — in G-Dur wären es 0. Tonart prüfen.“ | lesbar |
+| Takt 1 beginnt mit mindestens einem halben Takt Pause | „Takt 1 beginnt mit 3 Schlägen Pause — ein Auftakt wäre üblich.“ | form |
+| Leere Takte am Ende | „Takt 7–8 sind leer — „Takt −“ nimmt sie weg.“ | form |
+
+Höchstens ein Hinweis je Regel und Takt; mehr als sechs werden eingeklappt.
+
+**C · Vorschläge für weitere Regeln (Marlon entscheidet, dann bauen):**
+
+- **Auftakt** wirklich notieren (unvollständiger erster Takt, der letzte
+  ergänzt ihn) statt nur hinweisen.
+- **Schlüssel nach Lage:** viele Hilfslinien über oder unter dem System →
+  „anderer Schlüssel oder Oktavierung“ (ab vier Hilfslinien).
+- **Pausen zusammenfassen:** zwei Achtelpausen auf dem Schlag → eine
+  Viertelpause (Gould: zusammengefasste Pausen zeigen den Schlag besser);
+  heute entsteht das durch das Legen meist von selbst.
+- **Atemzeichen und Phrasierung:** Bindebögen über Phrasen, Komma als
+  Atemzeichen — braucht neue Zeichen im Datenmodell.
+- **Wiederholungen statt Kopien:** gleiche Taktfolge zweimal → „Wiederholung
+  mit Wiederholungszeichen schreiben“ (G-01 Rest).
+- **Tempo und Notenwerte:** viele 32tel bei langsamem Tempo → „doppeltes
+  Tempo, halbe Werte“; umgekehrt viele ganze Noten bei schnellem Tempo.
+- **Synkopen:** heute bindet das Blatt streng an jeder Schlaggrenze; die
+  übliche Synkope Achtel–Viertel–Achtel innerhalb einer Takthälfte darf
+  laut Gould ungebunden stehen. Wäre eine Ausnahme in Regel A1.
+- **Instrumentumfang je Instrument** (Trompete, Klarinette, Posaune …)
+  statt nur aus dem Tonprofil; dazu Warnung vor unbequemen Lagen (hohe
+  Töne über längere Strecken).
+- **Dynamik und Artikulation** als Zeichen — und die Regel, dass jede
+  Stimme am Anfang eine Dynamik trägt.
 
 ### G-08 · Wo läuft das? Offline-App, eigener Rechner oder Server (Einschätzung 2026-10-26)
 

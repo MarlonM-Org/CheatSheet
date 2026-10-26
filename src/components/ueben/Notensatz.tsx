@@ -7,6 +7,8 @@ import {
   angebunden, bogenUmschalten, dauerSetzen, einfuegen, entfernen, inAllen, inStimme, klaengeAlle, leiterVerschieben, letzteHoehe, noteSchreiben,
   notenZeiten, paletteWerte, punktiert, stimmeAendern, stimmeHinzu, stimmeWeg, taktEinfuegen, taktLoeschen, tonSetzen, triole, verschieben, type NotenPos,
 } from '@/domain/notensatz';
+import { pruefen } from '@/domain/notenregeln';
+import { EINSTELLUNG_STANDARD } from '@/domain/einstellungen';
 import { audioSitzung, gespeichert, speichern } from './klang';
 import { vorspielen, type Vorspiel } from './klavier';
 import { useMetronom } from './MetronomKontext';
@@ -78,6 +80,10 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern }: {
   const lagen = useMemo(() => stimmen.map(lagenVon), [stimmen]);
   const index = (p: BlattPos) => lagen[p.stimme]?.findIndex((l) => l.takt === p.takt && l.note === p.note) ?? -1;
   const werte = useMemo(() => paletteWerte(raster), [raster]);
+  // Hinweise nach den Notationsregeln (G-10); der Tonumfang kommt aus dem Tonprofil.
+  const [umfang] = useState(() => gespeichert('ueben:tonprofil-umfang', EINSTELLUNG_STANDARD['ueben:tonprofil-umfang']));
+  const hinweise = useMemo(() => pruefen(stimmen, raster, tonart, { umfang: { von: umfang.von, bis: umfang.bis } }), [stimmen, raster, tonart, umfang]);
+  const [alleHinweise, setAlleHinweise] = useState(false);
   const zeiten = useMemo(() => stimmen.map((s) => notenZeiten(s.takte, raster)), [stimmen, raster]);
   const gesamt = Math.max(0, ...zeiten.map((z) => z.gesamt));
 
@@ -301,6 +307,17 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern }: {
         </div>
       )}
       <div ref={bild} className={`einspiel-noten ${aendern ? 'bearbeitbar' : ''}`} aria-label="Noten" tabIndex={aendern ? 0 : undefined} />
+      {hinweise.length > 0 && (
+        <ul className="hinweise" aria-label="Hinweise zur Notation">
+          {(alleHinweise ? hinweise : hinweise.slice(0, 6)).map((h, i) => (
+            <li key={i}>
+              <button type="button" className={`hinweis ${h.art}`} title="Zur Stelle springen"
+                onClick={() => { if (h.takt !== null) setAuswahl({ stimme: h.stimme ?? aktiv, takt: h.takt, note: 0 }); }}>{h.text}</button>
+            </li>
+          ))}
+          {hinweise.length > 6 && !alleHinweise && <li><button type="button" className="hinweis" onClick={() => setAlleHinweise(true)}>… und {hinweise.length - 6} weitere</button></li>}
+        </ul>
+      )}
     </div>
   );
 }
