@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  alsAbc, FEINHEITEN, notenDateiname, rastern, taktDauer, tempoAusTipps, zellenDauer, zellenJeSchlag,
-  type Feinheit, type Raster, type Tonrahmen,
+  alsAbc, effektivwert, FEINHEITEN, notenDateiname, rastern, taktDauer, tempoAusTipps, TONARTEN, tonartFinden, versatzSchaetzen,
+  zellenDauer, zellenJeSchlag, type Feinheit, type Raster, type Tonrahmen,
 } from '@/domain/notation';
 import { pdfBauen, type Seitenbild } from '@/domain/scan';
 import { schlaegeJeTakt, TAKTARTEN, taktartText, type Nenner } from '@/domain/takt';
@@ -29,6 +29,7 @@ type Phase = 'bereit' | 'zaehlt' | 'nimmt' | 'rechnet' | 'vorschlag';
 
 const FEINHEIT_SCHLUESSEL = 'ueben:einspiel-feinheit';
 const KLICK_SCHLUESSEL = 'ueben:einspiel-klick';
+const TONART_SCHLUESSEL = 'ueben:einspiel-tonart';
 // Längste Aufnahme in Takten — danach hält die App von selbst an.
 const MAX_TAKTE = 64;
 // Audio-Dateien: Abtastrate und Fenster der Tonerkennung (23 ms Fenster
@@ -81,6 +82,11 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
   const setFeinheit = (f: Feinheit) => { setFeinheitRoh(f); speichern(FEINHEIT_SCHLUESSEL, f); };
   const [klickWeiter, setKlickWeiterRoh] = useState(() => gespeichert(KLICK_SCHLUESSEL, true));
   const setKlickWeiter = (an: boolean) => { setKlickWeiterRoh(an); speichern(KLICK_SCHLUESSEL, an); };
+  // Tonart (notiert, wie das Stimmgerät zeigt): zieht die Töne auf die Leiter
+  // und setzt die Vorzeichen; leer = keine Tonart, Töne bleiben, wie gehört.
+  const [tonartAbc, setTonartAbcRoh] = useState(() => gespeichert<string>(TONART_SCHLUESSEL, 'C'));
+  const setTonartAbc = (a: string) => { setTonartAbcRoh(a); speichern(TONART_SCHLUESSEL, a); };
+  const tonart = useMemo(() => tonartFinden(tonartAbc), [tonartAbc]);
   const raster = useMemo<Raster>(() => ({ bpm, zaehler: taktart[0], nenner: taktart[1], feinheit }), [bpm, taktart, feinheit]);
   const rasterRef = useRef(raster);
   useEffect(() => { rasterRef.current = raster; }, [raster]);
@@ -108,9 +114,16 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
   const notenBild = useRef<HTMLDivElement>(null);
   const fokus = useDialogFokus<HTMLDivElement>();
 
-  const takte = useMemo(() => (phase === 'vorschlag' ? rastern(spur.map((f) => ({ zeit: f.zeit - start, midi: f.midi })), raster) : []),
-    [phase, spur, start, raster]);
-  const abc = useMemo(() => alsAbc(takte, raster, { titel }), [takte, raster, titel]);
+  // Rastern: Spur ab Taktanfang, um die geschätzte Latenz vorgezogen
+  // (Aufnahmeweg und Einrasten der Tonerkennung verspäten alle Einsätze
+  // gleichmäßig), mit Tonart.
+  const takte = useMemo(() => {
+    if (phase !== 'vorschlag') return [];
+    const abStart = spur.map((f) => ({ ...f, zeit: f.zeit - start }));
+    const versatz = versatzSchaetzen(abStart, raster);
+    return rastern(versatz ? abStart.map((f) => ({ ...f, zeit: f.zeit - versatz })) : abStart, raster, { tonart });
+  }, [phase, spur, start, raster, tonart]);
+  const abc = useMemo(() => alsAbc(takte, raster, { titel }, tonart), [takte, raster, titel, tonart]);
 
   // ── Spur zeichnen ──
   const zeichnen = useCallback((liste: readonly Tonrahmen[], jetzt: number | null) => {
@@ -227,7 +240,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
           const g = grundfrequenz(puffer, ctx.sampleRate);
           ton = g && g.klarheit > KLAR ? frequenzZuTon(g.frequenz, einst.current.kammerton, einst.current.stimmung) : null;
           const zeit = jetzt - versatz - t0;
-          if (zeit >= -0.05) rahmen.current.push({ zeit, midi: ton?.midi ?? null });
+          if (zeit >= -0.05) rahmen.current.push({ zeit, midi: ton ? ton.midi + ton.cent / 100 : null, pegel: effektivwert(puffer) });
         }
         const rel = jetzt - t0;
         if (jetzt - letzteAnzeige > 0.08) {
@@ -271,10 +284,11 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
       const liste: Tonrahmen[] = [];
       let erster: number | null = null;
       for (let i = 0; i + FENSTER <= d.length; i += SCHRITT) {
-        const g = grundfrequenz(d.subarray(i, i + FENSTER), RATE);
+        const fenster = d.subarray(i, i + FENSTER);
+        const g = grundfrequenz(fenster, RATE);
         const ton = g && g.klarheit > KLAR ? frequenzZuTon(g.frequenz, einst.current.kammerton, einst.current.stimmung) : null;
         const zeit = (i + FENSTER / 2) / RATE;
-        liste.push({ zeit, midi: ton?.midi ?? null });
+        liste.push({ zeit, midi: ton ? ton.midi + ton.cent / 100 : null, pegel: effektivwert(fenster) });
         if (ton && erster === null) erster = zeit;
         if (liste.length % 300 === 0) { setLaeuft(`Töne werden erkannt … ${Math.round((100 * i) / d.length)} %`); await luft(); }
       }
@@ -357,7 +371,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
     if (!takte.length || laeuft) return;
     setFehler('');
     const name = titel.trim() || (quelle === 'mikro' ? 'Eingesungen' : dateiName.replace(/\.[^.]+$/, '') || 'Aus Audio');
-    const text = alsAbc(takte, raster, { titel: name });
+    const text = alsAbc(takte, raster, { titel: name }, tonart);
     try {
       setLaeuft('Noten werden gezeichnet …');
       await luft();
@@ -430,6 +444,13 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
               ))}
             </div>
           </div>
+          <label className="einspiel-feld">
+            <span>Tonart</span>
+            <select className="feld feld-zahl" value={tonartAbc} onChange={(e) => setTonartAbc(e.target.value)} aria-label="Tonart (zieht die Töne auf die Leiter)">
+              <option value="">keine</option>
+              {TONARTEN.map((t) => <option key={t.abc} value={t.abc}>{t.name}</option>)}
+            </select>
+          </label>
           {quelle === 'mikro' && (
             <label className="einspiel-feld">
               <span>Klick während der Aufnahme</span>

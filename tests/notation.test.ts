@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
-  abcTon, alsAbc, einsaetze, glaetten, notationText, notenDateiname, notenwerte, rastern, tempoAusTipps, zellen, zellenDauer, zellenJeSchlag,
-  zellenJeTakt, zerlegen, type Raster, type Tonrahmen,
+  abcTon, alsAbc, anschlaege, aufLeiter, effektivwert, einsaetze, glaetten, hysterese, nachbessern, notationText, notenDateiname, notenwerte,
+  rastern, tempoAusTipps, tonartFinden, versatzSchaetzen, zellen, zellenDauer, zellenJeSchlag, zellenJeTakt, zerlegen,
+  type Raster, type Tonrahmen,
 } from '@/domain/notation';
 
 const VIERVIERTEL: Raster = { bpm: 120, zaehler: 4, nenner: 4, feinheit: 16 };
@@ -173,5 +174,196 @@ describe('Stück', () => {
     expect(tempoAusTipps([0, 500, 1000, 1500])).toBe(120);
     // alte Tipps (länger als 2,5 s her) zählen nicht
     expect(tempoAusTipps([0, 100, 5000, 5500, 6000])).toBe(120);
+  });
+});
+
+// ── Monophone Lesart (aus experimente/transkription/monophon.py übertragen) ──
+
+const NEUNZIG: Raster = { bpm: 90, zaehler: 4, nenner: 4, feinheit: 16 };
+
+// Eine gespielte oder gesungene Melodie als Spur: je Note [midi, Dauer in
+// Vierteln]; Rahmen alle 11,6 ms mit Vibrato (±0,3 Halbton) und Pegel —
+// Klavier: Anschlag und Ausklingen je Note; legato: gleichmäßig mit leichtem
+// Tremolo, ohne Lücke zwischen den Noten.
+function gespielt(melodie: [number, number][], r: Raster, art: 'klavier' | 'legato', spaet = 0): Tonrahmen[] {
+  const dt = 0.0116, schlag = 60 / r.bpm;
+  const f: Tonrahmen[] = [];
+  let t0 = 0;
+  for (const [midi, viertel] of melodie) {
+    const dauer = viertel * schlag;
+    for (let t = 0; t < dauer - 1e-9; t += dt) {
+      const vibrato = 0.3 * Math.sin(2 * Math.PI * 5.5 * (t0 + t));
+      const pegel = art === 'klavier' ? 0.5 * Math.exp(-3 * t) + 0.01 : 0.3 + 0.03 * Math.sin(2 * Math.PI * 6 * (t0 + t));
+      f.push({ zeit: t0 + t + spaet, midi: midi + vibrato, pegel });
+    }
+    t0 += dauer;
+  }
+  return f;
+}
+
+// „Alle meine Entchen“ in C-Dur, 4/4 — die Referenz aus dem Experiment.
+const ENTCHEN: [number, number][] = [
+  [60, 1], [62, 1], [64, 1], [65, 1], [67, 2], [67, 2],
+  [69, 1], [69, 1], [69, 1], [69, 1], [67, 4],
+  [69, 1], [69, 1], [69, 1], [69, 1], [67, 4],
+  [65, 1], [65, 1], [65, 1], [65, 1], [64, 2], [64, 2],
+  [62, 1], [62, 1], [62, 1], [62, 1], [60, 4],
+];
+const ENTCHEN_TAKTE = [
+  [{ midi: 60, dauer: 4 }, { midi: 62, dauer: 4 }, { midi: 64, dauer: 4 }, { midi: 65, dauer: 4 }],
+  [{ midi: 67, dauer: 8 }, { midi: 67, dauer: 8 }],
+  [{ midi: 69, dauer: 4 }, { midi: 69, dauer: 4 }, { midi: 69, dauer: 4 }, { midi: 69, dauer: 4 }],
+  [{ midi: 67, dauer: 16 }],
+  [{ midi: 69, dauer: 4 }, { midi: 69, dauer: 4 }, { midi: 69, dauer: 4 }, { midi: 69, dauer: 4 }],
+  [{ midi: 67, dauer: 16 }],
+  [{ midi: 65, dauer: 4 }, { midi: 65, dauer: 4 }, { midi: 65, dauer: 4 }, { midi: 65, dauer: 4 }],
+  [{ midi: 64, dauer: 8 }, { midi: 64, dauer: 8 }],
+  [{ midi: 62, dauer: 4 }, { midi: 62, dauer: 4 }, { midi: 62, dauer: 4 }, { midi: 62, dauer: 4 }],
+  [{ midi: 60, dauer: 16 }],
+].map((noten) => ({ noten }));
+
+describe('Tonart', () => {
+  it('rundet gemessene Tonhöhen auf die Leiter', () => {
+    const c = tonartFinden('C'), f = tonartFinden('F'), am = tonartFinden('Am');
+    expect(aufLeiter(60.4, null)).toBe(60);
+    expect(aufLeiter(60.6, null)).toBe(61);
+    expect(aufLeiter(60.6, c)).toBe(60);   // Cis gibt es in C-Dur nicht
+    expect(aufLeiter(61.4, c)).toBe(62);   // zu tiefes D
+    expect(aufLeiter(64.6, c)).toBe(65);
+    expect(aufLeiter(70.4, f)).toBe(70);   // B in F-Dur
+    expect(aufLeiter(70.4, c)).toBe(71);   // in C-Dur das H
+    expect(aufLeiter(68.5, am)).toBe(69);
+    expect(tonartFinden('')).toBeNull();
+    expect(tonartFinden('Xy')).toBeNull();
+  });
+  it('misst den Effektivwert', () => {
+    expect(effektivwert([0, 0, 0])).toBe(0);
+    expect(effektivwert([1, -1, 1, -1])).toBe(1);
+    expect(effektivwert(new Float32Array(0))).toBe(0);
+  });
+});
+
+describe('hysterese', () => {
+  it('hält einen Ton trotz Vibrato um die Halbtongrenze zusammen', () => {
+    const r: Tonrahmen[] = Array.from({ length: 40 }, (_, i) => ({ zeit: i * 0.01, midi: 60.5 + 0.4 * Math.sin(i) }));
+    const g = hysterese(r);
+    const toene = new Set(g.map((f) => f.midi));
+    expect(toene.size).toBe(1);
+    expect([...toene][0]).toBeCloseTo(60.5, 0);
+  });
+  it('trennt bei einem echten Sprung und bleibt beim Gleiten am Anfang verankert', () => {
+    // Langsames Gleiten von 60 nach 62: ohne Verankerung am Median der ganzen Strecke würde alles ein Ton.
+    const r: Tonrahmen[] = Array.from({ length: 60 }, (_, i) => ({ zeit: i * 0.01, midi: 60 + (2 * i) / 59 }));
+    const g = hysterese(r);
+    expect(new Set(g.map((f) => f.midi)).size).toBeGreaterThanOrEqual(2);
+    expect(g[0].midi!).toBeLessThan(61);
+    expect(g[59].midi!).toBeGreaterThan(61.5);
+  });
+  it('überbrückt kurze Aussetzer, lässt Pausen stehen', () => {
+    const r: Tonrahmen[] = [
+      ...Array.from({ length: 10 }, (_, i) => ({ zeit: i * 0.01, midi: 64 })),
+      { zeit: 0.1, midi: null }, { zeit: 0.11, midi: null },
+      ...Array.from({ length: 10 }, (_, i) => ({ zeit: 0.12 + i * 0.01, midi: 64 })),
+      ...Array.from({ length: 30 }, (_, i) => ({ zeit: 0.22 + i * 0.01, midi: null })),
+      ...Array.from({ length: 10 }, (_, i) => ({ zeit: 0.52 + i * 0.01, midi: 64 })),
+    ];
+    const g = hysterese(r);
+    expect(g[10].midi).toBe(64);
+    expect(g[11].midi).toBe(64);
+    expect(g[25].midi).toBeNull();
+  });
+});
+
+describe('nachbessern', () => {
+  it('schiebt einen Oktavfehler in die Lage der Nachbarn', () => {
+    expect(nachbessern([69, 69, 57, 69, 69])).toEqual([69, 69, 69, 69, 69]);
+    expect(nachbessern([60, 72, 62])).toEqual([60, 60, 62]);
+    // zwei Zellen tief sind kein Fehler mehr; am Rand fehlt ein Nachbar
+    expect(nachbessern([69, 57, 57, 69])).toEqual([69, 57, 57, 69]);
+    expect(nachbessern([57, 69, 69])).toEqual([57, 69, 69]);
+  });
+  it('lässt einen angeschliffenen Ansatz im folgenden Ton aufgehen', () => {
+    expect(nachbessern([64, 65, 65, 65])).toEqual([65, 65, 65, 65]);
+    expect(nachbessern([null, 63, 65, 65, 65])).toEqual([null, 65, 65, 65, 65]);
+    // ein echter Vorschlag drei Halbtöne tiefer bleibt
+    expect(nachbessern([62, 65, 65, 65])).toEqual([62, 65, 65, 65]);
+    // vor einer ebenso kurzen Note bleibt er auch
+    expect(nachbessern([64, 65, 67, 69])).toEqual([64, 65, 67, 69]);
+  });
+});
+
+describe('anschlaege', () => {
+  it('findet Anstiege im Pegel und keine im Tremolo', () => {
+    // Der allererste Anschlag hat keinen leiseren Vorgänger und zählt hier nicht
+    // (der erste Ton ist ohnehin ein Einsatz); die beiden Neuansätze schon.
+    const klavier = gespielt([[69, 1], [69, 1], [69, 1]], NEUNZIG, 'klavier');
+    const a = anschlaege(klavier);
+    expect(a).toHaveLength(2);
+    expect(a[0]).toBeCloseTo(60 / 90, 1);
+    expect(a[1]).toBeCloseTo(120 / 90, 1);
+    expect(anschlaege(gespielt([[69, 3]], NEUNZIG, 'legato'))).toEqual([]);
+    expect(anschlaege(gespielt([[69, 3]], NEUNZIG, 'legato').map((f) => ({ zeit: f.zeit, midi: f.midi })))).toEqual([]);
+  });
+  it('zählt Anschläge als Einsätze, wenn danach ein Ton klingt', () => {
+    const klavier = gespielt([[69, 1], [69, 1]], NEUNZIG, 'klavier');
+    expect([...einsaetze(klavier, NEUNZIG)]).toEqual([0, 4]);
+  });
+});
+
+describe('versatzSchaetzen', () => {
+  it('erkennt eine gleichmäßige Verspätung aller Einsätze', () => {
+    expect(versatzSchaetzen(gespielt(ENTCHEN, NEUNZIG, 'klavier', 0.1), NEUNZIG)).toBeCloseTo(0.1, 1);
+    expect(versatzSchaetzen(gespielt(ENTCHEN, NEUNZIG, 'klavier'), NEUNZIG)).toBe(0);
+  });
+  it('nimmt bei zu wenigen Tonwechseln nichts an', () => {
+    expect(versatzSchaetzen(gespielt([[60, 1], [62, 1]], NEUNZIG, 'klavier', 0.1), NEUNZIG)).toBe(0);
+  });
+});
+
+describe('rastern, monophone Lesart', () => {
+  it('liest „Alle meine Entchen“ vom Klavier Note für Note', () => {
+    expect(rastern(gespielt(ENTCHEN, NEUNZIG, 'klavier'), NEUNZIG, { tonart: tonartFinden('C') })).toEqual(ENTCHEN_TAKTE);
+  });
+  it('liest es auch ohne Tonart und mit Verspätung', () => {
+    expect(rastern(gespielt(ENTCHEN, NEUNZIG, 'klavier'), NEUNZIG)).toEqual(ENTCHEN_TAKTE);
+    const spaet = gespielt(ENTCHEN, NEUNZIG, 'klavier', 0.12);
+    const v = versatzSchaetzen(spaet, NEUNZIG);
+    expect(rastern(spaet.map((f) => ({ ...f, zeit: f.zeit - v })), NEUNZIG)).toEqual(ENTCHEN_TAKTE);
+  });
+  it('bindet legato gesungene gleiche Töne ohne Neuansatz zusammen', () => {
+    expect(rastern(gespielt([[69, 1], [69, 1], [69, 1], [69, 1]], NEUNZIG, 'legato'), NEUNZIG)).toEqual([{ noten: [{ midi: 69, dauer: 16 }] }]);
+  });
+  it('zieht zu tief gesungene Töne mit Tonart auf die Leiter', () => {
+    // F um 60 Cent zu hoch gesungen: ohne Tonart ein Fis, mit C-Dur das F.
+    const hoch = gespielt([[62, 1], [65.6, 1], [67, 2]], NEUNZIG, 'klavier');
+    expect(rastern(hoch, NEUNZIG)[0].noten.map((n) => n.midi)).toEqual([62, 66, 67]);
+    expect(rastern(hoch, NEUNZIG, { tonart: tonartFinden('C') })[0].noten.map((n) => n.midi)).toEqual([62, 65, 67]);
+    // H um 40 Cent zu tief: ohne Tonart das H, in F-Dur das B.
+    const tief = gespielt([[69, 1], [70.6, 1], [72, 2]], NEUNZIG, 'klavier');
+    expect(rastern(tief, NEUNZIG)[0].noten.map((n) => n.midi)).toEqual([69, 71, 72]);
+    expect(rastern(tief, NEUNZIG, { tonart: tonartFinden('F') })[0].noten.map((n) => n.midi)).toEqual([69, 70, 72]);
+  });
+});
+
+describe('ABC mit Tonart', () => {
+  it('schreibt die Tonart in den Kopf und lässt Leitertöne ohne Vorzeichen', () => {
+    const abc = alsAbc([{ noten: [{ midi: 70, dauer: 4 }, { midi: 71, dauer: 4 }, { midi: 70, dauer: 4 }, { midi: 65, dauer: 4 }] }], VIERVIERTEL, { titel: 'F' }, tonartFinden('F'));
+    expect(abc).toContain('K:F\n');
+    expect(abc).toContain('B4 =B4 _B4 F4 |]');
+  });
+  it('setzt ein Vorzeichen nur, wenn es im Takt noch nicht gilt', () => {
+    const abc = alsAbc([
+      { noten: [{ midi: 61, dauer: 4 }, { midi: 60, dauer: 4 }, { midi: 61, dauer: 4 }, { midi: 61, dauer: 4 }] },
+      { noten: [{ midi: 61, dauer: 16 }] },
+    ], VIERVIERTEL, { titel: 'x' });
+    expect(abc).toContain('^C4 =C4 ^C4 C4 | ^C16 |]');
+  });
+  it('schreibt in Kreuz-Tonarten Kreuze, in B-Tonarten Bs, über Oktaven hinweg', () => {
+    const g = alsAbc([{ noten: [{ midi: 66, dauer: 4 }, { midi: 78, dauer: 4 }, { midi: 65, dauer: 4 }, { midi: 66, dauer: 4 }] }], VIERVIERTEL, { titel: 'G' }, tonartFinden('G'));
+    expect(g).toContain('K:G\n');
+    // Nach dem Auflösungszeichen braucht das Fis im selben Takt sein Kreuz wieder.
+    expect(g).toContain('F4 f4 =F4 ^F4 |]');
+    const bb = alsAbc([{ noten: [{ midi: 63, dauer: 8 }, { midi: 61, dauer: 8 }] }], VIERVIERTEL, { titel: 'B' }, tonartFinden('Bb'));
+    expect(bb).toContain('E8 _D8 |]');
   });
 });
