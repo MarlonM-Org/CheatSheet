@@ -387,7 +387,19 @@ a { color: inherit; text-decoration: underline; text-decoration-color: var(--mes
 }
 input.metro-zahl { width: 3ch; background: none; }
 .metro-einheit { font-size: 10px; font-weight: 700; letter-spacing: 0.16em; color: var(--leise); }
-.metro-takt { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.metro-takt {
+  margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+  padding: 6px 8px; margin-right: -8px; border-radius: 5px; color: inherit;
+}
+.metro-takt:active, .metro-takt[aria-expanded="true"] { background: var(--flaeche); }
+/* Kästchen mit den üblichen Taktarten (D-07): klappt im Fluss unter der
+   Zeile auf, die Fang-Fläche (nav-fang) schließt daneben. */
+.metro-taktwahl {
+  position: relative; z-index: 2; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+  margin: 8px 14px 0; padding: 8px; border-radius: 10px;
+  background: var(--papier); border: 1px solid var(--linie-stark); box-shadow: 0 6px 18px rgb(0 0 0 / 10%);
+}
+.metro-taktwahl .taktart-chip { min-height: 2.4rem; padding: 0 0.4rem; }
 .metro-taktlabel {
   font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;
   color: var(--leise); font-variant-numeric: tabular-nums;
@@ -413,10 +425,11 @@ input.metro-zahl { width: 3ch; background: none; }
 .metro-saeule .metro-zahl { font-size: 32px; }
 .metro-saeule input.metro-zahl { width: 100%; text-align: center; font-size: 32px; }
 .gruppe.senkrecht { flex: none; flex-direction: column; }
-/* Doppelt so hoch wie in der Zeile (Wunsch Marlon): lang darf die Säule sein, breit nicht. */
-.gruppe.senkrecht button { height: 84px; font-size: 15px; }
+/* +1 und −1 je so hoch wie der Start-Knopf der Säule (Wunsch Marlon, D-07). */
+.gruppe.senkrecht button { flex: none; height: 46px; font-size: 16px; }
 .gruppe.senkrecht button + button { border-left: none; border-top: 1px solid var(--linie-stark); }
-.metro-saeule .metro-takt { margin-left: 0; align-items: center; gap: 6px; }
+.metro-saeule .metro-takt { margin: 0; align-items: center; gap: 6px; padding: 4px 6px; }
+.metro-saeule .metro-taktwahl { grid-template-columns: 1fr; margin: 0; padding: 6px; }
 .metro-saeule .metro-punkte { flex-wrap: wrap; justify-content: center; gap: 5px; max-width: 80px; }
 .metro-saeule .metro-punkte i { width: 8px; height: 8px; }
 .metro-saeule .text-knopf { align-self: center; }

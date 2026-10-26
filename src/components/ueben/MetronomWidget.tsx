@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { taktartText } from '@/domain/takt';
+import { TAKTARTEN, taktartText } from '@/domain/takt';
 import { gespeichert, speichern } from './klang';
 import { Metronom } from './Metronom';
 import { useMetronom } from './MetronomKontext';
@@ -10,20 +10,23 @@ import { useSchiebbar } from './schiebbar';
 import { useDialogFokus, useEscape } from './tasten';
 
 // Metronom als Widget (B-03): Start/Stopp, Tempo (antippen zum Eintippen),
-// Regler, −1/+1 und ±10 %, Taktpunkte. Am Kopf frei über den Bildschirm
+// Regler, −1/+1 und ±10 %, Taktart mit Taktpunkten (antippen: Kästchen mit
+// den üblichen Taktarten, D-07). Am Kopf frei über den Bildschirm
 // schiebbar, damit die Noten lesbar bleiben. „Alles" öffnet das volle
 // Metronom; dieser Zustand liegt in der Zentrale, damit die Blätter-Tasten
 // hinter dem Dialog gesperrt sind. Schließen blendet nur aus — der
 // Taktgeber läuft im Kontext weiter.
 //
-// Schmal (D-06): eine aufrechte Säule, nur so breit wie der Start-Knopf —
-// Tempo, die vier Tempo-Knöpfe übereinander, Taktpunkte; ohne Regler.
-// Gemerkt je Gerät (`ueben:metronom-schmal`).
+// Schmal (D-06, D-07): eine aufrechte Säule, nur so breit wie der Start-Knopf —
+// Start, Taktart mit Punkten, Tempo, +1 und −1 übereinander (so hoch wie der
+// Start-Knopf); ohne Regler und ohne ±10 %. Gemerkt je Gerät
+// (`ueben:metronom-schmal`).
 export function MetronomWidget({ schliessen, voll, vollSetzen }: {
   schliessen: () => void; voll: boolean; vollSetzen: (an: boolean) => void;
 }) {
-  const { bpm, setBpm, laeuft, start, stopp, aktiv, takt, nenner, akzente } = useMetronom();
+  const { bpm, setBpm, laeuft, start, stopp, aktiv, takt, nenner, taktartSetzen, akzente } = useMetronom();
   const [eingabe, setEingabe] = useState<string | null>(null);
+  const [taktWahl, setTaktWahl] = useState(false);
   const [schmal, setSchmal] = useState(() => gespeichert('ueben:metronom-schmal', false));
   const schmalSetzen = (an: boolean) => { setSchmal(an); speichern('ueben:metronom-schmal', an); };
   const { panel, lage, ebene, anfassen, bewegen, loslassen } = useSchiebbar('ueben:lage-metronom');
@@ -55,6 +58,28 @@ export function MetronomWidget({ schliessen, voll, vollSetzen }: {
     </div>
   );
   const taktLabel = <span className="metro-taktlabel">{schmal ? '' : 'Takt '}{taktartText(takt, nenner)}</span>;
+  // Taktart und Punkte sind ein Knopf: Antippen klappt ein Kästchen mit den
+  // üblichen Taktarten auf (wie die Schnellwahl der großen Ansicht).
+  const taktKnopf = (
+    <button type="button" className="metro-takt" aria-haspopup="true" aria-expanded={taktWahl}
+      aria-label={`Taktart ${taktartText(takt, nenner)}, antippen zum Wählen`} onClick={() => setTaktWahl(!taktWahl)}>
+      {taktLabel}
+      {punkte}
+    </button>
+  );
+  const taktMenue = taktWahl && (
+    <>
+      <button type="button" className="nav-fang" aria-label="Taktart-Wahl schließen" onClick={() => setTaktWahl(false)} />
+      <div className="metro-taktwahl" role="group" aria-label="Taktart wählen">
+        {TAKTARTEN.map(([z, n]) => (
+          <button key={`${z}/${n}`} type="button" className="taktart-chip" aria-pressed={z === takt && n === nenner}
+            onClick={() => { taktartSetzen(z, n); setTaktWahl(false); }}>
+            {taktartText(z, n)}
+          </button>
+        ))}
+      </div>
+    </>
+  );
   const alles = <button type="button" className="text-knopf gedaempft text-xs underline" onClick={() => vollSetzen(true)}>alles</button>;
 
   return (
@@ -78,16 +103,12 @@ export function MetronomWidget({ schliessen, voll, vollSetzen }: {
       {schmal ? (
         <div className="metro-saeule">
           {startKnopf}
+          {taktKnopf}
+          {taktMenue}
           {tempo}
           <div className="gruppe senkrecht">
-            <button type="button" onClick={() => setBpm(bpm * 1.1)} aria-label="Zehn Prozent schneller">+10 %</button>
             <button type="button" onClick={() => setBpm(bpm + 1)} aria-label="Ein Schlag schneller">+1</button>
             <button type="button" onClick={() => setBpm(bpm - 1)} aria-label="Ein Schlag langsamer">−1</button>
-            <button type="button" onClick={() => setBpm(bpm / 1.1)} aria-label="Zehn Prozent langsamer">−10 %</button>
-          </div>
-          <div className="metro-takt">
-            {taktLabel}
-            {punkte}
           </div>
           {alles}
         </div>
@@ -96,11 +117,9 @@ export function MetronomWidget({ schliessen, voll, vollSetzen }: {
           <div className="metro-zeile1">
             {startKnopf}
             {tempo}
-            <div className="metro-takt">
-              {taktLabel}
-              {punkte}
-            </div>
+            {taktKnopf}
           </div>
+          {taktMenue}
           <div className="metro-zeile2">
             <div className="gruppe">
               <button type="button" onClick={() => setBpm(bpm - 1)} aria-label="Ein Schlag langsamer">−1</button>
