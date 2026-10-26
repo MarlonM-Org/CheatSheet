@@ -31,9 +31,11 @@ ob das ins Leitbild passt (dann auch CLAUDE.md anpassen: „kein Login“).
 *MIDI und Begleitung* stehen ebenfalls oben. Seit 2026-10-26 sind
 **Vorspielen der eigenen Notation** (Instrumente, Begleitung, Einspielen
 Takt für Takt) und **Song-Transkription** als Vision G-04…G-07
-aufgenommen — alles on-device, kein Server. Vor der Umsetzung entscheidet
-Marlon, ob „MIDI, Audio-Begleitspuren, Soundbearbeitung“ dafür aus der
-Außen-vor-Liste genommen wird.
+aufgenommen. Die App bleibt on-device; die schwere Song-Transkription
+kann ein separates Werkzeug sein (Rechner oder Server), Schnittstelle ist
+MusicXML — Einschätzung in G-08. Vor der Umsetzung entscheidet Marlon, ob
+„MIDI, Audio-Begleitspuren, Soundbearbeitung“ dafür aus der Außen-vor-Liste
+genommen wird.
 
 ## Meilensteine (Reihenfolge)
 
@@ -45,7 +47,7 @@ Außen-vor-Liste genommen wird.
 | M4 | **Notenmanagement I** | Metadaten, Flags, Drag & Drop (Sammlungen F-13, Lesezeichen/virtuelle Stücke F-03 und Kontext-Blatt F-08 erledigt) | F-01, F-04, F-09 |
 | M5 | **Üben & Setlisten** | Setlisten (Stellen-Mix F-11, Tonprofil C-04, Sprünge F-05, Halbseiten-Blättern F-06, Blättern je Seite F-16 und Favoriten im Mix F-17 schon erledigt) — *zurückgestellt 2026-10-23: Marlon ordnet bisher über Dateinamen, Setlisten sind Zukunftsthema* | F-02 |
 | M6 | **Extras** | Stempel/Formen (Kamera-Scan F-07, Themes B-04 und Design B-05 erledigt) — *vorgezogen 2026-10-23, vor M4 und M5* | E-04 |
-| M7 | **Komponieren** (Vision) | Noteneingabe, Rhythmus-/Melodie-Transkription; Ausbau: Vorspielen, Einspielen Takt für Takt, Song-Transkription, Klänge (Wunsch 2026-10-26, Leitbild-Entscheidung offen) | G-01…G-07 |
+| M7 | **Komponieren** (Vision) | Noteneingabe, Rhythmus-/Melodie-Transkription; Ausbau: Vorspielen, Einspielen Takt für Takt, Song-Transkription, Klänge; Ort offen: App oder separates Werkzeug (Wunsch 2026-10-26) | G-01…G-08 |
 | M8 | **Geräteübergreifend** (Vision, Entscheidung offen) | Noten und Übe-Daten über die eigene Cloud auf mehreren Geräten | H-01…H-05 |
 
 **Quick Wins** (klein, unabhängig, jederzeit zwischenschieben — guter
@@ -314,6 +316,71 @@ Lautstärke, Hall, Hüllkurve (Anschlag/Ausklingen) über Web Audio. Teuer
 und laut Leitbild „Soundbearbeitung“ außen vor: eigene Samples, Effekte,
 Mischpult. Vorschlag: nur die günstige Stufe, als Einstellung je Stimme in
 der Quelle.
+
+### G-08 · Wo läuft das? Offline-App, eigener Rechner oder Server (Einschätzung 2026-10-26)
+
+Marlon (2026-10-26): Das muss nicht alles in der statischen Offline-App
+passieren. Verwalten und Üben bleiben hier; Transkribieren und Komponieren
+dürfen ein **separates Werkzeug** sein, auch mit Server, auch technisch ganz
+neu. Bewertet werden soll, ob es überhaupt geht — und wenn es offline geht,
+umso besser.
+
+**Geht das überhaupt?** Ja, jeder Baustein existiert als freie Software oder
+Produkt. Die Qualität hängt an der Quelle, nicht am Ort der Berechnung:
+
+| Baustein | Stand der Technik | Qualität |
+|---|---|---|
+| Stimmen trennen (Gesang, Bass, Schlagzeug, Gitarre, Klavier, Rest) | Demucs (frei), Moises, LALAL.AI | Gesang, Bass, Schlagzeug sehr gut; Gitarre/Klavier brauchbar; „Rest“ ist Sammeltopf |
+| Takt, Tempo, Tonart, Akkorde aus Audio | madmom, BeatNet, Chordify | gut — die Basis für sauberes Quantisieren |
+| Gesang / einstimmiges Instrument → Noten | Basic Pitch, CREPE, Klangio „Sing2Notes“ | brauchbar; nachbessern nötig (Tonlängen, Oktaven) |
+| Klavier → Noten | ByteDance-Modell, Onsets and Frames, Klangio „Piano2Notes“ | gut, praktisch gelöst |
+| Bass (nach Trennung) → Noten | Basic Pitch | gut |
+| Gitarre verzerrt, Riffs, Powerchords → Noten/Tabs | Forschung (TabCNN u. a.), Klangio „Guitar2Tabs“ | mäßig: Riffs ja, Akkordvoicings und Mehrstimmiges oft falsch |
+| Schlagzeug → Noten | Drum-Transkription (ADT) | Kick/Snare/Hi-Hat gut, Becken/Toms schwach |
+| Ganzer Mix → mehrstimmige Partitur in einem Schritt | MT3 / YourMT3+ (Google-Forschung) | Rohfassung, bei dichten Rock-Mixen deutlich fehlerhaft |
+| Notation abspielen, Instrumente wählen, Stimmen stumm, Backing-Track | abcjs-Synth, Tone.js, Soundslice, Flat.io, BandLab | gelöst, läuft komplett im Browser |
+| Aufnehmen über Begleitung → Noten → bearbeiten | ScoreCloud, Soundslice „record“ | existiert, einstimmig brauchbar |
+
+Kurz: **Melodie, Bass, Klavier, Grundgerüst (Takt/Akkorde): ja.** Ein
+komplettes Metallica-Stück in alle Stimmen zerlegt als spielbare Noten:
+**nirgends, auch nicht mit Server** — das Beste ist ein korrigierbarer
+Entwurf. Wer heute dafür Geld nimmt (Klangio, AnthemScore, Moises), nennt
+es genau so.
+
+**Drei Orte, drei Preise:**
+
+1. **In der Offline-App.** Vorspielen (G-04), Einspielen einstimmig (G-05),
+   Melodie-Transkription (G-03) laufen vollständig im Browser, auch auf dem
+   iPhone. Stimmen-Trennung ginge als WebAssembly, ist aber langsam (Minuten),
+   speicherhungrig (iPhone bricht ab) und lädt ~80 MB Modell. Deshalb: alles
+   außer G-06 hierhin.
+2. **Auf dem eigenen Rechner, ohne Hosting.** Ein kleines Werkzeug (Python,
+   Kommandozeile oder lokale Oberfläche), das Demucs, Takt-Erkennung und
+   Basic Pitch hintereinanderschaltet und **MusicXML** ausgibt. Auf einem
+   Laptop ein paar Minuten je Song, mit Grafikkarte Sekunden. Keine
+   Cloud-Kosten, Songs verlassen das Gerät nicht, keine Rechtsfragen.
+   Ergebnis geht über den geplanten MusicXML-Import (G-01) in CheatSheet.
+3. **Als Server-Dienst.** Technisch identisch zu 2, nur gehostet (GPU bei
+   Modal, RunPod, Hetzner; Vercel kann das nicht). Vorteil: vom Telefon aus.
+   Nachteile: laufende Kosten, fremde Musik wird hochgeladen
+   (Urheberrecht, Datenschutz), und ein zweites System ist zu betreiben.
+   Lohnt erst, wenn 2 zeigt, dass die Ergebnisse den Aufwand wert sind.
+
+**Empfehlung:**
+
+- CheatSheet bleibt statisch. Die Grenze ist eine Datei: **MusicXML (oder
+  ABC) rein, PDF plus Quelle raus.** G-01 plant den Import ohnehin; er ist
+  die einzige Schnittstelle, die beide Seiten brauchen.
+- G-04, G-05, G-03 kommen in die App, G-06 in ein separates Werkzeug
+  (zuerst Variante 2, Server nur bei Bedarf). So bleibt das Leitbild
+  unangetastet bis auf das Abspielen der eigenen Notation.
+- **Vor jeder Zeile Code: ein Nachmittag Experiment.** Demucs + Basic Pitch
+  gibt es fertig; einen Song durchjagen, das MusicXML in MuseScore öffnen
+  und ehrlich schauen, ob der Entwurf hilft oder frustriert. Alternativ
+  Moises (Stems) und Klangio (Noten) mit demselben Song testen — wenn ein
+  fertiges Produkt reicht, braucht es nur den Import in CheatSheet, kein
+  eigenes Werkzeug. Das Ergebnis entscheidet, ob G-06 überhaupt gebaut
+  wird.
 
 ---
 
