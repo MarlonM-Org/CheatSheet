@@ -11,7 +11,7 @@
 // Takts. Die Oberfläche sieht die gezeichneten Noten (Note k im Takt t);
 // jede Änderung trifft die Strecke, zu der die Note gehört.
 
-import { leiter, notenwerte, zellenDauer, zellenJeGruppe, zellenJeSchlag, zellenJeTakt, zerlegen, type Note, type Raster, type Takt, type Tonart } from './notation';
+import { leiter, notenwerte, zellenDauer, zellenJeGruppe, zellenJeSchlag, zellenJeTakt, zerlegen, type Note, type Raster, type Stimme, type Takt, type Tonart } from './notation';
 import { istZusammengesetzt } from './takt';
 
 // Lage einer gezeichneten Note: Takt t, darin Note k (Pausen zählen mit).
@@ -511,6 +511,32 @@ export const punktiert = (zellen: number, r: Raster) => (notenwerte(r).includes(
 // Triole = zwei Drittel, wenn das ganze Zellen sind (und die Taktart einfach ist).
 export const triole = (zellen: number, r: Raster) => (Number.isInteger((zellen * 2) / 3) && !istZusammengesetzt(r.zaehler, r.nenner) ? (zellen * 2) / 3 : null);
 
+// ── Stimmen (mehrstimmig) ──
+
+export const einstimmig = (takte: readonly Takt[]): Stimme[] => [{ name: '', schluessel: 'violin', takte: [...takte] }];
+// Alle Stimmen gleich lang: kürzere bekommen leere Takte hinten dran.
+export function angleichen(stimmen: readonly Stimme[], r: Raster): Stimme[] {
+  const n = Math.max(1, ...stimmen.map((s) => s.takte.length));
+  return stimmen.map((s) => (s.takte.length === n ? s : { ...s, takte: [...s.takte, ...Array.from({ length: n - s.takte.length }, () => leererTakt(r))] }));
+}
+// Die Takte einer Stimme ersetzen (nach einer Änderung dort).
+export const inStimme = (stimmen: readonly Stimme[], i: number, takte: Takt[], r: Raster): Stimme[] =>
+  angleichen(stimmen.map((s, k) => (k === i ? { ...s, takte } : s)), r);
+// Dieselbe Takt-Änderung in allen Stimmen (Takt anhängen, Takt löschen).
+export const inAllen = (stimmen: readonly Stimme[], f: (takte: Takt[]) => Takt[]): Stimme[] =>
+  stimmen.map((s) => ({ ...s, takte: f(s.takte) }));
+export function stimmeHinzu(stimmen: readonly Stimme[], r: Raster): Stimme[] {
+  const n = Math.max(1, ...stimmen.map((s) => s.takte.length));
+  const nummer = stimmen.length + 1;
+  return [...stimmen, { name: `Stimme ${nummer}`, schluessel: nummer === 2 ? 'bass' : 'violin', takte: Array.from({ length: n }, () => leererTakt(r)) }];
+}
+export const stimmeWeg = (stimmen: readonly Stimme[], i: number): Stimme[] => (stimmen.length > 1 ? stimmen.filter((_, k) => k !== i) : [...stimmen]);
+export const stimmeAendern = (stimmen: readonly Stimme[], i: number, neu: Partial<Pick<Stimme, 'name' | 'schluessel'>>): Stimme[] =>
+  stimmen.map((s, k) => (k === i ? { ...s, ...neu } : s));
+// Gelesene Stimmen (abcLesen) aufs Blatt.
+export const aufsBlattStimmen = (stimmen: readonly Stimme[], von: number, r: Raster): Stimme[] =>
+  angleichen(stimmen.map((s) => ({ ...s, takte: aufsBlatt(s.takte, von, r) })), aufBlatt(r));
+
 // ── Vorspielen ──
 
 // Ein Klang: Beginn und Dauer in Sekunden, notierte Tonhöhe. Gebundene Noten
@@ -531,6 +557,11 @@ export function klaenge(takte: readonly Takt[], r: Raster): Klang[] {
     }
   }
   return liste;
+}
+
+// Alle Stimmen zusammen, nach Beginn sortiert; stumme Stimmen fehlen.
+export function klaengeAlle(stimmen: readonly Stimme[], r: Raster, stumm: ReadonlySet<number> = new Set()): Klang[] {
+  return stimmen.flatMap((s, i) => (stumm.has(i) ? [] : klaenge(s.takte, r))).sort((a, b) => a.beginn - b.beginn);
 }
 
 // Beginn jeder gezeichneten Note in Sekunden (für den Abspiel-Zeiger), in

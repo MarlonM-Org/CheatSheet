@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  abcLesen, abcTon, alsAbc, anschlaege, aufLeiter, effektivwert, einsaetze, glaetten, hysterese, nachbessern, notationText, notenDateiname, notenwerte,
+  abcLesen, abcMitTitel, abcTon, alsAbc, anschlaege, aufLeiter, effektivwert, einsaetze, glaetten, hysterese, nachbessern, notationText, notenDateiname, notenwerte,
   rastern, tempoAusTipps, tonartFinden, ueberzaehlig, versatzSchaetzen, zellen, zellenDauer, zellenJeSchlag, zellenJeTakt, zerlegen,
   type Raster, type Takt, type Tonrahmen,
 } from '@/domain/notation';
@@ -412,5 +412,13 @@ describe('Seiten nach dem Neuschreiben', () => {
     const l = (ids: [string, number][]) => ids.map(([id, seite]) => ({ id, seite }));
     expect(ueberzaehlig(2, { stellen: l([['s1', 1], ['s2', 2], ['s3', 3]]), anmerkungen: l([['a2', 2], ['a4', 4]]), lesezeichen: l([['l5', 5]]), merker: l([['m1', 1]]) }))
       .toEqual({ stellen: ['s3'], anmerkungen: ['a4'], lesezeichen: ['l5'], merker: [] });
+  });
+});
+
+describe('Titel im ABC', () => {
+  it('tauscht die T:-Zeile oder setzt sie hinter X:', () => {
+    expect(abcMitTitel('X:1\nT:Alt\nK:C\nC4 |]', 'Neu')).toBe('X:1\nT:Neu\nK:C\nC4 |]');
+    expect(abcMitTitel('X:1\nK:C\nC4 |]', ' Neu ')).toBe('X:1\nT:Neu\nK:C\nC4 |]');
+    expect(abcMitTitel('X:1\nT:Alt\nK:C\nC4 |]', '')).toContain('T:Ohne Titel');
   });
 });

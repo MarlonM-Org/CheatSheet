@@ -17,6 +17,7 @@ import {
   stelleAendern, zuletztMerken, stellenVon, tagsLaden, tempoGeschafft, virtuellesAnlegen,
   type Stueck, type Stelle,
 } from './lokal';
+import { AufnahmenListe, useAufnahme } from './Aufnahmen';
 import { EinspielenDialog, type Vorlage } from './Einspielen';
 import { LesezeichenKontext, MehrKnopf, StueckKontext, useHalten } from './Kontext';
 import { TagEtikett } from './Tags';
@@ -60,6 +61,11 @@ export function NotenPult({ notenId, tastenAktiv, verschwunden, mix = null, leis
   // Komponieren (G-01): das Stück mit seiner Quelle im Notenblatt weiterbearbeiten.
   const [vorlage, setVorlage] = useState<Vorlage | null>(null);
   const [neuGeladen, setNeuGeladen] = useState(0);
+  // Aufnahmen (G-09): der Datensatz des Stücks trägt die Liste — nach dem
+  // Aufnehmen, Benennen oder Löschen neu lesen.
+  const stueckNeuLesen = useCallback(() => { stueckHolen(notenId).then((n) => { if (n) setNoten(n); }, ladeFehler); }, [notenId]);
+  const aufnahme = useAufnahme(notenId, stueckNeuLesen);
+  const mixStelle = mix?.stelle;
   const komponieren = useCallback(() => {
     if (!noten?.notation) return;
     const gelesen = abcLesen(noten.notation.text);
@@ -125,7 +131,9 @@ export function NotenPult({ notenId, tastenAktiv, verschwunden, mix = null, leis
       <NotenBetrachter noten={noten} pdf={pdf} stellen={stellen} lesezeichen={lesezeichen} lesezeichenGeaendert={lesezeichenLaden}
         geaendert={neuLaden} mix={mix} {...leisten}
         tastenAktiv={tastenAktiv && !blatt && !vorlage} sprung={sprung} titelTipp={() => setBlatt(true)}
-        komponieren={noten.notation && !noten.quelle ? komponieren : undefined} />
+        komponieren={noten.notation && !noten.quelle ? komponieren : undefined}
+        aufnahme={{ laeuft: aufnahme.laeuft, sekunden: aufnahme.sekunden, umschalten: (z) => aufnahme.umschalten({ ...z, ...(mixStelle ? { stelleId: mixStelle } : {}) }) }} />
+      {aufnahme.fehler && <p className="karte warnung aufnahme-fehler" role="alert">{aufnahme.fehler}</p>}
       {vorlage && (
         <EinspielenDialog quelle="leer" vorlage={vorlage} sammlungen={[]} tags={[]}
           fertig={() => { setVorlage(null); setBlatt(false); setNeuGeladen((n) => n + 1); }}
@@ -134,8 +142,9 @@ export function NotenPult({ notenId, tastenAktiv, verschwunden, mix = null, leis
       {blatt && (
         <StueckBlatt noten={noten} quelle={quelle} pdf={pdf} stellen={stellen} lesezeichen={lesezeichen} lesezeichenGeaendert={lesezeichenLaden}
           bpm={bpm} tempoSetzen={setBpm} neuLaden={neuLaden} geloescht={verschwunden} teilenAnfang={blattAnfang === 'teilen'}
-          umbenannt={(neu) => setNoten({ ...noten, ...neu })}
+          umbenannt={(neu) => { setNoten({ ...noten, ...neu }); if (noten.notation && neu.titel && neu.titel !== noten.titel) setNeuGeladen((n) => n + 1); }}
           komponieren={noten.notation && !noten.quelle ? komponieren : undefined}
+          aufnahmenGeaendert={stueckNeuLesen}
           zeigen={(id) => { mix?.beenden(); setSprung({ stelle: id, n: Date.now() }); setBlatt(false); }}
           seiteZeigen={(seite) => { mix?.beenden(); setSprung({ seite, n: Date.now() }); setBlatt(false); }}
           schliessen={() => setBlatt(false)} />
@@ -146,12 +155,13 @@ export function NotenPult({ notenId, tastenAktiv, verschwunden, mix = null, leis
 
 // ── Stück-Blatt: Umbenennen und Stellen-Übersicht ───────────────────────
 
-function StueckBlatt({ noten, quelle, pdf, stellen, lesezeichen, lesezeichenGeaendert, bpm, tempoSetzen, neuLaden, umbenannt, geloescht, komponieren, zeigen, seiteZeigen, schliessen, teilenAnfang = false }: {
+function StueckBlatt({ noten, quelle, pdf, stellen, lesezeichen, lesezeichenGeaendert, bpm, tempoSetzen, neuLaden, umbenannt, geloescht, komponieren, aufnahmenGeaendert, zeigen, seiteZeigen, schliessen, teilenAnfang = false }: {
   noten: Stueck; quelle: Stueck | null; pdf: Dokument; stellen: Stelle[]; lesezeichen: Lesezeichen[]; lesezeichenGeaendert: () => void;
   bpm: number; tempoSetzen: (n: number) => void;
   neuLaden: () => void; umbenannt: (neu: Partial<Stueck>) => void; geloescht: () => void;
   // Nur bei Stücken mit Quelle (geschrieben, eingesungen, aus Audio).
   komponieren?: () => void;
+  aufnahmenGeaendert: () => void;
   zeigen: (id: string) => void; seiteZeigen: (seite: number) => void; schliessen: () => void; teilenAnfang?: boolean;
 }) {
   // Aktionen am Stück (umbenennen, Sammlungen, Tags, löschen) im Kontext-Blatt (F-08).
@@ -195,6 +205,8 @@ function StueckBlatt({ noten, quelle, pdf, stellen, lesezeichen, lesezeichenGeae
             <TeilStuecke noten={noten} pdf={pdf} lesezeichen={lesezeichen} />
           </>
         )}
+        <h3 className="abschnitt-titel">Aufnahmen</h3>
+        <AufnahmenListe stueck={noten} stellen={stellen} geaendert={aufnahmenGeaendert} />
         <h3 className="abschnitt-titel">Stellen</h3>
         <UebeAnsicht pdf={pdf} noten={noten} stellen={stellen} bpm={bpm} neuLaden={neuLaden} tempoSetzen={tempoSetzen} zeigen={zeigen} />
       </div>

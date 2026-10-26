@@ -59,6 +59,122 @@ umbauen.
 
 ---
 
+## Reifegrad (Stand 2026-10-26)
+
+Drei Stufen, damit klar ist, was wirklich fertig ist: **Reif** heißt
+umgesetzt, Fachlogik in `tests/` abgedeckt (35 Dateien, 585 Tests, alle
+grün) und von Marlon im Alltag auf iPhone/iPad genutzt — Rückmeldungen vom
+Gerät sind eingearbeitet. **Zu prüfen** heißt Code und Tests sind da, aber
+der Punkt ist neu oder lief noch nie bzw. nur einmal auf dem Gerät — er gilt
+erst als reif, wenn die Checkliste durch ist; **Offen** heißt angefangen
+oder nur geplant. Stand: Alles bis einschließlich 2026-10-26 abends
+(Triolen, Komponieren am Stück, mehrere Stimmen, Aufnahmen, Titel-Abgleich)
+ist auf `main` und damit auf cheat-sheet.ma-und-ma.de.
+
+### Reif — umgesetzt, getestet, im Alltag bewährt
+
+- A-02/A-03/A-05/A-06 · Datenbank `cheatsheet`, Speicherschicht, PDFs als Bytes · `tests/lokal.test.ts` gegen echten Gerätespeicher; die iPhone-Fehler (Speicher voll, verlorene Datei, leere Scans) sind seit 2026-10-11 weg.
+- A-07 · Dauerhafter Speicher · klein, nur Anfrage und Anzeige; was das iPad antwortet, steht in Einstellungen → Daten übertragen.
+- B-01…B-03, B-06, B-07, B-09, B-12 · Noten vollflächig, drei Knöpfe, schwebende Widgets, Bibliothek, Leisten über den Noten · seit 2026-10-10 die tägliche Oberfläche.
+- B-04/B-05 · Studio-Design, Farbwelten · entschieden, `thema.ts` getestet.
+- B-10/B-11 · Stellen auffindbar, Rahmen nur bei offener Palette · Rückmeldung Marlon eingearbeitet.
+- B-13/B-14 · Zwei Seiten, Ansicht-Menü · Rückmeldung (Anmerken und Zoomen auf der Doppelseite) eingearbeitet, `ausschnitt.ts`/`notenpult.ts`/`spielfolge.ts` getestet.
+- B-15 · Doppeltipp in die Mitte · zweite Runde nach Rückmeldung vom iPad (kam nicht mehr heraus), `zoom.ts` getestet.
+- C-01…C-03 · Stimmgerät: Stimmung B, Anzeige, Texte · Quick Wins, Stimmgerät täglich in Gebrauch.
+- D-01…D-07 · Metronom: ±1, Ton nach App-Wechsel, −1/+1 in der Stellen-Leiste, folgt der Stelle, Taktart als Bruch, schmale Säule, Tempo je Schlag · alle aus Rückmeldungen vom Gerät (6/8-Fehler behoben), `takt.ts` getestet.
+- E-01…E-03, E-05…E-11, E-13, E-14 · Stift, Marker, Text, Radierer (schneidet), Pipette und Farbwähler, Zoomen beim Anmerken, Immer zoomen, Palette merkt sich das Werkzeug, flüssig schreiben, Stift-Vorrang, PDF-Markierungen radieren · viele Nachbesserungen vom iPad; Marlon: „funktioniert schon gut“.
+- E-04 (Teil 1) · Stempel · Rückmeldung (zu klein) eingearbeitet, drei Größen, `stempel.ts` getestet.
+- E-12 · Schere: Sticker und Schnitt mit Lücke · zwei Runden nach iPad-Rückmeldung (Ruckeln, Absturz, Sticker in der Lücke), `schnitte.ts` getestet.
+- F-05/F-06/F-16 · Sprünge mit Spielfolge, Halb/Linie, Blättern je Seite · F-06 von Marlon abgehakt, Reihenfolge-Verschieben nach Rückmeldung; `spielfolge.ts` und `spruenge.ts` sind die größten Testdateien.
+- F-10/F-15 · A–Z mit Zahlen, Ausschnitt je Seite · klein, getestet, seit Mitte Oktober im Gebrauch.
+- F-11/F-12/F-17/F-18/F-19 · Stellen-Mix, Zieltempo und Verlauf, Favoriten, Stelle löschen, Umgebung hell/dunkel · Marlon: „super“; `stellen.ts` getestet, Mix nach UX-Abnahme nachgebessert.
+- F-13/F-14 · Sammlungen (ohne Ordner-Import, s. u.) und Tags, Mix je Sammlung/Tag, keine Doppelten · `sammlungen.ts`/`tags.ts` getestet, Doppelte-Tags-Fehler aus dem Zwei-Geräte-Betrieb behoben.
+- H-01 (Teil 1), B-06 · Sicherung `.uebe`: neuerer Stand gewinnt, Grabsteine, Einstellungen reisen mit · `einspielen.ts`, `sicherung.ts`, `lokal-abgleich.test.ts`; Durchlauf mit zwei Geräten; einzige Kopie außerhalb des Browsers.
+
+### Umgesetzt, auf dem Gerät zu prüfen
+
+Alles hier hat Code und Tests; was fehlt, ist der Praxisbeweis auf iPhone
+oder iPad. Vorher auf jedem Gerät eine Sicherung erstellen.
+
+- G-02/G-03 · Einsingen oder Audio laden (`Einspielen.tsx`, `notation.ts` mit synthetischer Messlatte „Alle meine Entchen“) · einmal auf dem iPhone probiert (Mund dicht am Mikrofon), seitdem Lesart, Tonart, Anschläge, Latenz und Pegel umgebaut — echte Stimme noch nie gegen den neuen Stand.
+  - Mikrofon: „Alle meine Entchen“ bei 90 bpm, 4/4, Tonart C, mit Einzähler singen — kommen 27 Noten, stimmen Höhen und Werte, bleiben wiederholte Töne getrennt, ist nichts um einen Schlag verschoben (Latenz)?
+  - Audio-Datei: Sprachmemo (m4a) aus der Dateien-App laden — dekodiert iOS sie, Anhören, Tempo tippen, Taktanfang per Tipp in die Spur?
+  - „Als Stück speichern“: Stück steht mit „eingesungen“ in der Bibliothek, PDF öffnet, Stift und Stellen gehen; Sicherung erstellen und auf dem zweiten Gerät laden — bleibt `notation` erhalten?
+  - Home-Bildschirm-App und Safari: Mikrofon-Erlaubnis, Verhalten nach App-Wechsel während der Aufnahme.
+- Lautsprecher-Schalter (G-03, Commit `bb2c1cf`) · iOS-Verhalten nur aus der Doku abgeleitet, nicht beobachtet.
+  - An: Klick kommt aus dem Lautsprecher, Singen aus 30–50 cm Abstand wird erkannt, der Klick taucht nicht als Noten in der Spur auf.
+  - Aus: Klick aus dem Hörer, nah am Mund singen — erkennt die Spur dasselbe?
+  - Schalter bleibt nach Neustart (`ueben:einspiel-lautsprecher`); Pegelschwelle −50 dBFS: leises Singen kommt an, Raumgeräusche werden nicht zu Noten.
+- G-01 · Notenblatt (`Notensatz.tsx`, `notensatz.ts` getestet) — Schreiben, Noten setzen und verschieben, Palette, Bogen, Takt +/−; seit `08f426e` auch 32tel, Triolen, Löschen/Einfügen · brandneu, nur im Browser gesehen.
+  - iPad: Noten mit dem Finger treffen (Skala 1,4 ab 700 px); Ziehen scrollt, ▲▼ und ▲8 ▼8 verschieben; iPhone hochkant: zwei Takte je Zeile lesbar?
+  - Notenwert: kürzer (Pause füllt auf), länger (frisst bis zum Taktstrich), punktiert, Achtel-/Sechzehntel-/Vierteltriole, 32tel — zeichnet abcjs alles sauber?
+  - Löschen und Einfügen über Taktstriche hinweg; Rückschritt/Entf mit externer iPad-Tastatur, ←→ ↑↓.
+  - Mikrofon → „Schreiben“ nimmt den Vorschlag mit; beim Schreiben sind Taktart und kleinster Wert fest, sobald etwas steht.
+  - „Als Stück speichern“ mit vielen Takten: Seitenumbruch der PDF, Marker „geschrieben“.
+- G-04 · Vorspielen mit Klavierklang (`klavier.ts`, `klaenge` getestet) · Web Audio auf iOS ist eigen; `klavier.ts` legt je Vorspiel einen frischen AudioContext an, hat aber kein `useBeimVerlassen` wie Metronom und Stimmgerät.
+  - ▶ Vorspielen und „▶ Ab hier“ starten nach dem Tipp, Ton auch als Home-Bildschirm-App und bei Stumm-Schalter (iOS behandelt Web Audio wie Medien).
+  - Lautstärke wie das Metronom, gebundene Noten verschmelzen, Pausen still, grüne Note läuft mit, Stimmung/Kammerton stimmen (in B klingt c als B♭).
+  - App-Wechsel oder Dialog schließen während des Vorspielens: Ton stoppt, kein hängender Kontext, nächster Start geht.
+- Komponieren am gespeicherten Stück (G-01, `08f426e`, nicht in `main`) · Knopf in der Betrachter-Leiste und im Stück-Blatt nur bei Stücken mit `notation`; `abcLesen` Round-trip und `ueberzaehlig` getestet.
+  - Ein eingesungenes Stück mit Stellen und Anmerkungen öffnen → Noten ändern → Speichern: PDF und Titel neu, Stellen/Anmerkungen/Lesezeichen bleiben auf ihrer Seite.
+  - Takte löschen, bis eine Seite wegfällt: überzählige Stellen verfallen, Sicherung laden bringt sie nicht zurück (Grabsteine).
+  - Importierte oder gescannte PDFs zeigen den Knopf nicht; ein früher eingesungenes Stück (`L:1/16`) lässt sich lesen.
+- G-01 (mehrstimmig) · „+ Stimme“ im Notenblatt: je Stimme Name, Violin-/Bassschlüssel, „stumm“ beim Vorspielen; dieselbe Palette; ABC mit `V:`, Round-trip getestet · nur im Browser gesehen.
+  - Zwei Stimmen schreiben (Melodie oben, Bass im Bassschlüssel unten), Noten in der zweiten antippen und verschieben — trifft die Auswahl die richtige Stimme?
+  - Vorspielen: beide Stimmen zugleich, eine stumm; „▶ Ab hier“ aus der zweiten Stimme.
+  - Speichern, öffnen, Komponieren: beide Stimmen kommen zurück; die PDF zeigt die Akkolade auf dem iPad lesbar.
+- Titel-Abgleich (G-01) · Umbenennen eines geschriebenen Stücks (⋯ → Umbenennen) schreibt PDF und Quelle neu, der Titel auf dem Blatt folgt · nur im Browser gesehen.
+  - Umbenennen → Notenansicht zeigt die neue PDF mit neuem Titel; Stellen und Anmerkungen bleiben.
+- G-09 · Aufnahmen beim Üben (`Aufnahmen.tsx`, `lokal.ts` getestet) · MediaRecorder auf iOS (AAC in `audio/mp4`) ist nur aus der Doku bekannt.
+  - Roter Knopf in der Notenansicht: Aufnahme startet (Erlaubnis), Zeit läuft, Metronom hörbar? Stopp speichert; im Stück-Blatt erscheint die Aufnahme mit Seite bzw. Stelle (im Stellen-Modus).
+  - Abspielen auf dem iPhone bei Stummschalter; zwei Aufnahmen „zusammen“ übereinander; Name, Löschen.
+  - App-Wechsel während der Aufnahme: sie endet und ist gespeichert. Speicherverbrauch nach zehn Aufnahmen (Einstellungen → Daten).
+- F-07 · Kamera-Scan und Foto-Import (`scan.ts` getestet, PDF selbst geschrieben) · kein Gerätetest notiert; iOS-Grenzen (HEIC, kein Teilen-Blatt) nur aus der Doku.
+  - „Einscannen“ öffnet die Kamera direkt, mehrere Seiten nacheinander, Reihenfolge ändern, Drehen.
+  - Blattrand auf dunkler und auf heller Unterlage; „Rand anpassen“ mit vier Ecken; Stufen Foto/Scan/Schwarz-Weiß.
+  - „Fotos wählen“ mit HEIC aus der Fotos-App; Dauer und Speicher auf dem iPhone bei 5+ Seiten; die PDF öffnet, Dateigröße je Seite unter ~500 KB.
+- F-03/F-08/F-20 · Lesezeichen, virtuelle Stücke, Kontext-Blatt, Tags je Sammlung · nur „im Browser durchgespielt“ (2026-10-23), keine Gerät-Rückmeldung notiert.
+  - Halten (450 ms) auf iPad/iPhone öffnet das Blatt, ohne dass iOS Text markiert oder sein Kontextmenü zeigt; ⋯ ist mit dem Finger zu treffen.
+  - PDF mit Inhaltsverzeichnis → Lesezeichen → „Je Lesezeichen ein Stück“ → öffnen, Stellen setzen, im Mix einer Sammlung mitgenommen.
+  - Sicherung mit virtuellen Stücken auf das zweite Gerät laden.
+- F-13 (Teil) · „Ordner wählen“ auf dem iPhone · ROADMAP selbst: „auf dem Gerät noch zu prüfen“ (iOS ≥ 18.4).
+  - iCloud-Ordner mit Unterordnern wählen → Unterordner werden Sammlungen, nicht geladene iCloud-Dateien werden genannt, nichts doppelt.
+- B-08 · Scroll-Ring/Pedal · `geste.ts` getestet, keine Rückmeldung mit echtem Ring notiert.
+  - Ring über AssistiveTouch: Probefeld in den Einstellungen zeigt Richtung und Weg; blättert auf den Noten, im Mix Stelle für Stelle; „Hoch und runter tauschen“.
+- C-04 · Tonprofil · `tonprofil.ts` getestet, Mikrofon-Pipeline des Stimmgeräts; keine Rückmeldung notiert.
+  - Eine Messung über eine Oktave durchführen, Mikrofon geht danach aus, Vergleich mit einer zweiten Messung, Profil reist mit der Sicherung.
+
+### Offen oder im Ausbau
+
+- E-04 (Rest) · Formen (Bindebögen, Crescendo-Keile), Auswahl-Werkzeug (verschieben statt radieren und neu setzen), Ebenen.
+- E-12 (Rest) · scharfer Zoom-Ausschnitt mit Schnitten und auf der Doppelseite.
+- F-01 · Metadaten · nur Speicher (A-02), keine Oberfläche, keine Suche/Filter, kein Duplizieren.
+- F-02 · Setlisten · Speicher da, keine Oberfläche; zurückgestellt (2026-10-23).
+- F-04 · Flags/Merker · Speicher `merker` da, keine Oberfläche.
+- F-09 · Drag & Drop · nichts begonnen.
+- F-12 (Rest) · Notenwert des Zieltempos, Reserve fest 10 %.
+- G-01 (Rest) · Vorzeichen direkt setzen, Wiederholungszeichen, Phrasierungsbögen, weitere Schlüssel (Alt, Tenor), Import/Export `.abc`/MusicXML, Filter „nur Geschriebene“.
+- G-02/G-03 (Rest) · Triolen in der Erkennung; legato gesungene gleiche Töne bleiben eine Note (Grenze des Verfahrens).
+- G-04 (Rest) · Klick dazu, Einzählen, Soundfonts mit Instrumentwahl je Stimme.
+- G-09 (Rest) · Aufnahmen je Stelle aus dem Stellen-Blatt starten, Aufnahme neben dem Vorspielen laufen lassen, Vergleich mit Zeitversatz, Speicherübersicht je Stück, Aufnahmen in der Sicherung (optional, groß).
+- G-05 · Einspielen Takt für Takt · nur Einschätzung.
+- G-06 · Ganze Songs · bleibt Vision; Experiment (G-08) sagt: nichts bauen.
+- G-07 · Klänge einstellen · erst nach G-04.
+- H-01 (Rest), H-02…H-05 · Sicherung ohne PDFs, Ordner am Rechner, OneDrive/Drive/iCloud · Entscheidung zum Leitbild („kein Login“) offen.
+
+### Was Marlon jetzt tun sollte
+
+1. Auf iPhone und iPad die neue Version laden (Home-Bildschirm-App einmal neu öffnen) und auf jedem Gerät eine Sicherung erstellen, bevor das Komponieren am gespeicherten Stück PDF und Quelle neu schreibt.
+2. Aufnehmen einmal ausprobieren (roter Knopf) — geht das Mikrofon auf dem iPhone an, speichert der Stopp, spielt die Aufnahme ab? Das ist der jüngste Code.
+3. Einsingen am iPhone mit Lautsprecher an und aus durchspielen (Checkliste oben) — daran ist der letzte Versuch gescheitert, und es ist der Einstieg in alles Weitere.
+4. Notenblatt auf dem iPad: Schreiben, Notenwerte samt Triolen, Löschen/Einfügen, Vorspielen; dabei auf Treffsicherheit mit dem Finger achten.
+5. Komponieren an einem eingesungenen Stück mit Stellen: ändern, speichern, prüfen, dass Stellen und Anmerkungen bleiben.
+6. Kamera-Scan mit einem echten Notenblatt auf dem iPhone (dunkle und helle Unterlage, HEIC-Foto).
+7. Im Alltag beobachten statt gezielt prüfen: Kontext-Blatt per Halten, Lesezeichen → virtuelle Stücke, Ordner-Import auf dem iPhone, Scroll-Ring, Tonprofil — und Auffälliges als Rückmeldung hier eintragen.
+8. Danach entscheiden, was als Nächstes zählt: Notenmanagement (F-01, F-02, F-04) oder der G-Ausbau (Schlüssel, Vorzeichen, Klick und Einzählen beim Vorspielen).
+
+---
+
 ## A — Fundament & Datenmodell
 
 ### A-01 · ~~Sicherung (.uebe) komplett entfernen~~ — verworfen
@@ -267,11 +383,24 @@ schreiben und die Töne in der Höhe verschieben“):**
     Stellen, Anmerkungen, Lesezeichen und Merker bleiben auf ihrer Seite;
     was über der neuen Seitenzahl liegt, verfällt (`ueberzaehlig`, mit
     Grabsteinen für die Sicherung — Regel als Test).
-- **Noch offen aus der Liste oben:** Notenschlüssel, Vorzeichen setzen
-  (heute über Halbtonschritte), Wiederholungszeichen, Bindebögen als
-  Phrasierung, mehrere Stimmen, Import/Export `.abc`, Triolen auch in
-  der Erkennung, Noten aus einer gescannten PDF (wäre Notenerkennung aus
-  Bildern — eigenes Thema, nicht kurzfristig).
+- **Dritte Runde (2026-10-26 abends, Wunsch Marlon):**
+  - **Mehrstimmig:** „+ Stimme“ legt eine Stimme darunter an (die zweite im
+    Bassschlüssel), „− Stimme“ nimmt die gewählte weg; je Stimme Name,
+    Schlüssel (Violin/Bass) und „stumm“ fürs Vorspielen. Eine Note
+    antippen wählt ihre Stimme, die Palette gilt dort; Takt +/− wirkt auf
+    alle Stimmen, Löschen/Einfügen nur in der gewählten (kürzere Stimmen
+    bekommen leere Takte hinten dran, `angleichen`). ABC mit `V:n name=…
+    clef=…` im Kopf und `V:n` vor den Takten; eine namenlose Stimme im
+    Violinschlüssel bleibt ohne V: — jedes bisher gespeicherte Stück liest
+    sich unverändert. Das Vorspielen mischt alle Stimmen (`klaengeAlle`).
+  - **Titel-Abgleich:** Umbenennen (⋯ → Umbenennen) eines geschriebenen
+    Stücks tauscht die `T:`-Zeile (`abcMitTitel`) und schreibt PDF und
+    Quelle neu (`notenpdf.ts`), die Notenansicht lädt neu.
+- **Noch offen aus der Liste oben:** Vorzeichen setzen (heute über
+  Halbtonschritte), Wiederholungszeichen, Bindebögen als Phrasierung,
+  weitere Schlüssel, Import/Export `.abc`, Triolen auch in der Erkennung,
+  Noten aus einer gescannten PDF (wäre Notenerkennung aus Bildern — eigenes
+  Thema, nicht kurzfristig).
 
 ### G-02 · Rhythmus-Transkription
 
@@ -446,6 +575,68 @@ Lautstärke, Hall, Hüllkurve (Anschlag/Ausklingen) über Web Audio. Teuer
 und laut Leitbild „Soundbearbeitung“ außen vor: eigene Samples, Effekte,
 Mischpult. Vorschlag: nur die günstige Stufe, als Einstellung je Stimme in
 der Quelle.
+
+### G-09 · Aufnahmen beim Üben: Versionen anhören, vergleichen, übereinander
+
+Wunsch Marlon (2026-10-26): Beim Üben eines Stücks oder einer Stelle die
+eigene Stimme **aufnehmen**, Versionen vergleichen, mehrere Aufnahmen
+**übereinander** abspielen (zwei Stimmen schichten, zwei Versionen hören).
+Sorge: der Speicher.
+
+**Erste Stufe gebaut (2026-10-26):**
+
+- **Aufnehmen aus der Notenansicht:** roter Knopf in der Leiste, läuft mit
+  Zeitanzeige, Stopp speichert (`Aufnahmen.tsx`, `useAufnahme`). Mit
+  Seite, im Stellen-Modus mit der Stelle. Mikrofon mit Echo-Unterdrückung
+  (der Metronom-Klick bleibt draußen), ohne Verstärkung (Instrumente
+  pumpen sonst). App-Wechsel beendet und sichert die Aufnahme.
+- **Im Stück-Blatt** der Abschnitt „Aufnahmen“: neueste zuerst, Name oder
+  Zeitpunkt, Dauer, Seite/Stelle; ▶ anhören, „zusammen“ ankreuzen und
+  **übereinander abspielen**, umbenennen, löschen.
+- **Speicher:** `MediaRecorder`, komprimiert (AAC `audio/mp4` auf iPhone
+  und iPad, Opus/WebM in Chrome, 96 kbit/s): **etwa 0,7 MB je Minute**.
+  Hundert Aufnahmen à zwei Minuten sind ~150 MB — das ist für IndexedDB
+  auf dem iPhone in Ordnung (Safari erlaubt je Seite im Regelfall mehrere
+  GB, abhängig vom freien Platz), aber nicht nichts; der Speicherstand
+  steht unter Einstellungen → Daten. Datenmodell: Angaben am Stück
+  (`aufnahmen`), Bytes in `dateien` unter der id der Aufnahme — kein neuer
+  Speicher, keine Schema-Version (docs/datenmodell.md). Löschen des
+  Stücks räumt sie mit weg (`lokal.test.ts`).
+- **Sicherung:** Aufnahmen reisen **nicht** mit (die `.uebe` würde um
+  hunderte MB wachsen und der Registerführer kennt das Feld nicht); beim
+  Laden einer Sicherung bleiben die Aufnahmen des Geräts stehen. Wer sie
+  auf ein anderes Gerät will, braucht einen eigenen Weg (s. u.).
+
+**Gedanken für morgen (Marlon liest):**
+
+- **Was fehlt für „Stellen aufnehmen“ im engen Sinn:** Heute startet die
+  Aufnahme in der Notenansicht und merkt sich die Stelle nur, wenn der
+  Stellen-Modus läuft. Nächster Schritt: ein Aufnahmeknopf im Stellen-Blatt
+  und in der Übe-Ansicht, der die Stelle direkt zuordnet, und im
+  Stellen-Blatt die Liste nur dieser Stelle — dann wird aus den Versionen
+  ein Verlauf („Takt 12 am 3. Mai / am 10. Mai“), parallel zur Tempo-Kurve.
+- **Übereinander spielen, musikalisch brauchbar:** Zwei Aufnahmen starten
+  heute im selben Moment. Für „zwei Stimmen schichten“ muss das zweite
+  Spiel zur ersten Aufnahme eingezählt sein — also: beim Aufnehmen
+  wahlweise eine vorhandene Aufnahme (oder das Vorspielen der Noten, G-04)
+  mitlaufen lassen, über Kopfhörer, mit demselben Einzähler. Technisch
+  bereit (Web Audio, `MediaRecorder`), fehlt nur der Dialog. Ohne Kopfhörer
+  nimmt das Mikrofon die laufende Aufnahme mit auf; die Echo-Unterdrückung
+  hilft, ersetzt aber keinen Kopfhörer.
+- **Vergleichen:** Nacheinander anhören geht; nützlicher wäre ein
+  Umschalten im laufenden Abspielen (A/B an derselben Stelle) und eine
+  Wellenform/Pegelspur je Aufnahme, in der man tippen kann. Beides ist
+  Oberfläche, keine neue Technik.
+- **Speicher im Griff behalten:** je Stück die Summe anzeigen, alte
+  Aufnahmen mit einem Tipp löschen („alle außer den markierten“), und
+  eine Obergrenze pro Aufnahme (heute keine — eine vergessene Aufnahme
+  läuft, bis die App verlassen wird; Vorschlag: nach 20 Minuten von
+  selbst stoppen). Export einer Aufnahme als Datei (Teilen-Blatt) wäre
+  billig und löst auch „auf ein anderes Gerät“.
+- **Grenzen auf iOS:** Mikrofon und Lautsprecher zugleich schaltet iOS in
+  den Freisprech-Modus (leiser, Klick aus dem Lautsprecher, siehe G-03);
+  Aufnahme im Hintergrund (Bildschirm aus) hält Safari nicht durch —
+  dafür der Wach-Halter, solange die App vorn ist.
 
 ### G-08 · Wo läuft das? Offline-App, eigener Rechner oder Server (Einschätzung 2026-10-26)
 

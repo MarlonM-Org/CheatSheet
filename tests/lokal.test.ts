@@ -280,6 +280,44 @@ describe('Virtuelle Stücke', () => {
   });
 });
 
+describe('Aufnahmen', () => {
+  const ton = (inhalt: string) => new Blob([inhalt], { type: 'audio/mp4' });
+  it('legt Aufnahmen am Stück an, liest die Bytes, benennt und löscht', async () => {
+    const id = await anlegen('A');
+    const a1 = await g.lokal.aufnahmeAnlegen(id, ton('eins'), { am: 1, dauer: 12.5, seite: 2 });
+    const a2 = await g.lokal.aufnahmeAnlegen(id, ton('zwei'), { am: 2, dauer: 3, stelleId: 's1' });
+    const s = (await g.lokal.stueckHolen(id))!;
+    expect(s.aufnahmen?.map((a) => [a.id, a.dauer, a.typ])).toEqual([[a1, 12.5, 'audio/mp4'], [a2, 3, 'audio/mp4']]);
+    expect(await (await g.lokal.aufnahmeDatei({ id: a1, typ: 'audio/mp4' })).text()).toBe('eins');
+    await g.lokal.aufnahmeAendern(id, a2, { titel: 'Gut gelaufen' });
+    expect((await g.lokal.stueckHolen(id))!.aufnahmen?.[1].titel).toBe('Gut gelaufen');
+    await g.lokal.aufnahmeLoeschen(id, a1);
+    expect((await g.lokal.stueckHolen(id))!.aufnahmen?.map((a) => a.id)).toEqual([a2]);
+    expect((await roh('dateien')).map((d) => d.id).sort()).toEqual([a2, id].sort());
+    await expect(g.lokal.aufnahmeDatei({ id: a1, typ: 'audio/mp4' })).rejects.toThrow();
+  });
+  it('gehen mit dem Stück weg und reisen nicht mit der Sicherung', async () => {
+    const id = await anlegen('A');
+    const b = await anlegen('B');
+    await g.lokal.aufnahmeAnlegen(id, ton('eins'), { am: 1, dauer: 1 });
+    const { datei } = await g.lokal.sicherungErstellen();
+    const inhalt = await sicherungLesen(datei);
+    expect(inhalt.noten.find((n) => n.id === id)).not.toHaveProperty('aufnahmen');
+    await g.lokal.stueckeLoeschen([id]);
+    expect((await roh('dateien')).map((d) => d.id)).toEqual([b]);
+  });
+  it('bleiben beim Laden einer Sicherung, die das Stück überschreibt', async () => {
+    const id = await anlegen('A');
+    const { datei } = await g.lokal.sicherungErstellen();
+    const a = await g.lokal.aufnahmeAnlegen(id, ton('eins'), { am: 1, dauer: 1 });
+    await g.lokal.stueckAendern(id, { titel: 'A hier' });
+    const e = await g.lokal.sicherungPruefen(datei);
+    await g.lokal.sicherungSchreiben(e);
+    const s = (await g.lokal.stueckHolen(id))!;
+    expect(s.aufnahmen?.map((x) => x.id)).toEqual([a]);
+  });
+});
+
 describe('Löschen', () => {
   it('ein Stück samt Datei, Stellen und Anmerkungen — andere bleiben', async () => {
     const a = await anlegen('A');

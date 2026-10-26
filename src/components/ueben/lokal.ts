@@ -2,7 +2,7 @@
 
 import {
   dateiVon, loeschFolgen, quelleFehler, seitenId, setlistenOhne,
-  type Lesezeichen, type Loeschfolgen, type Merker, type SeitenAnmerkungen, type Setliste, type Stelle, type Stueck,
+  type Aufnahme, type Lesezeichen, type Loeschfolgen, type Merker, type SeitenAnmerkungen, type Setliste, type Stelle, type Stueck,
 } from '@/domain/bestand';
 import {
   dateiStand, einspielenPlanen, eintragZusammenfuehren, grabsteineLesen, grabsteineVereinigen, notenZusammenfuehren,
@@ -268,6 +268,46 @@ export async function stueckNeuSchreiben(id: string, n: { datei: Blob; dateiname
   begraben('merker', weg.merker);
 }
 
+// ── Aufnahmen (G-09) ── Angaben am Stück, Bytes in „dateien“ unter der id
+// der Aufnahme; beide in EINER Transaktion.
+export async function aufnahmeAnlegen(stueckId: string, datei: Blob, angaben: Omit<Aufnahme, 'id' | 'typ'>): Promise<string> {
+  const id = crypto.randomUUID();
+  const daten = await bytesLesen(datei);
+  const typ = datei.type || 'audio/mp4';
+  await transaktion<void>(['stuecke', 'dateien'], 'readwrite', (t, abbrechen) => {
+    const s = t.objectStore('stuecke');
+    const r = s.get(stueckId) as IDBRequest<Stueck | undefined>;
+    r.onsuccess = () => {
+      try {
+        if (!r.result) { abbrechen(new Error('Das Stück gibt es nicht mehr.')); return; }
+        s.put({ ...r.result, aufnahmen: [...(r.result.aufnahmen ?? []), { ...angaben, id, typ }], geaendert: Date.now() } satisfies Stueck);
+        t.objectStore('dateien').put({ id, daten, typ } satisfies Datei);
+      } catch (x) { abbrechen(x); }
+    };
+  });
+  dauerhaftAnfragen();
+  return id;
+}
+export async function aufnahmeDatei(a: Pick<Aufnahme, 'id' | 'typ'>): Promise<Blob> {
+  const eintrag = await tx<Datei | undefined>('dateien', 'readonly', (d) => d.get(a.id));
+  if (!eintrag) throw new Error('Die Aufnahme ist nicht mehr da.');
+  return new Blob([eintrag.daten], { type: eintrag.typ || a.typ });
+}
+export const aufnahmeAendern = (stueckId: string, id: string, neu: Partial<Pick<Aufnahme, 'titel'>>) =>
+  aendern<Stueck>('stuecke', stueckId, (alt) => ({ ...alt, aufnahmen: (alt.aufnahmen ?? []).map((a) => (a.id === id ? { ...a, ...neu } : a)), geaendert: Date.now() }));
+export async function aufnahmeLoeschen(stueckId: string, id: string) {
+  await transaktion<void>(['stuecke', 'dateien'], 'readwrite', (t, abbrechen) => {
+    const s = t.objectStore('stuecke');
+    const r = s.get(stueckId) as IDBRequest<Stueck | undefined>;
+    r.onsuccess = () => {
+      try {
+        if (r.result) s.put({ ...r.result, aufnahmen: (r.result.aufnahmen ?? []).filter((a) => a.id !== id), geaendert: Date.now() } satisfies Stueck);
+        t.objectStore('dateien').delete(id);
+      } catch (x) { abbrechen(x); }
+    };
+  });
+}
+
 // Ein virtuelles Stück: die Seiten von–bis aus der PDF eines echten Stücks
 // (F-03). Die Quelle wird in derselben Transaktion geprüft.
 export async function virtuellesAnlegen(n: Omit<Stueck, 'id' | 'erstellt' | 'quelle'> & { quelle: NonNullable<Stueck['quelle']> }): Promise<string> {
@@ -515,6 +555,8 @@ function entfernen(t: IDBTransaction, ids: string[], abbrechen: (x: unknown) => 
       const f = loeschFolgen(ids, bestand(), Date.now());
       fertig(f);
       for (const id of f.stuecke) {
+        // Die Aufnahmen des Stücks (Bytes in „dateien“) gehen mit.
+        for (const a of bestand().stuecke.find((s) => s.id === id)?.aufnahmen ?? []) t.objectStore('dateien').delete(a.id);
         t.objectStore('stuecke').delete(id);
         t.objectStore('dateien').delete(id);
         for (const name of ['stellen', 'anmerkungen'] as const) {
@@ -725,7 +767,9 @@ export async function sicherungErstellen(): Promise<{ datei: Blob; noten: number
   const { bestand, fehlen } = await nurLesbare({ noten: alles.echte, stellen: alles.stellen, anmerkungen: alles.anmerkungen });
   const { zusatz, fehlenVirtuelle } = ohneFehlende(alles.zusatz, new Set(fehlen.map((n) => n.id)));
   // Nach nurLesbare trägt jedes verbliebene Stück eine lesbare Datei.
-  const noten = bestand.noten as (Stueck & { datei: Blob })[];
+  // Aufnahmen bleiben auf dem Gerät: ihre Angaben kommen nicht mit (die
+  // Bytes ohnehin nicht — ein Verweis ins Leere wäre schlimmer als keiner).
+  const noten = (bestand.noten as (Stueck & { datei: Blob })[]).map(({ aufnahmen: _a, ...n }) => { void _a; return n; });
   const datei = await sicherungPacken({ ...bestand, noten }, 'cheatsheet', Date.now(), {
     ...(zusatz as unknown as Zusatz), geloescht: grabsteineHier(), tags: tagsLaden(), tonprofile: tonprofileLaden(),
     einstellungen: einstellungenFuerSicherung(merkzettel),
@@ -971,6 +1015,8 @@ export async function sicherungSchreiben(e: Einspielung): Promise<{
         // Übernahme aus „ueben“ kommt der Dateiverweis mit, wenn hier keiner ist.
         einspielen('stuecke', e.noten.map(umschreiben), (g, n) => {
           const { datei, ...zusammen } = notenZusammenfuehren(g && umschreiben(g), n);
+          // Aufnahmen hier auf dem Gerät bleiben, was auch immer die Sicherung sagt.
+          if (g?.aufnahmen) (zusammen as Record<string, unknown>).aufnahmen = g.aufnahmen;
           const verweis = zusammen.handle === undefined ? e.verweise?.get(n.id) : undefined;
           const z = verweis ? { ...zusammen, handle: verweis } : zusammen;
           if (!dateiNehmen.has(n.id) || !datei) return z as typeof n;

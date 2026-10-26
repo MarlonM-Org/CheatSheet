@@ -1353,3 +1353,18 @@ ol.stichpunkte { list-style: decimal; }
 .einspiel-noten.bearbeitbar { touch-action: pan-y; cursor: pointer; border-radius: 6px; }
 .einspiel-noten.bearbeitbar:focus-visible { outline: 2px solid var(--messing); outline-offset: 2px; }
 .einspiel-noten svg [selectable] { cursor: pointer; }
+
+/* ── Aufnahmen (G-09): Knopf in der Leiste, Liste im Stück-Blatt ── */
+.nav-aufnahme-punkt { width: 12px; height: 12px; border-radius: 50%; background: var(--warnung); }
+.nav-aufnahme[aria-pressed="true"] { background: var(--warnung); color: #fff; width: auto; padding: 0 10px; animation: einspiel-puls 1s ease-in-out infinite; }
+.nav-aufnahme-zeit { font-size: 0.8rem; font-weight: 700; }
+.aufnahme-fehler { position: fixed; left: 16px; right: 16px; top: calc(var(--leiste-hoehe) + 8px); z-index: 30; }
+.aufnahmen { display: flex; flex-direction: column; gap: 8px; }
+.aufnahmen-liste { display: flex; flex-direction: column; gap: 6px; }
+.aufnahme { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--linie); }
+.aufnahme-spielen { flex: none; width: 36px; height: 36px; border-radius: 50%; background: var(--flaeche2); color: var(--tinte); font-size: 0.9rem; }
+.aufnahme-spielen.an { background: var(--messing); color: var(--messing-text); }
+.aufnahme-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.aufnahme-text strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aufnahme-zusammen { display: flex; align-items: center; gap: 4px; flex: none; }
+@media (prefers-reduced-motion: reduce) { .nav-aufnahme[aria-pressed="true"] { animation: none; } }

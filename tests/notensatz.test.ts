@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { tonartFinden, type Raster, type Takt } from '@/domain/notation';
 import {
   angebunden, aufBlatt, bogenUmschalten, dauerSetzen, klaenge, leererTakt, leeresBlatt, legen, leiterSchritt, leiterVerschieben, letzteHoehe, noteSchreiben,
-  einfuegen, entfernen, notenZeiten, paletteWerte, punktiert, skalieren, strecken, taktEinfuegen, taktLoeschen, tonSetzen, triole, verschieben,
+  angleichen, aufsBlattStimmen, einfuegen, einstimmig, entfernen, inAllen, inStimme, klaengeAlle, notenZeiten, paletteWerte, punktiert, skalieren, stimmeAendern, stimmeHinzu, stimmeWeg, strecken, taktEinfuegen, taktLoeschen, tonSetzen, triole, verschieben,
 } from '@/domain/notensatz';
-import { alsAbc, notenwerte } from '@/domain/notation';
+import { abcLesen, alsAbc, alsAbcStimmen, notenwerte } from '@/domain/notation';
 
 const R: Raster = { bpm: 120, zaehler: 4, nenner: 4, feinheit: 16 };
 const SECHSACHTEL: Raster = { bpm: 60, zaehler: 6, nenner: 8, feinheit: 16 };
@@ -231,5 +231,53 @@ describe('Blatt mit 96 Zellen: 32tel und Triolen', () => {
   it('spielt Triolen in echter Zeit', () => {
     const t = legen([{ midi: 60, dauer: 8 }, { midi: 62, dauer: 8 }, { midi: 64, dauer: 8 }, { midi: null, dauer: 72 }], B);
     expect(klaenge([t], B).map((k) => [k.beginn, k.dauer])).toEqual([[0, 1 / 6], [1 / 6, 1 / 6], [1 / 3, 1 / 6]]);
+  });
+});
+
+describe('Mehrstimmig', () => {
+  const B = aufBlatt(R);
+  it('legt Stimmen an, gleicht Takte an, ändert eine oder alle', () => {
+    const eine = einstimmig([takt([60, 48], [62, 48])]);
+    const zwei = stimmeHinzu(eine, B);
+    expect(zwei).toHaveLength(2);
+    expect(zwei[1].name).toBe('Stimme 2');
+    expect(zwei[1].schluessel).toBe('bass');
+    expect(zwei[1].takte.map(kurz)).toEqual(['z/96']);
+    const laenger = inStimme(zwei, 1, [takt([48, 96]), takt([50, 96])], B);
+    expect(laenger.map((s) => s.takte.length)).toEqual([2, 2]);
+    expect(kurz(laenger[0].takte[1])).toBe('z/96');
+    const mehr = inAllen(laenger, (t) => taktEinfuegen(t, B, 1));
+    expect(mehr.map((s) => s.takte.length)).toEqual([3, 3]);
+    expect(stimmeWeg(mehr, 0).map((s) => s.name)).toEqual(['Stimme 2']);
+    expect(stimmeWeg(eine, 0)).toHaveLength(1);
+    expect(stimmeAendern(zwei, 1, { name: 'Bass', schluessel: 'violin' })[1]).toMatchObject({ name: 'Bass', schluessel: 'violin' });
+    expect(angleichen([{ name: '', schluessel: 'violin', takte: [] }], B)[0].takte).toHaveLength(1);
+  });
+  it('schreibt Stimmen als ABC mit V: und liest sie zurück; eine namenlose bleibt wie bisher', () => {
+    const stimmen = [
+      { name: 'Melodie', schluessel: 'violin' as const, takte: [takt([67, 48], [69, 48]), takt([71, 96])] },
+      { name: 'Bass', schluessel: 'bass' as const, takte: [takt([43, 96]), takt([40, 48], [null, 48])] },
+    ];
+    const abc = alsAbcStimmen(stimmen, B, { titel: 'Duo' }, null);
+    expect(abc).toContain('V:1 name="Melodie" clef=treble\nV:2 name="Bass" clef=bass\nK:C\nV:1\nG48 A48 | B96 |]\nV:2\nG,,96 | E,,48 z48 |]');
+    const g = abcLesen(abc)!;
+    expect(g.stimmen.map((s) => ({ name: s.name, schluessel: s.schluessel, takte: s.takte.map(kurz) })))
+      .toEqual(stimmen.map((s) => ({ name: s.name, schluessel: s.schluessel, takte: s.takte.map(kurz) })));
+    expect(g.takte.map(kurz)).toEqual(stimmen[0].takte.map(kurz));
+    const einzeln = alsAbc([takt([60, 96])], B, { titel: 'Solo' });
+    expect(einzeln).not.toContain('V:');
+    expect(abcLesen(einzeln)!.stimmen).toHaveLength(1);
+    const bass = alsAbcStimmen([{ name: '', schluessel: 'bass', takte: [takt([43, 96])] }], B, { titel: 'B' });
+    expect(bass).toContain('V:1 name="" clef=bass');
+    expect(abcLesen(bass)!.stimmen[0].schluessel).toBe('bass');
+  });
+  it('spielt alle Stimmen zusammen, stumme nicht, und bringt gelesene Stimmen aufs Blatt', () => {
+    const stimmen = [einstimmig([takt([60, 48], [62, 48])])[0], { name: 'B', schluessel: 'bass' as const, takte: [takt([48, 96])] }];
+    expect(klaengeAlle(stimmen, B).map((k) => k.midi)).toEqual([60, 48, 62]);
+    expect(klaengeAlle(stimmen, B, new Set([1])).map((k) => k.midi)).toEqual([60, 62]);
+    const alt = [{ name: '', schluessel: 'violin' as const, takte: [takt([60, 8], [62, 8])] }, { name: 'B', schluessel: 'bass' as const, takte: [] }];
+    const blatt = aufsBlattStimmen(alt, 16, R);
+    expect(blatt[0].takte.map(kurz)).toEqual(['60/48 62/48']);
+    expect(blatt[1].takte.map(kurz)).toEqual(['z/96']);
   });
 });

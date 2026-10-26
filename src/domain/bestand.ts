@@ -37,7 +37,14 @@ export interface Stueck {
   // Selbst geschrieben oder eingesungen (G-01…G-03): die Quelle, aus der die
   // PDF in `dateien` gerendert wurde — nur damit lässt es sich wieder bearbeiten.
   notation?: Notation;
+  // Eigene Aufnahmen beim Üben (G-09): nur die Angaben; die Audio-Bytes
+  // liegen in `dateien` unter der id der Aufnahme. Reisen nicht mit der
+  // Sicherung (zu groß), bleiben auf dem Gerät.
+  aufnahmen?: Aufnahme[];
 }
+// Eine Aufnahme: wann, wie lang (Sekunden), Audio-Typ (audio/mp4, audio/webm),
+// auf welcher Seite bzw. bei welcher Stelle sie entstand, optional ein Name.
+export interface Aufnahme { id: string; am: number; dauer: number; typ: string; seite?: number; stelleId?: string; titel?: string }
 export interface Quelle { stueckId: string; von: number; bis: number }
 // `art`: wie das Stück entstand — getippt, live eingesungen oder aus einer Audio-Datei.
 export interface Notation { format: 'abc'; text: string; art: 'geschrieben' | 'eingesungen' | 'audio' }

@@ -85,6 +85,10 @@ export const FEINHEITEN: { feinheit: Feinheit; name: string }[] = [{ feinheit: 8
 // ihre Noten (ABC: `(3:2:gruppe`).
 export interface Note { midi: number | null; dauer: number; bindung?: true; triole?: true; gruppe?: number }
 export interface Takt { noten: Note[] }
+// Eine Stimme des Blatts (G-01, mehrstimmig): Name, Schlüssel, ihre Takte.
+// Alle Stimmen eines Stücks haben gleich viele Takte.
+export type Schluessel = 'violin' | 'bass';
+export interface Stimme { name: string; schluessel: Schluessel; takte: Takt[] }
 
 // Zellen je Takt: 4/4 in Sechzehnteln = 16, 6/8 in Sechzehnteln = 12, 3/4 in Achteln = 6.
 export const zellenJeTakt = (r: Raster) => (r.zaehler * r.feinheit) / r.nenner;
@@ -397,11 +401,20 @@ class Vorzeichenstand {
   }
 }
 
-// Die Takte als ABC-Text: Kopf (Titel, Taktart, Einheit = Zelle, Tempo je
-// Schlag, Tonart), dann die Noten — Leerzeichen an jeder Schlaggrenze
-// (so balkt abcjs je Schlag), vier Takte je Zeile.
-export function alsAbc(takte: readonly Takt[], r: Raster, kopf: AbcKopf, tonart: Tonart | null = null): string {
+// Die Takte einer Stimme als ABC-Text: Kopf (Titel, Taktart, Einheit =
+// Zelle, Tempo je Schlag, Tonart), dann die Noten — Leerzeichen an jeder
+// Schlaggrenze (so balkt abcjs je Schlag), vier Takte je Zeile.
+export const alsAbc = (takte: readonly Takt[], r: Raster, kopf: AbcKopf, tonart: Tonart | null = null): string =>
+  alsAbcStimmen([{ name: '', schluessel: 'violin', takte: [...takte] }], r, kopf, tonart);
+
+// Mehrere Stimmen: je Stimme `V:n name="…" clef=…` im Kopf und `V:n` vor
+// ihren Takten; abcjs setzt sie als Akkolade mit gleichen Taktstrichen.
+// Eine namenlose Stimme im Violinschlüssel kommt ohne V: aus (so bleibt
+// jedes bisher gespeicherte Stück gleich).
+export function alsAbcStimmen(stimmen: readonly Stimme[], r: Raster, kopf: AbcKopf, tonart: Tonart | null = null): string {
   const schlag = einheitenJeSchlag(r.zaehler, r.nenner);
+  const einzeln = stimmen.length === 1 && !stimmen[0].name && stimmen[0].schluessel === 'violin';
+  const clef = (s: Stimme) => (s.schluessel === 'bass' ? 'bass' : 'treble');
   const zeilen = [
     'X:1',
     `T:${kopf.titel.trim() || 'Ohne Titel'}`,
@@ -409,8 +422,14 @@ export function alsAbc(takte: readonly Takt[], r: Raster, kopf: AbcKopf, tonart:
     `M:${r.zaehler}/${r.nenner}`,
     `L:1/${r.feinheit}`,
     `Q:${schlag}/${r.nenner}=${r.bpm}`,
+    ...(einzeln ? [] : stimmen.map((s, i) => `V:${i + 1} name="${s.name.replace(/"/g, "'")}" clef=${clef(s)}`)),
     `K:${tonart?.abc ?? 'C'}`,
   ];
+  const koerper = stimmen.map((s, i) => (einzeln ? '' : `V:${i + 1}\n`) + taktText(s.takte, r, tonart));
+  return zeilen.join('\n') + '\n' + koerper.join('') ;
+}
+
+function taktText(takte: readonly Takt[], r: Raster, tonart: Tonart | null): string {
   const js = zellenJeSchlag(r);
   const text: string[] = [];
   const vorzeichen = new Vorzeichenstand(tonart);
@@ -427,7 +446,7 @@ export function alsAbc(takte: readonly Takt[], r: Raster, kopf: AbcKopf, tonart:
     }).join('');
     text.push(noten.trim() + (i === takte.length - 1 ? ' |]' : ' |' + ((i + 1) % 4 === 0 ? '\n' : ' ')));
   });
-  return zeilen.join('\n') + '\n' + (text.length ? text.join('') : 'z |]') + '\n';
+  return (text.length ? text.join('') : 'z |]') + '\n';
 }
 
 // ABC zurücklesen — nur die Schreibweise von alsAbc (eine Stimme; Kopf
@@ -435,26 +454,54 @@ export function alsAbc(takte: readonly Takt[], r: Raster, kopf: AbcKopf, tonart:
 // Dauer in Zellen, `-` Bindung; `z` Pause; `(3:2:k` Triole; `|` und `|]`).
 // Damit lässt sich ein gespeichertes Stück wieder bearbeiten. null, wenn der
 // Text nicht so aussieht.
-export interface Gelesen { takte: Takt[]; raster: Raster; tonart: Tonart | null; titel: string }
+// `takte` ist die erste Stimme (für Einstimmiges), `stimmen` alle.
+export interface Gelesen { takte: Takt[]; stimmen: Stimme[]; raster: Raster; tonart: Tonart | null; titel: string }
 const STAMMTOENE: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 export function abcLesen(text: string): Gelesen | null {
   const zeilen = text.split(/\r?\n/);
   let titel = '', zaehler = 4, nenner: Nenner = 4, feinheit = 16, bpm = 80, tonart: Tonart | null = null;
   let kopf = true;
   const koerper: string[] = [];
+  const meta: { name: string; schluessel: Schluessel }[] = [];
+  let schluesselEinzeln: Schluessel = 'violin';
   for (const z of zeilen) {
     const m = kopf ? /^([A-Za-z]):(.*)$/.exec(z) : null;
     if (m) {
       const wert = m[2].trim();
       if (m[1] === 'T') titel = wert;
+      else if (m[1] === 'V') {
+        const nr = Number(/^(\d+)/.exec(wert)?.[1] ?? '0');
+        const name = /name="([^"]*)"/.exec(wert)?.[1] ?? '';
+        meta[nr - 1] = { name, schluessel: /clef=bass/.test(wert) ? 'bass' : 'violin' };
+      }
       else if (m[1] === 'M') { const t = /^(\d+)\/(\d+)$/.exec(wert); if (!t || !istNenner(Number(t[2]))) return null; zaehler = Number(t[1]); nenner = Number(t[2]) as Nenner; }
       else if (m[1] === 'L') { const t = /^1\/(\d+)$/.exec(wert); if (!t) return null; feinheit = Number(t[1]); }
       else if (m[1] === 'Q') { const t = /=(\d+)$/.exec(wert); if (t) bpm = Number(t[1]); }
-      else if (m[1] === 'K') { tonart = tonartFinden(wert); kopf = false; }
+      else if (m[1] === 'K') { tonart = tonartFinden(wert.split(/\s+/)[0]); if (/clef=bass/.test(wert)) schluesselEinzeln = 'bass'; kopf = false; }
     } else if (!kopf) koerper.push(z);
   }
   if (kopf) return null;
   const r: Raster = { bpm, zaehler, nenner, feinheit };
+  // Der Körper: ohne V: eine Stimme; sonst je `V:n`-Zeile die Takte dieser Stimme.
+  const abschnitte: { nr: number; zeilen: string[] }[] = [];
+  for (const z of koerper) {
+    const v = /^V:(\d+)\s*$/.exec(z);
+    if (v) abschnitte.push({ nr: Number(v[1]), zeilen: [] });
+    else { if (!abschnitte.length) abschnitte.push({ nr: 1, zeilen: [] }); abschnitte[abschnitte.length - 1].zeilen.push(z); }
+  }
+  const stimmen: Stimme[] = [];
+  for (const a of abschnitte) {
+    const takte = takteLesen(a.zeilen.join(' '), tonart);
+    if (!takte) return null;
+    const m = meta[a.nr - 1];
+    stimmen[a.nr - 1] = { name: m?.name ?? '', schluessel: m?.schluessel ?? schluesselEinzeln, takte };
+  }
+  const gueltig = stimmen.filter((s): s is Stimme => !!s);
+  if (!gueltig.length || !gueltig[0].takte.length) return null;
+  return { takte: gueltig[0].takte, stimmen: gueltig, raster: r, tonart, titel };
+}
+
+function takteLesen(quelle: string, tonart: Tonart | null): Takt[] | null {
   const vorzeichenTonart = vorzeichenDerTonart(tonart);
   const stand = new Map<string, string>();
   const takte: Takt[] = [];
@@ -462,7 +509,6 @@ export function abcLesen(text: string): Gelesen | null {
   let triole = 0;
   const VZ: Record<string, number> = { '^': 1, _: -1, '=': 0 };
   const muster = /\s+|\(3:2:(\d+)|(\|\]?)|([\^_=]?)([A-Ga-gz])([',]*)(\d*)(-?)/y;
-  const quelle = koerper.join(' ');
   muster.lastIndex = 0;
   while (muster.lastIndex < quelle.length) {
     const m = muster.exec(quelle);
@@ -489,7 +535,6 @@ export function abcLesen(text: string): Gelesen | null {
     if (triole) triole--;
   }
   if (noten.length) takte.push({ noten });
-  if (!takte.length) return null;
   // Triolen-Gruppen: aufeinanderfolgende Triolen-Noten je Takt bilden eine Gruppe.
   for (const t of takte) {
     let k = 0;
@@ -501,7 +546,14 @@ export function abcLesen(text: string): Gelesen | null {
       k = ende;
     }
   }
-  return { takte, raster: r, tonart, titel };
+  return takte;
+}
+
+// Den Titel im ABC-Kopf tauschen (Umbenennen eines geschriebenen Stücks:
+// der Titel steht auf dem Blatt). Ohne T:-Zeile wird eine eingesetzt.
+export function abcMitTitel(text: string, titel: string): string {
+  const t = `T:${titel.trim() || 'Ohne Titel'}`;
+  return /^T:.*$/m.test(text) ? text.replace(/^T:.*$/m, t) : text.replace(/^X:.*$/m, (x) => `${x}\n${t}`);
 }
 
 // ── Stück ──
