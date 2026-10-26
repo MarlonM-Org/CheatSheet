@@ -1318,3 +1318,30 @@ ol.stichpunkte { list-style: decimal; }
 .mehr-knopf:hover, .mehr-knopf:active { color: var(--tinte); background: var(--flaeche); }
 /* Halten soll kein Text-Markieren oder iOS-Menü auslösen. */
 .haltbar { -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
+
+/* ── Einsingen / Aus Audio (G-02/G-03) — teilt Rahmen und Fuß mit dem Scan-Dialog ── */
+/* In der Spalte des Dialogs darf nichts schrumpfen (das Segment hat overflow: hidden und würde sonst auf 0 fallen). */
+.scan-inhalt > .segment, .scan-inhalt > .einspiel-raster, .scan-inhalt > .einspiel-spur, .scan-inhalt > .einspiel-mitte { flex: none; }
+.einspiel-raster { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
+.einspiel-feld { display: flex; align-items: center; gap: 8px; }
+.einspiel-feld > span:first-child { font-size: 0.8rem; font-weight: 600; color: var(--gedaempft); white-space: nowrap; }
+.einspiel-spur { display: block; width: 100%; height: 150px; border-radius: 6px; background: var(--flaeche); }
+.einspiel-spur.tippbar { cursor: crosshair; touch-action: pan-y; }
+.einspiel-mitte { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; padding: 6px 0; }
+.einspiel-zeile { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; }
+.einspiel-aufnahme {
+  width: 84px; height: 84px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  border: 2px solid var(--linie-stark); background: var(--papier); transition: transform 0.12s ease;
+}
+.einspiel-aufnahme:active { transform: scale(0.96); }
+.einspiel-punkt { width: 56px; height: 56px; border-radius: 50%; background: var(--warnung); }
+.einspiel-stopp { width: 32px; height: 32px; border-radius: 6px; background: var(--tinte); }
+.einspiel-aufnahme.nimmt { border-color: var(--warnung); animation: einspiel-puls 1s ease-in-out infinite; }
+.einspiel-aufnahme.nimmt .einspiel-stopp { background: var(--warnung); }
+@keyframes einspiel-puls { 0%, 100% { box-shadow: 0 0 0 0 rgb(200 60 40 / 35%); } 50% { box-shadow: 0 0 0 10px rgb(200 60 40 / 0%); } }
+.einspiel-stand { display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 4.5rem; }
+.einspiel-zaehlt { font-size: 2.6rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.einspiel-ton { font-size: 1.1rem; font-weight: 650; color: var(--messing); min-height: 1.4rem; }
+.einspiel-noten { width: 100%; overflow-x: auto; }
+.einspiel-noten svg { max-width: 100%; height: auto; }
+@media (prefers-reduced-motion: reduce) { .einspiel-aufnahme.nimmt { animation: none; } }

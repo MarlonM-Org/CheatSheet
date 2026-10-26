@@ -223,6 +223,36 @@ Oktavfehler, Übergänge); Kandidat wäre ein On-Device-Modell im Browser
 (ONNX/WASM, Richtung Basic Pitch). Eigenes Forschungsthema, bewusst von
 G-02 getrennt — Rhythmus zuerst, Töne später.
 
+**Konkretisiert und begonnen (2026-10-26, Branch `feature/einspielen-ui`):**
+
+- **Einstieg über „+ Noten“:** fünfter Punkt „Einsingen oder Audio laden“
+  (neben dem Leerzustand-Knopf „Einsingen“). Ein eigener Vollbild-Dialog
+  wie beim Scan: Quelle Mikrofon oder Audio-Datei (Sprachmemo m4a, mp3,
+  wav — eine Stimme, kein ganzer Song), Tempo (Feld, Tippen), Taktart,
+  kleinster Notenwert (Achtel/Sechzehntel), beim Mikrofon ein Takt
+  Einzähler und Klick während der Aufnahme. Tonhöhenspur als Bild, bei der
+  Datei mit Anhören, Tempo mittippen und Taktanfang per Tipp in die Spur.
+- **Ergebnis ist ein Vorschlag** (abcjs zeichnet ihn). „Als Stück
+  speichern“ legt ein normales Stück an: PDF (aus den Notenzeilen auf
+  A4-Seiten verteilt) in `dateien`, dazu das neue optionale Feld
+  `notation` am `Stueck` (`format: abc`, `text`, `art: geschrieben |
+  eingesungen | audio`). Sammlung/Tag wie beim Import. Audio wird nicht
+  gespeichert.
+- **Bibliothek:** Marker als Unterzeile („eingesungen“, „aus Audio“,
+  „geschrieben“), keine Sonder-Sammlung; ein Filter „nur Geschriebene“
+  später. „Bearbeiten“ im Kontext-Blatt kommt mit dem Editor (G-01).
+- **Nach dem Bearbeiten** (G-01): Stellen und Anmerkungen bleiben auf ihrer
+  Seitennummer, überzählige verfallen — Regel zuerst als Test.
+- **Rechnen in `src/domain/notation.ts`** (getestet): Rahmen → Zellen
+  (Median je Zelle, Mindestanteil klarer Rahmen) → Glätten einzelner
+  Ausreißer → Strecken (ein Einsatz nach einer kurzen Lücke trennt auch
+  gleiche Töne) → Notenwerte (auf dem Schlag bis zur Takthälfte,
+  dazwischen bis zur Schlaggrenze; Pausen ohne Punktierung) → Bindebögen
+  über Taktgrenzen → ABC. Die Tonerkennung ist die des Stimmgeräts (YIN),
+  notiert fürs Instrument. Eine bessere monophone Lesart (pYIN-Ansatz aus
+  `experimente/transkription/monophon.py`) kann hier eingehängt werden,
+  ohne die Oberfläche anzufassen.
+
 ---
 
 ## H — Geräteübergreifend: Noten und Daten in der eigenen Cloud (Vision)

@@ -34,8 +34,13 @@ export interface Stueck {
   schwierigkeit?: 1 | 2 | 3 | 4 | 5; kennung?: string;
   // Virtuelles Stück (F-03): die Seiten von–bis aus der PDF eines echten Stücks.
   quelle?: Quelle;
+  // Selbst geschrieben oder eingesungen (G-01…G-03): die Quelle, aus der die
+  // PDF in `dateien` gerendert wurde — nur damit lässt es sich wieder bearbeiten.
+  notation?: Notation;
 }
 export interface Quelle { stueckId: string; von: number; bis: number }
+// `art`: wie das Stück entstand — getippt, live eingesungen oder aus einer Audio-Datei.
+export interface Notation { format: 'abc'; text: string; art: 'geschrieben' | 'eingesungen' | 'audio' }
 
 export interface Stelle {
   id: string; stueckId: string; seite: number; x: number; y: number; b: number; h: number;

@@ -68,14 +68,15 @@ function NameFormular({ start = '', knopf, platzhalter, fertig, abbrechen }: {
 }
 
 // „+ Noten“ mit kleinem Menü: PDF-Dateien, einen ganzen Ordner, die Kamera
-// (Einscannen) oder Fotos (F-07) wählen.
+// (Einscannen) oder Fotos (F-07) wählen. Dazu „Einsingen oder Audio laden“
+// (G-02/G-03): eine Stimme aufnehmen, die App schreibt mit.
 // Ist eine Sammlung gewählt, steht oben unübersehbar, dass neue Stücke dort
 // einsortiert werden — mit Schalter zum Abwählen.
-export function HinzufuegenMenue({ ziel, einsortieren, setEinsortieren, tagZiel, markieren, setMarkieren, dateien, ordner, scannen, fotos, gesperrt }: {
+export function HinzufuegenMenue({ ziel, einsortieren, setEinsortieren, tagZiel, markieren, setMarkieren, dateien, ordner, scannen, fotos, einspielen, gesperrt }: {
   ziel: string | null; einsortieren: boolean; setEinsortieren: (an: boolean) => void;
   // Gewählter Tag (F-14): neue Stücke damit markieren — genauso sichtbar.
   tagZiel: Tag | null; markieren: boolean; setMarkieren: (an: boolean) => void;
-  dateien: () => void; ordner: () => void; scannen: () => void; fotos: () => void; gesperrt: boolean;
+  dateien: () => void; ordner: () => void; scannen: () => void; fotos: () => void; einspielen: () => void; gesperrt: boolean;
 }) {
   const [offen, setOffen] = useState(false);
   const menue = useRef<HTMLDivElement>(null);
@@ -121,6 +122,9 @@ export function HinzufuegenMenue({ ziel, einsortieren, setEinsortieren, tagZiel,
             </button>
             <button type="button" role="menuitem" className="bib-menue-punkt" onClick={() => waehlen(fotos)}>
               Fotos wählen<span>vorhandene Fotos von Noten · Schatten werden entfernt</span>
+            </button>
+            <button type="button" role="menuitem" className="bib-menue-punkt" onClick={() => waehlen(einspielen)}>
+              Einsingen oder Audio laden<span>eine Stimme aufnehmen oder Sprachmemo wählen · die App schreibt mit</span>
             </button>
           </div>
         </>
