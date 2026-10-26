@@ -7,7 +7,9 @@ import { loeschHinweis, type Lesezeichen } from '@/domain/bestand';
 import { sammlungenUebersicht, sammlungenVon } from '@/domain/sammlungen';
 import { quellenText } from '@/domain/sicht';
 import { tagsVon, type Tag } from '@/domain/tags';
-import { loeschVorschau, stueckAendern, stueckDatei, stueckeLoeschen, sammlungenSetzen, tagsLaden, tagsSetzen, type Stueck } from './lokal';
+import { abcMitTitel, notenDateiname } from '@/domain/notation';
+import { loeschVorschau, stueckAendern, stueckDatei, stueckeLoeschen, stueckNeuSchreiben, sammlungenSetzen, tagsLaden, tagsSetzen, type Stueck } from './lokal';
+import { notationPdf } from './notenpdf';
 import { pdfLaden, seiteMitEbene } from './pdf';
 import { SammlungWahl } from './Sammlungen';
 import { fehlerGrund, speicherFehler } from './speicherfehler';
@@ -208,7 +210,18 @@ export function StueckKontext({ stueck, stuecke, anzahlStellen, oeffnen, dateiNe
           e.preventDefault();
           const f = new FormData(e.currentTarget);
           const neu = { titel: String(f.get('titel') || stueck.titel).trim() || stueck.titel, stimme: String(f.get('stimme') ?? '').trim() };
-          try { await stueckAendern(stueck.id, neu); } catch (x) { speicherFehler(x); return; }
+          try {
+            // Ein geschriebenes Stück trägt den Titel auf dem Blatt: PDF und Quelle neu.
+            if (stueck.notation && !stueck.quelle && neu.titel !== stueck.titel) {
+              const text = abcMitTitel(stueck.notation.text, neu.titel);
+              const { datei, seiten } = await notationPdf(text, neu.titel);
+              await stueckNeuSchreiben(stueck.id, { datei, dateiname: notenDateiname(neu.titel, new Date()), titel: neu.titel, seiten, notation: { ...stueck.notation, text } });
+              await stueckAendern(stueck.id, { stimme: neu.stimme });
+              geaendert({ ...neu, notation: { ...stueck.notation, text } }); schliessen();
+              return;
+            }
+            await stueckAendern(stueck.id, neu);
+          } catch (x) { speicherFehler(x); return; }
           geaendert(neu); schliessen();
         }}>
           <input className="feld" name="titel" defaultValue={stueck.titel} aria-label="Titel" autoFocus />

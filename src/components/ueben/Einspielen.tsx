@@ -3,18 +3,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  alsAbc, effektivwert, FEINHEITEN, notenDateiname, rastern, taktDauer, tempoAusTipps, TONARTEN, tonartFinden, versatzSchaetzen,
-  zellenDauer, zellenJeSchlag, type Feinheit, type Raster, type Takt, type Tonrahmen,
+  alsAbcStimmen, effektivwert, FEINHEITEN, notenDateiname, rastern, taktDauer, tempoAusTipps, TONARTEN, tonartFinden, versatzSchaetzen,
+  zellenDauer, zellenJeSchlag, type Feinheit, type Gelesen, type Raster, type Stimme, type Tonrahmen,
 } from '@/domain/notation';
-import { pdfBauen, type Seitenbild } from '@/domain/scan';
+import type { Stueck } from '@/domain/bestand';
 import { schlaegeJeTakt, TAKTARTEN, taktartText, type Nenner } from '@/domain/takt';
-import { leeresBlatt } from '@/domain/notensatz';
+import { aufBlatt, aufsBlattStimmen, einstimmig, leeresBlatt, skalieren } from '@/domain/notensatz';
 import { frequenzZuTon, grundfrequenz, type Stimmung } from '@/domain/ueben';
 import { audioSitzung, gespeichert, klangPuffer, speichern, wachHalten } from './klang';
-import { stueckAnlegen } from './lokal';
+import { stueckAnlegen, stueckNeuSchreiben } from './lokal';
 import { useMetronom } from './MetronomKontext';
 import { Notenblatt } from './Notensatz';
 import { useStimmgeraetApi } from './StimmgeraetKontext';
+import { notationPdf } from './notenpdf';
 import { fehlerGrund } from './speicherfehler';
 import { useDialogFokus, useEscape } from './tasten';
 
@@ -54,7 +55,6 @@ const MAX_TAKTE = 64;
 const RATE = 22050, FENSTER = 1024, SCHRITT = 256;
 const KLAR = 0.85;
 // Gerenderte Seite (A4-Verhältnis) in Pixeln.
-const SEITE_B = 1240, SEITE_H = 1754, SEITE_RAND = 90, SKALA = 1.6;
 
 const luft = () => new Promise<void>((ok) => setTimeout(ok, 0));
 
@@ -77,24 +77,29 @@ interface Mikro {
 }
 interface Wiedergabe { ctx: AudioContext; quelle: AudioBufferSourceNode; beginn: number; raf: number }
 
-export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig, schliessen }: {
+// Vorlage: ein gespeichertes Stück mit Quelle zum Weiterbearbeiten
+// („Komponieren“ in der Notenansicht) — Speichern schreibt es neu.
+export interface Vorlage { stueck: Stueck; gelesen: Gelesen }
+
+export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlage, fertig, schliessen }: {
   quelle: EinspielQuelle;
   sammlungen: string[]; tags: string[];
+  vorlage?: Vorlage;
   fertig: (meldung: string) => void;
   schliessen: () => void;
 }) {
   const metro = useMetronom();
   const stimm = useStimmgeraetApi();
-  const [quelle, setQuelle] = useState<EinspielQuelle>(quelleStart);
-  const [phase, setPhase] = useState<Phase>(quelleStart === 'leer' ? 'vorschlag' : 'bereit');
-  // Raster: Vorgaben vom Metronom, hier nur für diese Aufnahme geändert.
-  const [bpm, setBpmRoh] = useState(metro.bpm);
+  const [quelle, setQuelle] = useState<EinspielQuelle>(vorlage ? 'leer' : quelleStart);
+  const [phase, setPhase] = useState<Phase>(vorlage || quelleStart === 'leer' ? 'vorschlag' : 'bereit');
+  // Raster: Vorgaben vom Metronom (bei einer Vorlage: aus ihr), hier nur für diese Aufnahme geändert.
+  const [bpm, setBpmRoh] = useState(vorlage ? vorlage.gelesen.raster.bpm : metro.bpm);
   const setBpm = (n: number) => setBpmRoh(Math.min(300, Math.max(20, Math.round(n))));
   // Das Tempo-Feld: frei tippen (Text nur während der Eingabe), übernommen
   // und begrenzt beim Verlassen oder mit Enter.
   const [tempoText, setTempoText] = useState<string | null>(null);
   const tempoUebernehmen = () => { const n = Number(tempoText); if (n) setBpm(n); setTempoText(null); };
-  const [taktart, setTaktart] = useState<[number, Nenner]>([metro.takt, metro.nenner]);
+  const [taktart, setTaktart] = useState<[number, Nenner]>(vorlage ? [vorlage.gelesen.raster.zaehler, vorlage.gelesen.raster.nenner] : [metro.takt, metro.nenner]);
   const [feinheit, setFeinheitRoh] = useState<Feinheit>(() => (gespeichert<number>(FEINHEIT_SCHLUESSEL, 16) === 8 ? 8 : 16));
   const setFeinheit = (f: Feinheit) => { setFeinheitRoh(f); speichern(FEINHEIT_SCHLUESSEL, f); };
   const [klickWeiter, setKlickWeiterRoh] = useState(() => gespeichert(KLICK_SCHLUESSEL, true));
@@ -103,7 +108,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
   const setLautsprecher = (an: boolean) => { setLautsprecherRoh(an); speichern(LAUTSPRECHER_SCHLUESSEL, an); };
   // Tonart (notiert, wie das Stimmgerät zeigt): zieht die Töne auf die Leiter
   // und setzt die Vorzeichen; leer = keine Tonart, Töne bleiben, wie gehört.
-  const [tonartAbc, setTonartAbcRoh] = useState(() => gespeichert<string>(TONART_SCHLUESSEL, 'C'));
+  const [tonartAbc, setTonartAbcRoh] = useState(() => (vorlage ? vorlage.gelesen.tonart?.abc ?? '' : gespeichert<string>(TONART_SCHLUESSEL, 'C')));
   const setTonartAbc = (a: string) => { setTonartAbcRoh(a); speichern(TONART_SCHLUESSEL, a); };
   const tonart = useMemo(() => tonartFinden(tonartAbc), [tonartAbc]);
   const raster = useMemo<Raster>(() => ({ bpm, zaehler: taktart[0], nenner: taktart[1], feinheit }), [bpm, taktart, feinheit]);
@@ -118,7 +123,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
   const [start, setStart] = useState(0);
   const [dauer, setDauer] = useState(0); // Länge der Datei in Sekunden
   const [dateiName, setDateiName] = useState('');
-  const [titel, setTitel] = useState('');
+  const [titel, setTitel] = useState(vorlage?.stueck.titel ?? '');
   const [fehler, setFehler] = useState('');
   const [laeuft, setLaeuft] = useState<string | null>(null);
   // Live-Anzeige (sparsam aktualisiert): Einzähler, Takt/Schlag, gehörter Ton.
@@ -139,17 +144,24 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
     if (phase !== 'vorschlag' || quelle === 'leer') return [];
     const abStart = spur.map((f) => ({ ...f, zeit: f.zeit - start }));
     const versatz = versatzSchaetzen(abStart, raster);
-    return rastern(versatz ? abStart.map((f) => ({ ...f, zeit: f.zeit - versatz })) : abStart, raster, { tonart });
+    // Aufs Blattraster (96 Zellen: 32tel, Triolen) gebracht.
+    return skalieren(rastern(versatz ? abStart.map((f) => ({ ...f, zeit: f.zeit - versatz })) : abStart, raster, { tonart }), raster.feinheit);
   }, [phase, quelle, spur, start, raster, tonart]);
+  const blattRaster = useMemo(() => aufBlatt(raster), [raster]);
   // Schreiben: ein leerer Takt in der Taktart (Tempo und Tonart ändern das Blatt nicht).
   const [zaehler, nenner] = taktart;
-  const leer = useMemo(() => leeresBlatt({ bpm: 60, zaehler, nenner, feinheit }), [zaehler, nenner, feinheit]);
-  const basis = quelle === 'leer' ? leer : erkannt;
+  const leer = useMemo(() => leeresBlatt(aufBlatt({ bpm: 60, zaehler, nenner, feinheit: 16 })), [zaehler, nenner]);
+  // Grundlage als eine Stimme; mehr Stimmen kommen im Notenblatt dazu.
+  const basisLeer = useMemo(() => einstimmig(leer), [leer]);
+  const basisErkannt = useMemo(() => einstimmig(erkannt), [erkannt]);
+  const basis = quelle === 'leer' ? basisLeer : basisErkannt;
   // Bearbeitet im Notenblatt — gilt, solange die Grundlage dieselbe ist
   // (neue Aufnahme, anderes Raster: alles von vorn).
-  const [bearbeitet, setBearbeitet] = useState<{ basis: Takt[]; takte: Takt[] } | null>(null);
-  const takte = bearbeitet && bearbeitet.basis === basis ? bearbeitet.takte : basis;
-  const aendern = useCallback((neu: Takt[]) => setBearbeitet({ basis, takte: neu }), [basis]);
+  const [bearbeitet, setBearbeitet] = useState<{ basis: Stimme[]; stimmen: Stimme[] } | null>(
+    () => (vorlage ? { basis: basisLeer, stimmen: aufsBlattStimmen(vorlage.gelesen.stimmen, vorlage.gelesen.raster.feinheit, vorlage.gelesen.raster) } : null));
+  const stimmen = bearbeitet && bearbeitet.basis === basis ? bearbeitet.stimmen : basis;
+  const takte = stimmen[0]?.takte ?? [];
+  const aendern = useCallback((neu: Stimme[]) => setBearbeitet({ basis, stimmen: neu }), [basis]);
 
   // ── Spur zeichnen ──
   const zeichnen = useCallback((liste: readonly Tonrahmen[], jetzt: number | null) => {
@@ -381,7 +393,9 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
   const quelleWechseln = (q: EinspielQuelle) => {
     if (q === quelle) return;
     stoppen(false); wiedergabeAus();
-    setQuelle(q); setSpur([]); setStart(0); setDauer(0); setDateiName(''); setBearbeitet(null); setPhase(q === 'leer' ? 'vorschlag' : 'bereit'); setFehler('');
+    setQuelle(q); setSpur([]); setStart(0); setDauer(0); setDateiName(''); setPhase(q === 'leer' ? 'vorschlag' : 'bereit'); setFehler('');
+    // Zum Schreiben wechseln nimmt den Vorschlag mit — da geht es ja weiter.
+    setBearbeitet(q === 'leer' && phase === 'vorschlag' && takte.length ? { basis: basisLeer, stimmen } : null);
   };
   const nochmal = () => { wiedergabeAus(); setSpur([]); setStart(0); setDauer(0); setDateiName(''); setBearbeitet(null); setPhase('bereit'); };
 
@@ -389,15 +403,22 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
   async function speichernUndSchliessen() {
     if (!takte.length || laeuft) return;
     setFehler('');
-    const name = titel.trim() || (quelle === 'mikro' ? 'Eingesungen' : quelle === 'leer' ? 'Neues Stück' : dateiName.replace(/\.[^.]+$/, '') || 'Aus Audio');
-    const text = alsAbc(takte, raster, { titel: name }, tonart);
+    const name = titel.trim() || vorlage?.stueck.titel || (quelle === 'mikro' ? 'Eingesungen' : quelle === 'leer' ? 'Neues Stück' : dateiName.replace(/\.[^.]+$/, '') || 'Aus Audio');
+    const text = alsAbcStimmen(stimmen, blattRaster, { titel: name }, tonart);
     try {
       setLaeuft('Noten werden gezeichnet …');
       await luft();
-      const seiten = await alsSeiten(text);
+      const { datei, seiten } = await notationPdf(text, name);
       setLaeuft('PDF wird geschrieben …');
       await luft();
-      const datei = new Blob([pdfBauen(seiten, name)], { type: 'application/pdf' });
+      if (vorlage) {
+        await stueckNeuSchreiben(vorlage.stueck.id, {
+          datei, dateiname: notenDateiname(name, new Date()), titel: name, seiten,
+          notation: { format: 'abc', text, art: vorlage.stueck.notation?.art ?? 'geschrieben' },
+        });
+        fertig(`„${name}“ neu geschrieben: ${takte.length} ${takte.length === 1 ? 'Takt' : 'Takte'}, ${seiten} ${seiten === 1 ? 'Seite' : 'Seiten'}.`);
+        return;
+      }
       await stueckAnlegen({
         titel: name, stimme: '', datei, dateiname: notenDateiname(name, new Date()),
         ...(sammlungen.length ? { sammlungen } : {}), ...(tags.length ? { tags } : {}),
@@ -425,7 +446,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
   return createPortal(
     <div className="scan-dialog" role="dialog" aria-modal="true" aria-label="Einsingen oder Audio laden" ref={fokus} tabIndex={-1}>
       <div className="panel-kopf mit-linie">
-        <h2>{quelle === 'mikro' ? 'Einsingen' : quelle === 'leer' ? 'Schreiben' : 'Aus Audio'}</h2>
+        <h2>{vorlage ? 'Komponieren' : quelle === 'mikro' ? 'Einsingen' : quelle === 'leer' ? 'Schreiben' : 'Aus Audio'}</h2>
         <span className="bib-anzahl">{phase === 'vorschlag' && takte.length ? `· ${takte.length} ${takte.length === 1 ? 'Takt' : 'Takte'}` : ''}</span>
         <span className="flex-1" />
         <button type="button" className="panel-zu" onClick={schliessen} disabled={beschaeftigt} aria-label="Abbrechen">
@@ -436,11 +457,13 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
       <div className="scan-inhalt">
         {fehler && <p className="karte warnung" role="alert">{fehler}</p>}
 
-        <div className="segment !mx-0" role="group" aria-label="Quelle">
-          <button type="button" aria-pressed={quelle === 'mikro'} onClick={() => quelleWechseln('mikro')} disabled={beschaeftigt}>Mikrofon</button>
-          <button type="button" aria-pressed={quelle === 'datei'} onClick={() => quelleWechseln('datei')} disabled={beschaeftigt}>Audio-Datei</button>
-          <button type="button" aria-pressed={quelle === 'leer'} onClick={() => quelleWechseln('leer')} disabled={beschaeftigt}>Schreiben</button>
-        </div>
+        {!vorlage && (
+          <div className="segment !mx-0" role="group" aria-label="Quelle">
+            <button type="button" aria-pressed={quelle === 'mikro'} onClick={() => quelleWechseln('mikro')} disabled={beschaeftigt}>Mikrofon</button>
+            <button type="button" aria-pressed={quelle === 'datei'} onClick={() => quelleWechseln('datei')} disabled={beschaeftigt}>Audio-Datei</button>
+            <button type="button" aria-pressed={quelle === 'leer'} onClick={() => quelleWechseln('leer')} disabled={beschaeftigt}>Schreiben</button>
+          </div>
+        )}
 
         <div className="karte einspiel-raster">
           <label className="einspiel-feld">
@@ -460,14 +483,16 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
               ))}
             </div>
           </div>
-          <div className="einspiel-feld">
-            <span>Kleinster Wert</span>
-            <div className="segment !mx-0" role="group" aria-label="Kleinster Notenwert">
-              {FEINHEITEN.map((f) => (
-                <button key={f.feinheit} type="button" aria-pressed={feinheit === f.feinheit} disabled={quelle === 'leer' && festesRaster} onClick={() => setFeinheit(f.feinheit)}>{f.name}</button>
-              ))}
+          {quelle !== 'leer' && (
+            <div className="einspiel-feld">
+              <span>Kleinster Wert</span>
+              <div className="segment !mx-0" role="group" aria-label="Kleinster Notenwert (Erkennung)">
+                {FEINHEITEN.map((f) => (
+                  <button key={f.feinheit} type="button" aria-pressed={feinheit === f.feinheit} disabled={festesRaster} onClick={() => setFeinheit(f.feinheit)}>{f.name}</button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
           <label className="einspiel-feld">
             <span>Tonart</span>
             <select className="feld feld-zahl" value={tonartAbc} onChange={(e) => setTonartAbc(e.target.value)} aria-label="Tonart (zieht die Töne auf die Leiter)">
@@ -554,11 +579,11 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
         {phase === 'vorschlag' && (
           <div className="karte space-y-2">
             {takte.length
-              ? <Notenblatt takte={takte} raster={raster} tonart={tonart} titel={titel} aendern={aendern} />
+              ? <Notenblatt stimmen={stimmen} raster={blattRaster} tonart={tonart} titel={titel} aendern={aendern} />
               : (
                 <div className="einspiel-zeile">
                   <p className="gedaempft text-sm">Kein Ton erkannt. Näher ans Mikrofon, lauter, oder eine andere Datei.</p>
-                  <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => aendern(leer)}>Trotzdem schreiben</button>
+                  <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => aendern(basisLeer)}>Trotzdem schreiben</button>
                 </div>
               )}
             {quelle !== 'leer' && <p className="gedaempft text-xs">Ein Vorschlag — die Erkennung ist nie fehlerfrei; hier lässt er sich korrigieren. Die Quelle (ABC) bleibt am Stück.</p>}
@@ -568,62 +593,9 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig
 
       <form className="scan-fuss" onSubmit={(e) => { e.preventDefault(); void speichernUndSchliessen(); }}>
         <input className="feld" value={titel} onChange={(e) => setTitel(e.target.value)} placeholder="Titel des Stücks" aria-label="Titel" disabled={!!laeuft} />
-        <button type="submit" className="knopf" disabled={phase !== 'vorschlag' || !takte.length || !!laeuft}>{laeuft ?? 'Als Stück speichern'}</button>
+        <button type="submit" className="knopf" disabled={phase !== 'vorschlag' || !takte.length || !!laeuft}>{laeuft ?? (vorlage ? 'Speichern' : 'Als Stück speichern')}</button>
       </form>
     </div>,
     document.body,
   );
-}
-
-// ABC → Seiten: abcjs zeichnet je Notenzeile ein SVG; die Zeilen werden auf
-// A4-Seiten verteilt (keine Zeile wird zerschnitten) und als JPEG geliefert.
-async function alsSeiten(abc: string): Promise<Seitenbild[]> {
-  const halter = document.createElement('div');
-  halter.style.cssText = `position:fixed;left:-30000px;top:0;width:${SEITE_B}px;background:#fff;color:#000`;
-  document.body.appendChild(halter);
-  try {
-    const { renderAbc } = await import('abcjs');
-    renderAbc(halter, abc, {
-      oneSvgPerLine: true, scale: SKALA, staffwidth: (SEITE_B - 2 * SEITE_RAND) / SKALA,
-      paddingleft: 0, paddingright: 0, paddingtop: 10, paddingbottom: 10, foregroundColor: '#000',
-    });
-    const svgs = [...halter.querySelectorAll('svg')];
-    if (!svgs.length) throw new Error('abcjs hat nichts gezeichnet.');
-    const neu = () => { const c = document.createElement('canvas'); c.width = SEITE_B; c.height = SEITE_H; const g = c.getContext('2d')!; g.fillStyle = '#fff'; g.fillRect(0, 0, SEITE_B, SEITE_H); return c; };
-    const seiten: Seitenbild[] = [];
-    let canvas = neu(), y = SEITE_RAND;
-    for (const svg of svgs) {
-      // abcjs bemisst die Zeile unskaliert (viewBox) und skaliert per CSS-Transform —
-      // die Seite rechnet selbst: Maß aus der viewBox mal Skala.
-      const vb = (svg.getAttribute('viewBox') ?? '').split(/[\s,]+/).map(Number);
-      const b = Math.ceil((vb[2] || svg.clientWidth) * SKALA), h = Math.ceil((vb[3] || svg.clientHeight) * SKALA);
-      if (y + h > SEITE_H - SEITE_RAND && y > SEITE_RAND) { seiten.push(await alsJpeg(canvas)); canvas = neu(); y = SEITE_RAND; }
-      await svgZeichnen(svg, b, h, canvas, Math.round((SEITE_B - b) / 2), y);
-      y += h;
-    }
-    seiten.push(await alsJpeg(canvas));
-    return seiten;
-  } finally { halter.remove(); }
-}
-
-async function svgZeichnen(svg: SVGSVGElement, b: number, h: number, canvas: HTMLCanvasElement, x: number, y: number) {
-  const kopie = svg.cloneNode(true) as SVGSVGElement;
-  // Den CSS-Transform (Skalierung) nicht mitnehmen — als Bild skaliert die viewBox.
-  kopie.removeAttribute('style'); kopie.removeAttribute('class');
-  kopie.setAttribute('width', String(b)); kopie.setAttribute('height', String(h));
-  kopie.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-  const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(kopie)], { type: 'image/svg+xml;charset=utf-8' }));
-  try {
-    const img = new Image();
-    img.src = url;
-    await img.decode();
-    canvas.getContext('2d')!.drawImage(img, x, y, b, h);
-  } finally { URL.revokeObjectURL(url); }
-}
-
-function alsJpeg(c: HTMLCanvasElement): Promise<Seitenbild> {
-  return new Promise((ok, fehler) => c.toBlob(async (blob) => {
-    if (!blob) return fehler(new Error('Die Seite ließ sich nicht als JPEG speichern.'));
-    ok({ jpeg: new Uint8Array(await blob.arrayBuffer()), b: c.width, h: c.height });
-  }, 'image/jpeg', 0.9));
 }

@@ -204,6 +204,29 @@ describe('Stücke', () => {
     expect(await (await g.lokal.stueckDatei({ id })).text()).toBe('%PDF-1.4 zwei');
   });
 
+  it('schreibt ein bearbeitetes Stück neu: PDF, Quelle, Titel — Überzähliges über der neuen Seitenzahl verfällt', async () => {
+    const id = await anlegen('A', 'eins');
+    await g.lokal.stelleAnlegen(stelle(id, 1, 0.2));
+    await g.lokal.stelleAnlegen(stelle(id, 3, 0.2, 'T. 9'));
+    await g.lokal.anmerkungenSpeichern(id, 1, [strich]);
+    await g.lokal.anmerkungenSpeichern(id, 2, [strich]);
+    const lz = await g.lokal.lesezeichenAnlegen({ stueckId: id, seite: 2, titel: 'Trio' });
+    await g.lokal.merkerSetzen(id, 1, true);
+    await g.lokal.merkerSetzen(id, 2, true);
+    const notation = { format: 'abc' as const, text: 'X:1\nK:C\nC4 |]', art: 'geschrieben' as const };
+    await g.lokal.stueckNeuSchreiben(id, { datei: pdf('zwei'), dateiname: 'A (Noten).pdf', titel: 'A neu', notation, seiten: 1 });
+    const s = await g.lokal.stueckHolen(id);
+    expect(s?.titel).toBe('A neu');
+    expect(s?.notation).toEqual(notation);
+    expect(await (await g.lokal.stueckDatei({ id })).text()).toBe('%PDF-1.4 zwei');
+    expect((await g.lokal.stellenVon(id)).map((x) => x.seite)).toEqual([1]);
+    expect((await g.lokal.anmerkungenVon(id)).map((x) => x.seite)).toEqual([1]);
+    expect(await g.lokal.lesezeichenVon(id)).toEqual([]);
+    expect((await g.lokal.merkerVon(id)).map((x) => x.seite)).toEqual([1]);
+    expect(g.lokal.grabsteineHier().map((x) => x.art).sort()).toEqual(['lesezeichen', 'merker', 'stelle']);
+    expect(g.lokal.grabsteineHier().some((x) => x.id === lz)).toBe(true);
+  });
+
   it('ändert nichts an einem Stück, das es nicht gibt', async () => {
     await g.lokal.stueckAendern('gibtsnicht', { titel: 'X' });
     await g.lokal.stueckAendern('gibtsnicht', { titel: 'X', datei: pdf('x') });
@@ -254,6 +277,44 @@ describe('Virtuelle Stücke', () => {
     const v = await g.lokal.virtuellesAnlegen({ titel: 'Marsch', stimme: '', quelle: quelle(band) });
     await expect(g.lokal.stueckAendern(v, { datei: pdf('x') })).rejects.toThrow(/anderen/);
     expect(await roh('dateien')).toHaveLength(1);
+  });
+});
+
+describe('Aufnahmen', () => {
+  const ton = (inhalt: string) => new Blob([inhalt], { type: 'audio/mp4' });
+  it('legt Aufnahmen am Stück an, liest die Bytes, benennt und löscht', async () => {
+    const id = await anlegen('A');
+    const a1 = await g.lokal.aufnahmeAnlegen(id, ton('eins'), { am: 1, dauer: 12.5, seite: 2 });
+    const a2 = await g.lokal.aufnahmeAnlegen(id, ton('zwei'), { am: 2, dauer: 3, stelleId: 's1' });
+    const s = (await g.lokal.stueckHolen(id))!;
+    expect(s.aufnahmen?.map((a) => [a.id, a.dauer, a.typ])).toEqual([[a1, 12.5, 'audio/mp4'], [a2, 3, 'audio/mp4']]);
+    expect(await (await g.lokal.aufnahmeDatei({ id: a1, typ: 'audio/mp4' })).text()).toBe('eins');
+    await g.lokal.aufnahmeAendern(id, a2, { titel: 'Gut gelaufen' });
+    expect((await g.lokal.stueckHolen(id))!.aufnahmen?.[1].titel).toBe('Gut gelaufen');
+    await g.lokal.aufnahmeLoeschen(id, a1);
+    expect((await g.lokal.stueckHolen(id))!.aufnahmen?.map((a) => a.id)).toEqual([a2]);
+    expect((await roh('dateien')).map((d) => d.id).sort()).toEqual([a2, id].sort());
+    await expect(g.lokal.aufnahmeDatei({ id: a1, typ: 'audio/mp4' })).rejects.toThrow();
+  });
+  it('gehen mit dem Stück weg und reisen nicht mit der Sicherung', async () => {
+    const id = await anlegen('A');
+    const b = await anlegen('B');
+    await g.lokal.aufnahmeAnlegen(id, ton('eins'), { am: 1, dauer: 1 });
+    const { datei } = await g.lokal.sicherungErstellen();
+    const inhalt = await sicherungLesen(datei);
+    expect(inhalt.noten.find((n) => n.id === id)).not.toHaveProperty('aufnahmen');
+    await g.lokal.stueckeLoeschen([id]);
+    expect((await roh('dateien')).map((d) => d.id)).toEqual([b]);
+  });
+  it('bleiben beim Laden einer Sicherung, die das Stück überschreibt', async () => {
+    const id = await anlegen('A');
+    const { datei } = await g.lokal.sicherungErstellen();
+    const a = await g.lokal.aufnahmeAnlegen(id, ton('eins'), { am: 1, dauer: 1 });
+    await g.lokal.stueckAendern(id, { titel: 'A hier' });
+    const e = await g.lokal.sicherungPruefen(datei);
+    await g.lokal.sicherungSchreiben(e);
+    const s = (await g.lokal.stueckHolen(id))!;
+    expect(s.aufnahmen?.map((x) => x.id)).toEqual([a]);
   });
 });
 

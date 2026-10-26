@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
-  abcTon, alsAbc, anschlaege, aufLeiter, effektivwert, einsaetze, glaetten, hysterese, nachbessern, notationText, notenDateiname, notenwerte,
-  rastern, tempoAusTipps, tonartFinden, versatzSchaetzen, zellen, zellenDauer, zellenJeSchlag, zellenJeTakt, zerlegen,
-  type Raster, type Tonrahmen,
+  abcLesen, abcMitTitel, abcTon, alsAbc, anschlaege, aufLeiter, effektivwert, einsaetze, glaetten, hysterese, nachbessern, notationText, notenDateiname, notenwerte,
+  rastern, tempoAusTipps, tonartFinden, ueberzaehlig, versatzSchaetzen, zellen, zellenDauer, zellenJeSchlag, zellenJeTakt, zerlegen,
+  type Raster, type Takt, type Tonrahmen,
 } from '@/domain/notation';
 
 const VIERVIERTEL: Raster = { bpm: 120, zaehler: 4, nenner: 4, feinheit: 16 };
@@ -365,5 +365,60 @@ describe('ABC mit Tonart', () => {
     expect(g).toContain('F4 f4 =F4 ^F4 |]');
     const bb = alsAbc([{ noten: [{ midi: 63, dauer: 8 }, { midi: 61, dauer: 8 }] }], VIERVIERTEL, { titel: 'B' }, tonartFinden('Bb'));
     expect(bb).toContain('E8 _D8 |]');
+  });
+});
+
+describe('ABC zurücklesen', () => {
+  const B: Raster = { bpm: 92, zaehler: 4, nenner: 4, feinheit: 96 };
+  const ohne = (takte: Takt[]) => takte.map((t) => ({ noten: t.noten.map(({ gruppe: _g, triole: _t, ...n }) => { void _g; void _t; return n; }) }));
+  it('liest zurück, was alsAbc schreibt — Vorzeichen, Oktaven, Bindungen, Pausen, Triolen', () => {
+    const takte: Takt[] = [
+      { noten: [{ midi: 61, dauer: 24 }, { midi: 61, dauer: 12 }, { midi: 73, dauer: 12 }, { midi: 48, dauer: 24, bindung: true }, { midi: 48, dauer: 24 }] },
+      { noten: [{ midi: null, dauer: 24 }, { midi: 62, dauer: 8, triole: true, gruppe: 3 }, { midi: 64, dauer: 8, triole: true }, { midi: 66, dauer: 8, triole: true }, { midi: 84, dauer: 48 }] },
+      { noten: [{ midi: 70, dauer: 96, bindung: true }] },
+      { noten: [{ midi: 70, dauer: 48 }, { midi: null, dauer: 24 }, { midi: null, dauer: 24 }] },
+    ];
+    const abc = alsAbc(takte, B, { titel: 'Rundreise' }, tonartFinden('D'));
+    const g = abcLesen(abc)!;
+    expect(g.titel).toBe('Rundreise');
+    expect(g.raster).toEqual(B);
+    expect(g.tonart?.abc).toBe('D');
+    expect(g.takte).toEqual(takte);
+  });
+  it('liest B-Tonarten und Auflösungszeichen, ohne Tonart C-Dur', () => {
+    const takte: Takt[] = [{ noten: [{ midi: 70, dauer: 24 }, { midi: 71, dauer: 24 }, { midi: 70, dauer: 24 }, { midi: 63, dauer: 24 }] }];
+    const abc = alsAbc(takte, B, { titel: '' }, tonartFinden('F'));
+    expect(abc).toContain('B24 =B24 _B24 _E24 |]');
+    expect(ohne(abcLesen(abc)!.takte)).toEqual(takte);
+    const c = abcLesen(alsAbc(takte, B, { titel: '' }, null))!;
+    expect(c.tonart?.abc).toBe('C');
+    expect(ohne(c.takte)).toEqual(takte);
+  });
+  it('liest ältere Stücke mit L:1/16 und 6/8', () => {
+    const takte: Takt[] = [{ noten: [{ midi: 60, dauer: 3 }, { midi: 62, dauer: 3 }, { midi: null, dauer: 6 }] }];
+    const g = abcLesen(alsAbc(takte, { bpm: 60, zaehler: 6, nenner: 8, feinheit: 16 }, { titel: 'Alt' }))!;
+    expect(g.raster).toEqual({ bpm: 60, zaehler: 6, nenner: 8, feinheit: 16 });
+    expect(ohne(g.takte)).toEqual(takte);
+  });
+  it('weist Fremdes ab', () => {
+    expect(abcLesen('')).toBeNull();
+    expect(abcLesen('X:1\nT:Nur Kopf\n')).toBeNull();
+    expect(abcLesen('X:1\nM:4/4\nL:1/16\nK:C\n[CEG]4 |]')).toBeNull();
+  });
+});
+
+describe('Seiten nach dem Neuschreiben', () => {
+  it('lässt wegfallen, was über der neuen Seitenzahl liegt', () => {
+    const l = (ids: [string, number][]) => ids.map(([id, seite]) => ({ id, seite }));
+    expect(ueberzaehlig(2, { stellen: l([['s1', 1], ['s2', 2], ['s3', 3]]), anmerkungen: l([['a2', 2], ['a4', 4]]), lesezeichen: l([['l5', 5]]), merker: l([['m1', 1]]) }))
+      .toEqual({ stellen: ['s3'], anmerkungen: ['a4'], lesezeichen: ['l5'], merker: [] });
+  });
+});
+
+describe('Titel im ABC', () => {
+  it('tauscht die T:-Zeile oder setzt sie hinter X:', () => {
+    expect(abcMitTitel('X:1\nT:Alt\nK:C\nC4 |]', 'Neu')).toBe('X:1\nT:Neu\nK:C\nC4 |]');
+    expect(abcMitTitel('X:1\nK:C\nC4 |]', ' Neu ')).toBe('X:1\nT:Neu\nK:C\nC4 |]');
+    expect(abcMitTitel('X:1\nT:Alt\nK:C\nC4 |]', '')).toContain('T:Ohne Titel');
   });
 });

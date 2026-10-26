@@ -74,6 +74,10 @@ interface Props {
   // Sprung aus der Stellen-Übersicht oder von einem Lesezeichen.
   sprung: Ziel | null;
   titelTipp: () => void;
+  // Komponieren (G-01): nur bei Stücken mit Quelle — öffnet das Notenblatt.
+  komponieren?: () => void;
+  // Aufnehmen (G-09): roter Knopf, nimmt mit der aktuellen Seite auf.
+  aufnahme?: { laeuft: boolean; sekunden: number; umschalten: (z: { seite: number }) => void };
   // Stellen-Mix (F-11): genau diese Stelle, ‹ › gehen durch die Runde.
   mix: MixSteuerung | null;
   // Leisten (oben hier, unten die Werkzeug-Leiste) liegen über den Noten;
@@ -81,7 +85,7 @@ interface Props {
   leisteWeg: boolean; setLeisteWeg: (weg: boolean) => void; navDa: boolean;
 }
 
-export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenGeaendert, geaendert, tastenAktiv, sprung, titelTipp, mix, leisteWeg, setLeisteWeg, navDa }: Props) {
+export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenGeaendert, geaendert, tastenAktiv, sprung, titelTipp, komponieren, aufnahme, mix, leisteWeg, setLeisteWeg, navDa }: Props) {
   const seiten = pdf.numPages;
   const { bpm, setBpm } = useMetronom();
 
@@ -1522,6 +1526,17 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
                 else { zumLesen(); mix?.beenden(); }
               }} />
           </div>
+          {aufnahme && (
+            <button type="button" className="nav-rund nav-aufnahme" aria-pressed={aufnahme.laeuft} onClick={() => aufnahme.umschalten({ seite: seiteJetzt })}
+              aria-label={aufnahme.laeuft ? `Aufnahme beenden (${aufnahme.sekunden} s)` : 'Aufnehmen'} title={aufnahme.laeuft ? 'Aufnahme beenden' : 'Aufnehmen: dein Spiel mitschneiden'}>
+              {aufnahme.laeuft ? <span className="nav-aufnahme-zeit tabular-nums">{Math.floor(aufnahme.sekunden / 60)}:{String(aufnahme.sekunden % 60).padStart(2, '0')}</span> : <span className="nav-aufnahme-punkt" aria-hidden="true" />}
+            </button>
+          )}
+          {komponieren && (
+            <button type="button" className="nav-rund" onClick={komponieren} aria-label="Komponieren: Noten bearbeiten und vorspielen" title="Komponieren">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18.5a3 3 0 1 1-3-3 3 3 0 0 1 3 3zM9 18.5V5l10-2v12.5M19 15.5a3 3 0 1 1-3-3 3 3 0 0 1 3 3zM9 9l10-2" /></svg>
+            </button>
+          )}
           <button type="button" className="nav-rund" aria-pressed={ansichtOffen}
             onClick={() => { if (!ansichtOffen) setFuerAlle(einheitlich(blaettern, seiten)); setAnsichtOffen(!ansichtOffen); }}
             aria-label="Ansicht" title="Ansicht">

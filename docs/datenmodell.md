@@ -89,6 +89,12 @@ interface Stueck {
 }
 ```
 
+Dazu seit 2026-10-26 (G-09, Aufnahmen): `aufnahmen?: Aufnahme[]` am Stück —
+nur die Angaben (`id`, `am`, `dauer` in Sekunden, `typ` wie `audio/mp4`,
+optional `seite`, `stelleId`, `titel`); die Audio-Bytes liegen in
+`dateien` unter der `id` der Aufnahme (`{ id, daten, typ }`, wie die PDF
+des Stücks unter dessen id). Kein neuer Speicher, keine neue Version.
+
 Ein virtuelles Stück hat keinen eigenen Eintrag in `dateien`, es zeigt die
 Seiten `von`–`bis` aus der PDF von `quelle.stueckId`.
 
@@ -129,6 +135,11 @@ type Eintrag =
   eines gelöschten Stücks wäre davon nicht zu unterscheiden und bliebe
   liegen, wenn niemand ihn ersetzt.
 - Dasselbe gilt für ein einzeln gelöschtes Lesezeichen.
+- **Aufnahmen** (G-09) gehören zum Stück: Wird es gelöscht, gehen ihre
+  Bytes in `dateien` mit (dieselbe Transaktion). Sie **reisen nicht mit der
+  Sicherung** (zu groß; `sicherungErstellen` lässt das Feld weg), und beim
+  Laden einer Sicherung, die das Stück überschreibt, bleiben die Aufnahmen
+  des Geräts stehen.
 - **Wird die Quelle gelöscht, werden ihre virtuellen Stücke mitgelöscht**,
   samt deren Lesezeichen, Merkern und Setlisten-Einträgen, in derselben
   Transaktion. Der Lösch-Dialog nennt sie mit, etwa „‚Sammelband‘ löschen?
