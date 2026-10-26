@@ -82,6 +82,7 @@ export function Notenblatt({ takte, raster, tonart, titel, aendern }: {
   useEffect(() => {
     const el = bild.current;
     if (!el || !breite) return;
+    const skala = breite >= 700 ? 1.4 : 1.15;
     let aktuell = true;
     void import('abcjs').then((m) => {
       if (!aktuell || !bild.current) return;
@@ -97,7 +98,9 @@ export function Notenblatt({ takte, raster, tonart, titel, aendern }: {
       };
       const [t] = m.renderAbc(bild.current, abc, {
         responsive: 'resize', add_classes: true, paddingtop: 0, paddingbottom: 0, paddingleft: 0, paddingright: 0,
-        staffwidth: breite - 4, wrap: { minSpacing: 1.6, maxSpacing: 2.7, preferredMeasuresPerLine: breite < 560 ? 2 : 4 },
+        // Größer gezeichnet auf breiten Bildschirmen (iPad): die Zeile füllt
+        // die Breite, die Noten sind gut zu treffen.
+        scale: skala, staffwidth: (breite - 4) / skala, wrap: { minSpacing: 1.6, maxSpacing: 2.7, preferredMeasuresPerLine: breite < 560 ? 2 : 4 },
         foregroundColor: farbe('--tinte', '#222'), selectionColor: farbe('--messing', '#a8781f'), dragColor: farbe('--messing', '#a8781f'),
         dragging: !!stand.current.aendern, clickListener: klick as unknown as import('abcjs').ClickListener,
       });
@@ -216,11 +219,6 @@ export function Notenblatt({ takte, raster, tonart, titel, aendern }: {
         </div>
       )}
       <div ref={bild} className={`einspiel-noten ${aendern ? 'bearbeitbar' : ''}`} aria-label="Noten" tabIndex={aendern ? 0 : undefined} />
-      {aendern && (
-        <p className="gedaempft text-xs">
-          Note antippen, dann ▲▼ (mit der Maus: ziehen). Ein Wert in der Palette ändert die gewählte Note; „Note“ schreibt in eine Pause und rückt weiter. Vorspielen beginnt bei der gewählten Note.
-        </p>
-      )}
     </div>
   );
 }
