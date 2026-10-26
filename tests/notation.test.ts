@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  abcTon, alsAbc, anschlaege, aufLeiter, effektivwert, einsaetze, glaetten, hysterese, mitschnittAb, nachbessern, notationText, notenDateiname, notenwerte,
+  abcTon, alsAbc, anschlaege, aufLeiter, effektivwert, einsaetze, glaetten, hysterese, nachbessern, notationText, notenDateiname, notenwerte,
   rastern, tempoAusTipps, tonartFinden, versatzSchaetzen, zellen, zellenDauer, zellenJeSchlag, zellenJeTakt, zerlegen,
   type Raster, type Tonrahmen,
 } from '@/domain/notation';
@@ -365,23 +365,5 @@ describe('ABC mit Tonart', () => {
     expect(g).toContain('F4 f4 =F4 ^F4 |]');
     const bb = alsAbc([{ noten: [{ midi: 63, dauer: 8 }, { midi: 61, dauer: 8 }] }], VIERVIERTEL, { titel: 'B' }, tonartFinden('Bb'));
     expect(bb).toContain('E8 _D8 |]');
-  });
-});
-
-describe('Mitschnitt', () => {
-  const stueck = (beginn: number, werte: number[]) => ({ beginn, daten: Float32Array.from(werte) });
-  it('setzt die Stücke ab dem Taktanfang zusammen und lässt den Einzähler weg', () => {
-    // Rate 10: Stücke bei 0,0 s und 0,4 s, Taktanfang bei 0,2 s.
-    const spur = mitschnittAb([stueck(0, [1, 2, 3, 4]), stueck(0.4, [5, 6, 7, 8])], 10, 0.2);
-    expect([...spur]).toEqual([3, 4, 5, 6, 7, 8]);
-  });
-  it('lässt Lücken still und nimmt bei Überlappung das spätere Stück', () => {
-    expect([...mitschnittAb([stueck(0, [1, 1]), stueck(0.4, [2, 2])], 10, 0)]).toEqual([1, 1, 0, 0, 2, 2]);
-    expect([...mitschnittAb([stueck(0, [1, 1, 1]), stueck(0.2, [2, 2])], 10, 0)]).toEqual([1, 1, 2, 2]);
-  });
-  it('ist leer ohne Stücke oder wenn alles vor dem Taktanfang liegt', () => {
-    expect(mitschnittAb([], 48000, 1)).toHaveLength(0);
-    expect(mitschnittAb([stueck(0, [1, 2, 3])], 10, 1)).toHaveLength(0);
-    expect([...mitschnittAb([stueck(0, [1, 2, 3])], 10, 0.3)]).toEqual([]);
   });
 });

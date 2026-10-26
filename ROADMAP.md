@@ -289,11 +289,8 @@ G-02 getrennt — Rhythmus zuerst, Töne später.
   Pegelschwelle fürs Einsingen liegt bei −50 dBFS (`grundfrequenz`,
   Parameter `mindestPegel`; das Stimmgerät behält −42). Mehr geht im Browser
   nicht: iOS kennt keinen Weg, Lautsprecher und rohes Mikrofon zu
-  kombinieren. Dazu **„▶ Anhören“** nach der Aufnahme: ein AudioWorklet
-  (`public/mitschnitt.worklet.js`) schreibt das Mikrofon mit,
-  `mitschnittAb` (notation.ts, getestet) setzt die Stücke ab Schlag 1 ohne
-  Einzähler zusammen; die Spur zeigt dann die ganze Aufnahme mit Abspielkopf.
-  Nur im Dialog — Audio wird weiterhin nicht gespeichert.
+  kombinieren. Die eigene Aufnahme wird nicht behalten — angehört wird das
+  Transkribierte (G-04), korrigiert im Notensatz (G-01).
 
 ### G-04 · Vorspielen: Noten hörbar machen (Instrumente, Begleitung)
 
