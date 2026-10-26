@@ -1,0 +1,589 @@
+'use client';
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import {
+  alsAbc, effektivwert, FEINHEITEN, notenDateiname, rastern, taktDauer, tempoAusTipps, TONARTEN, tonartFinden, versatzSchaetzen,
+  zellenDauer, zellenJeSchlag, type Feinheit, type Raster, type Tonrahmen,
+} from '@/domain/notation';
+import { pdfBauen, type Seitenbild } from '@/domain/scan';
+import { schlaegeJeTakt, TAKTARTEN, taktartText, type Nenner } from '@/domain/takt';
+import { frequenzZuTon, grundfrequenz, type Stimmung } from '@/domain/ueben';
+import { audioSitzung, gespeichert, klangPuffer, speichern, wachHalten } from './klang';
+import { stueckAnlegen } from './lokal';
+import { useMetronom } from './MetronomKontext';
+import { useStimmgeraetApi } from './StimmgeraetKontext';
+import { fehlerGrund } from './speicherfehler';
+import { useDialogFokus, useEscape } from './tasten';
+
+// Einsingen oder Audio laden (G-02/G-03): eine Stimme wird aufgenommen —
+// live über das Mikrofon mit Einzähler und Klick, oder aus einer Audio-Datei
+// (Sprachmemo, mp3, wav) — und auf dem Taktraster zu Noten. Das Ergebnis ist
+// ein Vorschlag (abcjs zeichnet ihn); „Als Stück speichern“ legt ein Stück
+// mit gerenderter PDF an, die ABC-Quelle bleibt am Stück (`notation`).
+// Rechnen in @/domain/notation; Tonhöhen wie beim Stimmgerät (YIN), schon
+// notiert fürs Instrument (Stimmung aus dem Stimmgerät).
+
+export type EinspielQuelle = 'mikro' | 'datei';
+type Phase = 'bereit' | 'zaehlt' | 'nimmt' | 'rechnet' | 'vorschlag';
+
+const FEINHEIT_SCHLUESSEL = 'ueben:einspiel-feinheit';
+const KLICK_SCHLUESSEL = 'ueben:einspiel-klick';
+const TONART_SCHLUESSEL = 'ueben:einspiel-tonart';
+// Längste Aufnahme in Takten — danach hält die App von selbst an.
+const MAX_TAKTE = 64;
+// Audio-Dateien: Abtastrate und Fenster der Tonerkennung (23 ms Fenster
+// reichen ab ~45 Hz; Schritt 11,6 ms).
+const RATE = 22050, FENSTER = 1024, SCHRITT = 256;
+const KLAR = 0.85;
+// Gerenderte Seite (A4-Verhältnis) in Pixeln.
+const SEITE_B = 1240, SEITE_H = 1754, SEITE_RAND = 90, SKALA = 1.6;
+
+const luft = () => new Promise<void>((ok) => setTimeout(ok, 0));
+
+const ACCEPT = 'audio/*,.m4a,.mp3,.wav,.aac,.aiff,.caf,.ogg,.flac';
+function audioWaehlen(): Promise<File | null> {
+  return new Promise((ok) => {
+    let fertig = false;
+    const ende = (f: File | null) => { if (!fertig) { fertig = true; ok(f); } };
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = ACCEPT;
+    input.onchange = () => ende(input.files?.[0] ?? null);
+    input.oncancel = () => ende(null);
+    window.addEventListener('focus', () => window.setTimeout(() => { if (!input.files?.length) ende(null); }, 1500), { once: true });
+    input.click();
+  });
+}
+
+interface Mikro {
+  stream: MediaStream; ctx: AudioContext; raf: number; quellen: AudioBufferSourceNode[]; t0: number; freigeben: (() => void) | null;
+}
+interface Wiedergabe { ctx: AudioContext; quelle: AudioBufferSourceNode; beginn: number; raf: number }
+
+export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, fertig, schliessen }: {
+  quelle: EinspielQuelle;
+  sammlungen: string[]; tags: string[];
+  fertig: (meldung: string) => void;
+  schliessen: () => void;
+}) {
+  const metro = useMetronom();
+  const stimm = useStimmgeraetApi();
+  const [quelle, setQuelle] = useState<EinspielQuelle>(quelleStart);
+  const [phase, setPhase] = useState<Phase>('bereit');
+  // Raster: Vorgaben vom Metronom, hier nur für diese Aufnahme geändert.
+  const [bpm, setBpmRoh] = useState(metro.bpm);
+  const setBpm = (n: number) => setBpmRoh(Math.min(300, Math.max(20, Math.round(n))));
+  // Das Tempo-Feld: frei tippen (Text nur während der Eingabe), übernommen
+  // und begrenzt beim Verlassen oder mit Enter.
+  const [tempoText, setTempoText] = useState<string | null>(null);
+  const tempoUebernehmen = () => { const n = Number(tempoText); if (n) setBpm(n); setTempoText(null); };
+  const [taktart, setTaktart] = useState<[number, Nenner]>([metro.takt, metro.nenner]);
+  const [feinheit, setFeinheitRoh] = useState<Feinheit>(() => (gespeichert<number>(FEINHEIT_SCHLUESSEL, 16) === 8 ? 8 : 16));
+  const setFeinheit = (f: Feinheit) => { setFeinheitRoh(f); speichern(FEINHEIT_SCHLUESSEL, f); };
+  const [klickWeiter, setKlickWeiterRoh] = useState(() => gespeichert(KLICK_SCHLUESSEL, true));
+  const setKlickWeiter = (an: boolean) => { setKlickWeiterRoh(an); speichern(KLICK_SCHLUESSEL, an); };
+  // Tonart (notiert, wie das Stimmgerät zeigt): zieht die Töne auf die Leiter
+  // und setzt die Vorzeichen; leer = keine Tonart, Töne bleiben, wie gehört.
+  const [tonartAbc, setTonartAbcRoh] = useState(() => gespeichert<string>(TONART_SCHLUESSEL, 'C'));
+  const setTonartAbc = (a: string) => { setTonartAbcRoh(a); speichern(TONART_SCHLUESSEL, a); };
+  const tonart = useMemo(() => tonartFinden(tonartAbc), [tonartAbc]);
+  const raster = useMemo<Raster>(() => ({ bpm, zaehler: taktart[0], nenner: taktart[1], feinheit }), [bpm, taktart, feinheit]);
+  const rasterRef = useRef(raster);
+  useEffect(() => { rasterRef.current = raster; }, [raster]);
+  const einst = useRef({ kammerton: stimm.kammerton, stimmung: stimm.stimmung as Stimmung });
+  useEffect(() => { einst.current = { kammerton: stimm.kammerton, stimmung: stimm.stimmung }; }, [stimm.kammerton, stimm.stimmung]);
+
+  // Die Tonhöhenspur: Mikrofon ab Schlag 1 (start 0), Datei ab Dateianfang
+  // mit `start` = Taktanfang in Sekunden.
+  const [spur, setSpur] = useState<Tonrahmen[]>([]);
+  const [start, setStart] = useState(0);
+  const [dauer, setDauer] = useState(0); // Länge der Datei in Sekunden
+  const [dateiName, setDateiName] = useState('');
+  const [titel, setTitel] = useState('');
+  const [fehler, setFehler] = useState('');
+  const [laeuft, setLaeuft] = useState<string | null>(null);
+  // Live-Anzeige (sparsam aktualisiert): Einzähler, Takt/Schlag, gehörter Ton.
+  const [anzeige, setAnzeige] = useState<{ zaehlt?: number; takt?: number; schlag?: number; ton?: string }>({});
+  const [spielt, setSpielt] = useState(false);
+
+  const mikro = useRef<Mikro | null>(null);
+  const rahmen = useRef<Tonrahmen[]>([]);
+  const audio = useRef<AudioBuffer | null>(null);
+  const wiedergabe = useRef<Wiedergabe | null>(null);
+  const spurBild = useRef<HTMLCanvasElement>(null);
+  const notenBild = useRef<HTMLDivElement>(null);
+  const fokus = useDialogFokus<HTMLDivElement>();
+
+  // Rastern: Spur ab Taktanfang, um die geschätzte Latenz vorgezogen
+  // (Aufnahmeweg und Einrasten der Tonerkennung verspäten alle Einsätze
+  // gleichmäßig), mit Tonart.
+  const takte = useMemo(() => {
+    if (phase !== 'vorschlag') return [];
+    const abStart = spur.map((f) => ({ ...f, zeit: f.zeit - start }));
+    const versatz = versatzSchaetzen(abStart, raster);
+    return rastern(versatz ? abStart.map((f) => ({ ...f, zeit: f.zeit - versatz })) : abStart, raster, { tonart });
+  }, [phase, spur, start, raster, tonart]);
+  const abc = useMemo(() => alsAbc(takte, raster, { titel }, tonart), [takte, raster, titel, tonart]);
+
+  // ── Spur zeichnen ──
+  const zeichnen = useCallback((liste: readonly Tonrahmen[], jetzt: number | null) => {
+    const c = spurBild.current;
+    if (!c) return;
+    const r = rasterRef.current;
+    const dpr = window.devicePixelRatio || 1;
+    const b = c.clientWidth, h = c.clientHeight;
+    if (c.width !== Math.round(b * dpr) || c.height !== Math.round(h * dpr)) { c.width = Math.round(b * dpr); c.height = Math.round(h * dpr); }
+    const g = c.getContext('2d')!;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, b, h);
+    const stil = getComputedStyle(c);
+    const farbe = (name: string, sonst: string) => stil.getPropertyValue(name).trim() || sonst;
+    // Zeitfenster: Datei ganz, live die letzten acht Sekunden.
+    const live = quelle === 'mikro';
+    const ende = live ? Math.max(8, jetzt ?? 0) : Math.max(dauer, 1);
+    const anfang = live ? ende - 8 : 0;
+    const x = (t: number) => ((t - anfang) / (ende - anfang)) * b;
+    // Tonhöhenbereich aus den Daten, mindestens zwei Oktaven.
+    const toene = liste.filter((f) => f.midi !== null).map((f) => f.midi!);
+    let lo = toene.length ? Math.min(...toene) - 3 : 55, hi = toene.length ? Math.max(...toene) + 3 : 79;
+    if (hi - lo < 24) { const m = (hi + lo) / 2; lo = m - 12; hi = m + 12; }
+    const y = (midi: number) => h - ((midi - lo) / (hi - lo)) * h;
+    // Taktraster ab `start` (Datei) bzw. 0 (live).
+    const td = taktDauer(r), sd = zellenDauer(r) * zellenJeSchlag(r);
+    const nullpunkt = live ? 0 : start;
+    // Taktstriche kräftiger, Schläge zart — in jeder Farbwelt aus der Tinte.
+    g.lineWidth = 1;
+    g.strokeStyle = farbe('--tinte', '#222');
+    const ersterSchlag = Math.floor((anfang - nullpunkt) / sd);
+    for (let k = ersterSchlag; ; k++) {
+      const t = nullpunkt + k * sd;
+      if (t > ende) break;
+      if (t < anfang) continue;
+      const taktgrenze = Math.abs((t - nullpunkt) / td - Math.round((t - nullpunkt) / td)) < 1e-6;
+      g.globalAlpha = taktgrenze ? 0.45 : 0.12;
+      g.beginPath(); g.moveTo(x(t) + 0.5, 0); g.lineTo(x(t) + 0.5, h); g.stroke();
+    }
+    g.globalAlpha = 1;
+    // Vor dem Taktanfang (Datei): abgedunkelt.
+    if (!live && start > anfang) { g.fillStyle = 'rgb(0 0 0 / 8%)'; g.fillRect(0, 0, x(start), h); }
+    // Die Töne.
+    g.fillStyle = farbe('--messing', '#b08d57');
+    const breite = Math.max(1.5, (b / (ende - anfang)) * 0.012);
+    for (const f of liste) {
+      if (f.midi === null || f.zeit < anfang || f.zeit > ende) continue;
+      g.fillRect(x(f.zeit), y(Math.round(f.midi)) - 2, breite, 4);
+    }
+    // Abspielkopf (Datei) oder „jetzt“ (live).
+    if (jetzt !== null) {
+      g.strokeStyle = farbe('--tinte', '#222'); g.lineWidth = 1.5;
+      g.beginPath(); g.moveTo(x(jetzt), 0); g.lineTo(x(jetzt), h); g.stroke();
+    }
+  }, [quelle, dauer, start]);
+  useEffect(() => { if (phase !== 'nimmt' && phase !== 'zaehlt') zeichnen(spur, null); }, [zeichnen, spur, phase, raster]);
+  useEffect(() => {
+    const neu = () => zeichnen(mikro.current ? rahmen.current : spur, null);
+    window.addEventListener('resize', neu);
+    return () => window.removeEventListener('resize', neu);
+  }, [zeichnen, spur]);
+
+  // ── Mikrofon ──
+  const stoppen = useCallback((behalten: boolean) => {
+    const m = mikro.current;
+    if (!m) return;
+    cancelAnimationFrame(m.raf);
+    for (const q of m.quellen) { try { q.stop(); } catch { /* schon vorbei */ } }
+    m.stream.getTracks().forEach((t) => t.stop());
+    void m.ctx.close();
+    m.freigeben?.();
+    mikro.current = null;
+    setAnzeige({});
+    if (behalten) { setSpur([...rahmen.current]); setStart(0); setPhase('vorschlag'); } else setPhase('bereit');
+  }, []);
+
+  const aufnehmen = useCallback(async () => {
+    if (mikro.current) return;
+    setFehler('');
+    try {
+      audioSitzung('play-and-record');
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+      const ctx = new AudioContext();
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 4096;
+      ctx.createMediaStreamSource(stream).connect(analyser);
+      const puffer = new Float32Array(analyser.fftSize);
+      const r = rasterRef.current;
+      const schlag = 60 / r.bpm, jeTakt = schlaegeJeTakt(r.zaehler, r.nenner), td = taktDauer(r);
+      const beginn = ctx.currentTime + 0.15;
+      const t0 = beginn + jeTakt * schlag;
+      const maxDauer = MAX_TAKTE * td;
+      // Klicks: ein Takt Einzähler, danach auf Wunsch weiter.
+      const gain = ctx.createGain();
+      gain.gain.value = metro.laut;
+      gain.connect(ctx.destination);
+      const betont = klangPuffer(ctx, metro.klang, 'betont'), normal = klangPuffer(ctx, metro.klang, 'normal');
+      const quellen: AudioBufferSourceNode[] = [];
+      const klick = (t: number, stark: boolean) => { const q = ctx.createBufferSource(); q.buffer = stark ? betont : normal; q.connect(gain); q.start(t); quellen.push(q); };
+      for (let i = 0; i < jeTakt; i++) klick(beginn + i * schlag, i === 0);
+      if (klickWeiter) for (let n = 0; n < jeTakt * MAX_TAKTE; n++) klick(t0 + n * schlag, n % jeTakt === 0);
+      rahmen.current = [];
+      // Der Analyser liefert die letzten 4096 Abtastwerte: Mitte des Fensters
+      // plus Eingangslatenz zurückrechnen.
+      const versatz = analyser.fftSize / 2 / ctx.sampleRate + (ctx.baseLatency || 0);
+      let zuletzt = 0, letzteAnzeige = 0, ton: ReturnType<typeof frequenzZuTon> = null;
+      const schleife = () => {
+        const m = mikro.current;
+        if (!m) return;
+        const jetzt = ctx.currentTime;
+        if (jetzt - zuletzt >= 0.02) {
+          zuletzt = jetzt;
+          analyser.getFloatTimeDomainData(puffer);
+          const g = grundfrequenz(puffer, ctx.sampleRate);
+          ton = g && g.klarheit > KLAR ? frequenzZuTon(g.frequenz, einst.current.kammerton, einst.current.stimmung) : null;
+          const zeit = jetzt - versatz - t0;
+          if (zeit >= -0.05) rahmen.current.push({ zeit, midi: ton ? ton.midi + ton.cent / 100 : null, pegel: effektivwert(puffer) });
+        }
+        const rel = jetzt - t0;
+        if (jetzt - letzteAnzeige > 0.08) {
+          letzteAnzeige = jetzt;
+          if (rel < 0) setAnzeige({ zaehlt: Math.max(1, jeTakt - Math.floor(-rel / schlag)) });
+          else {
+            setPhase('nimmt');
+            setAnzeige({ takt: Math.floor(rel / td) + 1, schlag: Math.floor((rel % td) / schlag) + 1, ton: ton ? `${ton.name}${ton.oktave}` : '' });
+          }
+          zeichnen(rahmen.current, Math.max(0, rel));
+        }
+        if (rel > maxDauer) { stoppen(true); return; }
+        m.raf = requestAnimationFrame(schleife);
+      };
+      mikro.current = { stream, ctx, raf: requestAnimationFrame(schleife), quellen, t0, freigeben: null };
+      setPhase('zaehlt');
+      setAnzeige({ zaehlt: jeTakt });
+      const freigeben = await wachHalten();
+      if (mikro.current) mikro.current.freigeben = freigeben; else freigeben?.();
+    } catch (e) {
+      setFehler((e as Error).name === 'NotAllowedError'
+        ? 'Das Mikrofon ist nicht erlaubt. In den Einstellungen des Browsers für diese Seite erlauben.'
+        : `Mikrofon nicht verfügbar (${(e as Error).name}).`);
+    }
+  }, [metro.klang, metro.laut, klickWeiter, stoppen, zeichnen]);
+
+  // ── Audio-Datei ──
+  const dateiLaden = useCallback(async (f: File) => {
+    setFehler(''); setPhase('rechnet'); setLaeuft('Audio wird gelesen …');
+    try {
+      const ctx = new AudioContext();
+      let roh: AudioBuffer;
+      try { roh = await ctx.decodeAudioData(await f.arrayBuffer()); } finally { void ctx.close(); }
+      if (roh.duration > 300) throw new Error('länger als fünf Minuten — bitte einen Ausschnitt');
+      const offline = new OfflineAudioContext(1, Math.ceil(roh.duration * RATE), RATE);
+      const q = offline.createBufferSource();
+      q.buffer = roh; q.connect(offline.destination); q.start();
+      const mono = await offline.startRendering();
+      audio.current = mono;
+      const d = mono.getChannelData(0);
+      const liste: Tonrahmen[] = [];
+      let erster: number | null = null;
+      for (let i = 0; i + FENSTER <= d.length; i += SCHRITT) {
+        const fenster = d.subarray(i, i + FENSTER);
+        const g = grundfrequenz(fenster, RATE);
+        const ton = g && g.klarheit > KLAR ? frequenzZuTon(g.frequenz, einst.current.kammerton, einst.current.stimmung) : null;
+        const zeit = (i + FENSTER / 2) / RATE;
+        liste.push({ zeit, midi: ton ? ton.midi + ton.cent / 100 : null, pegel: effektivwert(fenster) });
+        if (ton && erster === null) erster = zeit;
+        if (liste.length % 300 === 0) { setLaeuft(`Töne werden erkannt … ${Math.round((100 * i) / d.length)} %`); await luft(); }
+      }
+      setSpur(liste); setDauer(mono.duration); setStart(erster ?? 0); setDateiName(f.name);
+      if (!titel) setTitel(f.name.replace(/\.[^.]+$/, ''));
+      setPhase('vorschlag');
+    } catch (x) {
+      setFehler(`Die Datei ließ sich nicht lesen: ${fehlerGrund(x)}`);
+      setPhase('bereit');
+    } finally { setLaeuft(null); }
+  }, [titel]);
+
+  const wiedergabeAus = useCallback(() => {
+    const w = wiedergabe.current;
+    if (!w) return;
+    cancelAnimationFrame(w.raf);
+    try { w.quelle.stop(); } catch { /* schon vorbei */ }
+    void w.ctx.close();
+    wiedergabe.current = null;
+    setSpielt(false);
+  }, []);
+  const abspielen = useCallback(() => {
+    if (wiedergabe.current) return wiedergabeAus();
+    const a = audio.current;
+    if (!a) return;
+    audioSitzung('playback');
+    const ctx = new AudioContext();
+    const q = ctx.createBufferSource();
+    q.buffer = a; q.connect(ctx.destination);
+    const beginn = ctx.currentTime;
+    q.start(beginn);
+    q.onended = () => { if (wiedergabe.current?.quelle === q) wiedergabeAus(); };
+    const schleife = () => {
+      const w = wiedergabe.current;
+      if (!w) return;
+      zeichnen(spur, w.ctx.currentTime - w.beginn);
+      w.raf = requestAnimationFrame(schleife);
+    };
+    wiedergabe.current = { ctx, quelle: q, beginn, raf: requestAnimationFrame(schleife) };
+    setSpielt(true);
+  }, [spur, zeichnen, wiedergabeAus]);
+
+  // Tempo tippen — auch während die Datei läuft.
+  const tipps = useRef<number[]>([]);
+  const tippen = () => {
+    tipps.current = [...tipps.current, performance.now()].slice(-8);
+    const t = tempoAusTipps(tipps.current);
+    if (t) setBpm(t);
+  };
+  // Taktanfang: in die Spur tippen (nur Datei).
+  const spurTippen = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (quelle !== 'datei' || !spur.length) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    setStart(Math.max(0, Math.min(dauer, ((e.clientX - r.left) / r.width) * dauer)));
+  };
+
+  // Quelle wechseln: alles zurück auf Anfang.
+  const quelleWechseln = (q: EinspielQuelle) => {
+    if (q === quelle) return;
+    stoppen(false); wiedergabeAus();
+    setQuelle(q); setSpur([]); setStart(0); setDauer(0); setDateiName(''); setPhase('bereit'); setFehler('');
+  };
+  const nochmal = () => { wiedergabeAus(); setSpur([]); setStart(0); setDauer(0); setDateiName(''); setPhase('bereit'); };
+
+  // ── Vorschlag zeichnen (abcjs) ──
+  useEffect(() => {
+    const el = notenBild.current;
+    if (!el || phase !== 'vorschlag') return;
+    if (!takte.length) { el.replaceChildren(); return; }
+    let aktuell = true;
+    void import('abcjs').then((m) => {
+      if (!aktuell || !notenBild.current) return;
+      m.renderAbc(notenBild.current, abc, { responsive: 'resize', paddingtop: 0, paddingbottom: 0, paddingleft: 0, paddingright: 0 });
+    }).catch((x) => setFehler(`Die Noten ließen sich nicht zeichnen: ${fehlerGrund(x)}`));
+    return () => { aktuell = false; };
+  }, [phase, takte, abc]);
+
+  // ── Speichern: ABC → Seiten (JPEG) → PDF → Stück ──
+  async function speichernUndSchliessen() {
+    if (!takte.length || laeuft) return;
+    setFehler('');
+    const name = titel.trim() || (quelle === 'mikro' ? 'Eingesungen' : dateiName.replace(/\.[^.]+$/, '') || 'Aus Audio');
+    const text = alsAbc(takte, raster, { titel: name }, tonart);
+    try {
+      setLaeuft('Noten werden gezeichnet …');
+      await luft();
+      const seiten = await alsSeiten(text);
+      setLaeuft('PDF wird geschrieben …');
+      await luft();
+      const datei = new Blob([pdfBauen(seiten, name)], { type: 'application/pdf' });
+      await stueckAnlegen({
+        titel: name, stimme: '', datei, dateiname: notenDateiname(name, new Date()),
+        ...(sammlungen.length ? { sammlungen } : {}), ...(tags.length ? { tags } : {}),
+        notation: { format: 'abc', text, art: quelle === 'mikro' ? 'eingesungen' : 'audio' },
+      });
+      fertig(`„${name}“ mit ${takte.length} ${takte.length === 1 ? 'Takt' : 'Takten'} angelegt${sammlungen.length ? `, in „${sammlungen.join(', ')}“` : ''}.`);
+    } catch (x) {
+      setFehler(`Speichern ging nicht: ${fehlerGrund(x)}`);
+      setLaeuft(null);
+    }
+  }
+
+  const beschaeftigt = phase === 'zaehlt' || phase === 'nimmt' || phase === 'rechnet' || !!laeuft;
+  useEscape(() => { if (!beschaeftigt) schliessen(); });
+  useEffect(() => () => { stoppen(false); wiedergabeAus(); }, [stoppen, wiedergabeAus]);
+
+  const mikroAktiv = phase === 'zaehlt' || phase === 'nimmt';
+  const festesRaster = quelle === 'mikro' && phase !== 'bereit';
+  const stimmungHinweis = stimm.stimmung !== 'C' ? ` · notiert für ${stimm.stimmung}-Instrument` : '';
+
+  return createPortal(
+    <div className="scan-dialog" role="dialog" aria-modal="true" aria-label="Einsingen oder Audio laden" ref={fokus} tabIndex={-1}>
+      <div className="panel-kopf mit-linie">
+        <h2>{quelle === 'mikro' ? 'Einsingen' : 'Aus Audio'}</h2>
+        <span className="bib-anzahl">{phase === 'vorschlag' && takte.length ? `· ${takte.length} ${takte.length === 1 ? 'Takt' : 'Takte'}` : ''}</span>
+        <span className="flex-1" />
+        <button type="button" className="panel-zu" onClick={schliessen} disabled={beschaeftigt} aria-label="Abbrechen">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" /></svg>
+        </button>
+      </div>
+
+      <div className="scan-inhalt">
+        {fehler && <p className="karte warnung" role="alert">{fehler}</p>}
+
+        <div className="segment !mx-0" role="group" aria-label="Quelle">
+          <button type="button" aria-pressed={quelle === 'mikro'} onClick={() => quelleWechseln('mikro')} disabled={beschaeftigt}>Mikrofon</button>
+          <button type="button" aria-pressed={quelle === 'datei'} onClick={() => quelleWechseln('datei')} disabled={beschaeftigt}>Audio-Datei</button>
+        </div>
+
+        <div className="karte einspiel-raster">
+          <label className="einspiel-feld">
+            <span>Tempo</span>
+            <span className="flex items-center gap-2">
+              <input className="feld feld-zahl" type="number" inputMode="numeric" min={20} max={300} value={tempoText ?? String(bpm)} disabled={festesRaster}
+                onChange={(e) => setTempoText(e.target.value)} onBlur={tempoUebernehmen}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); tempoUebernehmen(); } }} aria-label="Tempo in Schlägen je Minute" />
+              <button type="button" className="knopf knopf-leise knopf-klein" onClick={tippen} disabled={festesRaster}>Tempo tippen</button>
+            </span>
+          </label>
+          <div className="einspiel-feld">
+            <span>Taktart</span>
+            <div className="segment !mx-0" role="group" aria-label="Taktart">
+              {TAKTARTEN.map(([z, n]) => (
+                <button key={`${z}/${n}`} type="button" aria-pressed={taktart[0] === z && taktart[1] === n} disabled={festesRaster} onClick={() => setTaktart([z, n])}>{taktartText(z, n)}</button>
+              ))}
+            </div>
+          </div>
+          <div className="einspiel-feld">
+            <span>Kleinster Wert</span>
+            <div className="segment !mx-0" role="group" aria-label="Kleinster Notenwert">
+              {FEINHEITEN.map((f) => (
+                <button key={f.feinheit} type="button" aria-pressed={feinheit === f.feinheit} onClick={() => setFeinheit(f.feinheit)}>{f.name}</button>
+              ))}
+            </div>
+          </div>
+          <label className="einspiel-feld">
+            <span>Tonart</span>
+            <select className="feld feld-zahl" value={tonartAbc} onChange={(e) => setTonartAbc(e.target.value)} aria-label="Tonart (zieht die Töne auf die Leiter)">
+              <option value="">keine</option>
+              {TONARTEN.map((t) => <option key={t.abc} value={t.abc}>{t.name}</option>)}
+            </select>
+          </label>
+          {quelle === 'mikro' && (
+            <label className="einspiel-feld">
+              <span>Klick während der Aufnahme</span>
+              <input type="checkbox" role="switch" className="ios-schalter" checked={klickWeiter} disabled={festesRaster} onChange={(e) => setKlickWeiter(e.target.checked)} />
+            </label>
+          )}
+        </div>
+
+        <canvas ref={spurBild} className={`einspiel-spur ${quelle === 'datei' && spur.length ? 'tippbar' : ''}`} onPointerDown={spurTippen}
+          aria-label="Tonhöhenspur" role="img" />
+
+        {quelle === 'mikro' && (
+          <div className="einspiel-mitte">
+            {phase === 'bereit' && (
+              <>
+                <button type="button" className="einspiel-aufnahme" onClick={() => void aufnehmen()} aria-label="Aufnahme starten">
+                  <span className="einspiel-punkt" aria-hidden="true" />
+                </button>
+                <p className="gedaempft text-sm">Ein Takt wird eingezählt, dann läuft die Aufnahme. Eine Stimme: singen, summen, Trompete, Bass{stimmungHinweis}.</p>
+              </>
+            )}
+            {mikroAktiv && (
+              <>
+                <div className="einspiel-stand" role="status" aria-live="polite">
+                  {phase === 'zaehlt'
+                    ? <span className="einspiel-zaehlt">{anzeige.zaehlt ?? ''}</span>
+                    : <><span className="einspiel-zaehlt">{anzeige.takt ?? 1}</span><span className="gedaempft text-sm">Takt · Schlag {anzeige.schlag ?? 1}</span></>}
+                  <span className="einspiel-ton">{anzeige.ton || ' '}</span>
+                </div>
+                <button type="button" className={`einspiel-aufnahme ${phase === 'nimmt' ? 'nimmt' : ''}`} onClick={() => stoppen(phase === 'nimmt')} aria-label={phase === 'nimmt' ? 'Aufnahme beenden' : 'Einzähler abbrechen'}>
+                  <span className="einspiel-stopp" aria-hidden="true" />
+                </button>
+                <p className="gedaempft text-sm">{phase === 'zaehlt' ? 'Einzähler …' : 'Aufnahme läuft — Stopp, wenn die Melodie zu Ende ist.'}</p>
+              </>
+            )}
+            {phase === 'vorschlag' && (
+              <div className="einspiel-zeile">
+                <button type="button" className="knopf knopf-leise knopf-klein" onClick={nochmal}>Nochmal aufnehmen</button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {quelle === 'datei' && (
+          <div className="einspiel-mitte">
+            {phase === 'bereit' && (
+              <>
+                <button type="button" className="knopf" onClick={() => void audioWaehlen().then((f) => f && dateiLaden(f))}>Audio-Datei wählen</button>
+                <p className="gedaempft text-sm">Sprachmemo (m4a), mp3, wav — eine Stimme, kein ganzer Song. Vom iPhone: Sprachmemo teilen → „In Dateien sichern“, dann hier wählen{stimmungHinweis}.</p>
+              </>
+            )}
+            {phase === 'rechnet' && <p className="gedaempft text-sm" role="status">{laeuft}</p>}
+            {phase === 'vorschlag' && (
+              <>
+                <div className="einspiel-zeile">
+                  <button type="button" className="knopf knopf-leise knopf-klein" onClick={abspielen} aria-pressed={spielt}>{spielt ? '■ Anhalten' : '▶ Anhören'}</button>
+                  <button type="button" className="knopf knopf-leise knopf-klein" onClick={nochmal}>Andere Datei</button>
+                  <span className="gedaempft text-xs">{dateiName} · {Math.round(dauer)} s · Taktanfang bei {start.toFixed(2)} s</span>
+                </div>
+                <p className="gedaempft text-xs">Tempo mittippen, während die Datei läuft. In die Spur tippen, wo der erste Takt beginnt — das Raster rückt mit.</p>
+              </>
+            )}
+          </div>
+        )}
+
+        {phase === 'vorschlag' && (
+          <div className="karte space-y-2">
+            {takte.length
+              ? <div ref={notenBild} className="einspiel-noten" aria-label="Vorschlag als Noten" />
+              : <p className="gedaempft text-sm">Kein Ton erkannt. Näher ans Mikrofon, lauter, oder eine andere Datei.</p>}
+            <p className="gedaempft text-xs">Ein Vorschlag — die Erkennung ist nie fehlerfrei. Der Editor zum Korrigieren kommt als Nächstes; bis dahin lässt sich die Quelle (ABC) am Stück weiterverwenden.</p>
+          </div>
+        )}
+      </div>
+
+      <form className="scan-fuss" onSubmit={(e) => { e.preventDefault(); void speichernUndSchliessen(); }}>
+        <input className="feld" value={titel} onChange={(e) => setTitel(e.target.value)} placeholder="Titel des Stücks" aria-label="Titel" disabled={!!laeuft} />
+        <button type="submit" className="knopf" disabled={phase !== 'vorschlag' || !takte.length || !!laeuft}>{laeuft ?? 'Als Stück speichern'}</button>
+      </form>
+    </div>,
+    document.body,
+  );
+}
+
+// ABC → Seiten: abcjs zeichnet je Notenzeile ein SVG; die Zeilen werden auf
+// A4-Seiten verteilt (keine Zeile wird zerschnitten) und als JPEG geliefert.
+async function alsSeiten(abc: string): Promise<Seitenbild[]> {
+  const halter = document.createElement('div');
+  halter.style.cssText = `position:fixed;left:-30000px;top:0;width:${SEITE_B}px;background:#fff;color:#000`;
+  document.body.appendChild(halter);
+  try {
+    const { renderAbc } = await import('abcjs');
+    renderAbc(halter, abc, {
+      oneSvgPerLine: true, scale: SKALA, staffwidth: (SEITE_B - 2 * SEITE_RAND) / SKALA,
+      paddingleft: 0, paddingright: 0, paddingtop: 10, paddingbottom: 10, foregroundColor: '#000',
+    });
+    const svgs = [...halter.querySelectorAll('svg')];
+    if (!svgs.length) throw new Error('abcjs hat nichts gezeichnet.');
+    const neu = () => { const c = document.createElement('canvas'); c.width = SEITE_B; c.height = SEITE_H; const g = c.getContext('2d')!; g.fillStyle = '#fff'; g.fillRect(0, 0, SEITE_B, SEITE_H); return c; };
+    const seiten: Seitenbild[] = [];
+    let canvas = neu(), y = SEITE_RAND;
+    for (const svg of svgs) {
+      // abcjs bemisst die Zeile unskaliert (viewBox) und skaliert per CSS-Transform —
+      // die Seite rechnet selbst: Maß aus der viewBox mal Skala.
+      const vb = (svg.getAttribute('viewBox') ?? '').split(/[\s,]+/).map(Number);
+      const b = Math.ceil((vb[2] || svg.clientWidth) * SKALA), h = Math.ceil((vb[3] || svg.clientHeight) * SKALA);
+      if (y + h > SEITE_H - SEITE_RAND && y > SEITE_RAND) { seiten.push(await alsJpeg(canvas)); canvas = neu(); y = SEITE_RAND; }
+      await svgZeichnen(svg, b, h, canvas, Math.round((SEITE_B - b) / 2), y);
+      y += h;
+    }
+    seiten.push(await alsJpeg(canvas));
+    return seiten;
+  } finally { halter.remove(); }
+}
+
+async function svgZeichnen(svg: SVGSVGElement, b: number, h: number, canvas: HTMLCanvasElement, x: number, y: number) {
+  const kopie = svg.cloneNode(true) as SVGSVGElement;
+  // Den CSS-Transform (Skalierung) nicht mitnehmen — als Bild skaliert die viewBox.
+  kopie.removeAttribute('style'); kopie.removeAttribute('class');
+  kopie.setAttribute('width', String(b)); kopie.setAttribute('height', String(h));
+  kopie.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(kopie)], { type: 'image/svg+xml;charset=utf-8' }));
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    canvas.getContext('2d')!.drawImage(img, x, y, b, h);
+  } finally { URL.revokeObjectURL(url); }
+}
+
+function alsJpeg(c: HTMLCanvasElement): Promise<Seitenbild> {
+  return new Promise((ok, fehler) => c.toBlob(async (blob) => {
+    if (!blob) return fehler(new Error('Die Seite ließ sich nicht als JPEG speichern.'));
+    ok({ jpeg: new Uint8Array(await blob.arrayBuffer()), b: c.width, h: c.height });
+  }, 'image/jpeg', 0.9));
+}

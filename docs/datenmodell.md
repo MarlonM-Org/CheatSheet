@@ -83,6 +83,9 @@ interface Stueck {
   kennung?: string;
   // F-03 Ausbaustufe: virtuelles Stück = Seitenbereich eines anderen
   quelle?: { stueckId: string; von: number; bis: number };
+  // G-01…G-03: selbst geschrieben oder eingesungen — die Quelle, aus der die PDF
+  // in `dateien` gerendert wurde; `art` = geschrieben | eingesungen | audio
+  notation?: { format: 'abc'; text: string; art: 'geschrieben' | 'eingesungen' | 'audio' };
 }
 ```
 

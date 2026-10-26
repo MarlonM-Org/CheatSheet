@@ -232,6 +232,50 @@ Oktavfehler, Übergänge); Kandidat wäre ein On-Device-Modell im Browser
 (ONNX/WASM, Richtung Basic Pitch). Eigenes Forschungsthema, bewusst von
 G-02 getrennt — Rhythmus zuerst, Töne später.
 
+**Konkretisiert und begonnen (2026-10-26, Branch `feature/einspielen-ui`):**
+
+- **Einstieg über „+ Noten“:** fünfter Punkt „Einsingen oder Audio laden“
+  (neben dem Leerzustand-Knopf „Einsingen“). Ein eigener Vollbild-Dialog
+  wie beim Scan: Quelle Mikrofon oder Audio-Datei (Sprachmemo m4a, mp3,
+  wav — eine Stimme, kein ganzer Song), Tempo (Feld, Tippen), Taktart,
+  kleinster Notenwert (Achtel/Sechzehntel), beim Mikrofon ein Takt
+  Einzähler und Klick während der Aufnahme. Tonhöhenspur als Bild, bei der
+  Datei mit Anhören, Tempo mittippen und Taktanfang per Tipp in die Spur.
+- **Ergebnis ist ein Vorschlag** (abcjs zeichnet ihn). „Als Stück
+  speichern“ legt ein normales Stück an: PDF (aus den Notenzeilen auf
+  A4-Seiten verteilt) in `dateien`, dazu das neue optionale Feld
+  `notation` am `Stueck` (`format: abc`, `text`, `art: geschrieben |
+  eingesungen | audio`). Sammlung/Tag wie beim Import. Audio wird nicht
+  gespeichert.
+- **Bibliothek:** Marker als Unterzeile („eingesungen“, „aus Audio“,
+  „geschrieben“), keine Sonder-Sammlung; ein Filter „nur Geschriebene“
+  später. „Bearbeiten“ im Kontext-Blatt kommt mit dem Editor (G-01).
+- **Nach dem Bearbeiten** (G-01): Stellen und Anmerkungen bleiben auf ihrer
+  Seitennummer, überzählige verfallen — Regel zuerst als Test.
+- **Rechnen in `src/domain/notation.ts`** (getestet): Rahmen (Tonhöhe mit
+  Cent, Pegel) → Hysterese (ein Ton läuft weiter, solange die Tonhöhe
+  weniger als einen Dreiviertel-Halbton vom Median der ganzen Strecke
+  abweicht: Vibrato zerhackt nichts, Gleiten wandert nicht mit; kurze
+  Aussetzer überbrückt) → Zellen (Median je Zelle, Mindestanteil klarer
+  Rahmen, mit **Tonart** auf den nächsten Leiterton gerundet) → Glätten
+  einzelner Ausreißer → Oktav-/Ansatz-Korrektur → Strecken (ein Einsatz
+  nach einer kurzen Lücke **oder ein Anschlag im Pegel**, Anstieg ≥ 6 dB in
+  50 ms, trennt auch gleiche Töne) → Notenwerte (auf dem Schlag bis zur
+  Takthälfte, dazwischen bis zur Schlaggrenze; Pausen ohne Punktierung) →
+  Bindebögen über Taktgrenzen → ABC mit Tonart und Vorzeichen nach
+  Notationsregel (gilt bis zum Taktstrich). Vorher wird die **Latenz** aus
+  der Lage aller Tonwechsel gegen das Achtelraster geschätzt und die Spur
+  vorgezogen. Die Tonerkennung ist die des Stimmgeräts (YIN), notiert fürs
+  Instrument; die Tonart ist in notierter Lage gemeint.
+- **Herkunft der Lesart (2026-10-26):** aus dem Prüfstand
+  `experimente/transkription/monophon.py` übertragen (siehe G-08,
+  Ergebnis des Experiments). Messlatte: „Alle meine Entchen“ (27 Noten,
+  90 bpm) als synthetische Spur mit Vibrato und Klavier-Pegel wird in
+  `tests/notation.test.ts` Note für Note richtig gelesen, auch um 120 ms
+  verspätet und ohne Tonart; legato gesungene gleiche Töne ohne Neuansatz
+  bleiben eine Note (das bleibt die Grenze des Verfahrens). Zur
+  Tonart-Auswahl im Dialog gehört „keine“ (Töne bleiben, wie gehört).
+
 ### G-04 · Vorspielen: Noten hörbar machen (Instrumente, Begleitung)
 
 Wunsch Marlon (2026-10-26): Was als Noten in der App liegt (G-01 geschrieben

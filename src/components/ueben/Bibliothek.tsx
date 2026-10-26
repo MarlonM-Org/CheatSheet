@@ -8,6 +8,7 @@ import {
   dateiSchluessel, gleicheSammlung, imFilter, mitSammlung, ohneSammlung, ordnerPlanen, sammlungenUebersicht, sammlungenVon,
   sammlungUmbenennen, sicherungFaellig,
 } from '@/domain/sammlungen';
+import { notationText } from '@/domain/notation';
 import { quellenText, stellenJeStueck } from '@/domain/sicht';
 import type { MixBereich } from '@/domain/stellen';
 import { imTagFilter, mitTag, tagsVon, tagUebersicht, type Tag } from '@/domain/tags';
@@ -20,6 +21,7 @@ import {
 } from './lokal';
 import { MehrKnopf, SammlungKontext, StueckKontext, useHalten } from './Kontext';
 import { HinzufuegenMenue, SammlungenLeiste, SammlungWahl } from './Sammlungen';
+import { EinspielenDialog, type EinspielQuelle } from './Einspielen';
 import { bilderWaehlen, ScanDialog, type ScanArt } from './Scan';
 import { useSicherungLaden } from './Sicherung';
 import { MixZeile } from './StellenMix';
@@ -174,6 +176,8 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
   useEffect(() => kontextMelden(kontext !== null), [kontext, kontextMelden]);
   // Kamera-Scan / Foto-Import (F-07): offener Dialog mit den zuerst gewählten Bildern.
   const [scan, setScan] = useState<{ art: ScanArt; start: File[] } | null>(null);
+  // Einsingen oder Audio laden (G-02/G-03): offener Dialog mit der gewünschten Quelle.
+  const [einspielen, setEinspielen] = useState<EinspielQuelle | null>(null);
   // Erinnerung an die Sicherung (H-01)
   const [erinnerung, setErinnerung] = useState<{ faellig: boolean; tage: number | null } | null>(null);
   // Abschaltbar in den Einstellungen (je Gerät); „ausblenden“ hier tut dasselbe.
@@ -438,7 +442,8 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
           <HinzufuegenMenue ziel={aktiv} einsortieren={einsortieren} setEinsortieren={setEinsortieren} gesperrt={laeuft}
             tagZiel={zielTag} markieren={markieren} setMarkieren={setMarkieren}
             dateien={() => void hinzufuegen('dateien')} ordner={() => void hinzufuegen('ordner')}
-            scannen={() => void scannen('kamera')} fotos={() => void scannen('fotos')} />
+            scannen={() => void scannen('kamera')} fotos={() => void scannen('fotos')}
+            einspielen={() => { setMeldung(''); setWarnung(''); setEinspielen('mikro'); }} />
           <span className="flex-1" />
           <div className="segment !mx-0" role="group" aria-label="Sortieren">
             <button type="button" aria-pressed={sortierung === 'zuletzt'} onClick={() => { setSortierung('zuletzt'); speichern('ueben:sort', 'zuletzt'); }}>Zuletzt</button>
@@ -477,6 +482,7 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
             <button type="button" className="knopf knopf-leise" onClick={() => void hinzufuegen('ordner')} disabled={sicherung.laeuft || sicherung.uebernimmt || laeuft}>Ordner wählen</button>
             <button type="button" className="knopf knopf-leise" onClick={() => void scannen('kamera')} disabled={sicherung.laeuft || sicherung.uebernimmt || laeuft}>Einscannen</button>
             <button type="button" className="knopf knopf-leise" onClick={() => void scannen('fotos')} disabled={sicherung.laeuft || sicherung.uebernimmt || laeuft}>Fotos wählen</button>
+            <button type="button" className="knopf knopf-leise" onClick={() => setEinspielen('mikro')} disabled={sicherung.laeuft || sicherung.uebernimmt || laeuft}>Einsingen</button>
           </div>
         </div>
       )}
@@ -499,6 +505,13 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
           sammlungen={aktiv && einsortieren ? [aktiv] : []} tags={zielTag && markieren ? [zielTag.id] : []}
           fertig={(m) => { setScan(null); setMeldung(m); if (aktiv && einsortieren && sammlungNeu && gleicheSammlung(aktiv, sammlungNeu)) setSammlungNeu(null); laden(); }}
           schliessen={() => setScan(null)} />
+      )}
+
+      {einspielen && (
+        <EinspielenDialog quelle={einspielen}
+          sammlungen={aktiv && einsortieren ? [aktiv] : []} tags={zielTag && markieren ? [zielTag.id] : []}
+          fertig={(m) => { setEinspielen(null); setMeldung(m); if (aktiv && einsortieren && sammlungNeu && gleicheSammlung(aktiv, sammlungNeu)) setSammlungNeu(null); laden(); }}
+          schliessen={() => setEinspielen(null)} />
       )}
 
       {tagBlatt && noten && (
@@ -577,7 +590,7 @@ function StueckZeile({ n, tags, zuletzt, anzahlStellen, aktiv, quelle, auswaehle
       <button type="button" className="bib-stueck" onClick={tippen} {...halten}>
         <span className="bib-titel">{n.titel}</span>
         <span className="bib-unterzeile">
-          {[n.stimme, quelle, z ? `zuletzt ${zeitpunkt(z)}` : 'noch nicht geöffnet',
+          {[n.stimme, quelle, notationText(n.notation), z ? `zuletzt ${zeitpunkt(z)}` : 'noch nicht geöffnet',
             anzahlStellen ? `${anzahlStellen} ${anzahlStellen === 1 ? 'Stelle' : 'Stellen'}` : '',
             !aktiv ? sammlungenVon(n).join(', ') : '',
             n.aktualisiert ? `aktualisiert ${datum(n.aktualisiert)}` : ''].filter(Boolean).join(' · ')}

@@ -216,7 +216,7 @@ const mitDatei = (s: Stueck, daten: ArrayBuffer, typ: string) =>
 const typVon = (datei: Blob) => datei.type || 'application/pdf';
 
 export async function stueckAnlegen(n: {
-  titel: string; stimme: string; datei: Blob; dateiname?: string; handle?: FileSystemFileHandle; sammlungen?: string[]; tags?: string[];
+  titel: string; stimme: string; datei: Blob; dateiname?: string; handle?: FileSystemFileHandle; sammlungen?: string[]; tags?: string[]; notation?: Stueck['notation'];
 }): Promise<string> {
   const id = crypto.randomUUID();
   const { datei, ...felder } = n;
