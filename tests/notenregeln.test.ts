@@ -24,7 +24,7 @@ describe('Notationsregeln', () => {
     expect(pruefen([stimme([takt([60, 24], [72, 72])])], B, null)).toEqual([]);
   });
   it('punktierter Wert in einer Triole', () => {
-    const t: Takt = { noten: [{ midi: 60, dauer: 12, triole: true, gruppe: 2 }, { midi: 62, dauer: 4, triole: true }, { midi: null, dauer: 72 }] };
+    const t: Takt = { noten: [{ midi: 60, dauer: 12, triole: true, gruppe: 2 }, { midi: 62, dauer: 4, triole: true }, { midi: null, dauer: 80 }] };
     expect(texte(pruefen([stimme([t])], B, null))).toEqual(['Takt 1: punktierter Wert in einer Triole — schwer zu lesen; lieber zwei gebundene Noten.']);
   });
   it('keine Pause zum Atmen ab acht Takten', () => {
@@ -51,6 +51,15 @@ describe('Notationsregeln', () => {
     expect(texte(pruefen([stimme([takt([60, 96]), leererTakt(B), leererTakt(B)])], B, null))).toEqual(['Takt 2–3 sind leer — „Takt −“ nimmt sie weg.']);
     expect(texte(pruefen([stimme([takt([60, 96]), leererTakt(B)])], B, null))).toEqual(['Takt 2 ist leer — „Takt −“ nimmt ihn weg.']);
     expect(pruefen([stimme([leererTakt(B)])], B, null)).toEqual([]);
+  });
+  it('Taktlänge: zu kurz oder zu lang, mit Schlägen', () => {
+    const h = pruefen([stimme([takt([60, 24], [62, 12]), takt([60, 96], [62, 24]), takt([60, 90])])], B, null);
+    expect(texte(h)).toEqual([
+      'Takt 1: 1½ statt 4 Schläge — Pause oder Note einfügen.',
+      'Takt 2: 5 statt 4 Schläge — Note kürzen oder löschen.',
+      'Takt 3: 3¾ statt 4 Schläge — Pause oder Note einfügen.',
+    ]);
+    expect(h[0].art).toBe('takt');
   });
   it('sortiert nach Takt, Allgemeines zuerst', () => {
     const h = pruefen([stimme([takt([60, 96]), takt([84, 96]), leererTakt(B)])], B, null, { umfang: { von: 55, bis: 79 } });

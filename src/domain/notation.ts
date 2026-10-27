@@ -87,7 +87,13 @@ export interface Note { midi: number | null; dauer: number; bindung?: true; trio
 export interface Takt { noten: Note[] }
 // Eine Stimme des Blatts (G-01, mehrstimmig): Name, Schlüssel, ihre Takte.
 // Alle Stimmen eines Stücks haben gleich viele Takte.
-export type Schluessel = 'violin' | 'bass';
+export type Schluessel = 'violin' | 'bass' | 'alt' | 'tenor';
+export const SCHLUESSEL: { art: Schluessel; name: string; zeichen: string }[] = [
+  { art: 'violin', name: 'Violinschlüssel', zeichen: '𝄞' }, { art: 'bass', name: 'Bassschlüssel', zeichen: '𝄢' },
+  { art: 'alt', name: 'Altschlüssel (Bratsche)', zeichen: '𝄡' }, { art: 'tenor', name: 'Tenorschlüssel', zeichen: '𝄡' },
+];
+const ABC_CLEF: Record<Schluessel, string> = { violin: 'treble', bass: 'bass', alt: 'alto', tenor: 'tenor' };
+const CLEF_ABC: Record<string, Schluessel> = { treble: 'violin', bass: 'bass', alto: 'alt', tenor: 'tenor' };
 export interface Stimme { name: string; schluessel: Schluessel; takte: Takt[] }
 
 // Zellen je Takt: 4/4 in Sechzehnteln = 16, 6/8 in Sechzehnteln = 12, 3/4 in Achteln = 6.
@@ -414,7 +420,7 @@ export const alsAbc = (takte: readonly Takt[], r: Raster, kopf: AbcKopf, tonart:
 export function alsAbcStimmen(stimmen: readonly Stimme[], r: Raster, kopf: AbcKopf, tonart: Tonart | null = null): string {
   const schlag = einheitenJeSchlag(r.zaehler, r.nenner);
   const einzeln = stimmen.length === 1 && !stimmen[0].name && stimmen[0].schluessel === 'violin';
-  const clef = (s: Stimme) => (s.schluessel === 'bass' ? 'bass' : 'treble');
+  const clef = (s: Stimme) => ABC_CLEF[s.schluessel] ?? 'treble';
   const zeilen = [
     'X:1',
     `T:${kopf.titel.trim() || 'Ohne Titel'}`,
@@ -472,12 +478,12 @@ export function abcLesen(text: string): Gelesen | null {
       else if (m[1] === 'V') {
         const nr = Number(/^(\d+)/.exec(wert)?.[1] ?? '0');
         const name = /name="([^"]*)"/.exec(wert)?.[1] ?? '';
-        meta[nr - 1] = { name, schluessel: /clef=bass/.test(wert) ? 'bass' : 'violin' };
+        meta[nr - 1] = { name, schluessel: CLEF_ABC[/clef=(\w+)/.exec(wert)?.[1] ?? ''] ?? 'violin' };
       }
       else if (m[1] === 'M') { const t = /^(\d+)\/(\d+)$/.exec(wert); if (!t || !istNenner(Number(t[2]))) return null; zaehler = Number(t[1]); nenner = Number(t[2]) as Nenner; }
       else if (m[1] === 'L') { const t = /^1\/(\d+)$/.exec(wert); if (!t) return null; feinheit = Number(t[1]); }
       else if (m[1] === 'Q') { const t = /=(\d+)$/.exec(wert); if (t) bpm = Number(t[1]); }
-      else if (m[1] === 'K') { tonart = tonartFinden(wert.split(/\s+/)[0]); if (/clef=bass/.test(wert)) schluesselEinzeln = 'bass'; kopf = false; }
+      else if (m[1] === 'K') { tonart = tonartFinden(wert.split(/\s+/)[0]); schluesselEinzeln = CLEF_ABC[/clef=(\w+)/.exec(wert)?.[1] ?? ''] ?? 'violin'; kopf = false; }
     } else if (!kopf) koerper.push(z);
   }
   if (kopf) return null;

@@ -150,7 +150,8 @@ function bereinigen(liste: readonly Strecke[], r: Raster): Strecke[] {
 
 // Die Bereiche des Takts: binär oder Triole, lückenlos von 0 bis Taktende.
 function triolenBereiche(liste: readonly Strecke[], r: Raster): { von: number; bis: number; triole: boolean }[] {
-  const jt = zellenJeTakt(r), js = zellenJeSchlag(r), jg = zellenJeGruppe(r);
+  // Ein Takt darf beim Bearbeiten länger sein als die Taktart (rot markiert): die Bereiche reichen bis zu seinem Ende.
+  const jt = Math.max(zellenJeTakt(r), liste.reduce((a, s) => a + s.dauer, 0)), js = zellenJeSchlag(r), jg = zellenJeGruppe(r);
   const grenzen = new Set<number>();
   let pos = 0;
   for (const s of liste) { grenzen.add(pos); pos += s.dauer; grenzen.add(pos); }
@@ -292,56 +293,99 @@ function bogenLoesen(takte: readonly Takt[], r: Raster, i: number): Takt[] {
 
 // ── Notenwert ──
 
-// Wie in MuseScore: Der neue Wert gilt ab dem Einsatz der Note; wird sie
-// kürzer, füllt eine Pause auf, wird sie länger, frisst sie die folgenden
-// Noten des Takts (eine angeschnittene behält ihren Rest). Über den
-// Taktstrich geht nichts — der Wert wird am Taktende gekappt.
+// Den Notenwert setzen — nur diese Note: nichts wird aufgefüllt, nichts
+// gefressen. Stimmt die Taktlänge danach nicht mehr, zeigt das Blatt den
+// Takt rot (taktLaenge); so lässt sich ein bestehender Satz aufräumen, ohne
+// dass Nachbarn verrutschen. Ein Bogen in den nächsten Takt bleibt nur an
+// der letzten Strecke.
 export function dauerSetzen(takte: readonly Takt[], r: Raster, pos: NotenPos, dauer: number): Takt[] {
   const t = takte[pos.takt];
   if (!t || dauer < 1) return [...takte];
   const { strecke } = streckeDerNote(t, pos.note);
   const liste = strecken(t);
   const s = liste[strecke];
-  if (!s) return [...takte];
-  const ab = liste.slice(0, strecke).reduce((a, x) => a + x.dauer, 0);
-  const jt = zellenJeTakt(r);
-  const neu = Math.min(dauer, jt - ab);
-  if (neu === s.dauer) return [...takte];
-  const vorher = liste.slice(0, strecke);
-  const nachher: Strecke[] = [];
-  if (neu < s.dauer) {
-    nachher.push({ midi: s.midi, dauer: neu }, { midi: null, dauer: s.dauer - neu }, ...liste.slice(strecke + 1));
-  } else {
-    let frei = neu - s.dauer;
-    nachher.push({ midi: s.midi, dauer: neu });
-    for (const x of liste.slice(strecke + 1)) {
-      if (frei >= x.dauer) { frei -= x.dauer; continue; }
-      if (frei > 0) { nachher.push({ ...x, dauer: x.dauer - frei }); frei = 0; } else nachher.push(x);
-    }
-  }
-  // Ein Bogen in den nächsten Takt hing an der letzten Strecke: er bleibt
-  // nur, wenn die letzte Strecke weiterhin eine Note derselben Höhe ist.
-  const alteLetzte = liste[liste.length - 1];
-  const neu2 = [...vorher, ...nachher].map(({ bindung: _b, ...x }) => { void _b; return x as Strecke; });
-  const letzte = neu2[neu2.length - 1];
-  if (alteLetzte.bindung && letzte.midi !== null && letzte.midi === alteLetzte.midi) neu2[neu2.length - 1] = { ...letzte, bindung: true };
-  return ersetzen(takte, pos.takt, legen(neu2, r));
+  if (!s || s.dauer === dauer) return [...takte];
+  liste[strecke] = { ...s, dauer };
+  return ersetzen(takte, pos.takt, legen(liste, r));
 }
 
-// Note schreiben: an der Stelle eine Note mit diesem Wert und dieser Höhe
-// (MuseScore-Eingabe: der Rest bleibt Pause); dazu die Stelle der nächsten
-// gezeichneten Note, damit die Auswahl weiterrückt.
-export function noteSchreiben(takte: readonly Takt[], r: Raster, pos: NotenPos, midi: number, dauer: number): { takte: Takt[]; naechste: NotenPos | null } {
-  const mitDauer = dauerSetzen(takte, r, pos, dauer);
-  const t = mitDauer[pos.takt];
-  if (!t) return { takte: mitDauer, naechste: null };
+// Palettenwert auf die gewählte Stelle: Eine Note bekommt den Wert
+// (dauerSetzen); eine Pause wird geteilt — vorn der Wert, hinten der Rest —
+// damit „Note“ danach genau diesen Wert schreibt und der Takt stimmt.
+export function wertSetzen(takte: readonly Takt[], r: Raster, pos: NotenPos, dauer: number): Takt[] {
+  const t = takte[pos.takt];
+  if (!t || dauer < 1) return [...takte];
   const { strecke } = streckeDerNote(t, pos.note);
-  const ergebnis = tonSetzen(mitDauer, r, { takt: pos.takt, note: ersteNote(t, strecke) }, midi);
+  const liste = strecken(t);
+  const s = liste[strecke];
+  if (!s) return [...takte];
+  if (s.midi !== null) return dauerSetzen(takte, r, pos, dauer);
+  if (dauer >= s.dauer) return [...takte];
+  liste.splice(strecke, 1, { midi: null, dauer }, { midi: null, dauer: s.dauer - dauer });
+  return ersetzen(takte, pos.takt, legen(liste, r));
+}
+
+// Note schreiben (MuseScore-Eingabe): In eine Pause gesetzt, nimmt die Note
+// den Palettenwert, der Rest der Pause bleibt Pause; auf einer Note ändert
+// sich nur deren Wert und Höhe. Dazu die Stelle der nächsten gezeichneten
+// Note, damit die Auswahl weiterrückt.
+export function noteSchreiben(takte: readonly Takt[], r: Raster, pos: NotenPos, midi: number, dauer: number): { takte: Takt[]; naechste: NotenPos | null } {
+  const t = takte[pos.takt];
+  if (!t) return { takte: [...takte], naechste: null };
+  const { strecke } = streckeDerNote(t, pos.note);
+  const liste = strecken(t);
+  const s = liste[strecke];
+  if (!s) return { takte: [...takte], naechste: null };
+  if (s.midi === null) {
+    const rest = s.dauer - dauer;
+    liste.splice(strecke, 1, { midi, dauer }, ...(rest > 0 ? [{ midi: null, dauer: rest }] : []));
+  } else liste[strecke] = { ...s, midi, dauer };
+  let ergebnis = ersetzen(takte, pos.takt, legen(liste, r));
+  if (s.midi !== null && s.midi !== midi) ergebnis = tonSetzen(ergebnis, r, { takt: pos.takt, note: ersteNote(ergebnis[pos.takt], strecke) }, midi);
   const fertig = ergebnis[pos.takt];
   const weiter = strecken(fertig).length > strecke + 1 ? { takt: pos.takt, note: ersteNote(fertig, strecke + 1) }
     : ergebnis[pos.takt + 1] ? { takt: pos.takt + 1, note: 0 } : null;
   return { takte: ergebnis, naechste: weiter };
 }
+
+// Hinter der gewählten Note eine Note (Höhe `midi`) oder Pause (null)
+// einfügen — nur in diesem Takt, der dann länger ist (rot, bis er stimmt).
+// Liefert die Lage der neuen Note.
+export function danachEinfuegen(takte: readonly Takt[], r: Raster, pos: NotenPos, midi: number | null, dauer: number): { takte: Takt[]; neu: NotenPos } {
+  const t = takte[pos.takt];
+  if (!t) return { takte: [...takte], neu: pos };
+  const { strecke } = streckeDerNote(t, pos.note);
+  const liste = strecken(t);
+  const s = liste[strecke];
+  if (!s) return { takte: [...takte], neu: pos };
+  // Ein Bogen von dieser Note in den nächsten Takt zielte an der Einfügung vorbei: lösen.
+  const { bindung: _b, ...ohne } = s; void _b;
+  liste.splice(strecke, 1, ohne, { midi, dauer });
+  const ergebnis = ersetzen(takte, pos.takt, legen(liste, r));
+  return { takte: ergebnis, neu: { takt: pos.takt, note: ersteNote(ergebnis[pos.takt], strecke + 1) } };
+}
+
+// Note aus dem Takt nehmen — nur hier, die anderen Takte bleiben, wie sie
+// sind; der Takt ist dann kürzer (rot, bis er stimmt). Ein leerer Takt wird
+// eine ganze Pause.
+export function loeschenImTakt(takte: readonly Takt[], r: Raster, pos: NotenPos): Takt[] {
+  const t = takte[pos.takt];
+  if (!t) return [...takte];
+  const { strecke } = streckeDerNote(t, pos.note);
+  const liste = strecken(t);
+  if (!liste[strecke]) return [...takte];
+  liste.splice(strecke, 1);
+  let ergebnis = ersetzen(takte, pos.takt, liste.length ? legen(liste, r) : leererTakt(r));
+  if (strecke === 0 && pos.takt > 0) ergebnis = bogenLoesen(ergebnis, r, pos.takt - 1);
+  if (!liste.length || !liste[liste.length - 1].bindung) ergebnis = bogenLoesen(ergebnis, r, pos.takt);
+  return ergebnis;
+}
+export const loeschenViele = (takte: readonly Takt[], r: Raster, lagen: readonly NotenPos[]) =>
+  nacheinander(takte, lagen, (t, p) => loeschenImTakt(t, r, p));
+
+// Länge eines Takts in Zellen und ob sie zur Taktart passt.
+export const taktLaenge = (t: Takt) => t.noten.reduce((a, n) => a + n.dauer, 0);
+export const taktStimmt = (t: Takt, r: Raster) => taktLaenge(t) === zellenJeTakt(r);
 
 // Tonhöhe, die eine neue Note bekommt: die der vorigen Note, sonst C4.
 export function letzteHoehe(takte: readonly Takt[], pos: NotenPos): number {

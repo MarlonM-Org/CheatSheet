@@ -7,10 +7,12 @@
 // G-10. Rein, getestet.
 
 import { leiter, TONARTEN, zellenJeSchlag, zellenJeTakt, type Raster, type Stimme, type Takt, type Tonart } from './notation';
+import { taktLaenge } from './notensatz';
 import { tonName } from './tonprofil';
 
-// `art`: lesbar (Notenbild), spielbar (fürs Instrument), form (Aufbau des Stücks).
-export interface Hinweis { stimme: number | null; takt: number | null; text: string; art: 'lesbar' | 'spielbar' | 'form' }
+// `art`: takt (Taktlänge stimmt nicht — muss korrigiert werden), lesbar
+// (Notenbild), spielbar (fürs Instrument), form (Aufbau des Stücks).
+export interface Hinweis { stimme: number | null; takt: number | null; text: string; art: 'takt' | 'lesbar' | 'spielbar' | 'form' }
 export interface Pruefung {
   // Notierter Tonumfang des Instruments (midi), etwa aus dem Tonprofil; null = nicht prüfen.
   umfang?: { von: number; bis: number } | null;
@@ -23,6 +25,14 @@ export function pruefen(stimmen: readonly Stimme[], r: Raster, tonart: Tonart | 
   const liste: Hinweis[] = [];
   const jt = zellenJeTakt(r), js = zellenJeSchlag(r);
   const dotted = new Set([72, 36, 18, 9].map((w) => (w * 2) / 3));
+
+  // Taktlänge: beim Bearbeiten darf ein Takt vorübergehend zu kurz oder zu
+  // lang sein — gezeigt wird er rot, mit der Zahl der Schläge.
+  const schlaege = (z: number) => { const b = z / js; const voll = Math.floor(b), rest = b - voll; const bruch = rest === 0 ? '' : rest === 0.5 ? '½' : rest === 0.25 ? '¼' : rest === 0.75 ? '¾' : `,${Math.round(rest * 100)}`; return `${voll || (bruch ? '' : '0')}${bruch}`; };
+  stimmen.forEach((s, si) => s.takte.forEach((t, ti) => {
+    const l = taktLaenge(t);
+    if (l !== jt) liste.push({ stimme: si, takt: ti, art: 'takt', text: `${stimmeText(stimmen, si)}${taktText(ti)}: ${schlaege(l)} statt ${schlaege(jt)} Schläge — ${l < jt ? 'Pause oder Note einfügen' : 'Note kürzen oder löschen'}.` });
+  }));
 
   stimmen.forEach((s, si) => {
     const wo = (t: number) => `${stimmeText(stimmen, si)}${taktText(t)}`;

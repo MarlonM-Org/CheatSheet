@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AbcElem, ClickListenerDrag, TuneObject } from 'abcjs';
-import { alsAbcStimmen, type Raster, type Stimme, type Takt, type Tonart } from '@/domain/notation';
+import { alsAbcStimmen, SCHLUESSEL, type Raster, type Schluessel, type Stimme, type Takt, type Tonart } from '@/domain/notation';
 import {
-  alleNoten, angebunden, bogenUmschalten, dauerSetzen, einfuegen, entfernenViele, inAllen, inStimme, klaengeAlle, leiterVerschieben, leiterVerschiebenViele,
-  letzteHoehe, noteSchreiben, notenZeiten, paletteWerte, pausenViele, punktiert, stimmeAendern, stimmeHinzu, stimmeWeg, taktEinfuegen, taktLoeschen, triole,
-  verschiebenViele, type NotenPos,
+  alleNoten, angebunden, bogenUmschalten, danachEinfuegen, inAllen, inStimme, klaengeAlle, leiterVerschieben, leiterVerschiebenViele,
+  letzteHoehe, loeschenViele, noteSchreiben, notenZeiten, paletteWerte, pausenViele, punktiert, stimmeAendern, stimmeHinzu, stimmeWeg, taktEinfuegen,
+  taktLoeschen, taktStimmt, triole, verschiebenViele, wertSetzen, type NotenPos,
 } from '@/domain/notensatz';
 import { pruefen } from '@/domain/notenregeln';
 import { EINSTELLUNG_STANDARD } from '@/domain/einstellungen';
@@ -44,10 +44,12 @@ type Elemente = Auswaehlbar[][];
 
 const lagenVon = (s: Stimme) => s.takte.flatMap((t, takt) => t.noten.map((_, note) => ({ takt, note })));
 
-export function Notenblatt({ stimmen, raster, tonart, titel, aendern }: {
+export function Notenblatt({ stimmen, raster, tonart, titel, aendern, verlauf }: {
   stimmen: Stimme[]; raster: Raster; tonart: Tonart | null; titel: string;
   // Ohne `aendern` nur ansehen und vorspielen.
   aendern?: (stimmen: Stimme[]) => void;
+  // Rückgängig/Wiederherstellen (null: gerade nicht möglich).
+  verlauf?: { zurueck: (() => void) | null; vor: (() => void) | null };
 }) {
   const metro = useMetronom();
   const stimm = useStimmgeraetApi();
@@ -171,6 +173,15 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern }: {
     return () => { aktuell = false; };
   }, [abc, breite, farbe]);
 
+  // Takte, deren Länge nicht zur Taktart passt, rot (nach jedem Zeichnen neu).
+  useEffect(() => {
+    const rot = farbe('--warnung', '#b42318');
+    const liste: [number, number][] = [];
+    stimmen.forEach((s, st) => { let k = 0; s.takte.forEach((t) => { const falsch = !taktStimmt(t, raster); t.noten.forEach(() => { if (falsch) liste.push([st, k]); k++; }); }); });
+    for (const [st, i] of liste) faerben(st, i, rot);
+    return () => { if (!vorspiel.current) for (const [st, i] of liste) faerben(st, i, null); };
+  }, [stimmen, raster, gezeichnet, faerben, farbe]);
+
   // Auswahl färben (nach jedem Zeichnen neu) — die Hauptnote und die weiteren.
   useEffect(() => {
     const alle = (auswahl ? [auswahl, ...mehr] : mehr).map((p) => [p.stimme, index(p)] as const).filter(([, i]) => i >= 0);
@@ -226,9 +237,9 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern }: {
   // ── Palette ──
   // Der Wert aus der Palette: Triole (zwei Drittel) oder punktiert (anderthalb).
   const dauerAus = (z: number, p: boolean, t: boolean) => (t ? triole(z, raster) ?? z : p ? punktiert(z, raster) ?? z : z);
-  const setWert = (z: number) => { setWertRoh(z); speichern(WERT_SCHLUESSEL, z); if (auswahl) { const p = auswahl; inAktiver((t) => dauerSetzen(t, raster, p, dauerAus(z, punkt, tri))); } };
-  const setPunktUnd = (p: boolean) => { setPunkt(p); if (p) setTri(false); if (auswahl) { const a = auswahl; inAktiver((t) => dauerSetzen(t, raster, a, dauerAus(wert, p, false))); } };
-  const setTriUnd = (t: boolean) => { setTri(t); if (t) setPunkt(false); if (auswahl) { const a = auswahl; inAktiver((x) => dauerSetzen(x, raster, a, dauerAus(wert, false, t))); } };
+  const setWert = (z: number) => { setWertRoh(z); speichern(WERT_SCHLUESSEL, z); if (auswahl) { const p = auswahl; inAktiver((t) => wertSetzen(t, raster, p, dauerAus(z, punkt, tri))); } };
+  const setPunktUnd = (p: boolean) => { setPunkt(p); if (p) setTri(false); if (auswahl) { const a = auswahl; inAktiver((t) => wertSetzen(t, raster, a, dauerAus(wert, p, false))); } };
+  const setTriUnd = (t: boolean) => { setTri(t); if (t) setPunkt(false); if (auswahl) { const a = auswahl; inAktiver((x) => wertSetzen(x, raster, a, dauerAus(wert, false, t))); } };
   const note = auswahl ? takte[auswahl.takt]?.noten[auswahl.note] : undefined;
   const schreiben = () => {
     if (!aendern) return;
@@ -254,7 +265,9 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern }: {
     if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); aufAlle((t, l) => verschiebenViele(t, raster, l, (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 12 : 1))); }
     else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); bewegen(e.key === 'ArrowLeft' ? -1 : 1); }
     else if (e.key === 'Delete') { e.preventDefault(); aufAlle((t, l) => pausenViele(t, raster, l)); }
-    else if (e.key === 'Backspace') { e.preventDefault(); aufAlle((t, l) => entfernenViele(t, raster, l)); setMehr([]); }
+    else if (e.key === 'Backspace') { e.preventDefault(); aufAlle((t, l) => loeschenViele(t, raster, l)); setMehr([]); }
+    else if ((e.key === 'z' || e.key === 'Z') && (e.metaKey || e.ctrlKey)) { e.preventDefault(); if (e.shiftKey) verlauf?.vor?.(); else verlauf?.zurueck?.(); }
+    else if (e.key === 'y' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); verlauf?.vor?.(); }
     else if (e.key === 'a' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); alleWaehlen(); }
   };
   const stimmeWaehlen = (i: number) => { setAktiv(i); setAuswahl(null); setMehr([]); };
@@ -331,6 +344,15 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern }: {
   const hatNoten = lagen.some((l) => l.length);
   const mitAuswahl = (f: (t: Takt[], p: NotenPos) => Takt[]) => () => { if (auswahl) { const p = auswahl; inAktiver((t) => f(t, p)); } };
   const viele = gewaehlt.length > 1 ? ` (${gewaehlt.length})` : '';
+  // Hinter der gewählten Note einfügen: Note (Höhe der gewählten) oder Pause, im Palettenwert.
+  const danach = (midi: 'note' | null) => {
+    if (!aendern || !auswahl) return;
+    const p = auswahl;
+    const hoehe = midi === null ? null : takte[p.takt]?.noten[p.note]?.midi ?? letzteHoehe(takte, p);
+    const { takte: neu, neu: lage2 } = danachEinfuegen(takte, raster, p, hoehe, dauerAus(wert, punkt, tri));
+    aendern(inStimme(stimmen, aktiv, neu, raster));
+    setAuswahl({ stimme: aktiv, ...lage2 }); setMehr([]);
+  };
 
   return (
     <div className="notensatz" onKeyDown={tasten}>
@@ -339,6 +361,13 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern }: {
         <button type="button" className="knopf knopf-leise knopf-klein" onClick={abspielen} aria-pressed={spielt} disabled={!hatNoten}>
           {spielt ? '■ Anhalten' : auswahl && index(auswahl) > 0 ? '▶ Ab hier' : '▶ Vorspielen'}
         </button>
+        {aendern && verlauf && (
+          <>
+            <span className="notensatz-trenner" aria-hidden="true" />
+            <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => verlauf.zurueck?.()} disabled={!verlauf.zurueck} aria-label="Rückgängig" title="Rückgängig (⌘Z)">↶</button>
+            <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => verlauf.vor?.()} disabled={!verlauf.vor} aria-label="Wiederherstellen" title="Wiederherstellen (⇧⌘Z)">↷</button>
+          </>
+        )}
         {aendern && (
           <>
             <span className="notensatz-trenner" aria-hidden="true" />
@@ -348,9 +377,10 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern }: {
             <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => aufAlle((t, l) => verschiebenViele(t, raster, l, -12))} disabled={!gewaehlt.length} aria-label="Oktave tiefer">▼8</button>
             <span className="notensatz-trenner" aria-hidden="true" />
             <button type="button" className="knopf knopf-leise knopf-klein" onClick={schreiben} disabled={!takte.length}>Note</button>
-            <button type="button" className="knopf knopf-leise knopf-klein" onClick={mitAuswahl((t, p) => einfuegen(t, raster, p, dauerAus(wert, punkt, tri)))} disabled={!auswahl} title="Vor der gewählten Note Platz einfügen — alles danach rückt weiter">Einfügen</button>
+            <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => danach('note')} disabled={!auswahl} title="Hinter der gewählten Note eine Note im Palettenwert einfügen (nur in diesem Takt)">Note +</button>
+            <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => danach(null)} disabled={!auswahl} title="Hinter der gewählten Note eine Pause im Palettenwert einfügen (nur in diesem Takt)">Pause +</button>
             <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => aufAlle((t, l) => pausenViele(t, raster, l))} disabled={!gewaehlt.length}>Pause{viele}</button>
-            <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => { aufAlle((t, l) => entfernenViele(t, raster, l)); setMehr([]); }} disabled={!gewaehlt.length} title="Noten herausnehmen — alles danach rückt nach">Löschen{viele}</button>
+            <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => { aufAlle((t, l) => loeschenViele(t, raster, l)); setMehr([]); }} disabled={!gewaehlt.length} title="Noten aus dem Takt nehmen — die anderen Takte bleiben; der Takt ist dann zu kurz (rot), bis er stimmt">Löschen{viele}</button>
             <button type="button" className="knopf knopf-leise knopf-klein" onClick={mitAuswahl((t, p) => bogenUmschalten(t, raster, p))} disabled={!note || note.midi === null}>
               {auswahl && angebunden(takte, auswahl) ? 'Bogen lösen' : 'Bogen'}
             </button>
@@ -388,10 +418,10 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern }: {
               <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => { aendern(stimmeWeg(stimmen, aktiv)); stimmeWaehlen(Math.max(0, aktiv - 1)); }} disabled={stimmen.length < 2}>− Stimme</button>
               <input className="feld feld-zahl" value={stimmen[aktiv]?.name ?? ''} placeholder={`Stimme ${aktiv + 1}`} aria-label="Name der Stimme"
                 onChange={(e) => aendern(stimmeAendern(stimmen, aktiv, { name: e.target.value }))} />
-              <div className="segment !mx-0" role="group" aria-label="Schlüssel">
-                <button type="button" aria-pressed={stimmen[aktiv]?.schluessel !== 'bass'} onClick={() => aendern(stimmeAendern(stimmen, aktiv, { schluessel: 'violin' }))} aria-label="Violinschlüssel">𝄞</button>
-                <button type="button" aria-pressed={stimmen[aktiv]?.schluessel === 'bass'} onClick={() => aendern(stimmeAendern(stimmen, aktiv, { schluessel: 'bass' }))} aria-label="Bassschlüssel">𝄢</button>
-              </div>
+              <select className="feld feld-zahl" value={stimmen[aktiv]?.schluessel ?? 'violin'} aria-label="Schlüssel"
+                onChange={(e) => aendern(stimmeAendern(stimmen, aktiv, { schluessel: e.target.value as Schluessel }))}>
+                {SCHLUESSEL.map((s) => <option key={s.art} value={s.art}>{s.zeichen} {s.name}</option>)}
+              </select>
             </>
           )}
           {stimmen.length > 1 && (

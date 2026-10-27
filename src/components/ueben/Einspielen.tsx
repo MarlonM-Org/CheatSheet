@@ -163,7 +163,45 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
     () => (vorlage ? { basis: basisLeer, stimmen: aufsBlattStimmen(vorlage.gelesen.stimmen, vorlage.gelesen.raster.feinheit, vorlage.gelesen.raster) } : null));
   const stimmen = bearbeitet && bearbeitet.basis === basis ? bearbeitet.stimmen : basis;
   const takte = stimmen[0]?.takte ?? [];
-  const aendern = useCallback((neu: Stimme[]) => setBearbeitet({ basis, stimmen: neu }), [basis]);
+  // Verlauf für Rückgängig/Wiederherstellen — je Eintrag mit seiner Grundlage,
+  // ein Eintrag aus einer anderen Grundlage (neue Aufnahme) zählt nicht.
+  const verlauf = useRef<{ zurueck: { basis: Stimme[]; stimmen: Stimme[] }[]; vor: { basis: Stimme[]; stimmen: Stimme[] }[] }>({ zurueck: [], vor: [] });
+  // Ob es etwas zurück- oder vorzugehen gibt (für die Knöpfe) — als Zustand, nicht aus dem Ref gelesen.
+  const [kann, setKann] = useState({ zurueck: false, vor: false });
+  const stimmenRef = useRef(stimmen);
+  useEffect(() => { stimmenRef.current = stimmen; }, [stimmen]);
+  const kannNeu = useCallback((b: Stimme[]) => {
+    const v = verlauf.current;
+    setKann({ zurueck: v.zurueck.some((e) => e.basis === b), vor: v.vor.some((e) => e.basis === b) });
+  }, []);
+  const aendern = useCallback((neu: Stimme[]) => {
+    const v = verlauf.current;
+    v.zurueck.push({ basis, stimmen: stimmenRef.current });
+    if (v.zurueck.length > 200) v.zurueck.shift();
+    v.vor = [];
+    stimmenRef.current = neu;
+    setBearbeitet({ basis, stimmen: neu });
+    kannNeu(basis);
+  }, [basis, kannNeu]);
+  const zurueck = useCallback(() => {
+    const v = verlauf.current;
+    const e = v.zurueck.pop();
+    if (!e || e.basis !== basis) { if (e) v.zurueck.push(e); return; }
+    v.vor.push({ basis, stimmen: stimmenRef.current });
+    stimmenRef.current = e.stimmen;
+    setBearbeitet({ basis, stimmen: e.stimmen });
+    kannNeu(basis);
+  }, [basis, kannNeu]);
+  const vor = useCallback(() => {
+    const v = verlauf.current;
+    const e = v.vor.pop();
+    if (!e || e.basis !== basis) { if (e) v.vor.push(e); return; }
+    v.zurueck.push({ basis, stimmen: stimmenRef.current });
+    stimmenRef.current = e.stimmen;
+    setBearbeitet({ basis, stimmen: e.stimmen });
+    kannNeu(basis);
+  }, [basis, kannNeu]);
+  const kannZurueck = kann.zurueck, kannVor = kann.vor;
 
   // ── Spur zeichnen ──
   const zeichnen = useCallback((liste: readonly Tonrahmen[], jetzt: number | null) => {
@@ -579,7 +617,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
         {phase === 'vorschlag' && (
           <div className="karte space-y-2">
             {takte.length
-              ? <Notenblatt stimmen={stimmen} raster={blattRaster} tonart={tonart} titel={titel} aendern={aendern} />
+              ? <Notenblatt stimmen={stimmen} raster={blattRaster} tonart={tonart} titel={titel} aendern={aendern} verlauf={{ zurueck: kannZurueck ? zurueck : null, vor: kannVor ? vor : null }} />
               : (
                 <div className="einspiel-zeile">
                   <p className="gedaempft text-sm">Kein Ton erkannt. Näher ans Mikrofon, lauter, oder eine andere Datei.</p>

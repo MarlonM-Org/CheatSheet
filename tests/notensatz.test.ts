@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { tonartFinden, type Raster, type Takt } from '@/domain/notation';
 import {
   angebunden, aufBlatt, bogenUmschalten, dauerSetzen, klaenge, leererTakt, leeresBlatt, legen, leiterSchritt, leiterVerschieben, letzteHoehe, noteSchreiben,
-  alleNoten, angleichen, aufsBlattStimmen, einfuegen, einstimmig, entfernen, entfernenViele, leiterVerschiebenViele, pausenViele, verschiebenViele, inAllen, inStimme, klaengeAlle, notenZeiten, paletteWerte, punktiert, skalieren, stimmeAendern, stimmeHinzu, stimmeWeg, strecken, taktEinfuegen, taktLoeschen, tonSetzen, triole, verschieben,
+  alleNoten, angleichen, aufsBlattStimmen, danachEinfuegen, einfuegen, einstimmig, entfernen, entfernenViele, leiterVerschiebenViele, loeschenImTakt, pausenViele, taktLaenge, taktStimmt, verschiebenViele, wertSetzen, inAllen, inStimme, klaengeAlle, notenZeiten, paletteWerte, punktiert, skalieren, stimmeAendern, stimmeHinzu, stimmeWeg, strecken, taktEinfuegen, taktLoeschen, tonSetzen, triole, verschieben,
 } from '@/domain/notensatz';
 import { abcLesen, alsAbc, alsAbcStimmen, notenwerte } from '@/domain/notation';
 
@@ -72,21 +72,23 @@ describe('Tonhöhe', () => {
 });
 
 describe('Notenwert', () => {
-  it('kürzer: eine Pause füllt auf', () => {
-    expect(kurz(dauerSetzen([takt([60, 16])], R, { takt: 0, note: 0 }, 4)[0])).toBe('60/4 z/4 z/8');
-  });
-  it('länger: frisst die folgenden Noten, eine angeschnittene behält ihren Rest', () => {
+  it('setzt nur diesen Wert — der Takt darf dabei zu kurz oder zu lang werden', () => {
+    const kurzer = dauerSetzen([takt([60, 16])], R, { takt: 0, note: 0 }, 4);
+    expect(kurz(kurzer[0])).toBe('60/4');
+    expect(taktStimmt(kurzer[0], R)).toBe(false);
     const t = [takt([60, 4], [62, 4], [64, 8])];
-    expect(kurz(dauerSetzen(t, R, { takt: 0, note: 0 }, 8)[0])).toBe('60/8 64/8');
-    expect(kurz(dauerSetzen(t, R, { takt: 0, note: 0 }, 12)[0])).toBe('60/12 64/4');
+    expect(kurz(dauerSetzen(t, R, { takt: 0, note: 0 }, 8)[0])).toBe('60/8 62/4 64/4- 64/4');
+    expect(taktLaenge(dauerSetzen(t, R, { takt: 0, note: 0 }, 8)[0])).toBe(20);
+    expect(taktStimmt(t[0], R)).toBe(true);
   });
-  it('geht nicht über den Taktstrich, löst einen Bogen, der nicht mehr passt', () => {
+  it('lässt den Nachbartakt in Ruhe; ein Bogen bleibt nur an der letzten Note', () => {
     const t = [takt([60, 8], [62, 8, true]), takt([62, 16])];
     const neu = dauerSetzen(t, R, { takt: 0, note: 0 }, 16);
-    expect(kurz(neu[0])).toBe('60/16');
+    expect(kurz(neu[0])).toBe('60/16 62/8-');
     expect(kurz(neu[1])).toBe('62/16');
+    // Zwei getrennte Einsätze derselben Höhe: nur der erste wird länger, der Bogen am zweiten bleibt.
     const gleich = dauerSetzen([takt([62, 8], [62, 8, true]), takt([62, 16])], R, { takt: 0, note: 0 }, 16);
-    expect(kurz(gleich[0])).toBe('62/16-');
+    expect(kurz(gleich[0])).toBe('62/16 62/8-');
   });
   it('Note schreiben: Wert und Höhe an der Stelle, Auswahl rückt zur nächsten Note', () => {
     const blatt = leeresBlatt(R);
@@ -98,9 +100,30 @@ describe('Notenwert', () => {
     const c = noteSchreiben(b.takte, R, b.naechste!, 64, 8);
     expect(kurz(c.takte[0])).toBe('60/4 62/4 64/8');
     expect(c.naechste).toBeNull();
+    // Auf einer Note: nur Wert und Höhe dieser Note, der Takt wird kürzer (rot).
     const d = noteSchreiben(taktEinfuegen(c.takte, R, 0), R, { takt: 0, note: 2 }, 65, 4);
-    expect(kurz(d.takte[0])).toBe('60/4 62/4 65/4 z/4');
-    expect(d.naechste).toEqual({ takt: 0, note: 3 });
+    expect(kurz(d.takte[0])).toBe('60/4 62/4 65/4');
+    expect(d.naechste).toEqual({ takt: 1, note: 0 });
+  });
+  it('Palettenwert auf eine Pause teilt sie, auf eine Note setzt er nur deren Wert', () => {
+    expect(kurz(wertSetzen([takt([null, 16])], R, { takt: 0, note: 0 }, 4)[0])).toBe('z/4 z/4 z/8');
+    expect(kurz(wertSetzen([takt([null, 4], [60, 12])], R, { takt: 0, note: 0 }, 8)[0])).toBe('z/4 60/12');
+    expect(kurz(wertSetzen([takt([60, 16])], R, { takt: 0, note: 0 }, 4)[0])).toBe('60/4');
+  });
+  it('Note + und Pause + hinter der gewählten, nur in diesem Takt; Löschen nur hier', () => {
+    const t = [takt([60, 8], [62, 8]), takt([64, 16])];
+    const p = danachEinfuegen(t, R, { takt: 0, note: 0 }, null, 4);
+    expect(p.takte.map(kurz)).toEqual(['60/8 z/4 62/4- 62/4', '64/16']); // 62 beginnt jetzt vor der Takthälfte: gebunden darüber
+    expect(p.neu).toEqual({ takt: 0, note: 1 });
+    const n = danachEinfuegen(t, R, { takt: 0, note: 1 }, 62, 4);
+    expect(n.takte.map(kurz)).toEqual(['60/8 62/8 62/4', '64/16']);
+    expect(taktStimmt(n.takte[0], R)).toBe(false);
+    expect(loeschenImTakt(t, R, { takt: 0, note: 0 }).map(kurz)).toEqual(['62/8', '64/16']);
+    expect(loeschenImTakt(t, R, { takt: 1, note: 0 }).map(kurz)).toEqual(['60/8 62/8', 'z/16']);
+    // Bogen in den nächsten Takt: Einfügen dahinter löst ihn; Löschen der ersten Note löst den Bogen davor.
+    const b = [takt([60, 8], [62, 8, true]), takt([62, 16])];
+    expect(danachEinfuegen(b, R, { takt: 0, note: 1 }, null, 4).takte.map(kurz)).toEqual(['60/8 62/8 z/4', '62/16']);
+    expect(loeschenImTakt(b, R, { takt: 1, note: 0 }).map(kurz)).toEqual(['60/8 62/8', 'z/16']);
   });
   it('Palette: Werte, die in den Takt passen, und Punktierung', () => {
     expect(paletteWerte(R).map((w) => w.name)).toEqual(['Ganze', 'Halbe', 'Viertel', 'Achtel', 'Sechzehntel']);
@@ -216,7 +239,7 @@ describe('Blatt mit 96 Zellen: 32tel und Triolen', () => {
   it('32tel bleiben binär, Pausen füllen mit 32teln auf', () => {
     const t = legen([{ midi: 60, dauer: 3 }, { midi: 62, dauer: 3 }, { midi: 64, dauer: 6 }, { midi: null, dauer: 84 }], B);
     expect(kurz(t)).toBe('60/3 62/3 64/6 z/12 z/24 z/48');
-    expect(kurz(dauerSetzen([leererTakt(B)], B, { takt: 0, note: 0 }, 2)[0])).toBe('(4z/2t z/16t z/4t z/2t z/24 z/48');
+    expect(kurz(noteSchreiben([leererTakt(B)], B, { takt: 0, note: 0 }, 60, 2).takte[0])).toBe('(460/2t z/16t z/4t z/2t z/24 z/48');
   });
   it('rundet, was sich nicht notieren lässt, im betroffenen Schlag aufs binäre Raster', () => {
     // Ein 32tel vor eine Achteltriole geschoben: die Triole liegt schief — der Schlag wird binär.
@@ -270,6 +293,10 @@ describe('Mehrstimmig', () => {
     const bass = alsAbcStimmen([{ name: '', schluessel: 'bass', takte: [takt([43, 96])] }], B, { titel: 'B' });
     expect(bass).toContain('V:1 name="" clef=bass');
     expect(abcLesen(bass)!.stimmen[0].schluessel).toBe('bass');
+    const alt = alsAbcStimmen([{ name: 'Bratsche', schluessel: 'alt', takte: [takt([60, 96])] }, { name: 'T', schluessel: 'tenor', takte: [takt([55, 96])] }], B, { titel: 'A' });
+    expect(alt).toContain('clef=alto');
+    expect(alt).toContain('clef=tenor');
+    expect(abcLesen(alt)!.stimmen.map((s) => s.schluessel)).toEqual(['alt', 'tenor']);
   });
   it('spielt alle Stimmen zusammen, stumme nicht, und bringt gelesene Stimmen aufs Blatt', () => {
     const stimmen = [einstimmig([takt([60, 48], [62, 48])])[0], { name: 'B', schluessel: 'bass' as const, takte: [takt([48, 96])] }];
