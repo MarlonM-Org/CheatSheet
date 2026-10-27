@@ -1075,13 +1075,16 @@ small .stern { display: inline-block; width: 0.95em; height: 0.95em; vertical-al
 /* „+ Noten“ mit Menü; die Zielsammlung steht unübersehbar oben. */
 /* Das Menü klappt im Fluss unter der Werkzeugzeile auf (eigene Zeile) — so
    schneidet der Rand der Bibliothek nichts ab. */
+/* Das Menü legt sich als Popover unter den Knopf über die Liste, statt sie
+   nach unten zu schieben; die Werkzeugzeile ist sein Bezug. */
 .bib-menue-huelle { display: contents; }
 .bib-menue-huelle > .knopf { position: relative; }
+.bib-werkzeuge { position: relative; }
 .bib-menue {
-  position: relative; z-index: 2; order: 10; flex: 1 1 100%;
+  position: absolute; left: 0; top: calc(100% + 6px); z-index: 3; width: min(100%, 20rem);
   display: flex; flex-direction: column; gap: 4px; padding: 8px; border-radius: 10px;
   background: var(--papier); border: 1px solid var(--linie-stark);
-  box-shadow: 0 6px 18px rgb(0 0 0 / 10%);
+  box-shadow: 0 10px 28px rgb(0 0 0 / 18%);
 }
 .bib-menue-punkt {
   display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 8px;

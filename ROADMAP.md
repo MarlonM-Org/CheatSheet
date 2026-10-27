@@ -944,7 +944,8 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
   mit Erklärzeilen werden fünf untereinander, nur Symbol und Name:
   **PDF-Dateien**, **Ordner**, **Einscannen**, **Fotos**, **Selbst
   schreiben** (ein erster Wurf mit zwei Punkten je Zeile gefiel nicht —
-  untereinander bleibt es). Der letzte ersetzt
+  untereinander bleibt es). Das Menü legt sich als **Popover** über die
+  Liste (2026-10-27), statt sie nach unten zu schieben. Der letzte ersetzt
   „Einsingen oder Audio laden“ und „Neues Stück schreiben“ — beide führten in
   denselben Dialog, der öffnet jetzt mit „Schreiben“ und hat oben weiter die
   Quellen Mikrofon und Audio-Datei. Der Leerzustand bietet dieselben fünf
