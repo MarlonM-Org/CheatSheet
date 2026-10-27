@@ -110,6 +110,7 @@ oder iPad. Vorher auf jedem Gerät eine Sicherung erstellen.
 
 - G-02/G-03 · Einsingen oder Audio laden (`Einspielen.tsx`, `notation.ts` mit synthetischer Messlatte „Alle meine Entchen“) · einmal auf dem iPhone probiert (Mund dicht am Mikrofon), seitdem Lesart, Tonart, Anschläge, Latenz und Pegel umgebaut — echte Stimme noch nie gegen den neuen Stand.
   - Lesart 27.10.2026 nach der Recherche (`reports/Gesang zu Noten transkribieren.md`) umgebaut: erst Tonstücke in Sekunden (`segmentieren`: Mindestdauer 100 ms, Lücken bis 130 ms überbrücken, Anschläge nur zum Trennen gleicher Töne, Tonhöhe ohne den Ansatz), dann Legato-Rasterung (nur Einsätze gerundet, Note dauert bis zum nächsten Einsatz, Pause erst ab einer halben Schlaglänge Stille). Prüfen: Ein lang gehaltener Ton bleibt eine Note statt „Sechzehntel, Pause, Sechzehntel“; „schwim-men auf dem“ bleiben vier Viertel; Atempausen zwischen Phrasen werden Pausen.
+  - Rückmeldung Marlon 27.10. abends: abgesetztes „la la la“ wird getrennt, weich gesungenes nicht (vier „la“ wurden eine 2,3-s-Note). Aus seiner Aufnahme gemessen: Das weiche „l“ senkt den Gesamtpegel nur 1–2 dB, das Band 600–1500 Hz aber 15–25 dB. Seitdem trägt jeder Rahmen `mitte` (`bandpegel`, Goertzel über 600–1500 Hz) und `silbengrenzen` trennt gleiche Töne an einem Einbruch ≥ 10 dB; an der Aufnahme werden daraus vier Viertel. Prüfen: weiches „la la la la“ auf einem Ton → vier Noten; gehaltener Ton mit Vibrato → eine Note; Mikrofon-Pfad (Analyser 4096) und Datei-Pfad (Fenster 1024) verhalten sich gleich.
   - Mikrofon: „Alle meine Entchen“ bei 90 bpm, 4/4, Tonart C, mit Einzähler singen — kommen 27 Noten, stimmen Höhen und Werte, bleiben wiederholte Töne getrennt, ist nichts um einen Schlag verschoben (Latenz)?
   - Audio-Datei: Sprachmemo (m4a) aus der Dateien-App laden — dekodiert iOS sie, Anhören, Tempo tippen, Taktanfang per Tipp in die Spur?
   - „Als Stück speichern“: Stück steht mit „eingesungen“ in der Bibliothek, PDF öffnet, Stift und Stellen gehen; Sicherung erstellen und auf dem zweiten Gerät laden — bleibt `notation` erhalten?
@@ -567,7 +568,8 @@ gehaltene Töne zerfielen in „Sechzehntel + Sechzehntelpause“. Die Recherche
 veröffentlichtes Verfahren so arbeitet. Seitdem gilt in `notation.ts`:
 Tonstücke in Sekunden (Hysterese mit Bestätigung über mehrere Rahmen,
 Mindestdauer 100 ms, Lücken bis 130 ms, Anschläge nur zum Trennen gleicher
-Töne), dann die Legato-Regel beim Rastern (Einsätze gemeinsam gerundet mit
+Töne, weiche Silbengrenzen aus dem Mittenband 600–1500 Hz), dann die
+Legato-Regel beim Rastern (Einsätze gemeinsam gerundet mit
 Vorliebe für Schlag und Achtel, Dauer bis zum nächsten Einsatz, Pause erst
 ab einer halben Schlaglänge Stille). Dasselbe im Python-Prüfstand
 (`experimente/transkription/monophon.py`, dort zusätzlich mit dem

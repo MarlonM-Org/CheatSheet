@@ -16,14 +16,39 @@ import { median } from './ueben';
 // (davor liegende Rahmen zählen nicht), `midi` der notierte Ton (C4 = 60,
 // Nachkommastellen = Cent) oder null für Stille und Unklares, `pegel` die
 // Lautstärke des Rahmens (Effektivwert 0…1; ohne Pegel keine
-// Anschlag-Erkennung, dann trennen nur Lücken gleiche Töne).
-export interface Tonrahmen { zeit: number; midi: number | null; pegel?: number }
+// Anschlag-Erkennung, dann trennen nur Lücken gleiche Töne), `mitte` der
+// Pegel des Mittenbands 600–1500 Hz (`bandpegel`; ohne ihn keine Erkennung
+// weicher Silbengrenzen wie „la la" ohne Absetzen).
+export interface Tonrahmen { zeit: number; midi: number | null; pegel?: number; mitte?: number }
 
 // Effektivwert (RMS) eines Abtastfensters — der Pegel eines Rahmens.
 export function effektivwert(puffer: ArrayLike<number>): number {
   let s = 0;
   for (let i = 0; i < puffer.length; i++) s += puffer[i] * puffer[i];
   return puffer.length ? Math.sqrt(s / puffer.length) : 0;
+}
+
+// Pegel eines Frequenzbands (Effektivwert-artig, 0…1) aus einem
+// Abtastfenster: Goertzel je Bin mit Hann-Fenster, damit der Grundton nicht
+// ins Band streut. Standard 600–1500 Hz: der zweite Formant. Ein weich
+// gesungenes „l" zwischen zwei „la" senkt den Gesamtpegel nur um 1–2 dB,
+// dieses Band aber um 15–25 dB (gemessen an einer echten Aufnahme,
+// 27.10.2026) — so werden Silben ohne Stimmpause unterscheidbar.
+export function bandpegel(puffer: ArrayLike<number>, abtastrate: number, von = 600, bis = 1500): number {
+  const n = puffer.length;
+  if (n < 2) return 0;
+  const k0 = Math.max(1, Math.ceil((von * n) / abtastrate)), k1 = Math.min(Math.floor((bis * n) / abtastrate), Math.floor(n / 2));
+  if (k1 < k0) return 0;
+  const x = new Float64Array(n);
+  for (let i = 0; i < n; i++) x[i] = puffer[i] * (0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (n - 1)));
+  let summe = 0;
+  for (let k = k0; k <= k1; k++) {
+    const c = 2 * Math.cos((2 * Math.PI * k) / n);
+    let s1 = 0, s2 = 0;
+    for (let i = 0; i < n; i++) { const s0 = x[i] + c * s1 - s2; s2 = s1; s1 = s0; }
+    summe += s1 * s1 + s2 * s2 - c * s1 * s2;
+  }
+  return (2 * Math.sqrt(summe)) / n;
 }
 
 // ── Tonart ──
@@ -212,6 +237,30 @@ export function anschlaege(rahmen: readonly Tonrahmen[], anschlag = 6, fenster =
   return e;
 }
 
+// Silbengrenzen ohne Stimmpause aus dem Mittenband: Ein lokales Minimum
+// von `mitte`, das mindestens `tiefe` dB unter dem Maximum der letzten
+// `vorher` Sekunden und der nächsten `nachher` Sekunden liegt (das „l"
+// zwischen zwei „la"). Gemeldet wird der Zeitpunkt, an dem das Band danach
+// wieder um die halbe Tiefe gestiegen ist — der Vokalbeginn, dort beginnt die
+// Note. Rahmen ohne `mitte` liefern nichts.
+export function silbengrenzen(rahmen: readonly Tonrahmen[], tiefe = 10, vorher = 0.15, nachher = 0.08): number[] {
+  const mit = rahmen.filter((f) => f.mitte !== undefined);
+  if (mit.length < 3) return [];
+  const db = mit.map((f) => 20 * Math.log10((f.mitte ?? 0) + 1e-6));
+  const e: number[] = [];
+  for (let i = 1; i < db.length - 1; i++) {
+    let links = -Infinity, rechts = -Infinity, minimum = true;
+    for (let k = i - 1; k >= 0 && mit[i].zeit - mit[k].zeit <= vorher; k--) links = Math.max(links, db[k]);
+    for (let k = i + 1; k < db.length && mit[k].zeit - mit[i].zeit <= nachher; k++) { rechts = Math.max(rechts, db[k]); if (db[k] < db[i]) minimum = false; }
+    if (!minimum || links - db[i] < tiefe || rechts - db[i] < tiefe) continue;
+    let j = i;
+    while (j + 1 < db.length && mit[j + 1].zeit - mit[i].zeit <= nachher && db[j] < db[i] + tiefe / 2) j++;
+    if (!e.length || mit[j].zeit - e[e.length - 1] >= nachher) e.push(mit[j].zeit);
+    i = j;
+  }
+  return e;
+}
+
 // Verschiebung aller Einsätze gegen das Achtelraster (Aufnahmelatenz, und
 // die Tonerkennung rastet erst nach dem Konsonanten ein): zirkulärer
 // Mittelwert der Phasen aller Tonwechsel, als Verspätung in [0, Achtel).
@@ -280,14 +329,16 @@ export function zerlegen(ab: number, dauer: number, r: Raster, punktiert = true)
 // Die Regeln folgen dem, was pYIN/Tony, Basic Pitch, Omnizart und Klangios
 // Gesangscode gemeinsam haben (reports/Gesang zu Noten transkribieren.md):
 // Mindestdauer 100 ms, gleiche Töne über Lücken bis 130 ms verbinden,
-// Anschläge nur zum Trennen gleicher Töne, Tonhöhe als Median ohne den
-// Ansatz. Ein Tonstück endet, wo die Stimme aufhört oder der Ton wechselt.
+// Anschläge und weiche Silbengrenzen nur zum Trennen gleicher Töne, Tonhöhe
+// als Median ohne den Ansatz. Ein Tonstück endet, wo die Stimme aufhört
+// oder der Ton wechselt.
 export interface Tonstueck { start: number; ende: number; midi: number }
 export interface SegmentOptionen {
   tonart?: Tonart | null;
   mindest?: number;   // s: kürzere Stücke fallen weg (pYIN prunethresh 0,1)
   luecke?: number;    // s: gleiche Töne über kürzere Lücken ohne Anschlag verbinden
   anschlag?: number;  // dB: Pegelanstieg, der einen Neuansatz anzeigt (0 = keine Anschläge)
+  senke?: number;     // dB: Einbruch des Mittenbands, der eine weiche Silbengrenze anzeigt (0 = aus)
   ansatz?: number;    // s: Anfang eines Stücks, der beim Tonhöhen-Median nicht zählt
   kurz?: number;      // s: „kurz" für die Nachbesserung (Oktavfehler, angeschliffener Ansatz)
 }
@@ -305,7 +356,12 @@ export function segmentieren(rahmen: readonly Tonrahmen[], o: SegmentOptionen = 
   if (!ab.length) return [];
   const dt = rahmenAbstand(ab);
   const glatt = hysterese(ab);
-  const schlaege = o.anschlag === 0 ? [] : anschlaege(ab, o.anschlag ?? 6);
+  // Grenzen gleicher Töne: Pegelanstiege (abgesetzte Silben) und Einbrüche
+  // des Mittenbands (weiche Silben), höchstens eine je 90 ms.
+  const schlaege: number[] = [];
+  for (const t of [...(o.anschlag === 0 ? [] : anschlaege(ab, o.anschlag ?? 6)), ...(o.senke === 0 ? [] : silbengrenzen(ab, o.senke ?? 10))].sort((a, b) => a - b)) {
+    if (!schlaege.length || t - schlaege[schlaege.length - 1] >= 0.09) schlaege.push(t);
+  }
 
   // Läufe gleicher Hysterese-Tonhöhe → Rahmenbereiche [i, j).
   const bereiche: [number, number][] = [];

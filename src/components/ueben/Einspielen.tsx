@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  alsAbcStimmen, effektivwert, FEINHEITEN, notenDateiname, rastern, taktDauer, tempoAusTipps, TONARTEN, tonartFinden, versatzSchaetzen,
+  alsAbcStimmen, bandpegel, effektivwert, FEINHEITEN, notenDateiname, rastern, taktDauer, tempoAusTipps, TONARTEN, tonartFinden, versatzSchaetzen,
   zellenDauer, zellenJeSchlag, type Feinheit, type Gelesen, type Raster, type Stimme, type Tonrahmen,
 } from '@/domain/notation';
 import type { Stueck } from '@/domain/bestand';
@@ -322,7 +322,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
           const g = grundfrequenz(puffer, ctx.sampleRate, undefined, MINDEST_PEGEL);
           ton = g && g.klarheit > KLAR ? frequenzZuTon(g.frequenz, einst.current.kammerton, einst.current.stimmung) : null;
           const zeit = jetzt - versatz - t0;
-          if (zeit >= -0.05) rahmen.current.push({ zeit, midi: ton ? ton.midi + ton.cent / 100 : null, pegel: effektivwert(puffer) });
+          if (zeit >= -0.05) rahmen.current.push({ zeit, midi: ton ? ton.midi + ton.cent / 100 : null, pegel: effektivwert(puffer), mitte: bandpegel(puffer.subarray(puffer.length - 1024), ctx.sampleRate) });
         }
         const rel = jetzt - t0;
         if (jetzt - letzteAnzeige > 0.08) {
@@ -370,7 +370,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
         const g = grundfrequenz(fenster, RATE, undefined, MINDEST_PEGEL);
         const ton = g && g.klarheit > KLAR ? frequenzZuTon(g.frequenz, einst.current.kammerton, einst.current.stimmung) : null;
         const zeit = (i + FENSTER / 2) / RATE;
-        liste.push({ zeit, midi: ton ? ton.midi + ton.cent / 100 : null, pegel: effektivwert(fenster) });
+        liste.push({ zeit, midi: ton ? ton.midi + ton.cent / 100 : null, pegel: effektivwert(fenster), mitte: bandpegel(fenster, RATE) });
         if (ton && erster === null) erster = zeit;
         if (liste.length % 300 === 0) { setLaeuft(`Töne werden erkannt … ${Math.round((100 * i) / d.length)} %`); await luft(); }
       }

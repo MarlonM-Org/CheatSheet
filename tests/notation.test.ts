@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  abcLesen, abcMitTitel, abcTon, alsAbc, anschlaege, aufLeiter, effektivwert, einsaetzeRastern, hysterese, nachbessern, notationText, notenDateiname, notenwerte,
-  rastern, segmentieren, tempoAusTipps, tonartFinden, ueberzaehlig, versatzSchaetzen, zellenDauer, zellenJeSchlag, zellenJeTakt, zerlegen,
+  abcLesen, abcMitTitel, abcTon, alsAbc, anschlaege, aufLeiter, bandpegel, effektivwert, einsaetzeRastern, hysterese, nachbessern, notationText, notenDateiname, notenwerte,
+  rastern, segmentieren, silbengrenzen, tempoAusTipps, tonartFinden, ueberzaehlig, versatzSchaetzen, zellenDauer, zellenJeSchlag, zellenJeTakt, zerlegen,
   type Raster, type Takt, type Tonrahmen,
 } from '@/domain/notation';
 
@@ -168,25 +168,32 @@ function gespielt(melodie: [number, number][], r: Raster, art: 'klavier' | 'lega
 // Vibrato von 45 Cent über die Halbtongrenze, Drift, Tremolo, alle 0,3 s ein
 // Rahmen Aussetzer der Erkennung, in langen Tönen ein 7-dB-Einbruch in der
 // Mitte. `null` in der Melodie ist eine Pause. `legato`: keine Konsonanten.
-function gesungen(melodie: [number | null, number][], r: Raster, legato = false, spaet = 0): Tonrahmen[] {
+// `art`: 'silben' = abgesetzt mit stimmlosem Konsonanten; 'legato' = ohne
+// Konsonanten; 'weich' = „la la" ohne Absetzen: die Stimme klingt durch, nur
+// das Mittenband (`mitte`) bricht am „l" 100 ms lang um 20 dB ein und der
+// Gesamtpegel um 1,5 dB — wie in einer echten Aufnahme gemessen.
+function gesungen(melodie: [number | null, number][], r: Raster, art: 'silben' | 'legato' | 'weich' | boolean = 'silben', spaet = 0): Tonrahmen[] {
+  const modus = art === true ? 'legato' : art === false ? 'silben' : art;
   const dt = 0.02, schlag = 60 / r.bpm;
   let f: Tonrahmen[] = [];
   let t0 = 0;
   for (const [midi, viertel] of melodie) {
     const dauer = viertel * schlag;
-    const konsonant = midi !== null && !legato && t0 > 0 ? 0.07 : 0;
+    const konsonant = midi !== null && modus === 'silben' && t0 > 0 ? 0.07 : 0;
     if (konsonant) {
       f = f.filter((x) => x.zeit < t0 - konsonant + spaet - 1e-9);
-      for (let t = t0 - konsonant; t < t0 - 1e-9; t += dt) f.push({ zeit: t + spaet, midi: null, pegel: 0.02 });
+      for (let t = t0 - konsonant; t < t0 - 1e-9; t += dt) f.push({ zeit: t + spaet, midi: null, pegel: 0.02, mitte: 0.002 });
     }
     for (let t = 0; t < dauer - 1e-9; t += dt) {
       const zeit = t0 + t + spaet;
-      if (midi === null) { f.push({ zeit, midi: null, pegel: 0.01 }); continue; }
+      if (midi === null) { f.push({ zeit, midi: null, pegel: 0.01, mitte: 0.001 }); continue; }
       const cent = -150 * Math.exp(-t / 0.03) + 45 * Math.sin(2 * Math.PI * 5.5 * (t0 + t)) * Math.min(1, t / 0.2) + 20 * (t / dauer - 0.5);
       let pegel = 0.3 * Math.min(1, t / 0.04) * (1 + 0.1 * Math.sin(2 * Math.PI * 6.3 * (t0 + t)));
       if (dauer > 0.9) pegel *= 1 - 0.55 * Math.exp(-(((t - dauer / 2) / 0.05) ** 2));
+      let mitte = pegel * 0.3 * (1 + 0.15 * Math.sin(2 * Math.PI * 4.1 * (t0 + t)));
+      if (modus === 'weich' && t0 > 0 && t < 0.1) { pegel *= 0.84; mitte *= 0.1; }
       const aussetzer = Math.round((t0 + t) / dt) % 15 === 7;
-      f.push({ zeit, midi: aussetzer ? null : midi + cent / 100, pegel });
+      f.push({ zeit, midi: aussetzer ? null : midi + cent / 100, pegel, mitte });
     }
     t0 += dauer;
   }
@@ -341,7 +348,7 @@ describe('rastern, gesungen', () => {
   });
   it('zerlegt einen gehaltenen Ton mit Aussetzern und Pegeleinbruch nicht in Sechzehntel und Pausen', () => {
     expect(rastern(gesungen([[67, 4]], NEUNZIG), NEUNZIG)).toEqual([{ noten: [{ midi: 67, dauer: 16 }] }]);
-    expect(rastern(gesungen([[67, 4]], NEUNZIG, true), NEUNZIG)).toEqual([{ noten: [{ midi: 67, dauer: 16 }] }]);
+    expect(rastern(gesungen([[67, 4]], NEUNZIG, 'legato'), NEUNZIG)).toEqual([{ noten: [{ midi: 67, dauer: 16 }] }]);
   });
   it('notiert Pausen erst ab einer Schlaghälfte Stille', () => {
     // Achtelphrase mit echten Viertelpausen bei 120 bpm.
@@ -355,10 +362,42 @@ describe('rastern, gesungen', () => {
     expect(rastern(gesungen([[60, 1], [62, 1]], ZWEIZWANZIG), ZWEIZWANZIG)).toEqual([{ noten: [{ midi: 60, dauer: 4 }, { midi: 62, dauer: 4 }, { midi: null, dauer: 8 }] }]);
   });
   it('kommt mit Verspätung gegen den Klick zurecht', () => {
-    const spaet = gesungen(ENTCHEN, NEUNZIG, false, 0.08);
+    const spaet = gesungen(ENTCHEN, NEUNZIG, 'silben', 0.08);
     const v = versatzSchaetzen(spaet, NEUNZIG);
     expect(v).toBeGreaterThan(0.03);
     expect(rastern(spaet.map((f) => ({ ...f, zeit: f.zeit - v })), NEUNZIG)).toEqual(ENTCHEN_TAKTE);
+  });
+});
+
+describe('rastern, weich gesungen', () => {
+  it('trennt „la la la la“ ohne Absetzen am Einbruch des Mittenbands', () => {
+    expect(rastern(gesungen([[69, 1], [69, 1], [69, 1], [69, 1]], NEUNZIG, 'weich'), NEUNZIG)).toEqual([{ noten: [{ midi: 69, dauer: 4 }, { midi: 69, dauer: 4 }, { midi: 69, dauer: 4 }, { midi: 69, dauer: 4 }] }]);
+    expect(rastern(gesungen(ENTCHEN, NEUNZIG, 'weich'), NEUNZIG)).toEqual(ENTCHEN_TAKTE);
+  });
+  it('lässt einen gehaltenen Ton mit schwankendem Mittenband ganz', () => {
+    expect(rastern(gesungen([[67, 4]], NEUNZIG, 'weich'), NEUNZIG)).toEqual([{ noten: [{ midi: 67, dauer: 16 }] }]);
+  });
+});
+
+describe('silbengrenzen', () => {
+  it('meldet den Vokalbeginn nach einem tiefen Einbruch, nicht jede Schwankung', () => {
+    const r: Tonrahmen[] = Array.from({ length: 60 }, (_, i) => ({ zeit: i * 0.02, midi: 69, pegel: 0.3, mitte: 0.1 * (1 + 0.2 * Math.sin(i)) }));
+    for (let i = 25; i < 30; i++) r[i].mitte = 0.004;   // 100 ms um 28 dB eingebrochen
+    const g = silbengrenzen(r);
+    expect(g).toHaveLength(1);
+    expect(g[0]).toBeCloseTo(0.6, 1);
+    expect(silbengrenzen(r, 30)).toEqual([]);
+    expect(silbengrenzen(r.map((f) => ({ zeit: f.zeit, midi: f.midi, pegel: f.pegel })))).toEqual([]);
+  });
+});
+
+describe('bandpegel', () => {
+  it('misst Energie im Band und ignoriert den Grundton darunter', () => {
+    const n = 1024, sr = 22050;
+    const sinus = (hz: number) => Float32Array.from({ length: n }, (_, i) => 0.5 * Math.sin((2 * Math.PI * hz * i) / sr));
+    expect(bandpegel(sinus(1000), sr)).toBeGreaterThan(0.2);
+    expect(bandpegel(sinus(150), sr)).toBeLessThan(0.002);
+    expect(bandpegel(new Float32Array(n), sr)).toBe(0);
   });
 });
 

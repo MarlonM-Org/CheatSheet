@@ -7,7 +7,8 @@ Noten-HMM aus pYIN/Tony (Mauch et al. 2015) Noten: je Tonhöhe drei Zustände
 Note läuft weiter, solange nicht viele Rahmen hintereinander dagegensprechen.
 Danach die Regeln, die alle veröffentlichten Verfahren teilen: Noten kürzer
 als 100 ms verwerfen, gleiche Töne über kurze Lücken verbinden, gleiche Töne
-nur bei hörbarem Neuansatz trennen, Tonhöhe als Median ohne den Ansatz.
+nur bei hörbarem Neuansatz trennen (Pegelanstieg oder Einbruch des
+Mittenbands beim weichen „l"), Tonhöhe als Median ohne den Ansatz.
 Zuletzt die Rasterung bei bekanntem Tempo: nur die Einsätze werden gerundet
 (gemeinsam, mit Vorliebe für Schlag und Achtel), jede Note dauert bis zum
 nächsten Einsatz — eine Pause entsteht nur, wenn die Stille davor länger ist
@@ -49,6 +50,7 @@ class Parameter:
     mindest: float = 100.0      # ms: kürzere Noten verwerfen (pYIN prunethresh)
     luecke: float = 130.0       # ms: gleiche Töne über kürzere Lücken verbinden, wenn kein Anschlag dazwischen
     anschlag: float = 4.0       # dB: Pegelanstieg binnen 25 ms, der einen Neuansatz anzeigt (0 = aus)
+    senke: float = 10.0         # dB: Einbruch des Mittenbands (600–1500 Hz), der eine Silbengrenze anzeigt (0 = aus)
     pause: float | None = None  # s: Stille ab dieser Länge wird Pause (None = ein Achtel, mindestens 0,15 s)
     ansatz: float = 60.0        # ms: Anfang einer Note, der beim Tonhöhen-Median ausgelassen wird
     tonart: str | None = None
@@ -79,6 +81,55 @@ def tonhoehe_verfolgen(y: np.ndarray, von: float, bis: float):
     db = librosa.amplitude_to_db(rms, ref=np.max)
     n = min(len(midi), len(prob), len(db))
     return midi[:n], prob[:n], db[:n]
+
+
+def mittenband(y: np.ndarray, von: float = 600.0, bis: float = 1500.0) -> np.ndarray:
+    """Pegel des Mittenbands je Rahmen in dB (relativ zum Maximum).
+
+    Ein weich gesungenes „l" zwischen zwei „la" senkt den Gesamtpegel nur um
+    1–2 dB, das Band 600–1500 Hz (zweiter Formant) aber um 15–25 dB — gemessen
+    an einer echten Aufnahme, 27.10.2026. Das ist das Signal für Silbengrenzen
+    ohne Stimmpause.
+    """
+    import librosa
+
+    S = np.abs(librosa.stft(y, n_fft=1024, hop_length=HOP, win_length=1024)) ** 2
+    f = librosa.fft_frequencies(sr=SR, n_fft=1024)
+    band = S[(f >= von) & (f <= bis)].sum(axis=0)
+    return 10 * np.log10(band / max(band.max(), 1e-12) + 1e-12)
+
+
+def senken_finden(x: np.ndarray, tiefe_db: float, vorher_s: float = 0.15, nachher_s: float = 0.08) -> np.ndarray:
+    """Silbengrenzen als Einbrüche: lokales Minimum, das mindestens `tiefe_db`
+    unter dem Maximum der letzten `vorher_s` und der nächsten `nachher_s`
+    liegt. Gemeldet wird der Rahmen, an dem der Pegel danach wieder um die
+    halbe Tiefe gestiegen ist — der Vokalbeginn, dort beginnt die Note."""
+    if tiefe_db <= 0 or len(x) < 3:
+        return np.array([], dtype=int)
+    from scipy.ndimage import maximum_filter1d, minimum_filter1d
+
+    r_vor = max(1, int(vorher_s / RAHMEN_S))
+    r_nach = max(1, int(nachher_s / RAHMEN_S))
+    links = maximum_filter1d(x, size=r_vor, origin=(r_vor - 1) // 2)
+    rechts = maximum_filter1d(x, size=r_nach, origin=-(r_nach // 2))
+    minima = x == minimum_filter1d(x, size=r_nach)
+    rahmen = []
+    for i in np.flatnonzero(minima & (links - x >= tiefe_db) & (rechts - x >= tiefe_db)):
+        j = i
+        while j + 1 < len(x) and j - i < r_nach and x[j] < x[i] + tiefe_db / 2:
+            j += 1
+        rahmen.append(j)
+    return np.array(rahmen, dtype=int)
+
+
+def grenzen_vereinen(*listen: np.ndarray, abstand_s: float = 0.09) -> np.ndarray:
+    """Anschläge und Senken zu einer Liste von Rahmen, höchstens einer je `abstand_s`."""
+    alle = sorted(int(r) for liste in listen for r in liste)
+    ergebnis: list[int] = []
+    for r in alle:
+        if not ergebnis or (r - ergebnis[-1]) * RAHMEN_S >= abstand_s:
+            ergebnis.append(r)
+    return np.array(ergebnis, dtype=int)
 
 
 # ── Noten-HMM (pYIN/Tony) ──
@@ -477,8 +528,11 @@ def quantisieren(noten, p: Parameter):
 
 # ── Gesamtablauf ──
 
-def segmentieren(midi: np.ndarray, prob: np.ndarray, db: np.ndarray, p: Parameter):
-    """Tonhöhenspur → Noten in Sekunden (noch ohne Raster). Liefert auch die Zählung je Stufe."""
+def segmentieren(midi: np.ndarray, prob: np.ndarray, db: np.ndarray, p: Parameter, mitte_db: np.ndarray | None = None):
+    """Tonhöhenspur → Noten in Sekunden (noch ohne Raster). Liefert auch die Zählung je Stufe.
+
+    `mitte_db`: Pegel des Mittenbands je Rahmen (`mittenband`); ohne ihn gibt es
+    nur Anschläge aus dem Gesamtpegel als Grenzen gleicher Töne."""
     import librosa
 
     prob = np.where(db < p.leise, 0.0, prob)
@@ -486,7 +540,8 @@ def segmentieren(midi: np.ndarray, prob: np.ndarray, db: np.ndarray, p: Paramete
     mindest = max(1, int(round(p.mindest / 1000 / RAHMEN_S)))
     roh = bereiche_aus_zustaenden(hmm.dekodieren(midi, prob))
     wechsel = an_tonwechseln_teilen(roh, midi, prob, mindest, int(round(p.ansatz / 1000 / RAHMEN_S)))
-    anschlaege = anschlaege_finden(db, p.anschlag)
+    senken = senken_finden(mitte_db[:len(db)], p.senke) if mitte_db is not None else np.array([], dtype=int)
+    anschlaege = grenzen_vereinen(anschlaege_finden(db, p.anschlag), senken)
     geteilt = kurze_verwerfen(an_anschlaegen_teilen(wechsel, anschlaege, mindest), mindest)
     noten = noten_aus_bereichen(geteilt, midi, prob, p.ansatz / 1000)
     leiter = tonleiter(p.tonart)
@@ -494,14 +549,14 @@ def segmentieren(midi: np.ndarray, prob: np.ndarray, db: np.ndarray, p: Paramete
     verbunden = gleiche_verbinden(gerundet, anschlaege * RAHMEN_S, p.luecke / 1000)
     # „kurz" = bis zu einer Rasterzelle: ein angeschliffener Ansatz samt Konsonant ist so lang.
     gebessert = nachbessern(verbunden, kurz_s=p.schritt() * 1.1) if p.nachbessern else verbunden
-    zaehlung = f"{len(roh)} HMM-Noten, {len(wechsel)} nach Tonwechseln, {len(geteilt)} nach Anschlägen (≥ {p.mindest:.0f} ms), {len(verbunden)} nach Verbinden, {len(gebessert)} nach Nachbesserung"
+    zaehlung = f"{len(roh)} HMM-Noten, {len(wechsel)} nach Tonwechseln, {len(geteilt)} nach Anschlägen/Silbengrenzen (≥ {p.mindest:.0f} ms), {len(verbunden)} nach Verbinden, {len(gebessert)} nach Nachbesserung"
     return gebessert, zaehlung
 
 
 def noten_aus_signal(y: np.ndarray, p: Parameter, bericht: bool = True) -> list[tuple[float, float, int]]:
     """Audio → quantisierte Noten (start_s, ende_s, midi)."""
     midi, prob, db = tonhoehe_verfolgen(y, p.von, p.bis)
-    gebessert, zaehlung = segmentieren(midi, prob, db, p)
+    gebessert, zaehlung = segmentieren(midi, prob, db, p, mittenband(y))
     noten = quantisieren(gebessert, p)
     if bericht:
         print(f"→ {zaehlung}, {len(noten)} auf dem Raster")
@@ -529,7 +584,7 @@ def spur_bauen(datei: Path, p: Parameter, versatz_auto: bool) -> list[tuple[floa
     y, _ = librosa.load(datei, sr=SR, mono=True)
     print(f"→ {datei.name}: pYIN {p.von:.0f}–{p.bis:.0f} Hz, Noten-HMM …")
     midi, prob, db = tonhoehe_verfolgen(y, p.von, p.bis)
-    noten, zaehlung = segmentieren(midi, prob, db, p)
+    noten, zaehlung = segmentieren(midi, prob, db, p, mittenband(y))
     if versatz_auto:
         # Latenz aus den Einsätzen schätzen und die Noten vorziehen; das Raster bleibt bei 0.
         spaet = versatz_schaetzen(noten, p.tempo)
@@ -608,6 +663,7 @@ def main() -> None:
     p.add_argument("--mindest", type=float, default=100.0, help="Mindestlänge einer Note in ms (Standard 100, wie pYIN/Omnizart)")
     p.add_argument("--luecke", type=float, default=130.0, help="gleiche Töne über Lücken bis x ms verbinden, wenn kein Anschlag dazwischen liegt (Standard 130)")
     p.add_argument("--anschlag", type=float, default=4.0, help="Pegelanstieg in dB binnen 25 ms, der einen Neuansatz auf gleichem Ton anzeigt (Standard 4; 0 = aus)")
+    p.add_argument("--senke", type=float, default=10.0, help="Einbruch des Mittenbands 600–1500 Hz in dB, der eine Silbengrenze ohne Stimmpause anzeigt, z. B. weiches „la la\" (Standard 10; 0 = aus)")
     p.add_argument("--pause", type=float, default=None, help="Stille ab x Sekunden wird als Pause notiert (Standard: ein Achtel beim Tempo, mindestens 0,15 s)")
     p.add_argument("--ansatz", type=float, default=60.0, help="ms am Notenanfang, die beim Tonhöhen-Median ausgelassen werden (Standard 60)")
     p.add_argument("--nachbessern", action=argparse.BooleanOptionalAction, default=True, help="Oktavfehler und angeschliffene Ansatztöne korrigieren (Standard an)")
@@ -631,7 +687,7 @@ def main() -> None:
     for datei in args.dateien:
         param = Parameter(tempo=args.tempo, raster=args.raster, schlaege=args.schlaege, von=args.von, bis=args.bis,
                           leise=args.leise, mindest=args.mindest, luecke=args.luecke, anschlag=args.anschlag,
-                          pause=args.pause, ansatz=args.ansatz, tonart=args.tonart, versatz=versatz,
+                          senke=args.senke, pause=args.pause, ansatz=args.ansatz, tonart=args.tonart, versatz=versatz,
                           nachbessern=args.nachbessern)
         noten = spur_bauen(datei, param, versatz_auto)
         name = args.name if len(args.dateien) == 1 else f"{args.name} {datei.stem}"

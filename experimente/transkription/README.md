@@ -149,7 +149,15 @@ dazu steht in `reports/Gesang zu Noten transkribieren.md`; der dritte Versuch
    jeder Note (Einschleifen).
 3. **Anschläge nur zum Trennen gleicher Töne** („schwim-men auf dem"):
    Pegelanstieg ≥ 4 dB binnen 25 ms, höchstens einer je 90 ms. Kein
-   Spektralfluss-Onset-Detektor mehr als allgemeiner Trenner.
+   Spektralfluss-Onset-Detektor mehr als allgemeiner Trenner. Dazu seit dem
+   27.10. abends **Silbengrenzen aus dem Mittenband**: Ein weich gesungenes
+   „la la la" ohne Absetzen senkt den Gesamtpegel nur um 1–2 dB, das Band
+   600–1500 Hz (zweiter Formant) am „l" aber um 15–25 dB — gemessen an einer
+   echten Aufnahme von Marlon, in der vier weiche „la" eine 2,3-s-Note
+   geworden waren. Ein Einbruch ≥ 10 dB (`--senke`) gegen die letzten 150 ms
+   und die nächsten 80 ms gilt als Silbengrenze; die Note beginnt, wo das
+   Band wieder steigt (Vokalbeginn). Mit 6, 8, 10 und 12 dB fand der
+   Detektor in der Aufnahme dieselben sieben Grenzen.
 4. **Mindestdauer 100 ms**, gleiche Töne über Lücken ≤ 130 ms verbinden,
    wenn kein Anschlag in der Lücke liegt; Tonhöhe = Median ohne den Ansatz.
 5. **Legato-Regel beim Rastern**: Nur die Einsätze werden gerundet, und zwar
@@ -179,8 +187,9 @@ sind im Editor schneller gelöscht als zehn Pausen.
 `pruefen.py` erzeugt eine künstliche Laienstimme (Obertöne, Vibrato 45 Cent
 über die Halbtongrenze, Drift, Einschleifen von unten, Konsonanten als
 Rauschstöße mit Pegeleinbruch, Tremolo, 7-dB-Einbruch in langen Tönen) und
-lässt fünf Fälle durch die ganze Kette: Halteton, „Alle meine Entchen" (mit
+lässt sechs Fälle durch die ganze Kette: Halteton, „Alle meine Entchen" (mit
 und ohne Tonart-Korrektur), Achtelphrase mit echten Pausen bei 120 bpm,
+„Alle meine Entchen" weich ohne Absetzen (das „l" dämpft nur die Obertöne),
 Legato ohne Konsonanten. Erwartung: jede Note getroffen, jede Dauer passend,
 nichts überzählig.
 
@@ -189,7 +198,7 @@ nichts überzählig.
 .venv\Scripts\python pruefen.py --wav    # legt die Signale in aufnahmen\pruef-*.wav ab
 ```
 
-Stand 27.10.2026: alle fünf Fälle bestanden; „Alle meine Entchen" mit vier
+Stand 27.10.2026: alle sechs Fälle bestanden; „Alle meine Entchen" mit vier
 Zufallsseeds und normaler Stimme 27/27 Noten, 27 Dauern, 0 überzählig (der
 zweite Versuch kam mit eigener Stimme auf 19/22). Extremstimme (70 Cent
 Vibrato, 3 Halbtöne Einschleifen): 27/27 getroffen, 2–3 überzählige

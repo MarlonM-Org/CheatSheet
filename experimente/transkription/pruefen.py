@@ -33,7 +33,7 @@ def _midi_hz(m: float) -> float:
 
 def stimme(noten: list[tuple[int | None, float]], tempo: float, konsonant: bool = True,
            vibrato_cent: float = 45.0, drift_cent: float = 25.0, tremolo_db: float = 2.0,
-           einschleifen: float = 1.5, kratzer: bool = True) -> np.ndarray:
+           einschleifen: float = 1.5, kratzer: bool = True, weich: bool = False) -> np.ndarray:
     """Noten (midi oder None für Pause, Dauer in Vierteln) → Signal bei SR.
 
     Jede Note: 20 ms Stille + 50 ms stimmloser Konsonant (gefiltertes Rauschen,
@@ -41,6 +41,9 @@ def stimme(noten: list[tuple[int | None, float]], tempo: float, konsonant: bool 
     (`einschleifen` Halbtöne über 90 ms), Vibrato (5,5 Hz, ab 200 ms voll),
     langsamer Drift, Tremolo (ca. 6 Hz) und ein leiser Pegeleinbruch mitten in
     langen Tönen (Stütze lässt nach), der die Note NICHT beenden darf.
+    `weich`: statt des stimmlosen Konsonanten ein weiches „l": 100 ms lang
+    klingt der Grundton weiter, die Obertöne sind um 20 dB leiser (der
+    Gesamtpegel sinkt nur 1–2 dB, das Mittenband 600–1500 Hz bricht ein).
     """
     viertel = 60.0 / tempo
     teile = []
@@ -50,9 +53,9 @@ def stimme(noten: list[tuple[int | None, float]], tempo: float, konsonant: bool 
             teile.append(RNG.normal(0, 10 ** (-50 / 20), n).astype(np.float32))
             continue
         seg = np.zeros(n, dtype=np.float64)
-        k0 = int(0.02 * SR) if konsonant else 0
-        k1 = k0 + (int(0.05 * SR) if konsonant else 0)
-        if konsonant:
+        k0 = int(0.02 * SR) if konsonant and not weich else 0
+        k1 = k0 + (int(0.05 * SR) if konsonant and not weich else 0)
+        if konsonant and not weich:
             rausch = RNG.normal(0, 1, k1 - k0)
             rausch = np.convolve(rausch, np.ones(8) / 8, mode="same")   # dumpfer machen
             seg[k0:k1] = rausch / (np.abs(rausch).max() + 1e-9) * 10 ** (-18 / 20)
@@ -68,9 +71,12 @@ def stimme(noten: list[tuple[int | None, float]], tempo: float, konsonant: bool 
         f = _midi_hz(midi) * 2 ** (cent / 1200)
         phase = 2 * np.pi * np.cumsum(f) / SR
         ton = np.zeros_like(t)
+        daempfung = np.where(t < 0.1, 0.1, 1.0) if weich else 1.0                        # das „l": alle Obertöne 100 ms lang leise
         for h in range(1, 12):
-            ton += np.sin(h * phase + RNG.uniform(0, 2 * np.pi)) / h ** 1.3 * (1 if h < 6 else 0.5)
+            ton += np.sin(h * phase + RNG.uniform(0, 2 * np.pi)) / h ** 1.3 * (1 if h < 6 else 0.5) * (daempfung if h >= 2 else 1.0)
         huelle = np.clip(t / 0.04, 0, 1) * np.clip((t[-1] - t) / 0.06, 0, 1)             # an- und abschwellen
+        if weich:
+            huelle = np.clip(t / 0.01, 0, 1) * np.clip((t[-1] - t) / 0.03, 0, 1) * np.where(t < 0.1, 0.85, 1.0)   # kaum Pegelbewegung
         huelle *= 10 ** (tremolo_db * np.sin(2 * np.pi * 6.3 * t) / 20)                  # Tremolo
         if kratzer and t[-1] > 0.9:
             mitte = t[-1] / 2
@@ -158,7 +164,10 @@ def main() -> None:
     phrase = [(64, 0.5), (66, 0.5), (67, 1), (None, 1), (67, 0.5), (66, 0.5), (64, 1), (None, 1), (62, 2), (64, 2)]
     ergebnisse.append(fall("pausen", phrase, 120, Parameter(tempo=120), args.wav))
 
-    # 5. Ohne Konsonanten gesungen („aah"), nur Tonwechsel — darf nichts zerhacken.
+    # 5. Weiches „la la la" ohne Absetzen: die Stimme klingt durch, nur das „l" dämpft die Obertöne.
+    ergebnisse.append(fall("entchen-weich", ENTCHEN, 90, Parameter(tempo=90), args.wav, weich=True))
+
+    # 6. Ohne Konsonanten gesungen („aah"), nur Tonwechsel — darf nichts zerhacken.
     legato = [(60, 1), (62, 1), (64, 2), (65, 1), (67, 3), (65, 1), (64, 1), (62, 2)]
     ergebnisse.append(fall("legato", legato, 80, Parameter(tempo=80), args.wav, konsonant=False))
 
