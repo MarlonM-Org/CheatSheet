@@ -429,23 +429,32 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
 
       {/* Leere Liste: Hinzufügen und Laden stehen in der Hinweis-Karte, Sortieren gibt es noch nichts. */}
       {!!noten?.length && (auswaehlen ? (
-        <div className="space-y-2" role="toolbar" aria-label="Auswahl">
-          <div className="bib-werkzeuge">
-            <label className="alle-waehlen flex items-center gap-2 text-sm font-semibold">
-              <input type="checkbox" className="auswahl-box" checked={alleGewaehlt}
-                onChange={() => setAuswahl(alleGewaehlt ? new Set() : new Set(gefiltert.map((n) => n.id)))} aria-label="Alle auswählen" />
-              Alle
-            </label>
-            <span className="flex-1" />
-            <button type="button" className="text-knopf bib-fertig" disabled={!auswahl.size || laeuft} onClick={() => void aktualisieren(gewaehlteNoten)}
-              title="Die PDF-Dateien neu einlesen; Stellen und Anmerkungen bleiben">Aktualisieren</button>
-            <button type="button" className="text-knopf bib-loeschen" disabled={!auswahl.size || laeuft} onClick={() => void loeschen()}>Löschen</button>
-            <button type="button" className="text-knopf bib-fertig" onClick={auswahlEnde}>Fertig</button>
-          </div>
-          <div className="bib-werkzeuge">
-            <button type="button" className="knopf knopf-leise knopf-klein" disabled={!auswahl.size || laeuft} onClick={() => setSammlungBlatt([...auswahl])}>In Sammlung …</button>
-            <button type="button" className="knopf knopf-leise knopf-klein" disabled={!auswahl.size || laeuft} onClick={() => setTagBlatt([...auswahl])}>Tags …</button>
-          </div>
+        /* Eine Zeile wie außerhalb des Auswahl-Modus, damit die Liste beim
+           Umschalten stehen bleibt: Alle · Symbole · Fertig. */
+        <div className="bib-werkzeuge bib-auswahl" role="toolbar" aria-label="Auswahl">
+          <label className="alle-waehlen flex items-center gap-2 text-sm font-semibold">
+            <input type="checkbox" className="auswahl-box" checked={alleGewaehlt}
+              onChange={() => setAuswahl(alleGewaehlt ? new Set() : new Set(gefiltert.map((n) => n.id)))} aria-label="Alle auswählen" />
+            Alle
+          </label>
+          <span className="flex-1" />
+          <button type="button" className="bib-symbol" disabled={!auswahl.size || laeuft} onClick={() => void aktualisieren(gewaehlteNoten)}
+            aria-label="Aktualisieren" title="Die PDF-Dateien neu einlesen; Stellen und Anmerkungen bleiben">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.5-4.5L3 9M3 4v5h5M4 13a8 8 0 0 0 14.5 4.5L21 15M21 20v-5h-5" /></svg>
+          </button>
+          <button type="button" className="bib-symbol" disabled={!auswahl.size || laeuft} onClick={() => setSammlungBlatt([...auswahl])}
+            aria-label="In Sammlung …" title="In Sammlung …">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM12 10v7M9 14l3 3 3-3" /></svg>
+          </button>
+          <button type="button" className="bib-symbol" disabled={!auswahl.size || laeuft} onClick={() => setTagBlatt([...auswahl])}
+            aria-label="Tags …" title="Tags …">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12V4h8l9 9-8 8z" /><circle cx="7.5" cy="8.5" r="1.3" /></svg>
+          </button>
+          <button type="button" className="bib-symbol bib-loeschen" disabled={!auswahl.size || laeuft} onClick={() => void loeschen()}
+            aria-label="Löschen" title="Löschen">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></svg>
+          </button>
+          <button type="button" className="text-knopf bib-fertig" onClick={auswahlEnde}>Fertig</button>
         </div>
       ) : (
         <div className="bib-werkzeuge">

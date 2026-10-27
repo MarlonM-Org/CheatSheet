@@ -45,6 +45,10 @@ anders ist, ist ein Fehler oder gehört dort nachgetragen.
   Öffnen schreibt nichts in die Datenbank.
 - Vor jedem Push: `npm run typecheck && npm run lint && npm test && npm run build`.
 - Deutsch in Oberfläche, Code-Bezeichnern und Commits.
+- Bedienregel (ROADMAP, Leitbild): Ein Tipp tut nur das Erwartete, ohne
+  Nebenwirkungen. Nichts Sichtbares verschiebt sich, solange nicht die
+  ganze Seite wechselt — Menüs und Formulare legen sich als Popover oder
+  Blatt über den Inhalt, statt ihn zu verdrängen.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

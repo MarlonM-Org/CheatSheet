@@ -814,10 +814,20 @@ details[open] > summary::before { transform: rotate(90deg); }
 /* Bibliothek, aufgeräumt (B-07): eine Werkzeugzeile, Stücke als ruhige
    Liste mit Haarlinien; Häkchen erst im Auswahl-Modus. */
 .panel-zu.bib-zahnrad { margin-right: 0; }
-.bib-werkzeuge { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+/* So hoch wie der Sortier-Umschalter (Knöpfe plus Rand), damit die Liste
+   beim Wechsel in den Auswahl-Modus nicht rutscht. */
+.bib-werkzeuge { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 41px; }
+.bib-auswahl { flex-wrap: nowrap; gap: 4px; }
+.bib-auswahl .alle-waehlen { margin-right: 4px; }
 .bib-auswaehlen, .bib-fertig, .bib-loeschen { padding: 0 2px 0 6px; font-size: 0.9rem; font-weight: 650; color: var(--messing); min-height: 38px; }
 .bib-loeschen { color: var(--warnung); }
 .bib-loeschen:disabled { opacity: 0.4; }
+/* Auswahl-Modus in einer Zeile: Symbole (Aktualisieren, In Sammlung, Tags,
+   Papierkorb) so hoch wie die Knöpfe daneben, damit nichts rutscht. */
+.bib-symbol { display: grid; place-items: center; width: 38px; min-height: 38px; border-radius: 6px; color: var(--messing); }
+.bib-symbol svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.bib-symbol:disabled { opacity: 0.4; cursor: not-allowed; }
+.bib-symbol:not(:disabled):hover, .bib-symbol:not(:disabled):active { background: var(--flaeche); }
 .bib-liste { border: 1px solid var(--linie); border-radius: 6px; background: var(--karte); overflow: hidden; }
 .bib-zeile { position: relative; display: flex; align-items: center; gap: 6px; padding: 0 12px 0 14px; }
 .bib-zeile + .bib-zeile { border-top: 1px solid var(--linie); }
@@ -958,6 +968,8 @@ small .stern { display: inline-block; width: 0.95em; height: 0.95em; vertical-al
   .text-knopf { display: inline-flex; align-items: center; }
   details > summary { min-height: 2.75rem; display: flex; align-items: center; }
   .alle-waehlen { min-height: 2.75rem; }
+  .bib-werkzeuge { min-height: calc(2.75rem + 2px); }
+  .bib-symbol { width: 2.5rem; min-height: 2.75rem; }
   .b-segment button { min-width: 2.75rem; }
   .rund-knopf { min-width: 2.75rem; min-height: 2.75rem; }
   input.regler { height: 2.75rem; }
@@ -1064,13 +1076,16 @@ small .stern { display: inline-block; width: 0.95em; height: 0.95em; vertical-al
 /* „+ Noten“ mit Menü; die Zielsammlung steht unübersehbar oben. */
 /* Das Menü klappt im Fluss unter der Werkzeugzeile auf (eigene Zeile) — so
    schneidet der Rand der Bibliothek nichts ab. */
+/* Das Menü legt sich als Popover unter den Knopf über die Liste, statt sie
+   nach unten zu schieben; die Werkzeugzeile ist sein Bezug. */
 .bib-menue-huelle { display: contents; }
 .bib-menue-huelle > .knopf { position: relative; }
+.bib-werkzeuge { position: relative; }
 .bib-menue {
-  position: relative; z-index: 2; order: 10; flex: 1 1 100%;
+  position: absolute; left: 0; top: calc(100% + 6px); z-index: 3; width: min(100%, 20rem);
   display: flex; flex-direction: column; gap: 4px; padding: 8px; border-radius: 10px;
   background: var(--papier); border: 1px solid var(--linie-stark);
-  box-shadow: 0 6px 18px rgb(0 0 0 / 10%);
+  box-shadow: 0 10px 28px rgb(0 0 0 / 18%);
 }
 .bib-menue-punkt {
   display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 8px;

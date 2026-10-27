@@ -6,7 +6,7 @@ Punkt ein; wer etwas fertigstellt, hakt ab und verschiebt den Punkt nach
 „Erledigt“ (unten). Größere Richtungsentscheidungen bitte als kurzen Absatz
 hier dokumentieren, nicht nur im Chat.
 
-Stand: 2026-10-26.
+Stand: 2026-10-27.
 
 ## Leitbild
 
@@ -15,6 +15,18 @@ sind Werkzeuge, die über den Noten schweben. Eine lokal laufende, statische
 Web-App: alle Daten bleiben auf dem Gerät, kein Login, kein Server. Vorbild
 für Notenmanagement und Übe-Komfort ist **forScore** (https://forscore.co) —
 nicht in der Breite, aber in der Sorgfalt.
+
+**Bedienregel (Marlon, 2026-10-27): Ein Tipp tut nur das Erwartete.**
+Ein Knopf löst genau das aus, was auf ihm steht — ohne Nebenwirkungen auf
+dem Rest der Seite. Vor allem **verschiebt sich nichts**, was gerade zu
+sehen ist, solange nicht die ganze Seite wechselt: Menüs, Blätter und
+Formulare legen sich als Popover oder Blatt **über** den Inhalt (wie das
+„+ Noten“-Menü seit 2026-10-27), statt ihn nach unten zu drücken; Listen
+springen nicht, Leisten rücken nicht nach. Was sich an anderer Stelle
+ändern muss (eine Meldung, ein Zähler), erscheint dort, ohne das Umliegende
+umzuordnen. Ein ganzer Seitenwechsel (Stück öffnen, Bibliothek, große
+Ansicht) darf alles neu zeichnen — das ist erwartet. Wer gegen die Regel
+verstoßen muss, trägt es hier als Entscheidung ein.
 
 **Bewusst außen vor** (nicht bauen, auch nicht „mal eben“):
 
@@ -962,7 +974,8 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
   mit Erklärzeilen werden fünf untereinander, nur Symbol und Name:
   **PDF-Dateien**, **Ordner**, **Einscannen**, **Fotos**, **Selbst
   schreiben** (ein erster Wurf mit zwei Punkten je Zeile gefiel nicht —
-  untereinander bleibt es). Der letzte ersetzt
+  untereinander bleibt es). Das Menü legt sich als **Popover** über die
+  Liste (2026-10-27), statt sie nach unten zu schieben. Der letzte ersetzt
   „Einsingen oder Audio laden“ und „Neues Stück schreiben“ — beide führten in
   denselben Dialog, der öffnet jetzt mit „Schreiben“ und hat oben weiter die
   Quellen Mikrofon und Audio-Datei. Der Leerzustand bietet dieselben fünf
@@ -1962,7 +1975,12 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
   Auswahl-Modus (wie „Auswählen“ in der Dateien-App; Tipp auf die Zeile
   wählt aus, „Fertig“ beendet) — „Alle aktualisieren“ ist jetzt „Auswählen →
   Alle → Aktualisieren“. Kopf „Bibliothek · 9 Stücke“ bzw. „· 2 gewählt“,
-  Zahnrad und Schließen rechts beisammen.
+  Zahnrad und Schließen rechts beisammen. **Nachtrag 2026-10-27 (Wunsch
+  Marlon):** Der Auswahl-Modus bleibt in derselben einen Zeile — **Alle ·
+  Aktualisieren ↻ · In Sammlung (Ordner mit Pfeil) · Tags (Etikett) ·
+  Papierkorb (rot) · Fertig** —, gleich hoch wie „+ Noten · A–Z/Zuletzt ·
+  Auswählen“, damit die Liste beim Umschalten nicht nach unten rutscht.
+  Sortierung seit 2026-10-26 in der Reihenfolge A–Z, Zuletzt.
 - **B-05 · Design-Überarbeitung** (2026-10-10): **Entscheidung Marlon:
   Studio.** Drei helle Entwürfe (Blatt · Studio · Galerie, identischer
   Funktionsumfang) liegen als antippbare HTML-Mockups in `docs/design/` und
