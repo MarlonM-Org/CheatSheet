@@ -2,14 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { tonartFinden, type Raster, type Takt } from '@/domain/notation';
 import {
   angebunden, aufBlatt, bogenUmschalten, dauerSetzen, klaenge, leererTakt, leeresBlatt, legen, leiterSchritt, leiterVerschieben, letzteHoehe, noteSchreiben,
-  alleNoten, angleichen, aufsBlattStimmen, danachEinfuegen, einfuegen, einstimmig, entfernen, entfernenViele, leiterVerschiebenViele, loeschenImTakt, pausenViele, taktLaenge, taktStimmt, verschiebenViele, wertSetzen, inAllen, inStimme, klaengeAlle, notenZeiten, paletteWerte, punktiert, skalieren, stimmeAendern, stimmeHinzu, stimmeWeg, strecken, taktEinfuegen, taktLoeschen, tonSetzen, triole, verschieben,
+  alleNoten, angleichen, aufsBlattStimmen, danachEinfuegen, einfuegen, einstimmig, entfernen, entfernenViele, leiterVerschiebenViele, loeschenImTakt, pausenViele, taktLaenge, taktStimmt, verschiebenViele, wertSetzen, haltebogenViele, bindebogenUmschalten, inAllen, inStimme, klaengeAlle, notenZeiten, paletteWerte, punktiert, skalieren, stimmeAendern, stimmeHinzu, stimmeWeg, strecken, taktEinfuegen, taktLoeschen, tonSetzen, triole, verschieben,
 } from '@/domain/notensatz';
 import { abcLesen, alsAbc, alsAbcStimmen, notenwerte } from '@/domain/notation';
 
 const R: Raster = { bpm: 120, zaehler: 4, nenner: 4, feinheit: 16 };
 const SECHSACHTEL: Raster = { bpm: 60, zaehler: 6, nenner: 8, feinheit: 16 };
 const takt = (...noten: [number | null, number, boolean?][]): Takt => ({ noten: noten.map(([midi, dauer, b]) => (b ? { midi, dauer, bindung: true } : { midi, dauer })) });
-const kurz = (t: Takt) => t.noten.map((n) => `${n.gruppe ? `(${n.gruppe}` : ''}${n.midi ?? 'z'}/${n.dauer}${n.triole ? 't' : ''}${n.bindung ? '-' : ''}`).join(' ');
+const kurz = (t: Takt) => t.noten.map((n) => `${n.gruppe ? `(${n.gruppe}` : ''}${n.bogenAuf ? '(' : ''}${n.midi ?? 'z'}/${n.dauer}${n.triole ? 't' : ''}${n.bindung ? '-' : ''}${n.bogenZu ? ')' : ''}`).join(' ');
 
 describe('Strecken und Legen', () => {
   it('fasst gebundene gleiche Noten zu einer Strecke zusammen, Bogen über den Taktstrich bleibt', () => {
@@ -176,6 +176,34 @@ describe('Löschen und Einfügen', () => {
     const t = [takt([60, 8], [62, 8])];
     expect(einfuegen(t, R, { takt: 0, note: 1 }, 4).map(kurz)).toEqual(['60/8 z/4 62/4-', '62/4 z/4 z/8']);
     expect(einfuegen(t, R, { takt: 0, note: 0 }, 16).map(kurz)).toEqual(['z/16', '60/8 62/8']);
+  });
+});
+
+describe('Bögen über eine Auswahl', () => {
+  it('Haltebögen: Paare gleicher Höhe nacheinander werden gebunden, andere bleiben', () => {
+    const t = [takt([60, 4], [60, 4], [62, 4], [62, 4]), takt([62, 16])];
+    const alle = [{ takt: 0, note: 0 }, { takt: 0, note: 1 }, { takt: 0, note: 2 }, { takt: 0, note: 3 }, { takt: 1, note: 0 }];
+    expect(haltebogenViele(t, R, alle).map(kurz)).toEqual(['60/8 62/8-', '62/16']);
+    // Verschiedene Höhen: nichts passiert.
+    expect(haltebogenViele([takt([60, 8], [64, 8])], R, [{ takt: 0, note: 0 }, { takt: 0, note: 1 }]).map(kurz)).toEqual(['60/8 64/8']);
+    // Eine Note: wie bisher an die vorige.
+    expect(haltebogenViele([takt([60, 8], [60, 8])], R, [{ takt: 0, note: 1 }]).map(kurz)).toEqual(['60/16']);
+  });
+  it('Bindebogen von der ersten zur letzten gewählten Note, nochmal entfernt ihn; ABC rund', () => {
+    const t = [takt([60, 4], [62, 4], [64, 8]), takt([65, 16])];
+    const mit = bindebogenUmschalten(t, R, [{ takt: 0, note: 0 }, { takt: 0, note: 1 }, { takt: 1, note: 0 }]);
+    expect(mit.map(kurz)).toEqual(['(60/4 62/4 64/8', '65/16)']);
+    expect(bindebogenUmschalten(mit, R, [{ takt: 0, note: 0 }, { takt: 1, note: 0 }]).map(kurz)).toEqual(['60/4 62/4 64/8', '65/16']);
+    const abc = alsAbc(mit, R, { titel: 'B' });
+    expect(abc).toContain('(C4 D4 E8 | F16) |]');
+    expect(abcLesen(abc)!.takte.map(kurz)).toEqual(['(60/4 62/4 64/8', '65/16)']);
+    // Bogen über gebundene Noten: Anfang an der ersten, Ende an der letzten Teilnote.
+    const lang = bindebogenUmschalten([takt([60, 4], [62, 12]), takt([64, 16])], R, [{ takt: 0, note: 0 }, { takt: 0, note: 1 }]);
+    expect(lang.map(kurz)).toEqual(['(60/4 62/4- 62/8)', '64/16']);
+    expect(alsAbc(lang, R, { titel: 'B' })).toContain('(C4 D4- D8) | E16 |]');
+    // Ein verwaister Anfang (Ende gelöscht) wird nicht geschrieben.
+    const verwaist = loeschenImTakt(mit, R, { takt: 1, note: 0 });
+    expect(alsAbc(verwaist, R, { titel: 'B' })).not.toContain('(C');
   });
 });
 

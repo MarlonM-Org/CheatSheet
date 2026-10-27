@@ -37,7 +37,7 @@ export function aufsBlatt(takte: readonly Takt[], von: number, r: Raster): Takt[
   return skalieren(takte, von).map((t) => legen(strecken(t), b));
 }
 
-interface Strecke { midi: number | null; dauer: number; bindung?: true }
+interface Strecke { midi: number | null; dauer: number; bindung?: true; bogenAuf?: true; bogenZu?: true }
 
 // Gebundene gleiche Noten eines Takts zu Strecken; `bindung` bleibt nur an
 // der letzten Strecke (Bogen in den nächsten Takt).
@@ -46,8 +46,8 @@ export function strecken(t: Takt): Strecke[] {
   let offen = false;
   for (const n of t.noten) {
     const s = liste[liste.length - 1];
-    if (offen && s && s.midi !== null && s.midi === n.midi) s.dauer += n.dauer;
-    else liste.push({ midi: n.midi, dauer: n.dauer });
+    if (offen && s && s.midi !== null && s.midi === n.midi) { s.dauer += n.dauer; if (n.bogenZu) s.bogenZu = true; else delete s.bogenZu; }
+    else liste.push({ midi: n.midi, dauer: n.dauer, ...(n.bogenAuf ? { bogenAuf: true as const } : {}), ...(n.bogenZu ? { bogenZu: true as const } : {}) });
     offen = !!n.bindung && n.midi !== null;
   }
   if (offen && liste.length) liste[liste.length - 1].bindung = true;
@@ -87,9 +87,12 @@ export function legen(roh: readonly Strecke[], r: Raster): Takt {
       const teile = st.triole ? gierig((st.dauer * 3) / 2, werte).map((w) => (w * 2) / 3) : zerlegen(st.ab, st.dauer, r, punktiert);
       teile.forEach((dauer, i) => {
         const letzter = si === stuecke.length - 1 && i === teile.length - 1;
+        const erster = si === 0 && i === 0;
         const n: Note = { midi: s.midi, dauer };
         if (s.midi !== null && (!letzter || s.bindung)) n.bindung = true;
         if (st.triole) n.triole = true;
+        if (erster && s.bogenAuf && s.midi !== null) n.bogenAuf = true;
+        if (letzter && s.bogenZu && s.midi !== null) n.bogenZu = true;
         noten.push(n);
       });
     });
@@ -517,6 +520,44 @@ export function einfuegen(takte: readonly Takt[], r: Raster, pos: NotenPos, daue
   const liste = [...f.liste];
   liste.splice(f.i, 0, { midi: null, dauer, teile: [] });
   return schneiden(liste, r);
+}
+
+// Haltebögen über eine Auswahl: jedes Paar aufeinanderfolgender gewählter
+// Noten gleicher Höhe, die direkt nacheinander stehen, wird gebunden (die
+// zweite hängt an die erste). Eine einzelne Note: wie bogenUmschalten.
+export function haltebogenViele(takte: readonly Takt[], r: Raster, lagen: readonly NotenPos[]): Takt[] {
+  if (lagen.length < 2) return lagen.length ? bogenUmschalten(takte, r, lagen[0]) : [...takte];
+  const sortiert = [...lagen].sort((a, b) => a.takt - b.takt || a.note - b.note);
+  let t = [...takte];
+  // Von hinten nach vorn: Binden verschmilzt Strecken, davorliegende Lagen bleiben gültig.
+  for (let k = sortiert.length - 1; k >= 1; k--) {
+    const a = sortiert[k - 1], b = sortiert[k];
+    const na = t[a.takt]?.noten[a.note], nb = t[b.takt]?.noten[b.note];
+    if (!na || !nb || na.midi === null || na.midi !== nb.midi) continue;
+    // Direkt nacheinander? Zwischen a und b darf nichts liegen (außer dem Rest von a).
+    const dazwischen = a.takt === b.takt ? t[a.takt].noten.slice(a.note + 1, b.note) : [...t[a.takt].noten.slice(a.note + 1), ...t[b.takt].noten.slice(0, b.note)];
+    if (dazwischen.some((n) => n.midi !== na.midi || !n.bindung) || (a.takt !== b.takt && b.takt !== a.takt + 1)) continue;
+    if (!angebunden(t, b)) t = bogenUmschalten(t, r, b);
+  }
+  return t;
+}
+
+// Bindebogen (Phrasierung) über die Auswahl: von der ersten zur letzten
+// gewählten Note; liegt genau dieser Bogen schon, wird er entfernt.
+export function bindebogenUmschalten(takte: readonly Takt[], r: Raster, lagen: readonly NotenPos[]): Takt[] {
+  const noten = [...lagen].sort((a, b) => a.takt - b.takt || a.note - b.note).filter((p) => takte[p.takt]?.noten[p.note]?.midi !== null);
+  if (noten.length < 2) return [...takte];
+  const a = noten[0], z = noten[noten.length - 1];
+  const setzen = (t: readonly Takt[], p: NotenPos, feld: 'bogenAuf' | 'bogenZu', an: boolean) => {
+    const liste = strecken(t[p.takt]);
+    const { strecke } = streckeDerNote(t[p.takt], p.note);
+    const s = liste[strecke];
+    if (!s) return [...t];
+    liste[strecke] = an ? { ...s, [feld]: true } : (({ [feld]: _w, ...rest }) => { void _w; return rest as Strecke; })(s);
+    return ersetzen(t, p.takt, legen(liste, r));
+  };
+  const schon = !!takte[a.takt].noten[a.note].bogenAuf && !!takte[z.takt].noten[z.note].bogenZu;
+  return setzen(setzen(takte, a, 'bogenAuf', !schon), z, 'bogenZu', !schon);
 }
 
 // ── Takte ──

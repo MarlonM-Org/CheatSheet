@@ -83,7 +83,10 @@ export const FEINHEITEN: { feinheit: Feinheit; name: string }[] = [{ feinheit: 8
 // `triole`: Teil einer Triole — geschrieben wird sie anderthalbfach so lang,
 // wie sie klingt; `gruppe` steht an der ersten Note der Triole und zählt
 // ihre Noten (ABC: `(3:2:gruppe`).
-export interface Note { midi: number | null; dauer: number; bindung?: true; triole?: true; gruppe?: number }
+// `bogenAuf`/`bogenZu`: Bindebogen (Phrasierung, ABC `(` … `)`) beginnt bzw.
+// endet an dieser Note — anders als `bindung` (Haltebogen: dieselbe Höhe,
+// die Dauern addieren sich).
+export interface Note { midi: number | null; dauer: number; bindung?: true; triole?: true; gruppe?: number; bogenAuf?: true; bogenZu?: true }
 export interface Takt { noten: Note[] }
 // Eine Stimme des Blatts (G-01, mehrstimmig): Name, Schlüssel, ihre Takte.
 // Alle Stimmen eines Stücks haben gleich viele Takte.
@@ -439,6 +442,15 @@ function taktText(takte: readonly Takt[], r: Raster, tonart: Tonart | null): str
   const js = zellenJeSchlag(r);
   const text: string[] = [];
   const vorzeichen = new Vorzeichenstand(tonart);
+  // Bindebögen nur paarweise schreiben: ein Anfang ohne Ende (oder umgekehrt)
+  // bliebe nach dem Löschen einer Note stehen und brächte abcjs durcheinander.
+  const alle = takte.flatMap((t) => t.noten);
+  const auf = new Set<Note>(), zu = new Set<Note>();
+  const offen: Note[] = [];
+  for (const n of alle) {
+    if (n.bogenAuf && n.midi !== null) offen.push(n);
+    if (n.bogenZu && n.midi !== null && offen.length) { const a = offen.pop()!; if (a !== n) { auf.add(a); zu.add(n); } }
+  }
   takte.forEach((t, i) => {
     let pos = 0;
     vorzeichen.neuerTakt();
@@ -446,7 +458,7 @@ function taktText(takte: readonly Takt[], r: Raster, tonart: Tonart | null): str
       // Triole: geschrieben anderthalbfach, die Klammer `(3:2:k` vor der ersten Note.
       const w = n.triole ? (n.dauer * 3) / 2 : n.dauer;
       const d = w === 1 ? '' : String(w);
-      const s = (n.gruppe ? `(3:2:${n.gruppe}` : '') + (n.midi === null ? 'z' : vorzeichen.schreiben(n.midi)) + d + (n.bindung ? '-' : '');
+      const s = (n.gruppe ? `(3:2:${n.gruppe}` : '') + (auf.has(n) ? '(' : '') + (n.midi === null ? 'z' : vorzeichen.schreiben(n.midi)) + d + (n.bindung ? '-' : '') + (zu.has(n) ? ')' : '');
       pos += n.dauer;
       return pos % js === 0 ? `${s} ` : s;
     }).join('');
@@ -514,7 +526,7 @@ function takteLesen(quelle: string, tonart: Tonart | null): Takt[] | null {
   let noten: Note[] = [];
   let triole = 0;
   const VZ: Record<string, number> = { '^': 1, _: -1, '=': 0 };
-  const muster = /\s+|\(3:2:(\d+)|(\|\]?)|([\^_=]?)([A-Ga-gz])([',]*)(\d*)(-?)/y;
+  const muster = /\s+|\(3:2:(\d+)|(\|\]?)|(\(?)([\^_=]?)([A-Ga-gz])([',]*)(\d*)(-?)(\)?)/y;
   muster.lastIndex = 0;
   while (muster.lastIndex < quelle.length) {
     const m = muster.exec(quelle);
@@ -522,10 +534,12 @@ function takteLesen(quelle: string, tonart: Tonart | null): Takt[] | null {
     if (m[0].trim() === '') continue;
     if (m[1]) { triole = Number(m[1]); continue; } // Klammer: gilt für die nächsten k Noten
     if (m[2]) { if (noten.length) { takte.push({ noten }); noten = []; } stand.clear(); continue; }
-    const [, , , vz, buchstabe, oktaven, dauerText, bindung] = m;
+    const [, , , bogenAuf, vz, buchstabe, oktaven, dauerText, bindung, bogenZu] = m;
     const w = dauerText ? Number(dauerText) : 1;
     const n: Note = { midi: null, dauer: triole ? (w * 2) / 3 : w };
     if (triole) n.triole = true;
+    if (bogenAuf && buchstabe !== 'z') n.bogenAuf = true;
+    if (bogenZu && buchstabe !== 'z') n.bogenZu = true;
     if (buchstabe !== 'z') {
       const gross = buchstabe === buchstabe.toUpperCase();
       const name = buchstabe.toUpperCase();
