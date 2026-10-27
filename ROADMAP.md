@@ -6,7 +6,7 @@ Punkt ein; wer etwas fertigstellt, hakt ab und verschiebt den Punkt nach
 „Erledigt“ (unten). Größere Richtungsentscheidungen bitte als kurzen Absatz
 hier dokumentieren, nicht nur im Chat.
 
-Stand: 2026-10-26.
+Stand: 2026-10-27.
 
 ## Leitbild
 
@@ -1626,7 +1626,12 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
   Auswahl-Modus (wie „Auswählen“ in der Dateien-App; Tipp auf die Zeile
   wählt aus, „Fertig“ beendet) — „Alle aktualisieren“ ist jetzt „Auswählen →
   Alle → Aktualisieren“. Kopf „Bibliothek · 9 Stücke“ bzw. „· 2 gewählt“,
-  Zahnrad und Schließen rechts beisammen.
+  Zahnrad und Schließen rechts beisammen. **Nachtrag 2026-10-27 (Wunsch
+  Marlon):** Der Auswahl-Modus bleibt in derselben einen Zeile — **Alle ·
+  Aktualisieren ↻ · In Sammlung (Ordner mit Pfeil) · Tags (Etikett) ·
+  Papierkorb (rot) · Fertig** —, gleich hoch wie „+ Noten · A–Z/Zuletzt ·
+  Auswählen“, damit die Liste beim Umschalten nicht nach unten rutscht.
+  Sortierung seit 2026-10-26 in der Reihenfolge A–Z, Zuletzt.
 - **B-05 · Design-Überarbeitung** (2026-10-10): **Entscheidung Marlon:
   Studio.** Drei helle Entwürfe (Blatt · Studio · Galerie, identischer
   Funktionsumfang) liegen als antippbare HTML-Mockups in `docs/design/` und
