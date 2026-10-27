@@ -16,6 +16,18 @@ Web-App: alle Daten bleiben auf dem Gerät, kein Login, kein Server. Vorbild
 für Notenmanagement und Übe-Komfort ist **forScore** (https://forscore.co) —
 nicht in der Breite, aber in der Sorgfalt.
 
+**Bedienregel (Marlon, 2026-10-27): Ein Tipp tut nur das Erwartete.**
+Ein Knopf löst genau das aus, was auf ihm steht — ohne Nebenwirkungen auf
+dem Rest der Seite. Vor allem **verschiebt sich nichts**, was gerade zu
+sehen ist, solange nicht die ganze Seite wechselt: Menüs, Blätter und
+Formulare legen sich als Popover oder Blatt **über** den Inhalt (wie das
+„+ Noten“-Menü seit 2026-10-27), statt ihn nach unten zu drücken; Listen
+springen nicht, Leisten rücken nicht nach. Was sich an anderer Stelle
+ändern muss (eine Meldung, ein Zähler), erscheint dort, ohne das Umliegende
+umzuordnen. Ein ganzer Seitenwechsel (Stück öffnen, Bibliothek, große
+Ansicht) darf alles neu zeichnen — das ist erwartet. Wer gegen die Regel
+verstoßen muss, trägt es hier als Entscheidung ein.
+
 **Bewusst außen vor** (nicht bauen, auch nicht „mal eben“):
 
 - MIDI, Audio-Begleitspuren, Soundbearbeitung
