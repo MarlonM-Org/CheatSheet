@@ -125,32 +125,76 @@ Zum Vergleich denselben Song durch **Moises** (Stems, Akkorde) und
 **Klangio** (Sing2Notes, Guitar2Tabs) schicken. Reicht ein fertiges Produkt,
 braucht CheatSheet nur den MusicXML-Import aus G-01.
 
-## Monophone Lesart (zweiter Versuch, 26.10.2026)
+## Monophone Lesart (`monophon.py`)
 
 Basic Pitch liefert auf den Stems eines ganzen Songs zu viele Noten (The
 Unforgiven II: 4215 „Gitarrennoten", Gesang und Bass kaum lesbar). Für
 Stimmen, die ohnehin nur einen Ton zur Zeit spielen, gibt es deshalb
-`monophon.py`: pYIN verfolgt die eine stärkste Tonhöhe, Hysterese hält Töne
-trotz Vibrato zusammen, kurze Aussetzer werden überbrückt, gleiche Töne
-hintereinander nur dann getrennt, wenn ein Anschlag dazwischen liegt. Dann
-Rundung auf ein Sechzehntelraster bei bekanntem Tempo.
+`monophon.py`. Der zweite Versuch (26.10.) arbeitete mit einer Hysterese je
+Rahmen, Anschlag-Splits und unabhängiger Rundung von Anfang und Ende — und
+zerlegte gehaltene Töne in „Sechzehntel + Sechzehntelpause". Die Recherche
+dazu steht in `reports/Gesang zu Noten transkribieren.md`; der dritte Versuch
+(27.10.2026) setzt sie um:
+
+1. **Noten-HMM aus pYIN/Tony** statt Hysterese: je Drittel-Halbton die
+   Zustände Ansatz, Halten, Stille, Viterbi über die ganze Aufnahme, Parameter
+   1:1 aus `MonoNoteParameters.cpp` (auf unseren Rahmenabstand umgerechnet).
+   Ein Notenwechsel kostet ~10⁶-mal mehr als das Weiterlaufen — Vibrato,
+   Drift und kurze Aussetzer kippen eine Note nicht mehr. `librosa.pyin`
+   enthält nur das Tonhöhen-HMM, dieser Schritt fehlte bisher ganz.
+2. **Tonwechsel-Teilung**: Das HMM ist träge und zieht eine kurze Achtel gern
+   mit dem Halbton daneben zusammen (Tonys bekannte Schwäche). Ein Bereich
+   wird geteilt, wenn der Median der nächsten ~150 ms (eine Vibratoperiode)
+   um ≥ 0,7 Halbton vom bisherigen Plateau abweicht — ohne die ersten 60 ms
+   jeder Note (Einschleifen).
+3. **Anschläge nur zum Trennen gleicher Töne** („schwim-men auf dem"):
+   Pegelanstieg ≥ 4 dB binnen 25 ms, höchstens einer je 90 ms. Kein
+   Spektralfluss-Onset-Detektor mehr als allgemeiner Trenner.
+4. **Mindestdauer 100 ms**, gleiche Töne über Lücken ≤ 130 ms verbinden,
+   wenn kein Anschlag in der Lücke liegt; Tonhöhe = Median ohne den Ansatz.
+5. **Legato-Regel beim Rastern**: Nur die Einsätze werden gerundet, und zwar
+   gemeinsam (dynamische Programmierung mit Vorliebe für Schlag und Achtel,
+   zwei Einsätze teilen sich nie eine Zelle). Jede Note dauert bis zum
+   nächsten Einsatz; eine Pause entsteht nur, wenn die Stille davor mindestens
+   `--pause` lang ist (Standard: ein Achtel, mindestens 150 ms). So macht es
+   auch Klangios offener Gesangscode (Offset = nächster Onset).
 
 ```powershell
+.venv\Scripts\python monophon.py aufnahme.wav --tempo 90 --versatz auto --tonart C
+.venv\Scripts\python monophon.py aufnahme.wav --tempo 120 --raster 8          # nur Achtel
 $o = "ergebnis\Metallica - The Unforgiven II"
-.venv\Scripts\python monophon.py "$o\stem-vocals.wav" --tempo 66 --schlagzeug "$o\stem-drums.wav" --sicher 0.15 --ziel "$o\monophon\gesang-mono.mid"
-.venv\Scripts\python monophon.py "$o\stem-bass.wav" --tempo 66 --von 30 --bis 200 --sicher 0 --mindest 100 --programm 33 --name Bass --ziel "$o\monophon\bass-mono.mid"
+.venv\Scripts\python monophon.py "$o\stem-vocals.wav" --tempo 66 --schlagzeug "$o\stem-drums.wav" --ziel "$o\monophon\gesang-mono.mid"
+.venv\Scripts\python monophon.py "$o\stem-bass.wav" --tempo 66 --von 30 --bis 200 --programm 33 --name Bass --ziel "$o\monophon\bass-mono.mid"
 ```
 
-Ergebnis an The Unforgiven II: Bass 318 statt 1821 Noten, die Intro-Linie
-G#–B–F#–D# als Halbe sauber erkannt. Gesang 262 statt 1227 Noten, viele
-Sechzehntel-Silben in enger Lage, Bewertung in MuseScore offen
-(`monophon/vergleich.mid` enthält beide Lesarten nebeneinander). Das Tempo
-muss stimmen, sonst stimmt das Raster nicht; `--schlagzeug` bestimmt die Lage
-des ersten Schlags.
+Schalter: `--mindest` (ms), `--luecke` (ms), `--anschlag` (dB, 0 = aus),
+`--pause` (s), `--ansatz` (ms), `--leise` (dB unter Maximum), `--tonart`,
+`--versatz auto|<s>`, `--schlagzeug`. Das Tempo muss stimmen, sonst stimmt das
+Raster nicht. Wer stark in die Töne schleift (mehr als zwei Halbtöne von
+unten), bekommt noch vereinzelt Sechzehntel-Vorschläge vor der Note — die
+sind im Editor schneller gelöscht als zehn Pausen.
 
-Für eingesungene Einzelstimmen (ohne Demucs) direkt die Aufnahme angeben:
-`monophon.py aufnahme.wav --tempo 96`. Am besten zum Metronom singen, dann
-ist das Tempo bekannt und `--versatz 0`.
+### Prüfstand ohne Mikrofon: `pruefen.py`
+
+`pruefen.py` erzeugt eine künstliche Laienstimme (Obertöne, Vibrato 45 Cent
+über die Halbtongrenze, Drift, Einschleifen von unten, Konsonanten als
+Rauschstöße mit Pegeleinbruch, Tremolo, 7-dB-Einbruch in langen Tönen) und
+lässt fünf Fälle durch die ganze Kette: Halteton, „Alle meine Entchen" (mit
+und ohne Tonart-Korrektur), Achtelphrase mit echten Pausen bei 120 bpm,
+Legato ohne Konsonanten. Erwartung: jede Note getroffen, jede Dauer passend,
+nichts überzählig.
+
+```powershell
+.venv\Scripts\python pruefen.py          # ca. 30 s auf der CPU
+.venv\Scripts\python pruefen.py --wav    # legt die Signale in aufnahmen\pruef-*.wav ab
+```
+
+Stand 27.10.2026: alle fünf Fälle bestanden; „Alle meine Entchen" mit vier
+Zufallsseeds und normaler Stimme 27/27 Noten, 27 Dauern, 0 überzählig (der
+zweite Versuch kam mit eigener Stimme auf 19/22). Extremstimme (70 Cent
+Vibrato, 3 Halbtöne Einschleifen): 27/27 getroffen, 2–3 überzählige
+Sechzehntel. Das ist ein synthetischer Maßstab; die echte Stimme entscheidet
+(`singen.cmd`, dann `vergleichen.py`).
 
 ## Einsingen zum Metronom (Windows)
 
@@ -181,7 +225,7 @@ die MuseScore-Kommandozeile wird daraus Audio, das durch `monophon.py` läuft;
 .venv\Scripts\python vergleichen.py referenz\alle-meine-entchen.musicxml aufnahmen\<aufnahme>-mono.mid --tempo 90 --oktave -1
 ```
 
-Ergebnis mit den heutigen Standardwerten (Anschlag 0.18, Senke aus):
+Ergebnis des zweiten Versuchs (26.10., Hysterese + Spektralfluss-Onsets):
 
 | Material | getroffen | Dauer passend | überzählig |
 |---|---|---|---|
@@ -191,11 +235,10 @@ Ergebnis mit den heutigen Standardwerten (Anschlag 0.18, Senke aus):
 
 Der MuseScore-Gesangsklang gleitet zwischen den Tönen und hat ein starkes
 Tremolo, das als Anschläge gelesen wird; als Referenz taugt das Klavier,
-realistischer ist die eigene Stimme. Was bei echter Stimme noch fehlt: ein
-zu tief gesungenes F wird zum E (Tonart-Korrektur greift erst nach der
-Segmentierung), und einzelne Wiederholungen ohne hörbaren Neuansatz
-verschmelzen. Die Senken-Regel (`--senke`) hat im Abgleich mehr gekostet als
-gebracht und ist deshalb aus.
+realistischer ist die eigene Stimme. Die Schwächen von damals (zu tief
+gesungenes F wird zum E, Wiederholungen ohne Neuansatz verschmelzen, lange
+Töne zerfallen) adressiert der dritte Versuch, siehe oben; der Abgleich mit
+der eigenen Stimme steht noch aus.
 
 **MusicXML aus `monophon.py` öffnet MuseScore stabil.** Der Absturz betrifft
 nur die music21-Konvertierung aus MIDI in `transkribieren.py`.

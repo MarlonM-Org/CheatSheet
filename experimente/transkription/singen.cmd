@@ -28,7 +28,7 @@ if errorlevel 1 goto ende
 
 echo.
 echo ==== Transkription ====
-".venv\Scripts\python.exe" monophon.py "%WAV%" --tempo %TEMPO% --versatz auto --von 80 --bis 1000 --sicher 0.1 --leise -40 %TONART% --ziel "%MID%" 2>nul
+".venv\Scripts\python.exe" monophon.py "%WAV%" --tempo %TEMPO% --versatz auto --von 80 --bis 1000 %TONART% --ziel "%MID%" 2>nul
 if errorlevel 1 goto ende
 
 echo.
