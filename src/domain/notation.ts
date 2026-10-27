@@ -107,101 +107,79 @@ export const zellenJeSchlag = (r: Raster) => (einheitenJeSchlag(r.zaehler, r.nen
 export const zellenDauer = (r: Raster) => 60 / r.bpm / zellenJeSchlag(r);
 export const taktDauer = (r: Raster) => zellenDauer(r) * zellenJeTakt(r);
 
+// Median der klaren Tonhöhen in einem Fenster von `breite` Rahmen um jeden
+// Rahmen — tilgt einzelne Ausreißer (Oktavsprung der Erkennung für einen
+// Rahmen, Knackser), bevor die Hysterese sie als Tonwechsel liest.
+export function medianGlaetten(rahmen: readonly Tonrahmen[], breite = 5): Tonrahmen[] {
+  const h = Math.floor(breite / 2);
+  return rahmen.map((f, i) => {
+    if (f.midi === null) return { ...f };
+    const w: number[] = [];
+    for (let k = Math.max(0, i - h); k <= Math.min(rahmen.length - 1, i + h); k++) {
+      const m = rahmen[k].midi;
+      if (m !== null) w.push(m);
+    }
+    return { ...f, midi: median(w) };
+  });
+}
+
 // Hysterese: Ein Ton läuft weiter, solange die Tonhöhe weniger als `sprung`
 // Halbtöne vom Median des bisherigen Tons abweicht — Vibrato um die
 // Halbtongrenze zerhackt so keine gehaltenen Töne, und weil der Median der
 // ganzen Strecke zählt (nicht der letzten Rahmen), wandert er bei einem
-// Gleiten (Portamento) nicht mit. Jeder Rahmen bekommt den Median seines
-// Tons. Kurze Aussetzer der Erkennung bis `aussetzer` Sekunden, nach denen
-// derselbe Ton weitergeht, werden überbrückt (damit die Zelle klar bleibt;
-// als Einsatz zählen sie weiterhin, siehe `einsaetze`).
-export function hysterese(rahmen: readonly Tonrahmen[], sprung = 0.75, aussetzer = 0.15): Tonrahmen[] {
-  const e = rahmen.map((f) => ({ ...f }));
+// Gleiten (Portamento) nicht mit. Eine Abweichung zählt erst, wenn der
+// Median der nächsten `bestaetigen` klaren Rahmen abweicht (ein Rahmen
+// Vibrato-Spitze oder Ausreißer gehört noch zum Ton). Jeder Rahmen bekommt
+// den Median seines Tons. Kurze Aussetzer der Erkennung bis `aussetzer`
+// Sekunden werden überbrückt, wenn danach derselbe Ton weitergeht — beurteilt
+// erst `ansatz` Sekunden nach der Lücke, weil die Stimme in den neuen Ton
+// einschleift und die ersten Rahmen noch beim alten liegen.
+export function hysterese(rahmen: readonly Tonrahmen[], sprung = 0.75, aussetzer = 0.15, bestaetigen = 3, ansatz = 0.06): Tonrahmen[] {
+  const e = medianGlaetten(rahmen);
+  const roh = e.map((f) => f.midi);
   let glieder: number[] = [], toene: number[] = [], mitte = 0;
   let lueckeAb = -1; // Index des ersten unklaren Rahmens der laufenden Lücke
   const abschliessen = () => { for (const i of glieder) e[i].midi = mitte; glieder = []; toene = []; lueckeAb = -1; };
+  // Weicht der Median der nächsten `bestaetigen` klaren Rahmen ab i (ohne die
+  // ersten `ueberspringen` Sekunden) um mindestens `sprung` von `mitte` ab?
+  // Nur die zusammenhängende Stimme ab i zählt: endet sie vorher (nächster
+  // Aussetzer, nächster Konsonant), entscheiden die Rahmen bis dahin — sonst
+  // würde der Blick nach vorn in die nächste Note reichen.
+  const dauerhaft = (i: number, ueberspringen: number) => {
+    const spaet: number[] = [], alle: number[] = [];
+    for (let k = i; k < roh.length && spaet.length < bestaetigen; k++) {
+      const m = roh[k];
+      if (m === null) break;
+      alle.push(m);
+      if (rahmen[k].zeit - rahmen[i].zeit >= ueberspringen) spaet.push(m);
+    }
+    const w = spaet.length ? spaet : alle;
+    return w.length > 0 && Math.abs(median(w) - mitte) >= sprung;
+  };
   for (let i = 0; i < e.length; i++) {
-    const m = rahmen[i].midi;
+    const m = roh[i];
     if (m === null) {
       if (glieder.length && lueckeAb < 0) lueckeAb = i;
       continue;
     }
-    if (glieder.length && Math.abs(m - mitte) < sprung) {
-      if (lueckeAb >= 0) {
-        // Lücke zu Ende: kurz genug → Ton durchziehen, sonst war es eine Pause.
-        if (rahmen[i].zeit - rahmen[lueckeAb].zeit <= aussetzer) { for (let k = lueckeAb; k < i; k++) glieder.push(k); }
-        else { abschliessen(); glieder.push(i); toene.push(m); mitte = m; continue; }
+    if (glieder.length && lueckeAb >= 0) {
+      // Lücke zu Ende: kurz genug und derselbe Ton danach → durchziehen, sonst neue Note.
+      if (rahmen[i].zeit - rahmen[lueckeAb].zeit <= aussetzer && !dauerhaft(i, ansatz)) {
+        for (let k = lueckeAb; k < i; k++) glieder.push(k);
         lueckeAb = -1;
+        glieder.push(i); toene.push(m); mitte = median(toene);
+        continue;
       }
+      abschliessen();
+    } else if (glieder.length && (Math.abs(m - mitte) < sprung || !dauerhaft(i, 0))) {
       glieder.push(i); toene.push(m); mitte = median(toene);
       continue;
+    } else if (glieder.length) {
+      abschliessen();
     }
-    if (glieder.length) abschliessen();
     glieder.push(i); toene.push(m); mitte = m;
   }
   if (glieder.length) abschliessen();
-  return e;
-}
-
-// Rahmen auf Zellen verteilen: je Zelle der Median der klaren Tonhöhen, wenn
-// mindestens `mindestAnteil` der Rahmen darin klar waren — sonst Pause.
-// Zellen ohne Rahmen (Lücken) sind Pausen. Mit Tonart rückt der Median auf
-// den nächsten Leiterton, sonst auf den nächsten Halbton.
-export function zellen(rahmen: readonly Tonrahmen[], r: Raster, mindestAnteil = 0.5, tonart: Tonart | null = null): (number | null)[] {
-  const dz = zellenDauer(r);
-  const toene = new Map<number, number[]>();
-  const alle = new Map<number, number>();
-  let letzte = -1;
-  for (const f of rahmen) {
-    if (f.zeit < 0) continue;
-    const z = Math.floor(f.zeit / dz);
-    alle.set(z, (alle.get(z) ?? 0) + 1);
-    if (f.midi !== null) {
-      const l = toene.get(z) ?? [];
-      l.push(f.midi);
-      toene.set(z, l);
-    }
-    if (z > letzte) letzte = z;
-  }
-  const ergebnis: (number | null)[] = [];
-  for (let z = 0; z <= letzte; z++) {
-    const klar = toene.get(z) ?? [];
-    const n = alle.get(z) ?? 0;
-    ergebnis.push(n && klar.length >= n * mindestAnteil ? aufLeiter(median(klar), tonart) : null);
-  }
-  return ergebnis;
-}
-
-// Typische Gesangsartefakte auf Zellenebene: Eine einzelne Zelle, die zu
-// beiden Nachbartönen etwa eine Oktave springt, ist ein Oktavfehler der
-// Erkennung und rückt in deren Lage. Eine einzelne Zelle unmittelbar vor
-// einem längeren Ton, höchstens zwei Halbtöne von ihm entfernt, ist ein
-// angeschliffener Ansatz und geht in ihn auf.
-export function nachbessern(z: readonly (number | null)[]): (number | null)[] {
-  const e = [...z];
-  for (let i = 1; i + 1 < e.length; i++) {
-    const t = e[i], l = e[i - 1], n = e[i + 1];
-    if (t === null || l === null || n === null || l === t || n === t) continue;
-    if ([l, n].every((x) => Math.abs(x - t) >= 10 && Math.abs(x - t) <= 14)) e[i] = t + (l > t ? 12 : -12);
-  }
-  for (let i = 0; i + 1 < e.length; i++) {
-    const t = e[i], f = e[i + 1];
-    if (t === null || f === null || t === f || (i > 0 && e[i - 1] === t)) continue;
-    let lauf = 0;
-    while (i + 1 + lauf < e.length && e[i + 1 + lauf] === f) lauf++;
-    if (lauf >= 2 && Math.abs(f - t) <= 2) e[i] = f;
-  }
-  return e;
-}
-
-// Ausreißer glätten: Eine einzelne Zelle, deren beide Nachbarn gleich sind
-// und von ihr abweichen, nimmt deren Wert an — das tilgt Knackser (ein
-// falscher Ton für eine Zelle) genauso wie Lücken in gehaltenen Tönen.
-export function glaetten(z: readonly (number | null)[]): (number | null)[] {
-  const e = [...z];
-  for (let i = 1; i < e.length - 1; i++) {
-    if (e[i - 1] === e[i + 1] && e[i] !== e[i - 1]) e[i] = e[i - 1];
-  }
   return e;
 }
 
@@ -210,7 +188,7 @@ export function glaetten(z: readonly (number | null)[]): (number | null)[] {
 // angesetzte Silbe, Klavieranschlag) — je Anstieg der Rahmen mit dem
 // stärksten Sprung, höchstens einer je `abstand` Sekunden. Rahmen ohne Pegel
 // liefern nichts.
-export function anschlaege(rahmen: readonly Tonrahmen[], anschlag = 6, fenster = 0.05, abstand = 0.1): number[] {
+export function anschlaege(rahmen: readonly Tonrahmen[], anschlag = 6, fenster = 0.05, abstand = 0.09): number[] {
   const mit = rahmen.filter((f) => f.pegel !== undefined);
   if (mit.length < 3) return [];
   const db = mit.map((f) => 20 * Math.log10((f.pegel ?? 0) + 1e-5));
@@ -230,33 +208,6 @@ export function anschlaege(rahmen: readonly Tonrahmen[], anschlag = 6, fenster =
     const t = mit[best].zeit;
     if (!e.length || t - e[e.length - 1] >= abstand) e.push(t);
     i = j;
-  }
-  return e;
-}
-
-// Einsätze: Wo nach einer Lücke von mindestens `luecke` unklaren Rahmen
-// wieder ein Ton kommt, setzt eine neue Note an — auch auf derselben
-// Tonhöhe (zweimal dasselbe A). Dazu jeder Anschlag aus dem Pegel, der auf
-// einen klingenden Ton fällt. Liefert die Zellen mit Einsatz. Die Lücke
-// ist kürzer als eine Zelle, sonst wäre sie schon eine Pause; der Einsatz
-// rückt auf die nächste Zellgrenze.
-export function einsaetze(rahmen: readonly Tonrahmen[], r: Raster, luecke = 2, anschlag = 6): Set<number> {
-  const dz = zellenDauer(r);
-  const e = new Set<number>();
-  let unklar = luecke; // der erste Ton ist immer ein Einsatz
-  for (const f of rahmen) {
-    if (f.midi === null) { unklar++; continue; }
-    if (unklar >= luecke && f.zeit >= 0) e.add(Math.round(f.zeit / dz));
-    unklar = 0;
-  }
-  if (anschlag > 0) {
-    const klar = rahmen.filter((f) => f.midi !== null);
-    for (const t of anschlaege(rahmen, anschlag)) {
-      if (t < 0) continue;
-      // Nur, wenn kurz nach dem Anschlag ein Ton klingt (sonst ein Geräusch).
-      const klingt = klar.some((f) => f.zeit >= t && f.zeit - t <= 0.12);
-      if (klingt) e.add(Math.round(t / dz));
-    }
   }
   return e;
 }
@@ -324,21 +275,207 @@ export function zerlegen(ab: number, dauer: number, r: Raster, punktiert = true)
   return teile;
 }
 
+// ── Segmentierung in Sekunden ──
+// Erst werden aus der Spur Töne in Sekunden (Tonstücke), dann erst Zellen.
+// Die Regeln folgen dem, was pYIN/Tony, Basic Pitch, Omnizart und Klangios
+// Gesangscode gemeinsam haben (reports/Gesang zu Noten transkribieren.md):
+// Mindestdauer 100 ms, gleiche Töne über Lücken bis 130 ms verbinden,
+// Anschläge nur zum Trennen gleicher Töne, Tonhöhe als Median ohne den
+// Ansatz. Ein Tonstück endet, wo die Stimme aufhört oder der Ton wechselt.
+export interface Tonstueck { start: number; ende: number; midi: number }
+export interface SegmentOptionen {
+  tonart?: Tonart | null;
+  mindest?: number;   // s: kürzere Stücke fallen weg (pYIN prunethresh 0,1)
+  luecke?: number;    // s: gleiche Töne über kürzere Lücken ohne Anschlag verbinden
+  anschlag?: number;  // dB: Pegelanstieg, der einen Neuansatz anzeigt (0 = keine Anschläge)
+  ansatz?: number;    // s: Anfang eines Stücks, der beim Tonhöhen-Median nicht zählt
+  kurz?: number;      // s: „kurz" für die Nachbesserung (Oktavfehler, angeschliffener Ansatz)
+}
+
+// Mittlerer Abstand zweier Rahmen in Sekunden.
+function rahmenAbstand(rahmen: readonly Tonrahmen[]): number {
+  const d: number[] = [];
+  for (let i = 1; i < rahmen.length; i++) d.push(rahmen[i].zeit - rahmen[i - 1].zeit);
+  return d.length ? median(d) : 0.02;
+}
+
+export function segmentieren(rahmen: readonly Tonrahmen[], o: SegmentOptionen = {}): Tonstueck[] {
+  const mindest = o.mindest ?? 0.1, luecke = o.luecke ?? 0.13, ansatz = o.ansatz ?? 0.06;
+  const ab = rahmen.filter((f) => f.zeit >= 0);
+  if (!ab.length) return [];
+  const dt = rahmenAbstand(ab);
+  const glatt = hysterese(ab);
+  const schlaege = o.anschlag === 0 ? [] : anschlaege(ab, o.anschlag ?? 6);
+
+  // Läufe gleicher Hysterese-Tonhöhe → Rahmenbereiche [i, j).
+  const bereiche: [number, number][] = [];
+  for (let i = 0; i < glatt.length;) {
+    if (glatt[i].midi === null) { i++; continue; }
+    let j = i;
+    while (j < glatt.length && glatt[j].midi === glatt[i].midi) j++;
+    bereiche.push([i, j]);
+    i = j;
+  }
+  // An Anschlägen im Inneren teilen (gleicher Ton, neu angesetzt). Endet kurz
+  // vor dem Anschlag eine überbrückte Lücke (Konsonant), beginnt die neue Note
+  // dort, wo die Stimme wieder einsetzt — nicht erst, wo der Pegel oben ist.
+  const geteilt: [number, number][] = [];
+  for (const [i, j] of bereiche) {
+    const start = ab[i].zeit, ende = ab[j - 1].zeit + dt;
+    const grenzen = [i];
+    for (const t of schlaege) {
+      if (t < start + mindest || t > ende - mindest) continue;
+      let k = grenzen[grenzen.length - 1];
+      while (k < j && ab[k].zeit < t) k++;
+      let g = k;
+      while (g > i && ab[g - 1].midi !== null && t - ab[g - 1].zeit <= 0.08) g--;   // zurück bis zum Beginn der Stimme
+      if (g === k || ab[g - 1]?.midi !== null) g = k;                                  // keine Lücke davor: am Anschlag
+      if (g < j && ab[g].zeit - ab[grenzen[grenzen.length - 1]].zeit >= mindest) grenzen.push(g);
+    }
+    grenzen.push(j);
+    for (let g = 0; g + 1 < grenzen.length; g++) geteilt.push([grenzen[g], grenzen[g + 1]]);
+  }
+  // Tonhöhe je Stück: Median der klaren Rahmen ohne den Ansatz.
+  const leiter = o.tonart ?? null;
+  const stuecke: Tonstueck[] = [];
+  for (const [i, j] of geteilt) {
+    const start = ab[i].zeit, ende = ab[j - 1].zeit + dt;
+    const von = ende - start > 2 * ansatz ? start + ansatz : start;
+    const w: number[] = [];
+    for (let k = i; k < j; k++) { const m = ab[k].midi; if (m !== null && ab[k].zeit >= von) w.push(m); }
+    if (!w.length) for (let k = i; k < j; k++) { const m = ab[k].midi; if (m !== null) w.push(m); }
+    if (!w.length) continue;
+    stuecke.push({ start, ende, midi: aufLeiter(median(w), leiter) });
+  }
+  // Oktavfehler und angeschliffene Ansätze zuerst (ein Ansatz von 60 ms ist
+  // kürzer als die Mindestdauer, gehört aber zur Note), dann gleiche Töne über
+  // kurze Lücken verbinden, wenn kein Anschlag dazwischen liegt (der Konsonant
+  // beginnt bis 100 ms vor der Stimmpause, der Pegel ist erst bis 80 ms nach
+  // dem Stimmeinsatz oben), zuletzt die Mindestdauer.
+  const verbunden: Tonstueck[] = [];
+  for (const s of nachbessern(stuecke, o.kurz ?? 0.15)) {
+    const v = verbunden[verbunden.length - 1];
+    if (v && v.midi === s.midi && s.start - v.ende < luecke && !schlaege.some((t) => t >= v.ende - 0.1 && t <= s.start + 0.08)) {
+      v.ende = s.ende;
+      continue;
+    }
+    verbunden.push({ ...s });
+  }
+  return verbunden.filter((s) => s.ende - s.start >= mindest);
+}
+
+// Typische Gesangsartefakte: Ein kurzes Stück, das zu beiden Nachbarn etwa
+// eine Oktave springt, ist ein Oktavfehler der Erkennung und rückt in deren
+// Lage (gleicht es dann dem Vorgänger, geht es in ihm auf). Ein kurzes Stück
+// unmittelbar vor einem längeren, höchstens zwei Halbtöne entfernt, ist ein
+// angeschliffener Ansatz und geht in ihn auf.
+export function nachbessern(stuecke: readonly Tonstueck[], kurz: number): Tonstueck[] {
+  const e = stuecke.map((s) => ({ ...s }));
+  for (let i = 0; i < e.length; i++) {
+    if (e[i].ende - e[i].start > kurz) continue;
+    if (i === 0 || i + 1 >= e.length) continue;   // am Rand fehlt ein Nachbar
+    const nachbarn = [e[i - 1].midi, e[i + 1].midi];
+    if (nachbarn.every((n) => Math.abs(n - e[i].midi) >= 10 && Math.abs(n - e[i].midi) <= 14)) {
+      e[i].midi += nachbarn[0] > e[i].midi ? 12 : -12;
+      // Gleicht es nun dem Vorgänger, war es dessen Fortsetzung.
+      if (i > 0 && e[i - 1].midi === e[i].midi && e[i].start - e[i - 1].ende < kurz) { e[i - 1].ende = e[i].ende; e.splice(i, 1); i--; }
+    }
+  }
+  const ergebnis: Tonstueck[] = [];
+  for (let i = 0; i < e.length; i++) {
+    const s = e[i], f = e[i + 1];
+    if (f && s.ende - s.start <= kurz && f.start - s.ende < kurz && Math.abs(f.midi - s.midi) <= 2 && f.ende - f.start > s.ende - s.start) {
+      ergebnis.push({ start: s.start, ende: f.ende, midi: f.midi });
+      i++;
+      continue;
+    }
+    ergebnis.push(s);
+  }
+  return ergebnis;
+}
+
+// ── Rasterung ──
+
+// Metrische Ebene einer Zelle: 0 Schlag, 1 Schlaghälfte (bzw. -drittel im
+// zusammengesetzten Takt), 2 feiner.
+function ebene(zelle: number, r: Raster): number {
+  const js = zellenJeSchlag(r);
+  if (zelle % js === 0) return 0;
+  const teile = istZusammengesetzt(r.zaehler, r.nenner) ? 3 : 2;
+  return Number.isInteger(js / teile) && zelle % (js / teile) === 0 ? 1 : 2;
+}
+
+// Alle Einsätze gemeinsam auf Zellen runden (dynamische Programmierung).
+// Kandidaten je Einsatz: die Zelle davor und danach. Kosten: Abweichung in
+// Zellen plus `strafe`, wenn die Zelle metrisch feiner liegt, als der
+// Abstand zur Nachbarnote nahelegt (MuseScore-Import: eine Note von
+// Viertellänge gehört selten auf ein Sechzehntel-Offbeat). Zwei Einsätze
+// teilen sich nie eine Zelle.
+export function einsaetzeRastern(starts: readonly number[], r: Raster, strafe = 0.35): number[] {
+  if (!starts.length) return [];
+  const dz = zellenDauer(r), js = zellenJeSchlag(r);
+  const kandidaten = starts.map((s, i) => {
+    const x = s / dz;
+    const ioi = i + 1 < starts.length ? starts[i + 1] - s : i ? s - starts[i - 1] : dz * js;
+    const ioiZ = ioi / dz;
+    const ebeneLaenge = ioiZ >= 0.75 * js ? 0 : ioiZ >= 0.375 * js ? 1 : 2;
+    return [...new Set([Math.max(0, Math.floor(x)), Math.max(0, Math.ceil(x))])].map((z) => ({ z, kosten: Math.abs(x - z) + strafe * Math.max(0, ebene(z, r) - ebeneLaenge) }));
+  });
+  const beste: { kosten: number; vor: number }[][] = [];
+  kandidaten.forEach((k, i) => {
+    beste.push(k.map(({ z, kosten }) => {
+      if (i === 0) return { kosten, vor: -1 };
+      let b = { kosten: Infinity, vor: -1 };
+      kandidaten[i - 1].forEach((v, j) => {
+        const g = beste[i - 1][j].kosten + kosten;
+        if (v.z < z && g < b.kosten) b = { kosten: g, vor: j };
+      });
+      return b;
+    }));
+  });
+  const letzte = beste[beste.length - 1];
+  let j = letzte.reduce((bj, b, idx) => (b.kosten < letzte[bj].kosten ? idx : bj), 0);
+  if (!Number.isFinite(letzte[j].kosten)) {
+    // Ausweg: nacheinander runden, Kollisionen nach hinten schieben.
+    let vorige = -1;
+    return starts.map((s) => { vorige = Math.max(Math.round(s / dz), vorige + 1); return vorige; });
+  }
+  const zellen: number[] = [];
+  for (let i = kandidaten.length - 1; i >= 0; i--) { zellen.push(kandidaten[i][j].z); j = beste[i][j].vor; }
+  return zellen.reverse();
+}
+
 export interface RasterOptionen { tonart?: Tonart | null }
 
-// Zellen → Takte: gleiche Nachbarn werden zu Noten (außer bei einem Einsatz
-// nach einer Lücke oder einem Anschlag), an Taktgrenzen geteilt
-// und gebunden, in erlaubte Werte zerlegt. Pausen am Ende fallen weg, der
-// letzte Takt wird mit Pausen gefüllt. Ohne einen einzigen Ton: keine Takte.
-// Reihenfolge: Hysterese auf den Rahmen → Zellen (mit Tonart) → Glätten →
-// Oktav-/Ansatz-Korrektur; Einsätze aus den rohen Rahmen (Lücken, Pegel).
+// Spur → Takte. Erst Tonstücke in Sekunden (`segmentieren`), dann die
+// Legato-Regel: Nur die Einsätze werden gerundet; jede Note dauert bis zum
+// nächsten Einsatz, und eine Pause entsteht nur, wenn die Stille davor
+// mindestens eine Schlaghälfte (und 150 ms) lang ist — so machen es der
+// MuseScore-Import (preserveLegato) und Klangios Gesangscode (Offset =
+// nächster Onset), und so zerfällt kein gehaltener Ton in Sechzehntel und
+// Pausen. Die letzte Note endet an ihrem gerundeten Ende. Dann an
+// Taktgrenzen geteilt und gebunden, in erlaubte Werte zerlegt; Pausen am Ende
+// fallen weg, der letzte Takt wird mit Pausen gefüllt. Ohne Ton: keine Takte.
 export function rastern(rahmen: readonly Tonrahmen[], r: Raster, optionen: RasterOptionen = {}): Takt[] {
-  const z = nachbessern(glaetten(zellen(hysterese(rahmen), r, 0.5, optionen.tonart ?? null)));
-  const neu = einsaetze(rahmen, r);
-  while (z.length && z[z.length - 1] === null) z.pop();
-  if (!z.length) return [];
+  const dz = zellenDauer(r), js = zellenJeSchlag(r);
+  const stuecke = segmentieren(rahmen, { tonart: optionen.tonart ?? null, kurz: 1.1 * dz });
+  if (!stuecke.length) return [];
+  const starts = einsaetzeRastern(stuecke.map((s) => s.start), r);
+  const pause = Math.max(0.15, (dz * js) / 2);
+  const noten = stuecke.map((s, i) => {
+    const z = starts[i];
+    let e = Math.max(z + 1, Math.round(s.ende / dz));
+    if (i + 1 < stuecke.length) {
+      const naechste = starts[i + 1];
+      e = stuecke[i + 1].start - s.ende >= pause ? Math.max(z + 1, Math.min(e, naechste)) : naechste;
+    }
+    return { ab: z, dauer: e - z, midi: s.midi };
+  });
   const jt = zellenJeTakt(r);
-  while (z.length % jt) z.push(null);
+  const letzte = Math.max(...noten.map((n) => n.ab + n.dauer));
+  const z: (number | null)[] = Array<number | null>(Math.ceil(letzte / jt) * jt).fill(null);
+  const neu = new Set<number>();
+  for (const n of noten) { for (let k = n.ab; k < n.ab + n.dauer; k++) z[k] = n.midi; neu.add(n.ab); }
 
   // Strecken gleicher Tonhöhe über die ganze Spur.
   const strecken: { midi: number | null; ab: number; dauer: number }[] = [];

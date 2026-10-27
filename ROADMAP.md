@@ -109,6 +109,7 @@ Alles hier hat Code und Tests; was fehlt, ist der Praxisbeweis auf iPhone
 oder iPad. Vorher auf jedem Gerät eine Sicherung erstellen.
 
 - G-02/G-03 · Einsingen oder Audio laden (`Einspielen.tsx`, `notation.ts` mit synthetischer Messlatte „Alle meine Entchen“) · einmal auf dem iPhone probiert (Mund dicht am Mikrofon), seitdem Lesart, Tonart, Anschläge, Latenz und Pegel umgebaut — echte Stimme noch nie gegen den neuen Stand.
+  - Lesart 27.10.2026 nach der Recherche (`reports/Gesang zu Noten transkribieren.md`) umgebaut: erst Tonstücke in Sekunden (`segmentieren`: Mindestdauer 100 ms, Lücken bis 130 ms überbrücken, Anschläge nur zum Trennen gleicher Töne, Tonhöhe ohne den Ansatz), dann Legato-Rasterung (nur Einsätze gerundet, Note dauert bis zum nächsten Einsatz, Pause erst ab einer halben Schlaglänge Stille). Prüfen: Ein lang gehaltener Ton bleibt eine Note statt „Sechzehntel, Pause, Sechzehntel“; „schwim-men auf dem“ bleiben vier Viertel; Atempausen zwischen Phrasen werden Pausen.
   - Mikrofon: „Alle meine Entchen“ bei 90 bpm, 4/4, Tonart C, mit Einzähler singen — kommen 27 Noten, stimmen Höhen und Werte, bleiben wiederholte Töne getrennt, ist nichts um einen Schlag verschoben (Latenz)?
   - Audio-Datei: Sprachmemo (m4a) aus der Dateien-App laden — dekodiert iOS sie, Anhören, Tempo tippen, Taktanfang per Tipp in die Spur?
   - „Als Stück speichern“: Stück steht mit „eingesungen“ in der Bibliothek, PDF öffnet, Stift und Stellen gehen; Sicherung erstellen und auf dem zweiten Gerät laden — bleibt `notation` erhalten?
@@ -558,6 +559,21 @@ G-02 getrennt — Rhythmus zuerst, Töne später.
   nicht: iOS kennt keinen Weg, Lautsprecher und rohes Mikrofon zu
   kombinieren. Die eigene Aufnahme wird nicht behalten — angehört wird das
   Transkribierte (G-04), korrigiert im Notensatz (G-01).
+
+**Lesart (27.10.2026):** Die erste Fassung rundete Anfang und Ende jeder
+Note unabhängig auf das Raster und ließ Pegel-Anschläge jede Note teilen;
+gehaltene Töne zerfielen in „Sechzehntel + Sechzehntelpause“. Die Recherche
+(`reports/Gesang zu Noten transkribieren.md`) zeigt, dass kein
+veröffentlichtes Verfahren so arbeitet. Seitdem gilt in `notation.ts`:
+Tonstücke in Sekunden (Hysterese mit Bestätigung über mehrere Rahmen,
+Mindestdauer 100 ms, Lücken bis 130 ms, Anschläge nur zum Trennen gleicher
+Töne), dann die Legato-Regel beim Rastern (Einsätze gemeinsam gerundet mit
+Vorliebe für Schlag und Achtel, Dauer bis zum nächsten Einsatz, Pause erst
+ab einer halben Schlaglänge Stille). Dasselbe im Python-Prüfstand
+(`experimente/transkription/monophon.py`, dort zusätzlich mit dem
+Noten-HMM aus pYIN/Tony). Nicht gebaut: KI-Nachbearbeitung — Claude nimmt
+kein Audio an, Audio-LLMs hören Tonhöhen schlecht; wenn überhaupt, später als
+persönliche Geräte-Einstellung mit eigenem API-Schlüssel über ABC-Text.
 
 ### G-04 · Vorspielen: Noten hörbar machen (Instrumente, Begleitung)
 

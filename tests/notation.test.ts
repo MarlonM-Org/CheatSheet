@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  abcLesen, abcMitTitel, abcTon, alsAbc, anschlaege, aufLeiter, effektivwert, einsaetze, glaetten, hysterese, nachbessern, notationText, notenDateiname, notenwerte,
-  rastern, tempoAusTipps, tonartFinden, ueberzaehlig, versatzSchaetzen, zellen, zellenDauer, zellenJeSchlag, zellenJeTakt, zerlegen,
+  abcLesen, abcMitTitel, abcTon, alsAbc, anschlaege, aufLeiter, effektivwert, einsaetzeRastern, hysterese, nachbessern, notationText, notenDateiname, notenwerte,
+  rastern, segmentieren, tempoAusTipps, tonartFinden, ueberzaehlig, versatzSchaetzen, zellenDauer, zellenJeSchlag, zellenJeTakt, zerlegen,
   type Raster, type Takt, type Tonrahmen,
 } from '@/domain/notation';
 
@@ -32,47 +32,6 @@ describe('Raster', () => {
   it('kennt die erlaubten Notenwerte', () => {
     expect(notenwerte(VIERVIERTEL)).toEqual([16, 12, 8, 6, 4, 3, 2, 1]);
     expect(notenwerte(DREIVIERTEL_ACHTEL)).toEqual([6, 4, 3, 2, 1]);
-  });
-});
-
-describe('zellen', () => {
-  it('nimmt je Zelle den Median der klaren Rahmen', () => {
-    const r = spur([60, 62], VIERVIERTEL);
-    r[1].midi = 72; // ein Ausreißer in der ersten Zelle
-    expect(zellen(r, VIERVIERTEL)).toEqual([60, 62]);
-  });
-  it('macht aus überwiegend unklaren Zellen Pausen und aus Lücken auch', () => {
-    const dz = zellenDauer(VIERVIERTEL);
-    const r: Tonrahmen[] = [
-      { zeit: 0.01, midi: 60 }, { zeit: 0.05, midi: null }, { zeit: 0.09, midi: null },
-      { zeit: 2 * dz + 0.01, midi: 64 }, { zeit: 2 * dz + 0.05, midi: 64 },
-    ];
-    expect(zellen(r, VIERVIERTEL)).toEqual([null, null, 64]);
-  });
-  it('ignoriert Rahmen vor dem Taktanfang', () => {
-    expect(zellen([{ zeit: -0.2, midi: 60 }, { zeit: 0.02, midi: 62 }], VIERVIERTEL)).toEqual([62]);
-  });
-});
-
-describe('einsaetze', () => {
-  it('findet den ersten Ton und jeden Ton nach einer Lücke', () => {
-    const dz = zellenDauer(VIERVIERTEL);
-    const r: Tonrahmen[] = [
-      { zeit: 0.01, midi: 60 }, { zeit: 0.03, midi: 60 }, { zeit: 0.05, midi: null }, { zeit: 0.07, midi: null }, { zeit: 0.11, midi: 60 },
-      { zeit: 2 * dz + 0.01, midi: 60 }, { zeit: 2 * dz + 0.03, midi: null }, { zeit: 2 * dz + 0.05, midi: 60 },
-    ];
-    // Der Einsatz bei 0,11 s rückt auf die Zellgrenze 1; die Ein-Rahmen-Lücke zählt erst mit luecke 1.
-    expect([...einsaetze(r, VIERVIERTEL)]).toEqual([0, 1]);
-    expect([...einsaetze(r, VIERVIERTEL, 1)]).toEqual([0, 1, 2]);
-  });
-});
-
-describe('glaetten', () => {
-  it('tilgt einzelne Ausreißer zwischen gleichen Nachbarn', () => {
-    expect(glaetten([60, 72, 60, 60, null, 60, 62])).toEqual([60, 60, 60, 60, 60, 60, 62]);
-  });
-  it('lässt echte Wechsel stehen', () => {
-    expect(glaetten([60, 62, 64, null, null, 60])).toEqual([60, 62, 64, null, null, 60]);
   });
 });
 
@@ -116,13 +75,15 @@ describe('rastern', () => {
     expect(takte[0].noten).toEqual([{ midi: null, dauer: 8 }, { midi: null, dauer: 4 }, { midi: 60, dauer: 4, bindung: true }]);
     expect(takte[1].noten).toEqual([{ midi: 60, dauer: 4 }, { midi: null, dauer: 4 }, { midi: null, dauer: 8 }]);
   });
-  it('trennt zwei gleiche Töne an einer kurzen Lücke', () => {
-    // Zwei Viertel A: am Ende der vierten Zelle zwei unklare Rahmen, dann setzt der Ton neu an.
+  it('überbrückt eine kurze Lücke im gehaltenen Ton und trennt erst an einer längeren', () => {
+    // Zwei Rahmen Aussetzer (62 ms) mitten in einer Halben: das war früher „Sechzehntel + Pause“, jetzt bleibt es eine Halbe.
     const r = spur(Array<number>(8).fill(69), VIERVIERTEL);
     r[14].midi = null; r[15].midi = null;
-    expect(rastern(r, VIERVIERTEL)).toEqual([{ noten: [{ midi: 69, dauer: 4 }, { midi: 69, dauer: 4 }, { midi: null, dauer: 8 }] }]);
-    // ohne Lücke bleibt es eine Halbe
-    expect(rastern(spur(Array<number>(8).fill(69), VIERVIERTEL), VIERVIERTEL)).toEqual([{ noten: [{ midi: 69, dauer: 8 }, { midi: null, dauer: 8 }] }]);
+    expect(rastern(r, VIERVIERTEL)).toEqual([{ noten: [{ midi: 69, dauer: 8 }, { midi: null, dauer: 8 }] }]);
+    // Eine Lücke von 190 ms (sechs Rahmen) trennt; sie ist kürzer als ein Achtel, also keine Pause: Viertel + Viertel.
+    const lang = spur(Array<number>(8).fill(69), VIERVIERTEL);
+    for (let i = 12; i < 18; i++) lang[i].midi = null;
+    expect(rastern(lang, VIERVIERTEL)).toEqual([{ noten: [{ midi: 69, dauer: 4 }, { midi: 69, dauer: 4 }, { midi: null, dauer: 8 }] }]);
   });
   it('rechnet in 6/8 mit der punktierten Viertel als Schlag', () => {
     const z = [60, 60, 60, 60, 60, 60, 62, 62, 62, 62, 62, 62];
@@ -195,6 +156,37 @@ function gespielt(melodie: [number, number][], r: Raster, art: 'klavier' | 'lega
       const vibrato = 0.3 * Math.sin(2 * Math.PI * 5.5 * (t0 + t));
       const pegel = art === 'klavier' ? 0.5 * Math.exp(-3 * t) + 0.01 : 0.3 + 0.03 * Math.sin(2 * Math.PI * 6 * (t0 + t));
       f.push({ zeit: t0 + t + spaet, midi: midi + vibrato, pegel });
+    }
+    t0 += dauer;
+  }
+  return f;
+}
+
+// Eine gesungene Laienstimme, Rahmen alle 20 ms wie vom Mikrofon: vor jeder
+// Silbe 70 ms Konsonant (keine Tonhöhe, leise) — wie beim Singen vor dem
+// Schlag, der Vokal sitzt auf dem Schlag —, dann Einschleifen von unten,
+// Vibrato von 45 Cent über die Halbtongrenze, Drift, Tremolo, alle 0,3 s ein
+// Rahmen Aussetzer der Erkennung, in langen Tönen ein 7-dB-Einbruch in der
+// Mitte. `null` in der Melodie ist eine Pause. `legato`: keine Konsonanten.
+function gesungen(melodie: [number | null, number][], r: Raster, legato = false, spaet = 0): Tonrahmen[] {
+  const dt = 0.02, schlag = 60 / r.bpm;
+  let f: Tonrahmen[] = [];
+  let t0 = 0;
+  for (const [midi, viertel] of melodie) {
+    const dauer = viertel * schlag;
+    const konsonant = midi !== null && !legato && t0 > 0 ? 0.07 : 0;
+    if (konsonant) {
+      f = f.filter((x) => x.zeit < t0 - konsonant + spaet - 1e-9);
+      for (let t = t0 - konsonant; t < t0 - 1e-9; t += dt) f.push({ zeit: t + spaet, midi: null, pegel: 0.02 });
+    }
+    for (let t = 0; t < dauer - 1e-9; t += dt) {
+      const zeit = t0 + t + spaet;
+      if (midi === null) { f.push({ zeit, midi: null, pegel: 0.01 }); continue; }
+      const cent = -150 * Math.exp(-t / 0.03) + 45 * Math.sin(2 * Math.PI * 5.5 * (t0 + t)) * Math.min(1, t / 0.2) + 20 * (t / dauer - 0.5);
+      let pegel = 0.3 * Math.min(1, t / 0.04) * (1 + 0.1 * Math.sin(2 * Math.PI * 6.3 * (t0 + t)));
+      if (dauer > 0.9) pegel *= 1 - 0.55 * Math.exp(-(((t - dauer / 2) / 0.05) ** 2));
+      const aussetzer = Math.round((t0 + t) / dt) % 15 === 7;
+      f.push({ zeit, midi: aussetzer ? null : midi + cent / 100, pegel });
     }
     t0 += dauer;
   }
@@ -275,20 +267,20 @@ describe('hysterese', () => {
 });
 
 describe('nachbessern', () => {
+  const st = (start: number, ende: number, midi: number) => ({ start, ende, midi });
   it('schiebt einen Oktavfehler in die Lage der Nachbarn', () => {
-    expect(nachbessern([69, 69, 57, 69, 69])).toEqual([69, 69, 69, 69, 69]);
-    expect(nachbessern([60, 72, 62])).toEqual([60, 60, 62]);
-    // zwei Zellen tief sind kein Fehler mehr; am Rand fehlt ein Nachbar
-    expect(nachbessern([69, 57, 57, 69])).toEqual([69, 57, 57, 69]);
-    expect(nachbessern([57, 69, 69])).toEqual([57, 69, 69]);
+    // … und geht als Fortsetzung im Vorgänger auf
+    expect(nachbessern([st(0, 1, 69), st(1, 1.1, 57), st(1.1, 2, 69)], 0.15)).toEqual([st(0, 1.1, 69), st(1.1, 2, 69)]);
+    expect(nachbessern([st(0, 1, 60), st(1, 1.1, 72), st(1.1, 2, 62)], 0.15)).toEqual([st(0, 1.1, 60), st(1.1, 2, 62)]);
+    // zu lang für einen Fehler; am Rand fehlt ein Nachbar
+    expect(nachbessern([st(0, 1, 69), st(1, 1.5, 57), st(1.5, 2, 69)], 0.15)).toEqual([st(0, 1, 69), st(1, 1.5, 57), st(1.5, 2, 69)]);
+    expect(nachbessern([st(0, 0.1, 57), st(0.1, 1, 69)], 0.15)).toEqual([st(0, 0.1, 57), st(0.1, 1, 69)]);
   });
   it('lässt einen angeschliffenen Ansatz im folgenden Ton aufgehen', () => {
-    expect(nachbessern([64, 65, 65, 65])).toEqual([65, 65, 65, 65]);
-    expect(nachbessern([null, 63, 65, 65, 65])).toEqual([null, 65, 65, 65, 65]);
-    // ein echter Vorschlag drei Halbtöne tiefer bleibt
-    expect(nachbessern([62, 65, 65, 65])).toEqual([62, 65, 65, 65]);
-    // vor einer ebenso kurzen Note bleibt er auch
-    expect(nachbessern([64, 65, 67, 69])).toEqual([64, 65, 67, 69]);
+    expect(nachbessern([st(0, 0.1, 64), st(0.1, 1, 65)], 0.15)).toEqual([st(0, 1, 65)]);
+    // ein echter Vorschlag drei Halbtöne tiefer bleibt, vor einer ebenso kurzen Note auch
+    expect(nachbessern([st(0, 0.1, 62), st(0.1, 1, 65)], 0.15)).toEqual([st(0, 0.1, 62), st(0.1, 1, 65)]);
+    expect(nachbessern([st(0, 0.1, 64), st(0.1, 0.2, 65)], 0.15)).toEqual([st(0, 0.1, 64), st(0.1, 0.2, 65)]);
   });
 });
 
@@ -303,10 +295,6 @@ describe('anschlaege', () => {
     expect(a[1]).toBeCloseTo(120 / 90, 1);
     expect(anschlaege(gespielt([[69, 3]], NEUNZIG, 'legato'))).toEqual([]);
     expect(anschlaege(gespielt([[69, 3]], NEUNZIG, 'legato').map((f) => ({ zeit: f.zeit, midi: f.midi })))).toEqual([]);
-  });
-  it('zählt Anschläge als Einsätze, wenn danach ein Ton klingt', () => {
-    const klavier = gespielt([[69, 1], [69, 1]], NEUNZIG, 'klavier');
-    expect([...einsaetze(klavier, NEUNZIG)]).toEqual([0, 4]);
   });
 });
 
@@ -342,6 +330,62 @@ describe('rastern, monophone Lesart', () => {
     const tief = gespielt([[69, 1], [70.6, 1], [72, 2]], NEUNZIG, 'klavier');
     expect(rastern(tief, NEUNZIG)[0].noten.map((n) => n.midi)).toEqual([69, 71, 72]);
     expect(rastern(tief, NEUNZIG, { tonart: tonartFinden('F') })[0].noten.map((n) => n.midi)).toEqual([69, 70, 72]);
+  });
+});
+
+describe('rastern, gesungen', () => {
+  const ZWEIZWANZIG: Raster = { bpm: 120, zaehler: 4, nenner: 4, feinheit: 16 };
+  it('liest „Alle meine Entchen“ gesungen Note für Note, mit und ohne Tonart', () => {
+    expect(rastern(gesungen(ENTCHEN, NEUNZIG), NEUNZIG, { tonart: tonartFinden('C') })).toEqual(ENTCHEN_TAKTE);
+    expect(rastern(gesungen(ENTCHEN, NEUNZIG), NEUNZIG)).toEqual(ENTCHEN_TAKTE);
+  });
+  it('zerlegt einen gehaltenen Ton mit Aussetzern und Pegeleinbruch nicht in Sechzehntel und Pausen', () => {
+    expect(rastern(gesungen([[67, 4]], NEUNZIG), NEUNZIG)).toEqual([{ noten: [{ midi: 67, dauer: 16 }] }]);
+    expect(rastern(gesungen([[67, 4]], NEUNZIG, true), NEUNZIG)).toEqual([{ noten: [{ midi: 67, dauer: 16 }] }]);
+  });
+  it('notiert Pausen erst ab einer Schlaghälfte Stille', () => {
+    // Achtelphrase mit echten Viertelpausen bei 120 bpm.
+    const phrase: [number | null, number][] = [[64, 0.5], [66, 0.5], [67, 1], [null, 1], [67, 0.5], [66, 0.5], [64, 1], [null, 1], [62, 2], [64, 2]];
+    expect(rastern(gesungen(phrase, ZWEIZWANZIG), ZWEIZWANZIG)).toEqual([
+      { noten: [{ midi: 64, dauer: 2 }, { midi: 66, dauer: 2 }, { midi: 67, dauer: 4 }, { midi: null, dauer: 4 }, { midi: 67, dauer: 2 }, { midi: 66, dauer: 2 }] },
+      { noten: [{ midi: 64, dauer: 4 }, { midi: null, dauer: 4 }, { midi: 62, dauer: 8 }] },
+      { noten: [{ midi: 64, dauer: 8 }, { midi: null, dauer: 8 }] },
+    ]);
+    // Die 70-ms-Konsonantenlücke zwischen zwei Tönen ist keine Pause: die Noten stoßen aneinander.
+    expect(rastern(gesungen([[60, 1], [62, 1]], ZWEIZWANZIG), ZWEIZWANZIG)).toEqual([{ noten: [{ midi: 60, dauer: 4 }, { midi: 62, dauer: 4 }, { midi: null, dauer: 8 }] }]);
+  });
+  it('kommt mit Verspätung gegen den Klick zurecht', () => {
+    const spaet = gesungen(ENTCHEN, NEUNZIG, false, 0.08);
+    const v = versatzSchaetzen(spaet, NEUNZIG);
+    expect(v).toBeGreaterThan(0.03);
+    expect(rastern(spaet.map((f) => ({ ...f, zeit: f.zeit - v })), NEUNZIG)).toEqual(ENTCHEN_TAKTE);
+  });
+});
+
+describe('segmentieren', () => {
+  it('trennt gleiche Töne am Anschlag, verbindet sie über eine kurze Lücke ohne Anschlag', () => {
+    const s = segmentieren(gesungen([[69, 1], [69, 1]], NEUNZIG));
+    expect(s.map((x) => x.midi)).toEqual([69, 69]);
+    expect(s[1].start).toBeCloseTo(60 / 90, 1); // ab dem Vokal, der Konsonant davor ist stimmlos
+    expect(segmentieren(gesungen([[69, 2]], NEUNZIG)).map((x) => [x.midi, Math.round(x.ende - x.start)])).toEqual([[69, 1]]);
+  });
+  it('verwirft Stücke unter der Mindestdauer und liest die Tonhöhe ohne den Ansatz', () => {
+    const r: Tonrahmen[] = [
+      ...Array.from({ length: 3 }, (_, i) => ({ zeit: i * 0.02, midi: 72 })),            // 60 ms Knackser
+      ...Array.from({ length: 30 }, (_, i) => ({ zeit: 0.3 + i * 0.02, midi: i < 3 ? 63.4 : 65 })), // Einschleifen, dann F
+    ];
+    expect(segmentieren(r)).toEqual([{ start: 0.3, ende: expect.closeTo(0.9, 5) as number, midi: 65 }]);
+  });
+});
+
+describe('einsaetzeRastern', () => {
+  it('rundet Einsätze gemeinsam, nie zwei auf dieselbe Zelle, und bevorzugt den Schlag', () => {
+    const dz = zellenDauer(NEUNZIG);
+    expect(einsaetzeRastern([0.02, 0.69, 1.3, 2.05], NEUNZIG)).toEqual([0, 4, 8, 12]);
+    // Zwei Einsätze dicht beieinander bekommen zwei Zellen.
+    expect(einsaetzeRastern([0, 0.3 * dz], NEUNZIG)).toEqual([0, 1]);
+    // Eine Viertelnote, die 40 % einer Zelle hinter dem Schlag beginnt, gehört auf den Schlag, nicht aufs Sechzehntel.
+    expect(einsaetzeRastern([0, 4 * dz + 0.4 * dz, 8 * dz], NEUNZIG)).toEqual([0, 4, 8]);
   });
 });
 
