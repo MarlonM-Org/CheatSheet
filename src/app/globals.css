@@ -387,19 +387,20 @@ a { color: inherit; text-decoration: underline; text-decoration-color: var(--mes
 }
 input.metro-zahl { width: 3ch; background: none; }
 .metro-einheit { font-size: 10px; font-weight: 700; letter-spacing: 0.16em; color: var(--leise); }
+.metro-takt-huelle { position: relative; margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; }
 .metro-takt {
-  margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
   padding: 6px 8px; margin-right: -8px; border-radius: 5px; color: inherit;
 }
 .metro-takt:active, .metro-takt[aria-expanded="true"] { background: var(--flaeche); }
-/* Kästchen mit den üblichen Taktarten (D-07): klappt im Fluss unter der
-   Zeile auf, die Fang-Fläche (nav-fang) schließt daneben. */
+/* Popover mit den üblichen Taktarten (D-07): schwebt unter dem Knopf über
+   dem Widget, nichts rückt; jeder Tipp woanders schließt es. */
 .metro-taktwahl {
-  position: relative; z-index: 2; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
-  margin: 8px 14px 0; padding: 8px; border-radius: 10px;
-  background: var(--papier); border: 1px solid var(--linie-stark); box-shadow: 0 6px 18px rgb(0 0 0 / 10%);
+  position: absolute; top: calc(100% + 6px); right: -8px; z-index: 5; width: max-content;
+  display: grid; grid-template-columns: repeat(4, auto); gap: 6px; padding: 8px; border-radius: 10px;
+  background: var(--papier); border: 1px solid var(--linie-stark); box-shadow: 0 8px 20px rgb(0 0 0 / 14%), 0 20px 50px rgb(0 0 0 / 16%);
 }
-.metro-taktwahl .taktart-chip { min-height: 2.4rem; padding: 0 0.4rem; }
+.metro-taktwahl .taktart-chip { min-height: 2.4rem; min-width: 3.4rem; padding: 0 0.5rem; }
 .metro-taktlabel {
   font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;
   color: var(--leise); font-variant-numeric: tabular-nums;
@@ -428,8 +429,10 @@ input.metro-zahl { width: 3ch; background: none; }
 /* +1 und −1 je so hoch wie der Start-Knopf der Säule (Wunsch Marlon, D-07). */
 .gruppe.senkrecht button { flex: none; height: 46px; font-size: 16px; }
 .gruppe.senkrecht button + button { border-left: none; border-top: 1px solid var(--linie-stark); }
+.metro-saeule .metro-takt-huelle { margin-left: 0; align-items: stretch; }
 .metro-saeule .metro-takt { margin: 0; align-items: center; gap: 6px; padding: 4px 6px; }
-.metro-saeule .metro-taktwahl { grid-template-columns: 1fr; margin: 0; padding: 6px; }
+/* In der Säule links daneben (unter dem Knopf ragte es in die Leiste), 2 × 2. */
+.metro-saeule .metro-taktwahl { top: 0; right: calc(100% + 8px); grid-template-columns: repeat(2, auto); }
 .metro-saeule .metro-punkte { flex-wrap: wrap; justify-content: center; gap: 5px; max-width: 80px; }
 .metro-saeule .metro-punkte i { width: 8px; height: 8px; }
 .metro-saeule .text-knopf { align-self: center; }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { TAKTARTEN, taktartText } from '@/domain/takt';
 import { gespeichert, speichern } from './klang';
@@ -27,6 +27,17 @@ export function MetronomWidget({ schliessen, voll, vollSetzen }: {
   const { bpm, setBpm, laeuft, start, stopp, aktiv, takt, nenner, taktartSetzen, akzente } = useMetronom();
   const [eingabe, setEingabe] = useState<string | null>(null);
   const [taktWahl, setTaktWahl] = useState(false);
+  const taktHuelle = useRef<HTMLDivElement>(null);
+  // Das Kästchen schließt, sobald irgendwo anders getippt wird — der Tipp
+  // selbst geht durch (kein Fang), damit nie zwei Aufklapper stehen.
+  useEffect(() => {
+    if (!taktWahl) return;
+    const zu = (e: PointerEvent) => { if (!taktHuelle.current?.contains(e.target as Node)) setTaktWahl(false); };
+    document.addEventListener('pointerdown', zu, true);
+    return () => document.removeEventListener('pointerdown', zu, true);
+  }, [taktWahl]);
+  const taktWahlZu = useCallback(() => setTaktWahl(false), []);
+  useEscape(taktWahlZu, taktWahl);
   const [schmal, setSchmal] = useState(() => gespeichert('ueben:metronom-schmal', false));
   const schmalSetzen = (an: boolean) => { setSchmal(an); speichern('ueben:metronom-schmal', an); };
   const { panel, lage, ebene, anfassen, bewegen, loslassen } = useSchiebbar('ueben:lage-metronom');
@@ -58,27 +69,27 @@ export function MetronomWidget({ schliessen, voll, vollSetzen }: {
     </div>
   );
   const taktLabel = <span className="metro-taktlabel">{schmal ? '' : 'Takt '}{taktartText(takt, nenner)}</span>;
-  // Taktart und Punkte sind ein Knopf: Antippen klappt ein Kästchen mit den
-  // üblichen Taktarten auf (wie die Schnellwahl der großen Ansicht).
+  // Taktart und Punkte sind ein Knopf: Antippen klappt ein kleines Popover
+  // mit den üblichen Taktarten auf (wie die Schnellwahl der großen Ansicht);
+  // es schwebt über dem Widget, nichts rückt.
   const taktKnopf = (
-    <button type="button" className="metro-takt" aria-haspopup="true" aria-expanded={taktWahl}
-      aria-label={`Taktart ${taktartText(takt, nenner)}, antippen zum Wählen`} onClick={() => setTaktWahl(!taktWahl)}>
-      {taktLabel}
-      {punkte}
-    </button>
-  );
-  const taktMenue = taktWahl && (
-    <>
-      <button type="button" className="nav-fang" aria-label="Taktart-Wahl schließen" onClick={() => setTaktWahl(false)} />
-      <div className="metro-taktwahl" role="group" aria-label="Taktart wählen">
-        {TAKTARTEN.map(([z, n]) => (
-          <button key={`${z}/${n}`} type="button" className="taktart-chip" aria-pressed={z === takt && n === nenner}
-            onClick={() => { taktartSetzen(z, n); setTaktWahl(false); }}>
-            {taktartText(z, n)}
-          </button>
-        ))}
-      </div>
-    </>
+    <div className="metro-takt-huelle" ref={taktHuelle}>
+      <button type="button" className="metro-takt" aria-haspopup="true" aria-expanded={taktWahl}
+        aria-label={`Taktart ${taktartText(takt, nenner)}, antippen zum Wählen`} onClick={() => setTaktWahl(!taktWahl)}>
+        {taktLabel}
+        {punkte}
+      </button>
+      {taktWahl && (
+        <div className="metro-taktwahl" role="group" aria-label="Taktart wählen">
+          {TAKTARTEN.map(([z, n]) => (
+            <button key={`${z}/${n}`} type="button" className="taktart-chip" aria-pressed={z === takt && n === nenner}
+              onClick={() => { taktartSetzen(z, n); setTaktWahl(false); }}>
+              {taktartText(z, n)}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
   const alles = <button type="button" className="text-knopf gedaempft text-xs underline" onClick={() => vollSetzen(true)}>alles</button>;
 
@@ -104,7 +115,6 @@ export function MetronomWidget({ schliessen, voll, vollSetzen }: {
         <div className="metro-saeule">
           {startKnopf}
           {taktKnopf}
-          {taktMenue}
           {tempo}
           <div className="gruppe senkrecht">
             <button type="button" onClick={() => setBpm(bpm + 1)} aria-label="Ein Schlag schneller">+1</button>
@@ -119,7 +129,6 @@ export function MetronomWidget({ schliessen, voll, vollSetzen }: {
             {tempo}
             {taktKnopf}
           </div>
-          {taktMenue}
           <div className="metro-zeile2">
             <div className="gruppe">
               <button type="button" onClick={() => setBpm(bpm - 1)} aria-label="Ein Schlag langsamer">−1</button>
