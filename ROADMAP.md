@@ -604,9 +604,13 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
 
 - **D-07 · Taktart im Metronom-Widget, schmale Säule aufgeräumt**
   (2026-10-26): Wunsch Marlon. In beiden Widget-Ansichten sind **Taktart
-  und Taktpunkte ein Knopf**: Antippen klappt ein kleines Kästchen mit den
-  üblichen Taktarten (4/4 · 3/4 · 6/8 · 2/4, die Schnellwahl aus D-05) auf,
-  Antippen wählt und schließt; danebentippen schließt. Zähler/Nenner frei
+  und Taktpunkte ein Knopf**: Antippen klappt ein kleines **Popover** mit den
+  üblichen Taktarten (4/4 · 3/4 · 6/8 · 2/4, die Schnellwahl aus D-05) auf —
+  es schwebt unter dem Knopf über dem Widget, nichts rückt (Rückmeldung
+  Marlon: die erste Fassung schob die Knopfzeile nach unten). Antippen
+  wählt und schließt; **jeder Tipp woanders schließt es sofort**, und der
+  Tipp geht durch (kein Fang) — so stehen nie zwei Aufklapper. In der
+  schmalen Säule klappt es links daneben auf (2 × 2). Zähler/Nenner frei
   weiter nur in der großen Ansicht („alles“). Die **schmale Säule** hat nur
   noch **+1 und −1** (±10 % entfallen dort; die Knöpfe sind so hoch wie der
   Start-Knopf, 46 px — ersetzt die Nachbesserung zu D-06), Reihenfolge:
