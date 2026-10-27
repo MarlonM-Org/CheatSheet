@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { tonartFinden, type Raster, type Takt } from '@/domain/notation';
 import {
   angebunden, aufBlatt, bogenUmschalten, dauerSetzen, klaenge, leererTakt, leeresBlatt, legen, leiterSchritt, leiterVerschieben, letzteHoehe, noteSchreiben,
-  alleNoten, angleichen, aufsBlattStimmen, danachEinfuegen, einfuegen, einstimmig, entfernen, entfernenViele, leiterVerschiebenViele, loeschenImTakt, pausenViele, taktLaenge, taktStimmt, verschiebenViele, wertSetzen, haltebogenViele, bindebogenUmschalten, inAllen, inStimme, klaengeAlle, notenZeiten, paletteWerte, punktiert, skalieren, stimmeAendern, stimmeHinzu, stimmeWeg, strecken, taktEinfuegen, taktLoeschen, tonSetzen, triole, verschieben,
+  alleNoten, angleichen, aufsBlattStimmen, danachEinfuegen, einfuegen, einstimmig, entfernen, entfernenViele, leiterVerschiebenViele, loeschenImTakt, pausenViele, taktLaenge, taktStimmt, verschiebenViele, wertSetzen, haltebogenViele, bindebogenUmschalten, inAllen, inStimme, klaengeAlle, notenZeiten, paletteWerte, punktiert, skalieren, stimmeAendern, stimmeHinzu, stimmeWeg, strecken, taktEinfuegen, taktLoeschen, tonSetzen, transponieren, triole, verschieben,
 } from '@/domain/notensatz';
 import { abcLesen, alsAbc, alsAbcStimmen, notenwerte } from '@/domain/notation';
 
@@ -349,5 +349,16 @@ describe('Mehrere Noten auf einmal', () => {
   it('macht viele zu Pausen und löscht viele, von hinten nach vorn', () => {
     expect(pausenViele(t, B, [{ takt: 0, note: 0 }, { takt: 0, note: 3 }]).map(kurz)).toEqual(['z/24 62/24 z/24 z/24', '65/96']);
     expect(entfernenViele(t, B, [{ takt: 0, note: 0 }, { takt: 0, note: 1 }]).map(kurz)).toEqual(['z/24 64/24 65/48-', '65/48 z/48']);
+  });
+});
+
+describe('transponieren', () => {
+  it('versetzt alle Noten aller Stimmen, Pausen und Tonumfang-Grenzen bleiben', () => {
+    const takte = [legen([{ midi: 60, dauer: 8 }, { midi: null, dauer: 4 }, { midi: 64, dauer: 4 }], R)];
+    const stimmen = [{ name: 'a', schluessel: 'violin' as const, takte }, { name: 'b', schluessel: 'bass' as const, takte: [legen([{ midi: 108, dauer: 16 }], R)] }];
+    const hoch = transponieren(stimmen, R, 2);
+    expect(hoch[0].takte[0].noten.map((n) => n.midi)).toEqual([62, null, 66]);
+    expect(hoch[1].takte[0].noten.map((n) => n.midi)).toEqual([108]);   // über C8 geht es nicht hinaus
+    expect(transponieren(hoch, R, -2)[0].takte[0].noten.map((n) => n.midi)).toEqual([60, null, 64]);
   });
 });

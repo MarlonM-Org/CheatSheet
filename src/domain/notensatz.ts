@@ -620,6 +620,11 @@ export const entfernenViele = (takte: readonly Takt[], r: Raster, lagen: readonl
 export const alleNoten = (takte: readonly Takt[]): NotenPos[] =>
   takte.flatMap((t, takt) => t.noten.map((n, note) => (n.midi === null ? null : { takt, note })).filter((p): p is NotenPos => !!p));
 
+// Alle Noten aller Stimmen um Halbtöne versetzen (Transponieren, z. B. für
+// ein B-Instrument +2). Noten, die den Tonumfang verließen, bleiben stehen.
+export const transponieren = (stimmen: readonly Stimme[], r: Raster, halbtoene: number): Stimme[] =>
+  stimmen.map((s) => ({ ...s, takte: verschiebenViele(s.takte, r, alleNoten(s.takte), halbtoene) }));
+
 // ── Stimmen (mehrstimmig) ──
 
 export const einstimmig = (takte: readonly Takt[]): Stimme[] => [{ name: '', schluessel: 'violin', takte: [...takte] }];

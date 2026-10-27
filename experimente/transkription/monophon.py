@@ -17,6 +17,7 @@ in „Sechzehntel + Sechzehntelpause".
 
     python monophon.py gesang.wav --tempo 96
     python monophon.py gesang.wav --tempo 96 --raster 8 --tonart C --versatz auto
+    python monophon.py gesang.wav --tempo 120 --lesart rhythmisch          # kurze Töne, Tonwiederholungen
     python monophon.py stem-bass.wav --tempo 66 --von 30 --bis 400 --programm 33 --name Bass
 
 Ergebnis: <datei>-mono.mid und .musicxml neben der Eingabe (oder --ziel).
@@ -54,6 +55,10 @@ class Parameter:
     pause: float | None = None  # s: Stille ab dieser Länge wird Pause (None = ein Achtel, mindestens 0,15 s)
     ansatz: float = 60.0        # ms: Anfang einer Note, der beim Tonhöhen-Median ausgelassen wird
     wechsel: float = 150.0      # ms: Fenster, über das ein dauerhafter Tonwechsel beurteilt wird (eine Vibratoperiode)
+    abstand: float = 90.0       # ms: Mindestabstand zweier Grenzen gleicher Töne (ROSVOT 90 ms)
+    rueckschau: float = 150.0   # ms: Rückschau der Silbengrenzen (Maximum des Mittenbands davor)
+    strafe: float = 0.35        # Rasterung: Strafe je metrischer Ebene, die eine Zelle feiner liegt als die Notenlänge nahelegt
+    lesart: str = "melodisch"   # melodisch: Schwellen fest in ms; rhythmisch: Schwellen folgen der Rasterzelle (siehe rhythmisch())
     tonart: str | None = None
     versatz: float = 0.0        # s: Lage des ersten Schlags
     nachbessern: bool = True
@@ -63,6 +68,25 @@ class Parameter:
 
     def pause_s(self) -> float:
         return self.pause if self.pause is not None else max(0.15, 60.0 / self.tempo / 2)
+
+    def rhythmisch(self) -> "Parameter":
+        """Preset für kurze Töne und Tonwiederholungen (Sechzehntel, Achtel).
+
+        Die Schwellen folgen der Rasterzelle statt fester Millisekunden —
+        bei 120 bpm ist eine Sechzehntel 125 ms lang, da sind 100 ms
+        Mindestdauer und 130 ms Lückenfüllung zu grob. Fest bleiben die
+        physiologischen Größen (Anschlag-dB, Ansatz höchstens 60 ms,
+        Mindestdauer nie unter 50 ms). Messung an der Kunststimme: 18–20
+        von 22 Noten einer Sechzehntelphrase bei 100–120 bpm statt 11–15;
+        „Alle meine Entchen" weiter 27/27 (reports/Rhythmische Melodien erkennen.md).
+        """
+        from dataclasses import replace
+
+        zelle = self.schritt() * 1000
+        return replace(self, lesart="rhythmisch",
+                       mindest=max(50.0, 0.4 * zelle), luecke=min(130.0, 0.4 * zelle),
+                       abstand=max(40.0, 0.6 * zelle), wechsel=max(50.0, 0.6 * zelle),
+                       ansatz=min(60.0, 0.25 * zelle), rueckschau=min(150.0, zelle), strafe=0.15)
 
 
 # ── Tonhöhenspur ──
@@ -513,7 +537,7 @@ def quantisieren(noten, p: Parameter):
     schritt = p.schritt()
     je_schlag = p.raster // 4 if p.raster % 4 == 0 else max(1, p.raster // 4)
     starts = [s - p.versatz for s, _, _ in noten]
-    zellen = einsaetze_rastern(starts, schritt, je_schlag)
+    zellen = einsaetze_rastern(starts, schritt, je_schlag, strafe=p.strafe)
     pause = p.pause_s()
     ergebnis = []
     for i, ((s, e, t), z) in enumerate(zip(noten, zellen)):
@@ -541,8 +565,9 @@ def segmentieren(midi: np.ndarray, prob: np.ndarray, db: np.ndarray, p: Paramete
     mindest = max(1, int(round(p.mindest / 1000 / RAHMEN_S)))
     roh = bereiche_aus_zustaenden(hmm.dekodieren(midi, prob))
     wechsel = an_tonwechseln_teilen(roh, midi, prob, mindest, int(round(p.ansatz / 1000 / RAHMEN_S)), fenster_s=p.wechsel / 1000)
-    senken = senken_finden(mitte_db[:len(db)], p.senke) if mitte_db is not None else np.array([], dtype=int)
-    anschlaege = grenzen_vereinen(anschlaege_finden(db, p.anschlag), senken)
+    abstand = p.abstand / 1000
+    senken = senken_finden(mitte_db[:len(db)], p.senke, vorher_s=p.rueckschau / 1000) if mitte_db is not None else np.array([], dtype=int)
+    anschlaege = grenzen_vereinen(anschlaege_finden(db, p.anschlag, abstand_s=abstand), senken, abstand_s=abstand)
     geteilt = kurze_verwerfen(an_anschlaegen_teilen(wechsel, anschlaege, mindest), mindest)
     noten = noten_aus_bereichen(geteilt, midi, prob, p.ansatz / 1000)
     leiter = tonleiter(p.tonart)
@@ -667,6 +692,7 @@ def main() -> None:
     p.add_argument("--senke", type=float, default=10.0, help="Einbruch des Mittenbands 600–1500 Hz in dB, der eine Silbengrenze ohne Stimmpause anzeigt, z. B. weiches „la la\" (Standard 10; 0 = aus)")
     p.add_argument("--pause", type=float, default=None, help="Stille ab x Sekunden wird als Pause notiert (Standard: ein Achtel beim Tempo, mindestens 0,15 s)")
     p.add_argument("--ansatz", type=float, default=60.0, help="ms am Notenanfang, die beim Tonhöhen-Median ausgelassen werden (Standard 60)")
+    p.add_argument("--lesart", choices=("melodisch", "rhythmisch"), default="melodisch", help="rhythmisch: Schwellen folgen der Rasterzelle (kurze Töne, Tonwiederholungen); überschreibt --mindest/--luecke/--wechsel/--ansatz")
     p.add_argument("--nachbessern", action=argparse.BooleanOptionalAction, default=True, help="Oktavfehler und angeschliffene Ansatztöne korrigieren (Standard an)")
     p.add_argument("--schlaege", type=int, default=4, help="Schläge je Takt (Standard 4)")
     p.add_argument("--musicxml", action=argparse.BooleanOptionalAction, default=True, help="zusätzlich MusicXML schreiben (Standard an)")
@@ -690,6 +716,8 @@ def main() -> None:
                           leise=args.leise, mindest=args.mindest, luecke=args.luecke, anschlag=args.anschlag,
                           senke=args.senke, pause=args.pause, ansatz=args.ansatz, tonart=args.tonart, versatz=versatz,
                           nachbessern=args.nachbessern)
+        if args.lesart == "rhythmisch":
+            param = param.rhythmisch()
         noten = spur_bauen(datei, param, versatz_auto)
         name = args.name if len(args.dateien) == 1 else f"{args.name} {datei.stem}"
         spuren.append((name, args.programm, noten))

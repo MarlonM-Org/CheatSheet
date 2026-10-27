@@ -114,6 +114,10 @@ def vergleichen(referenz, ergebnis, toleranz: float = 0.25):
     return treffer, dauer_ok, fehlend, [ergebnis[j] for j in offen]
 
 
+# Rhythmische Phrase: Sechzehntel, Achtel, Tonwiederholungen, zwei Pausen (22 Noten, 4 Takte).
+RHYTHMUS = [(67, 0.25), (67, 0.25), (67, 0.5), (69, 0.25), (67, 0.25), (65, 0.5), (None, 0.5), (64, 0.25), (64, 0.25), (65, 0.25), (67, 0.25), (69, 1),
+            (67, 0.25), (69, 0.25), (71, 0.25), (72, 0.25), (71, 0.5), (69, 0.5), (67, 0.75), (None, 0.25), (67, 0.25), (67, 0.25), (67, 0.5), (65, 1)]
+
 ENTCHEN = [(60, 1), (62, 1), (64, 1), (65, 1), (67, 2), (67, 2),
            (69, 1), (69, 1), (69, 1), (69, 1), (67, 4),
            (69, 1), (69, 1), (69, 1), (69, 1), (67, 4),
@@ -121,7 +125,7 @@ ENTCHEN = [(60, 1), (62, 1), (64, 1), (65, 1), (67, 2), (67, 2),
            (62, 1), (62, 1), (62, 1), (62, 1), (60, 4)]
 
 
-def fall(name: str, noten, tempo: float, p: Parameter, wav: bool, **stimm) -> bool:
+def fall(name: str, noten, tempo: float, p: Parameter, wav: bool, mindestens: tuple[int, int] | None = None, **stimm) -> bool:
     y = stimme(noten, tempo, **stimm)
     if wav:
         import soundfile  # type: ignore
@@ -134,13 +138,14 @@ def fall(name: str, noten, tempo: float, p: Parameter, wav: bool, **stimm) -> bo
         if midi is not None:
             ref.append((pos, float(dauer), midi))
         pos += dauer
-    treffer, dauer_ok, fehlend, zuviel = vergleichen(ref, erg)
+    treffer, dauer_ok, fehlend, zuviel = vergleichen(ref, erg, toleranz=0.125 if mindestens else 0.25)
     print(f"   getroffen {treffer}/{len(ref)}, Dauer passend {dauer_ok}, fehlend {len(fehlend)}, überzählig {len(zuviel)}")
     if fehlend:
         print("   fehlend:", fehlend)
     if zuviel:
         print("   überzählig:", zuviel)
-    ok = treffer == len(ref) and not zuviel and dauer_ok >= len(ref) - 1
+    # `mindestens` = (Treffer, höchstens überzählig): für Fälle, die noch nicht fehlerfrei gehen (rhythmisch).
+    ok = (treffer >= mindestens[0] and len(zuviel) <= mindestens[1]) if mindestens else (treffer == len(ref) and not zuviel and dauer_ok >= len(ref) - 1)
     print("   " + ("OK" if ok else "FEHLER"))
     if not ok:
         print("   Ergebnis:", erg)
@@ -170,7 +175,14 @@ def main() -> None:
     # 5. Weiches „la la la" ohne Absetzen: die Stimme klingt durch, nur das „l" dämpft die Obertöne.
     ergebnisse.append(fall("entchen-weich", ENTCHEN, 90, Parameter(tempo=90), args.wav, weich=True))
 
-    # 6. Ohne Konsonanten gesungen („aah"), nur Tonwechsel — darf nichts zerhacken.
+    # 6. Rhythmische Phrase (Sechzehntel, Achtel, Tonwiederholungen, Pausen) bei 120 bpm:
+    #    melodisch bricht sie (≈ 12–15 von 22), rhythmisch trifft ≥ 18 — die Grenze liegt bei
+    #    etwa 130 bpm (Sechzehntel ≈ Analysefenster), siehe reports/Rhythmische Melodien erkennen.md.
+    ergebnisse.append(fall("rhythmisch-120", RHYTHMUS, 120, Parameter(tempo=120).rhythmisch(), args.wav, mindestens=(18, 3)))
+    ergebnisse.append(fall("rhythmisch-120-weich", RHYTHMUS, 120, Parameter(tempo=120).rhythmisch(), args.wav, mindestens=(17, 5), weich=True))
+    ergebnisse.append(fall("entchen-rhythmisch", ENTCHEN, 90, Parameter(tempo=90).rhythmisch(), args.wav))
+
+    # 7. Ohne Konsonanten gesungen („aah"), nur Tonwechsel — darf nichts zerhacken.
     legato = [(60, 1), (62, 1), (64, 2), (65, 1), (67, 3), (65, 1), (64, 1), (62, 2)]
     ergebnisse.append(fall("legato", legato, 80, Parameter(tempo=80), args.wav, konsonant=False))
 

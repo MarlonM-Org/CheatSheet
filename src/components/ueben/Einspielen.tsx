@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  alsAbcStimmen, bandpegel, effektivwert, FEINHEITEN, notenDateiname, rastern, taktDauer, tempoAusTipps, TONARTEN, tonartFinden, versatzSchaetzen,
-  zellenDauer, zellenJeSchlag, type Feinheit, type Gelesen, type Raster, type Stimme, type Tonrahmen,
+  alsAbcStimmen, bandpegel, effektivwert, FEINHEITEN, LESARTEN, notenDateiname, rastern, taktDauer, tempoAusTipps, TONARTEN, tonartFinden, versatzSchaetzen,
+  zellenDauer, zellenJeSchlag, type Feinheit, type Gelesen, type Lesart, type Raster, type Stimme, type Tonrahmen,
 } from '@/domain/notation';
 import type { Stueck } from '@/domain/bestand';
 import { schlaegeJeTakt, TAKTARTEN, taktartText, type Nenner } from '@/domain/takt';
@@ -42,6 +42,7 @@ export type EinspielQuelle = 'mikro' | 'datei' | 'leer';
 type Phase = 'bereit' | 'zaehlt' | 'nimmt' | 'rechnet' | 'vorschlag';
 
 const FEINHEIT_SCHLUESSEL = 'ueben:einspiel-feinheit';
+const LESART_SCHLUESSEL = 'ueben:einspiel-lesart';
 const KLICK_SCHLUESSEL = 'ueben:einspiel-klick';
 const TONART_SCHLUESSEL = 'ueben:einspiel-tonart';
 const LAUTSPRECHER_SCHLUESSEL = 'ueben:einspiel-lautsprecher';
@@ -104,6 +105,9 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
   const [taktart, setTaktart] = useState<[number, Nenner]>(vorlage ? [vorlage.gelesen.raster.zaehler, vorlage.gelesen.raster.nenner] : [metro.takt, metro.nenner]);
   const [feinheit, setFeinheitRoh] = useState<Feinheit>(() => (gespeichert<number>(FEINHEIT_SCHLUESSEL, 16) === 8 ? 8 : 16));
   const setFeinheit = (f: Feinheit) => { setFeinheitRoh(f); speichern(FEINHEIT_SCHLUESSEL, f); };
+  // Lesart der Erkennung: melodisch (gehaltene Töne) oder rhythmisch (kurze Töne, Schwellen folgen dem Tempo).
+  const [lesart, setLesartRoh] = useState<Lesart>(() => (gespeichert<string>(LESART_SCHLUESSEL, 'melodisch') === 'rhythmisch' ? 'rhythmisch' : 'melodisch'));
+  const setLesart = (l: Lesart) => { setLesartRoh(l); speichern(LESART_SCHLUESSEL, l); };
   const [klickWeiter, setKlickWeiterRoh] = useState(() => gespeichert(KLICK_SCHLUESSEL, true));
   const setKlickWeiter = (an: boolean) => { setKlickWeiterRoh(an); speichern(KLICK_SCHLUESSEL, an); };
   const [lautsprecher, setLautsprecherRoh] = useState(() => gespeichert(LAUTSPRECHER_SCHLUESSEL, true));
@@ -111,8 +115,15 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
   // Tonart (notiert, wie das Stimmgerät zeigt): zieht die Töne auf die Leiter
   // und setzt die Vorzeichen; leer = keine Tonart, Töne bleiben, wie gehört.
   const [tonartAbc, setTonartAbcRoh] = useState(() => (vorlage ? vorlage.gelesen.tonart?.abc ?? '' : gespeichert<string>(TONART_SCHLUESSEL, 'C')));
-  const setTonartAbc = (a: string) => { setTonartAbcRoh(a); speichern(TONART_SCHLUESSEL, a); };
+  const setTonartAbc = (a: string) => { setTonartAbcRoh(a); speichern(TONART_SCHLUESSEL, a); setTonartBlatt(null); };
   const tonart = useMemo(() => tonartFinden(tonartAbc), [tonartAbc]);
+  // Tonart des Blatts nach dem Transponieren (null: wie die Erkennung). Nur
+  // für Anzeige und Speichern — die Erkennung behält ihre Tonart, sonst würde
+  // jedes Transponieren den Vorschlag neu rastern und Bearbeitungen verwerfen.
+  const [tonartBlatt, setTonartBlatt] = useState<string | null>(null);
+  const tonartAnzeige = useMemo(() => tonartFinden(tonartBlatt ?? tonartAbc), [tonartBlatt, tonartAbc]);
+  const tonartBlattRef = useRef(tonartBlatt);
+  useEffect(() => { tonartBlattRef.current = tonartBlatt; }, [tonartBlatt]);
   const raster = useMemo<Raster>(() => ({ bpm, zaehler: taktart[0], nenner: taktart[1], feinheit }), [bpm, taktart, feinheit]);
   const rasterRef = useRef(raster);
   useEffect(() => { rasterRef.current = raster; }, [raster]);
@@ -147,8 +158,8 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
     const abStart = spur.map((f) => ({ ...f, zeit: f.zeit - start }));
     const versatz = versatzSchaetzen(abStart, raster);
     // Aufs Blattraster (96 Zellen: 32tel, Triolen) gebracht.
-    return skalieren(rastern(versatz ? abStart.map((f) => ({ ...f, zeit: f.zeit - versatz })) : abStart, raster, { tonart }), raster.feinheit);
-  }, [phase, quelle, spur, start, raster, tonart]);
+    return skalieren(rastern(versatz ? abStart.map((f) => ({ ...f, zeit: f.zeit - versatz })) : abStart, raster, { tonart, lesart }), raster.feinheit);
+  }, [phase, quelle, spur, start, raster, tonart, lesart]);
   const blattRaster = useMemo(() => aufBlatt(raster), [raster]);
   // Schreiben: ein leerer Takt in der Taktart (Tempo und Tonart ändern das Blatt nicht).
   const [zaehler, nenner] = taktart;
@@ -165,7 +176,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
   const takte = stimmen[0]?.takte ?? [];
   // Verlauf für Rückgängig/Wiederherstellen — je Eintrag mit seiner Grundlage,
   // ein Eintrag aus einer anderen Grundlage (neue Aufnahme) zählt nicht.
-  const verlauf = useRef<{ zurueck: { basis: Stimme[]; stimmen: Stimme[] }[]; vor: { basis: Stimme[]; stimmen: Stimme[] }[] }>({ zurueck: [], vor: [] });
+  const verlauf = useRef<{ zurueck: { basis: Stimme[]; stimmen: Stimme[]; tonart: string | null }[]; vor: { basis: Stimme[]; stimmen: Stimme[]; tonart: string | null }[] }>({ zurueck: [], vor: [] });
   // Ob es etwas zurück- oder vorzugehen gibt (für die Knöpfe) — als Zustand, nicht aus dem Ref gelesen.
   const [kann, setKann] = useState({ zurueck: false, vor: false });
   const stimmenRef = useRef(stimmen);
@@ -176,7 +187,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
   }, []);
   const aendern = useCallback((neu: Stimme[]) => {
     const v = verlauf.current;
-    v.zurueck.push({ basis, stimmen: stimmenRef.current });
+    v.zurueck.push({ basis, stimmen: stimmenRef.current, tonart: tonartBlattRef.current });
     if (v.zurueck.length > 200) v.zurueck.shift();
     v.vor = [];
     stimmenRef.current = neu;
@@ -187,18 +198,20 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
     const v = verlauf.current;
     const e = v.zurueck.pop();
     if (!e || e.basis !== basis) { if (e) v.zurueck.push(e); return; }
-    v.vor.push({ basis, stimmen: stimmenRef.current });
+    v.vor.push({ basis, stimmen: stimmenRef.current, tonart: tonartBlattRef.current });
     stimmenRef.current = e.stimmen;
     setBearbeitet({ basis, stimmen: e.stimmen });
+    setTonartBlatt(e.tonart);
     kannNeu(basis);
   }, [basis, kannNeu]);
   const vor = useCallback(() => {
     const v = verlauf.current;
     const e = v.vor.pop();
     if (!e || e.basis !== basis) { if (e) v.vor.push(e); return; }
-    v.zurueck.push({ basis, stimmen: stimmenRef.current });
+    v.zurueck.push({ basis, stimmen: stimmenRef.current, tonart: tonartBlattRef.current });
     stimmenRef.current = e.stimmen;
     setBearbeitet({ basis, stimmen: e.stimmen });
+    setTonartBlatt(e.tonart);
     kannNeu(basis);
   }, [basis, kannNeu]);
   const kannZurueck = kann.zurueck, kannVor = kann.vor;
@@ -442,7 +455,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
     if (!takte.length || laeuft) return;
     setFehler('');
     const name = titel.trim() || vorlage?.stueck.titel || (quelle === 'mikro' ? 'Eingesungen' : quelle === 'leer' ? 'Neues Stück' : dateiName.replace(/\.[^.]+$/, '') || 'Aus Audio');
-    const text = alsAbcStimmen(stimmen, blattRaster, { titel: name }, tonart);
+    const text = alsAbcStimmen(stimmen, blattRaster, { titel: name }, tonartAnzeige);
     try {
       setLaeuft('Noten werden gezeichnet …');
       await luft();
@@ -522,14 +535,24 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
             </div>
           </div>
           {quelle !== 'leer' && (
-            <div className="einspiel-feld">
-              <span>Kleinster Wert</span>
-              <div className="segment !mx-0" role="group" aria-label="Kleinster Notenwert (Erkennung)">
-                {FEINHEITEN.map((f) => (
-                  <button key={f.feinheit} type="button" aria-pressed={feinheit === f.feinheit} disabled={festesRaster} onClick={() => setFeinheit(f.feinheit)}>{f.name}</button>
-                ))}
+            <>
+              <div className="einspiel-feld">
+                <span>Kleinster Wert</span>
+                <div className="segment !mx-0" role="group" aria-label="Kleinster Notenwert (Erkennung)">
+                  {FEINHEITEN.map((f) => (
+                    <button key={f.feinheit} type="button" aria-pressed={feinheit === f.feinheit} disabled={festesRaster} onClick={() => setFeinheit(f.feinheit)}>{f.name}</button>
+                  ))}
+                </div>
               </div>
-            </div>
+              <div className="einspiel-feld">
+                <span>Lesart</span>
+                <div className="segment !mx-0" role="group" aria-label="Lesart der Erkennung">
+                  {LESARTEN.map((l) => (
+                    <button key={l.lesart} type="button" aria-pressed={lesart === l.lesart} onClick={() => setLesart(l.lesart)} title={l.hinweis}>{l.name}</button>
+                  ))}
+                </div>
+              </div>
+            </>
           )}
           <label className="einspiel-feld">
             <span>Tonart</span>
@@ -617,7 +640,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
         {phase === 'vorschlag' && (
           <div className="karte space-y-2">
             {takte.length
-              ? <Notenblatt stimmen={stimmen} raster={blattRaster} tonart={tonart} titel={titel} aendern={aendern} verlauf={{ zurueck: kannZurueck ? zurueck : null, vor: kannVor ? vor : null }} />
+              ? <Notenblatt stimmen={stimmen} raster={blattRaster} tonart={tonartAnzeige} titel={titel} aendern={aendern} tonartAendern={(t) => setTonartBlatt(t?.abc ?? '')} verlauf={{ zurueck: kannZurueck ? zurueck : null, vor: kannVor ? vor : null }} />
               : (
                 <div className="einspiel-zeile">
                   <p className="gedaempft text-sm">Kein Ton erkannt. Näher ans Mikrofon, lauter, oder eine andere Datei.</p>

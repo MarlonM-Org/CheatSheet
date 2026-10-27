@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AbcElem, ClickListenerDrag, TuneObject } from 'abcjs';
-import { alsAbcStimmen, SCHLUESSEL, type Raster, type Stimme, type Takt, type Tonart } from '@/domain/notation';
+import { alsAbcStimmen, SCHLUESSEL, type Raster, type Stimme, type Takt, type Tonart, tonartTransponieren,
+} from '@/domain/notation';
 import {
   alleNoten, angebunden, bindebogenUmschalten, danachEinfuegen, haltebogenViele, inAllen, inStimme, klaengeAlle, leiterVerschieben, leiterVerschiebenViele,
   letzteHoehe, loeschenViele, noteSchreiben, notenZeiten, paletteWerte, pausenViele, punktiert, stimmeAendern, stimmeHinzu, stimmeWeg, taktEinfuegen,
-  taktLoeschen, taktStimmt, triole, verschiebenViele, wertSetzen, type NotenPos,
+  taktLoeschen, taktStimmt, transponieren, triole, verschiebenViele, wertSetzen, type NotenPos,
 } from '@/domain/notensatz';
 import { pruefen } from '@/domain/notenregeln';
 import { EINSTELLUNG_STANDARD } from '@/domain/einstellungen';
@@ -44,10 +45,12 @@ type Elemente = Auswaehlbar[][];
 
 const lagenVon = (s: Stimme) => s.takte.flatMap((t, takt) => t.noten.map((_, note) => ({ takt, note })));
 
-export function Notenblatt({ stimmen, raster, tonart, titel, aendern, verlauf }: {
+export function Notenblatt({ stimmen, raster, tonart, titel, aendern, tonartAendern, verlauf }: {
   stimmen: Stimme[]; raster: Raster; tonart: Tonart | null; titel: string;
   // Ohne `aendern` nur ansehen und vorspielen.
   aendern?: (stimmen: Stimme[]) => void;
+  // Beim Transponieren folgt die Tonart (wer sie hält, setzt sie neu).
+  tonartAendern?: (tonart: Tonart | null) => void;
   // Rückgängig/Wiederherstellen (null: gerade nicht möglich).
   verlauf?: { zurueck: (() => void) | null; vor: (() => void) | null };
 }) {
@@ -61,6 +64,8 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern, verlauf }:
   // Weitere gewählte Noten (Mehrfachauswahl), auch in anderen Stimmen.
   const [mehr, setMehr] = useState<BlattPos[]>([]);
   const [markieren, setMarkieren] = useState(false);
+  // Hinweis zu transponierenden Instrumenten im Mehr-Menü.
+  const [transponierInfo, setTransponierInfo] = useState(false);
   // Offenes Menü der Palette: „Mehr“ oder „Stimme“.
   const [menue, setMenue] = useState<'mehr' | 'stimme' | null>(null);
   const [rahmen, setRahmen] = useState<{ x: number; y: number; b: number; h: number } | null>(null);
@@ -344,6 +349,8 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern, verlauf }:
   };
   const stummSchalten = (i: number, an: boolean) => setStumm((alt) => { const neu = new Set(alt); if (an) neu.add(i); else neu.delete(i); return neu; });
   const hatNoten = lagen.some((l) => l.length);
+  // Alle Noten aller Stimmen um Halbtöne versetzen; die Tonart zieht mit (ein Rückgängig-Schritt).
+  const transponierenUm = (halbtoene: number) => { if (!aendern) return; aendern(transponieren(stimmen, raster, halbtoene)); tonartAendern?.(tonartTransponieren(tonart, halbtoene)); };
   const viele = gewaehlt.length > 1 ? ` (${gewaehlt.length})` : '';
   // Hinter der gewählten Note einfügen: Note (Höhe der gewählten) oder Pause, im Palettenwert.
   const danach = (midi: 'note' | null) => {
@@ -426,7 +433,7 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern, verlauf }:
             {aendern && (
               <div className="notensatz-menue" onKeyDown={menueTasten}>
                 <button type="button" className="notensatz-menue-knopf" aria-expanded={menue === 'mehr'} aria-haspopup="true" onClick={() => setMenue(menue === 'mehr' ? null : 'mehr')}
-                  title="Mehr: Oktave, Einfügen, 1/32, punktiert, Triole, Takt, Auswahl">
+                  title="Mehr: Oktave, Transponieren, Einfügen, 1/32, punktiert, Triole, Takt, Auswahl">
                   Mehr<SymbolPfeil />{(markieren || punkt || tri) && <span className="ziel-punkt" aria-hidden="true" />}
                 </button>
                 {menue === 'mehr' && (
@@ -439,6 +446,21 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern, verlauf }:
                           <button type="button" onClick={() => aufAlle((t, l) => verschiebenViele(t, raster, l, 12))} disabled={!gewaehlt.length} aria-label={`Oktave höher${viele}`} title="Oktave höher (⇧↑)">▲ höher</button>
                           <button type="button" onClick={() => aufAlle((t, l) => verschiebenViele(t, raster, l, -12))} disabled={!gewaehlt.length} aria-label={`Oktave tiefer${viele}`} title="Oktave tiefer (⇧↓)">▼ tiefer</button>
                         </div>
+                      </div>
+                      <div className="notensatz-gruppe">
+                        <span>Transponieren · alle Stimmen</span>
+                        <div className="notensatz-block">
+                          <button type="button" onClick={() => transponierenUm(-1)} disabled={!hatNoten} aria-label="Alles einen Halbton tiefer" title="Alle Noten aller Stimmen einen Halbton tiefer; die Tonart zieht mit">−1</button>
+                          <button type="button" onClick={() => transponierenUm(1)} disabled={!hatNoten} aria-label="Alles einen Halbton höher" title="Alle Noten aller Stimmen einen Halbton höher; die Tonart zieht mit">+1</button>
+                          <button type="button" className="symbol" aria-pressed={transponierInfo} onClick={() => setTransponierInfo(!transponierInfo)} aria-label="Hinweis zu transponierenden Instrumenten" title="Wie weit für B-, Es- und F-Instrumente?">ⓘ</button>
+                        </div>
+                        {transponierInfo && (
+                          <p className="gedaempft text-xs" style={{ maxWidth: '22rem' }}>
+                            Transponierende Instrumente lesen andere Noten, als sie klingen. Klingende Noten für ein <b>B-Instrument</b> (Klarinette, Trompete, Tenorsax) einen Ganzton höher schreiben: <b>+2</b>.
+                            <b> Es-Instrument</b> (Altsax, Baritonsax): <b>+9</b>, oder <b>−3</b> eine Oktave tiefer. <b>F-Instrument</b> (Horn, Englischhorn): <b>+7</b>, oder <b>−5</b>. Umgekehrt (vom Instrument zu klingend) mit dem Vorzeichen andersherum.
+                            Eingesungene oder eingespielte Noten sind schon für die Stimmung des Stimmgeräts notiert. Fehlt die Zieltonart in der Liste, bekommen die Noten einzelne Vorzeichen.
+                          </p>
+                        )}
                       </div>
                       <div className="notensatz-gruppe">
                         <span>Dahinter einfügen</span>

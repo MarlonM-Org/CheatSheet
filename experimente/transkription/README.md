@@ -175,7 +175,9 @@ $o = "ergebnis\Metallica - The Unforgiven II"
 .venv\Scripts\python monophon.py "$o\stem-bass.wav" --tempo 66 --von 30 --bis 200 --programm 33 --name Bass --ziel "$o\monophon\bass-mono.mid"
 ```
 
-Schalter: `--mindest` (ms), `--luecke` (ms), `--anschlag` (dB, 0 = aus),
+Schalter: `--lesart rhythmisch` (kurze Töne, Tonwiederholungen: Schwellen
+folgen der Rasterzelle, siehe `Parameter.rhythmisch()`; Messung in
+`reports/Rhythmische Melodien erkennen.md`), `--mindest` (ms), `--luecke` (ms), `--anschlag` (dB, 0 = aus),
 `--pause` (s), `--ansatz` (ms), `--leise` (dB unter Maximum), `--tonart`,
 `--versatz auto|<s>`, `--schlagzeug`. Das Tempo muss stimmen, sonst stimmt das
 Raster nicht. Wer stark in die Töne schleift (mehr als zwei Halbtöne von

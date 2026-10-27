@@ -74,6 +74,14 @@ export const TONARTEN: readonly Tonart[] = [
   { abc: 'Cm', name: 'c-Moll', grund: 0, moll: true, kreuze: -3 },
 ];
 export const tonartFinden = (abc: string | null | undefined): Tonart | null => TONARTEN.find((t) => t.abc === abc) ?? null;
+// Die Tonart um Halbtöne versetzen (Transponieren). Fehlt die Zieltonart in
+// der Liste (Fis-Dur, cis-Moll …), gibt es keine Tonart: die Noten tragen
+// dann ihre Vorzeichen selbst.
+export function tonartTransponieren(t: Tonart | null | undefined, halbtoene: number): Tonart | null {
+  if (!t) return null;
+  const grund = (((t.grund + halbtoene) % 12) + 12) % 12;
+  return TONARTEN.find((x) => x.moll === t.moll && x.grund === grund) ?? null;
+}
 
 const DUR_STUFEN = [0, 2, 4, 5, 7, 9, 11], MOLL_STUFEN = [0, 2, 3, 5, 7, 8, 10];
 // Tonklassen (0…11) der Leiter.
@@ -159,8 +167,8 @@ export function medianGlaetten(rahmen: readonly Tonrahmen[], breite = 5): Tonrah
 // Sekunden werden überbrückt, wenn danach derselbe Ton weitergeht — beurteilt
 // erst `ansatz` Sekunden nach der Lücke, weil die Stimme in den neuen Ton
 // einschleift und die ersten Rahmen noch beim alten liegen.
-export function hysterese(rahmen: readonly Tonrahmen[], sprung = 0.75, aussetzer = 0.15, bestaetigen = 3, ansatz = 0.06): Tonrahmen[] {
-  const e = medianGlaetten(rahmen);
+export function hysterese(rahmen: readonly Tonrahmen[], sprung = 0.75, aussetzer = 0.15, bestaetigen = 3, ansatz = 0.06, glaettung = 5): Tonrahmen[] {
+  const e = medianGlaetten(rahmen, glaettung);
   const roh = e.map((f) => f.midi);
   let glieder: number[] = [], toene: number[] = [], mitte = 0;
   let lueckeAb = -1; // Index des ersten unklaren Rahmens der laufenden Lücke
@@ -339,8 +347,42 @@ export interface SegmentOptionen {
   luecke?: number;    // s: gleiche Töne über kürzere Lücken ohne Anschlag verbinden
   anschlag?: number;  // dB: Pegelanstieg, der einen Neuansatz anzeigt (0 = keine Anschläge)
   senke?: number;     // dB: Einbruch des Mittenbands, der eine weiche Silbengrenze anzeigt (0 = aus)
+  rueckschau?: number; // s: Rückschau der Silbengrenzen (Maximum des Mittenbands davor)
+  abstand?: number;   // s: Mindestabstand zweier Grenzen gleicher Töne (ROSVOT 90 ms)
   ansatz?: number;    // s: Anfang eines Stücks, der beim Tonhöhen-Median nicht zählt
   kurz?: number;      // s: „kurz" für die Nachbesserung (Oktavfehler, angeschliffener Ansatz)
+  glaettung?: number; // Rahmen: Breite des Medianfilters vor der Hysterese (5 = 100 ms beim Mikrofon)
+  bestaetigen?: number; // Rahmen: so viele klare Rahmen müssen einen Tonwechsel bestätigen
+  aussetzer?: number; // s: Lücken bis dahin überbrückt die Hysterese, wenn derselbe Ton weitergeht
+}
+
+// Die Lesart: `melodisch` für gehaltene Töne, Vibrato und weiche Silben
+// (Schwellen fest in Millisekunden); `rhythmisch` für kurze Töne und
+// Tonwiederholungen (Sechzehntel, Achtel): die Schwellen folgen der
+// Rasterzelle, denn bei 120 bpm ist eine Sechzehntel 125 ms lang, da sind
+// 100 ms Mindestdauer und 130 ms Lückenfüllung zu grob. Fest bleiben die
+// physiologischen Größen (Mindestdauer nie unter 50 ms, Ansatz höchstens
+// 60 ms, Anschlag-dB). Herleitung und Messung: reports/Rhythmische Melodien erkennen.md.
+export type Lesart = 'melodisch' | 'rhythmisch';
+export const LESARTEN: { lesart: Lesart; name: string; hinweis: string }[] = [
+  { lesart: 'melodisch', name: 'melodisch', hinweis: 'gehaltene Töne, Vibrato, weiche Silben' },
+  { lesart: 'rhythmisch', name: 'rhythmisch', hinweis: 'kurze Töne, Tonwiederholungen, Sechzehntel — Schwellen folgen dem Tempo' },
+];
+export function segmentOptionen(lesart: Lesart, r: Raster): SegmentOptionen {
+  const dz = zellenDauer(r);
+  if (lesart !== 'rhythmisch') return { kurz: 1.1 * dz };
+  // Glättung und Bestätigung in Rahmen (Mikrofon: 20 ms): bei kurzen Zellen
+  // schmaler, sonst verschmiert der Median benachbarte Sechzehntel.
+  const kurzeZelle = dz < 0.2;
+  // „kurz" (Oktavfehler, angeschliffener Ansatz) nur eine halbe Zelle: eine
+  // Sechzehntel zwei Halbtöne über der Folgenote ist kein Ansatz. Lücken
+  // überbrückt die Hysterese nur unterhalb einer Zelle (eine Sechzehntelpause
+  // zwischen gleichen Tönen bleibt eine Pause).
+  return {
+    mindest: Math.max(0.05, 0.4 * dz), luecke: Math.min(0.13, 0.4 * dz), abstand: Math.max(0.04, 0.6 * dz),
+    ansatz: Math.min(0.06, 0.25 * dz), rueckschau: Math.min(0.15, dz), kurz: 0.5 * dz, aussetzer: Math.min(0.15, 0.6 * dz),
+    glaettung: kurzeZelle ? 3 : 5, bestaetigen: kurzeZelle ? 2 : 3,
+  };
 }
 
 // Mittlerer Abstand zweier Rahmen in Sekunden.
@@ -351,16 +393,16 @@ function rahmenAbstand(rahmen: readonly Tonrahmen[]): number {
 }
 
 export function segmentieren(rahmen: readonly Tonrahmen[], o: SegmentOptionen = {}): Tonstueck[] {
-  const mindest = o.mindest ?? 0.1, luecke = o.luecke ?? 0.13, ansatz = o.ansatz ?? 0.06;
+  const mindest = o.mindest ?? 0.1, luecke = o.luecke ?? 0.13, ansatz = o.ansatz ?? 0.06, abstand = o.abstand ?? 0.09;
   const ab = rahmen.filter((f) => f.zeit >= 0);
   if (!ab.length) return [];
   const dt = rahmenAbstand(ab);
-  const glatt = hysterese(ab);
+  const glatt = hysterese(ab, 0.75, o.aussetzer ?? 0.15, o.bestaetigen ?? 3, ansatz, o.glaettung ?? 5);
   // Grenzen gleicher Töne: Pegelanstiege (abgesetzte Silben) und Einbrüche
-  // des Mittenbands (weiche Silben), höchstens eine je 90 ms.
+  // des Mittenbands (weiche Silben), höchstens eine je `abstand`.
   const schlaege: number[] = [];
-  for (const t of [...(o.anschlag === 0 ? [] : anschlaege(ab, o.anschlag ?? 6)), ...(o.senke === 0 ? [] : silbengrenzen(ab, o.senke ?? 10))].sort((a, b) => a - b)) {
-    if (!schlaege.length || t - schlaege[schlaege.length - 1] >= 0.09) schlaege.push(t);
+  for (const t of [...(o.anschlag === 0 ? [] : anschlaege(ab, o.anschlag ?? 6, 0.05, abstand)), ...(o.senke === 0 ? [] : silbengrenzen(ab, o.senke ?? 10, o.rueckschau ?? 0.15))].sort((a, b) => a - b)) {
+    if (!schlaege.length || t - schlaege[schlaege.length - 1] >= abstand) schlaege.push(t);
   }
 
   // Läufe gleicher Hysterese-Tonhöhe → Rahmenbereiche [i, j).
@@ -501,7 +543,7 @@ export function einsaetzeRastern(starts: readonly number[], r: Raster, strafe = 
   return zellen.reverse();
 }
 
-export interface RasterOptionen { tonart?: Tonart | null }
+export interface RasterOptionen { tonart?: Tonart | null; lesart?: Lesart }
 
 // Spur → Takte. Erst Tonstücke in Sekunden (`segmentieren`), dann die
 // Legato-Regel: Nur die Einsätze werden gerundet; jede Note dauert bis zum
@@ -514,9 +556,11 @@ export interface RasterOptionen { tonart?: Tonart | null }
 // fallen weg, der letzte Takt wird mit Pausen gefüllt. Ohne Ton: keine Takte.
 export function rastern(rahmen: readonly Tonrahmen[], r: Raster, optionen: RasterOptionen = {}): Takt[] {
   const dz = zellenDauer(r), js = zellenJeSchlag(r);
-  const stuecke = segmentieren(rahmen, { tonart: optionen.tonart ?? null, kurz: 1.1 * dz });
+  const lesart = optionen.lesart ?? 'melodisch';
+  const stuecke = segmentieren(rahmen, { ...segmentOptionen(lesart, r), tonart: optionen.tonart ?? null });
   if (!stuecke.length) return [];
-  const starts = einsaetzeRastern(stuecke.map((s) => s.start), r);
+  // Rhythmisch: Sechzehntel-Offbeats sind erwartbar, die Strafe dafür kleiner.
+  const starts = einsaetzeRastern(stuecke.map((s) => s.start), r, lesart === 'rhythmisch' ? 0.15 : 0.35);
   const pause = Math.max(0.15, (dz * js) / 2);
   const noten = stuecke.map((s, i) => {
     const z = starts[i];

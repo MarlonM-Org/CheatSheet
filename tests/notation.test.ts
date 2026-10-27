@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   abcLesen, abcMitTitel, abcTon, alsAbc, anschlaege, aufLeiter, bandpegel, effektivwert, einsaetzeRastern, hysterese, nachbessern, notationText, notenDateiname, notenwerte,
-  rastern, segmentieren, silbengrenzen, tempoAusTipps, tonartFinden, ueberzaehlig, versatzSchaetzen, zellenDauer, zellenJeSchlag, zellenJeTakt, zerlegen,
+  rastern, segmentieren, segmentOptionen, silbengrenzen, tempoAusTipps, tonartFinden, tonartTransponieren, ueberzaehlig, versatzSchaetzen, zellenDauer, zellenJeSchlag, zellenJeTakt, zerlegen,
   type Raster, type Takt, type Tonrahmen,
 } from '@/domain/notation';
 
@@ -179,7 +179,7 @@ function gesungen(melodie: [number | null, number][], r: Raster, art: 'silben' |
   let t0 = 0;
   for (const [midi, viertel] of melodie) {
     const dauer = viertel * schlag;
-    const konsonant = midi !== null && modus === 'silben' && t0 > 0 ? 0.07 : 0;
+    const konsonant = midi !== null && modus === 'silben' && t0 > 0 ? (dauer < 0.3 ? 0.04 : 0.07) : 0;
     if (konsonant) {
       f = f.filter((x) => x.zeit < t0 - konsonant + spaet - 1e-9);
       for (let t = t0 - konsonant; t < t0 - 1e-9; t += dt) f.push({ zeit: t + spaet, midi: null, pegel: 0.02, mitte: 0.002 });
@@ -191,7 +191,7 @@ function gesungen(melodie: [number | null, number][], r: Raster, art: 'silben' |
       let pegel = 0.3 * Math.min(1, t / 0.04) * (1 + 0.1 * Math.sin(2 * Math.PI * 6.3 * (t0 + t)));
       if (dauer > 0.9) pegel *= 1 - 0.55 * Math.exp(-(((t - dauer / 2) / 0.05) ** 2));
       let mitte = pegel * 0.3 * (1 + 0.15 * Math.sin(2 * Math.PI * 4.1 * (t0 + t)));
-      if (modus === 'weich' && t0 > 0 && t < 0.1) { pegel *= 0.84; mitte *= 0.1; }
+      if (modus === 'weich' && t0 > 0 && t < Math.min(0.1, dauer * 0.35)) { pegel *= 0.84; mitte *= 0.1; }
       const aussetzer = Math.round((t0 + t) / dt) % 15 === 7;
       f.push({ zeit, midi: aussetzer ? null : midi + cent / 100, pegel, mitte });
     }
@@ -369,6 +369,68 @@ describe('rastern, gesungen', () => {
   });
 });
 
+// Takte → Notenliste (Zelle ab Anfang, Dauer, midi), Haltebögen zusammengefasst, Pausen weg.
+function notenListe(takte: Takt[], r: Raster): { ab: number; dauer: number; midi: number }[] {
+  const jt = zellenJeTakt(r), liste: { ab: number; dauer: number; midi: number }[] = [];
+  let bindung = false;
+  takte.forEach((t, i) => {
+    let pos = i * jt;
+    for (const n of t.noten) {
+      const letzte = liste[liste.length - 1];
+      if (n.midi !== null && bindung && letzte && letzte.midi === n.midi) letzte.dauer += n.dauer;
+      else if (n.midi !== null) liste.push({ ab: pos, dauer: n.dauer, midi: n.midi });
+      bindung = n.midi !== null && !!n.bindung;
+      pos += n.dauer;
+    }
+  });
+  return liste;
+}
+// Wie viele Noten der Erwartung (Viertel-Einsatz, Viertel-Dauer, midi) stimmen in Einsatz (±½ Zelle) und Tonhöhe?
+function treffer(takte: Takt[], r: Raster, erwartet: [number | null, number][]): { treffer: number; zuviel: number } {
+  const js = zellenJeSchlag(r), ist = notenListe(takte, r);
+  const soll: { ab: number; midi: number }[] = [];
+  let pos = 0;
+  for (const [midi, viertel] of erwartet) { if (midi !== null) soll.push({ ab: pos * js, midi }); pos += viertel; }
+  const offen = [...ist];
+  let n = 0;
+  for (const s of soll) {
+    const k = offen.findIndex((x) => x.midi === s.midi && Math.abs(x.ab - s.ab) <= 0.5);
+    if (k >= 0) { offen.splice(k, 1); n++; }
+  }
+  return { treffer: n, zuviel: offen.length };
+}
+
+// Rhythmische Phrase: Sechzehntel, Achtel, Tonwiederholungen, zwei Pausen (22 Noten, 4 Takte).
+const RHYTHMUS: [number | null, number][] = [[67, 0.25], [67, 0.25], [67, 0.5], [69, 0.25], [67, 0.25], [65, 0.5], [null, 0.5], [64, 0.25], [64, 0.25], [65, 0.25], [67, 0.25], [69, 1],
+  [67, 0.25], [69, 0.25], [71, 0.25], [72, 0.25], [71, 0.5], [69, 0.5], [67, 0.75], [null, 0.25], [67, 0.25], [67, 0.25], [67, 0.5], [65, 1]];
+
+describe('rastern, rhythmisch', () => {
+  const ZWEIZWANZIG: Raster = { bpm: 120, zaehler: 4, nenner: 4, feinheit: 16 };
+  it('setzt die Schwellen tempo-relativ, nie unter die physiologischen Grenzen', () => {
+    const o = segmentOptionen('rhythmisch', ZWEIZWANZIG);   // Zelle 125 ms
+    expect(o.mindest).toBeCloseTo(0.05, 5);
+    expect(o.luecke).toBeCloseTo(0.05, 5);
+    expect(o.abstand).toBeCloseTo(0.075, 5);
+    expect(o.ansatz).toBeCloseTo(0.03125, 5);
+    const langsam = segmentOptionen('rhythmisch', { bpm: 60, zaehler: 4, nenner: 4, feinheit: 8 });   // Zelle 500 ms
+    expect(langsam.mindest).toBeCloseTo(0.2, 5);
+    expect(langsam.luecke).toBeCloseTo(0.13, 5);
+    expect(langsam.ansatz).toBeCloseTo(0.06, 5);
+    expect(segmentOptionen('melodisch', ZWEIZWANZIG).mindest).toBeUndefined();
+  });
+  it('liest eine Sechzehntelphrase bei 120 bpm rhythmisch weit besser als melodisch', () => {
+    const r = treffer(rastern(gesungen(RHYTHMUS, ZWEIZWANZIG), ZWEIZWANZIG, { lesart: 'rhythmisch' }), ZWEIZWANZIG, RHYTHMUS);
+    const m = treffer(rastern(gesungen(RHYTHMUS, ZWEIZWANZIG), ZWEIZWANZIG), ZWEIZWANZIG, RHYTHMUS);
+    expect(r.treffer).toBeGreaterThanOrEqual(18);
+    expect(r.zuviel).toBeLessThanOrEqual(3);
+    expect(r.treffer).toBeGreaterThan(m.treffer);
+  });
+  it('lässt das langsame Lied auch rhythmisch unverändert', () => {
+    expect(rastern(gesungen(ENTCHEN, NEUNZIG), NEUNZIG, { lesart: 'rhythmisch' })).toEqual(ENTCHEN_TAKTE);
+    expect(rastern(gesungen(ENTCHEN, NEUNZIG, 'weich'), NEUNZIG, { lesart: 'rhythmisch' })).toEqual(ENTCHEN_TAKTE);
+  });
+});
+
 describe('rastern, weich gesungen', () => {
   it('trennt „la la la la“ ohne Absetzen am Einbruch des Mittenbands', () => {
     expect(rastern(gesungen([[69, 1], [69, 1], [69, 1], [69, 1]], NEUNZIG, 'weich'), NEUNZIG)).toEqual([{ noten: [{ midi: 69, dauer: 4 }, { midi: 69, dauer: 4 }, { midi: 69, dauer: 4 }, { midi: 69, dauer: 4 }] }]);
@@ -425,6 +487,17 @@ describe('einsaetzeRastern', () => {
     expect(einsaetzeRastern([0, 0.3 * dz], NEUNZIG)).toEqual([0, 1]);
     // Eine Viertelnote, die 40 % einer Zelle hinter dem Schlag beginnt, gehört auf den Schlag, nicht aufs Sechzehntel.
     expect(einsaetzeRastern([0, 4 * dz + 0.4 * dz, 8 * dz], NEUNZIG)).toEqual([0, 4, 8]);
+  });
+});
+
+describe('tonartTransponieren', () => {
+  it('versetzt die Tonart um Halbtöne und gibt ohne passende Tonart keine', () => {
+    expect(tonartTransponieren(tonartFinden('C'), 2)?.abc).toBe('D');
+    expect(tonartTransponieren(tonartFinden('C'), -3)?.abc).toBe('A');
+    expect(tonartTransponieren(tonartFinden('Am'), 7)?.abc).toBe('Em');
+    expect(tonartTransponieren(tonartFinden('F'), 12)?.abc).toBe('F');
+    expect(tonartTransponieren(tonartFinden('C'), 6)).toBeNull();   // Fis-Dur fehlt in der Liste
+    expect(tonartTransponieren(null, 2)).toBeNull();
   });
 });
 
