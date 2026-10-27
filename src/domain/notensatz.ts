@@ -407,13 +407,15 @@ export function bogenUmschalten(takte: readonly Takt[], r: Raster, pos: NotenPos
 // Die ganze Stimme als eine Folge von Strecken, Bögen über Taktstriche
 // verschmolzen; `teile` sagt, aus welchen [takt, strecke] eine Folge-Strecke besteht.
 interface Folge { midi: number | null; dauer: number; teile: [number, number][] }
+// Benachbarte Pausen werden dabei eine (Stille hat keinen Einsatz) — sonst
+// sammelten sich beim Löschen die Füllpausen am Ende.
 function folge(takte: readonly Takt[]): Folge[] {
   const liste: Folge[] = [];
   let offen = false;
   takte.forEach((t, ti) => {
     strecken(t).forEach((s, si) => {
       const l = liste[liste.length - 1];
-      if (si === 0 && offen && l && l.midi !== null && l.midi === s.midi) { l.dauer += s.dauer; l.teile.push([ti, si]); }
+      if (l && ((si === 0 && offen && l.midi !== null && l.midi === s.midi) || (l.midi === null && s.midi === null))) { l.dauer += s.dauer; l.teile.push([ti, si]); }
       else liste.push({ midi: s.midi, dauer: s.dauer, teile: [[ti, si]] });
       offen = !!s.bindung;
     });
@@ -439,7 +441,10 @@ function schneiden(liste: readonly Folge[], r: Raster): Takt[] {
     }
   }
   const frei = anzahl * jt - gesamt;
-  if (frei > 0) takte[anzahl - 1].push({ midi: null, dauer: frei });
+  if (frei > 0) {
+    const letzter = takte[anzahl - 1], l = letzter[letzter.length - 1];
+    if (l && l.midi === null) l.dauer += frei; else letzter.push({ midi: null, dauer: frei });
+  }
   return takte.map((l) => legen(l, r));
 }
 
@@ -510,6 +515,25 @@ export function paletteWerte(r: Raster): { zellen: number; name: string; kurz: s
 export const punktiert = (zellen: number, r: Raster) => (notenwerte(r).includes(zellen * 1.5) ? zellen * 1.5 : null);
 // Triole = zwei Drittel, wenn das ganze Zellen sind (und die Taktart einfach ist).
 export const triole = (zellen: number, r: Raster) => (Number.isInteger((zellen * 2) / 3) && !istZusammengesetzt(r.zaehler, r.nenner) ? (zellen * 2) / 3 : null);
+
+// ── Mehrere Noten auf einmal ──
+// Von hinten nach vorn angewendet, damit frühere Lagen gültig bleiben, wenn
+// eine Änderung die Noten eines Takts neu zerlegt (Pause, Löschen).
+export function nacheinander(takte: readonly Takt[], lagen: readonly NotenPos[], f: (t: Takt[], p: NotenPos) => Takt[]): Takt[] {
+  const sortiert = [...lagen].sort((a, b) => b.takt - a.takt || b.note - a.note);
+  return sortiert.reduce<Takt[]>((t, p) => f(t, p), [...takte]);
+}
+export const verschiebenViele = (takte: readonly Takt[], r: Raster, lagen: readonly NotenPos[], halbtoene: number) =>
+  nacheinander(takte, lagen, (t, p) => verschieben(t, r, p, halbtoene));
+export const leiterVerschiebenViele = (takte: readonly Takt[], r: Raster, lagen: readonly NotenPos[], schritte: number, tonart: Tonart | null | undefined) =>
+  nacheinander(takte, lagen, (t, p) => leiterVerschieben(t, r, p, schritte, tonart));
+export const pausenViele = (takte: readonly Takt[], r: Raster, lagen: readonly NotenPos[]) =>
+  nacheinander(takte, lagen, (t, p) => tonSetzen(t, r, p, null));
+export const entfernenViele = (takte: readonly Takt[], r: Raster, lagen: readonly NotenPos[]) =>
+  nacheinander(takte, lagen, (t, p) => entfernen(t, r, p));
+// Alle Noten (keine Pausen) einer Stimme.
+export const alleNoten = (takte: readonly Takt[]): NotenPos[] =>
+  takte.flatMap((t, takt) => t.noten.map((n, note) => (n.midi === null ? null : { takt, note })).filter((p): p is NotenPos => !!p));
 
 // ── Stimmen (mehrstimmig) ──
 

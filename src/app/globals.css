@@ -493,6 +493,7 @@ input.metro-zahl { width: 3ch; background: none; }
 .knopf-leise { background: transparent; color: var(--tinte); border: 1px solid var(--linie-stark); }
 .knopf-gefahr { background: var(--warnung); color: var(--messing-text); }
 .knopf-klein { min-height: 38px; padding: 0 0.8rem; font-size: 0.9rem; border-radius: 4px; }
+.knopf-leise[aria-pressed="true"] { background: var(--messing); color: var(--messing-text); border-color: var(--messing); }
 
 .feld {
   min-height: 46px; width: 100%; min-width: 0; padding: 0 0.8rem; border: 1px solid var(--linie-stark);
@@ -1415,6 +1416,12 @@ ol.stichpunkte { list-style: decimal; }
 .einspiel-noten.bearbeitbar { touch-action: pan-y; cursor: pointer; border-radius: 6px; }
 .einspiel-noten.bearbeitbar:focus-visible { outline: 2px solid var(--messing); outline-offset: 2px; }
 .einspiel-noten svg [selectable] { cursor: pointer; }
+
+/* Markieren (Mehrfachauswahl): Fläche über dem Blatt fängt Finger und Stift, Rahmen beim Ziehen. */
+.notensatz-blatt { position: relative; }
+.lasso-flaeche { position: absolute; inset: 0; touch-action: none; cursor: crosshair; z-index: 2; }
+.lasso-rahmen { position: absolute; border: 1.5px dashed var(--messing); background: rgb(168 120 31 / 10%); border-radius: 3px; pointer-events: none; }
+.notensatz-blatt.markieren .einspiel-noten { outline: 1.5px dashed var(--messing); outline-offset: 2px; border-radius: 6px; }
 
 /* Hinweise zur Notation (G-10): kleine Chips unter dem Blatt, antippen springt hin. */
 .hinweise { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 0; padding: 0; }

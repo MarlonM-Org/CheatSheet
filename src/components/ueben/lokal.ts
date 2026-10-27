@@ -244,9 +244,14 @@ export async function stueckAendern(id: string, felder: Partial<Omit<Stueck, 'id
 // neu schreiben: neue PDF und Quelle, Titel; Stellen, Anmerkungen,
 // Lesezeichen und Merker bleiben auf ihrer Seite — was über der neuen
 // Seitenzahl liegt, verfällt (ueberzaehlig, mit Grabsteinen für die Sicherung).
+// Ereignis am window, nachdem ein Stück neu geschrieben wurde (PDF und
+// Quelle): Wer es gerade zeigt (NotenPult), lädt es neu — auch wenn das
+// Umbenennen aus der Bibliothek kam.
+export const STUECK_NEU = 'ueben:stueck-neu';
 export async function stueckNeuSchreiben(id: string, n: { datei: Blob; dateiname: string; titel: string; notation: NonNullable<Stueck['notation']>; seiten: number }) {
   const { datei, seiten, ...felder } = n;
   await stueckAendern(id, { ...felder, datei });
+  try { window.dispatchEvent(new CustomEvent(STUECK_NEU, { detail: id })); } catch { /* ohne window (Test) */ }
   const [stellen, anmerkungen, lesezeichen, merker] = await Promise.all([stellenVon(id), anmerkungenVon(id), lesezeichenVon(id), merkerVon(id)]);
   const weg = ueberzaehlig(seiten, { stellen, anmerkungen, lesezeichen, merker });
   if (!weg.stellen.length && !weg.anmerkungen.length && !weg.lesezeichen.length && !weg.merker.length) return;

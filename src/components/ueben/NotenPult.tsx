@@ -16,6 +16,7 @@ import {
   alleStuecke, anmerkungenVon, lesezeichenAendern, lesezeichenAnlegen, lesezeichenLoeschen, lesezeichenVon, stueckDatei, stueckHolen,
   stelleAendern, zuletztMerken, stellenVon, tagsLaden, tempoGeschafft, virtuellesAnlegen,
   type Stueck, type Stelle,
+  STUECK_NEU,
 } from './lokal';
 import { AufnahmenListe, useAufnahme } from './Aufnahmen';
 import { EinspielenDialog, type Vorlage } from './Einspielen';
@@ -65,6 +66,12 @@ export function NotenPult({ notenId, tastenAktiv, verschwunden, mix = null, leis
   // Aufnehmen, Benennen oder Löschen neu lesen.
   const stueckNeuLesen = useCallback(() => { stueckHolen(notenId).then((n) => { if (n) setNoten(n); }, ladeFehler); }, [notenId]);
   const aufnahme = useAufnahme(notenId, stueckNeuLesen);
+  // Neu geschrieben (Komponieren, Umbenennen — auch aus der Bibliothek): neu laden.
+  useEffect(() => {
+    const neu = (e: Event) => { if ((e as CustomEvent<string>).detail === notenId) setNeuGeladen((n) => n + 1); };
+    window.addEventListener(STUECK_NEU, neu);
+    return () => window.removeEventListener(STUECK_NEU, neu);
+  }, [notenId]);
   const mixStelle = mix?.stelle;
   const komponieren = useCallback(() => {
     if (!noten?.notation) return;
@@ -142,7 +149,7 @@ export function NotenPult({ notenId, tastenAktiv, verschwunden, mix = null, leis
       {blatt && (
         <StueckBlatt noten={noten} quelle={quelle} pdf={pdf} stellen={stellen} lesezeichen={lesezeichen} lesezeichenGeaendert={lesezeichenLaden}
           bpm={bpm} tempoSetzen={setBpm} neuLaden={neuLaden} geloescht={verschwunden} teilenAnfang={blattAnfang === 'teilen'}
-          umbenannt={(neu) => { setNoten({ ...noten, ...neu }); if (noten.notation && neu.titel && neu.titel !== noten.titel) setNeuGeladen((n) => n + 1); }}
+          umbenannt={(neu) => setNoten({ ...noten, ...neu })}
           komponieren={noten.notation && !noten.quelle ? komponieren : undefined}
           aufnahmenGeaendert={stueckNeuLesen}
           zeigen={(id) => { mix?.beenden(); setSprung({ stelle: id, n: Date.now() }); setBlatt(false); }}

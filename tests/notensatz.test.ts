@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { tonartFinden, type Raster, type Takt } from '@/domain/notation';
 import {
   angebunden, aufBlatt, bogenUmschalten, dauerSetzen, klaenge, leererTakt, leeresBlatt, legen, leiterSchritt, leiterVerschieben, letzteHoehe, noteSchreiben,
-  angleichen, aufsBlattStimmen, einfuegen, einstimmig, entfernen, inAllen, inStimme, klaengeAlle, notenZeiten, paletteWerte, punktiert, skalieren, stimmeAendern, stimmeHinzu, stimmeWeg, strecken, taktEinfuegen, taktLoeschen, tonSetzen, triole, verschieben,
+  alleNoten, angleichen, aufsBlattStimmen, einfuegen, einstimmig, entfernen, entfernenViele, leiterVerschiebenViele, pausenViele, verschiebenViele, inAllen, inStimme, klaengeAlle, notenZeiten, paletteWerte, punktiert, skalieren, stimmeAendern, stimmeHinzu, stimmeWeg, strecken, taktEinfuegen, taktLoeschen, tonSetzen, triole, verschieben,
 } from '@/domain/notensatz';
 import { abcLesen, alsAbc, alsAbcStimmen, notenwerte } from '@/domain/notation';
 
@@ -279,5 +279,20 @@ describe('Mehrstimmig', () => {
     const blatt = aufsBlattStimmen(alt, 16, R);
     expect(blatt[0].takte.map(kurz)).toEqual(['60/48 62/48']);
     expect(blatt[1].takte.map(kurz)).toEqual(['z/96']);
+  });
+});
+
+describe('Mehrere Noten auf einmal', () => {
+  const B = aufBlatt(R);
+  const t = [takt([60, 24], [62, 24], [null, 24], [64, 24]), takt([65, 96])];
+  it('verschiebt alle gewählten, Pausen bleiben', () => {
+    const alle = alleNoten(t);
+    expect(alle).toEqual([{ takt: 0, note: 0 }, { takt: 0, note: 1 }, { takt: 0, note: 3 }, { takt: 1, note: 0 }]);
+    expect(verschiebenViele(t, B, alle, 12).map(kurz)).toEqual(['72/24 74/24 z/24 76/24', '77/96']);
+    expect(leiterVerschiebenViele(t, B, [{ takt: 0, note: 0 }, { takt: 1, note: 0 }], 1, null).map(kurz)).toEqual(['62/24 62/24 z/24 64/24', '67/96']);
+  });
+  it('macht viele zu Pausen und löscht viele, von hinten nach vorn', () => {
+    expect(pausenViele(t, B, [{ takt: 0, note: 0 }, { takt: 0, note: 3 }]).map(kurz)).toEqual(['z/24 62/24 z/24 z/24', '65/96']);
+    expect(entfernenViele(t, B, [{ takt: 0, note: 0 }, { takt: 0, note: 1 }]).map(kurz)).toEqual(['z/24 64/24 65/48-', '65/48 z/48']);
   });
 });

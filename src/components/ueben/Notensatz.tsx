@@ -4,8 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AbcElem, ClickListenerDrag, TuneObject } from 'abcjs';
 import { alsAbcStimmen, type Raster, type Stimme, type Takt, type Tonart } from '@/domain/notation';
 import {
-  angebunden, bogenUmschalten, dauerSetzen, einfuegen, entfernen, inAllen, inStimme, klaengeAlle, leiterVerschieben, letzteHoehe, noteSchreiben,
-  notenZeiten, paletteWerte, punktiert, stimmeAendern, stimmeHinzu, stimmeWeg, taktEinfuegen, taktLoeschen, tonSetzen, triole, verschieben, type NotenPos,
+  alleNoten, angebunden, bogenUmschalten, dauerSetzen, einfuegen, entfernenViele, inAllen, inStimme, klaengeAlle, leiterVerschieben, leiterVerschiebenViele,
+  letzteHoehe, noteSchreiben, notenZeiten, paletteWerte, pausenViele, punktiert, stimmeAendern, stimmeHinzu, stimmeWeg, taktEinfuegen, taktLoeschen, triole,
+  verschiebenViele, type NotenPos,
 } from '@/domain/notensatz';
 import { pruefen } from '@/domain/notenregeln';
 import { EINSTELLUNG_STANDARD } from '@/domain/einstellungen';
@@ -24,8 +25,11 @@ import { fehlerGrund } from './speicherfehler';
 // (./klavier) ab, ab der gewählten Note, und zeigt je Stimme mit, wo es ist.
 // Rechnen in @/domain/notensatz.
 //
-// Auf Touch-Geräten verschiebt Ziehen nichts (es scrollt): dort tragen die
-// Pfeile. Tastatur: ↑↓ Halbton, ⇧↑↓ Oktave, ←→ Note wechseln, Entf Pause,
+// Mit der Maus verschiebt Ziehen eine Note; auf Touch scrollt Ziehen. Für
+// Finger und Stift gibt es „Markieren“: dann zieht ein Rahmen über Noten
+// alle hinein (Mehrfachauswahl), Ziehen an einer gewählten Note verschiebt
+// alle gewählten auf der Leiter, und ▲▼, Pause, Löschen wirken auf alle.
+// Tastatur: ↑↓ Halbton, ⇧↑↓ Oktave, ←→ Note wechseln, Entf Pause,
 // Rückschritt löscht.
 
 const WERT_SCHLUESSEL = 'ueben:notensatz-wert';
@@ -52,6 +56,11 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern }: {
   const tune = useRef<TuneObject | null>(null);
   const elemente = useRef<Elemente>([]);
   const [auswahlRoh, setAuswahl] = useState<BlattPos | null>(null);
+  // Weitere gewählte Noten (Mehrfachauswahl), auch in anderen Stimmen.
+  const [mehr, setMehr] = useState<BlattPos[]>([]);
+  const [markieren, setMarkieren] = useState(false);
+  const [rahmen, setRahmen] = useState<{ x: number; y: number; b: number; h: number } | null>(null);
+  const lasso = useRef<{ x0: number; y0: number; ziehen: { lagen: BlattPos[]; schritt: number; schritte: number } | null } | null>(null);
   const [aktivRoh, setAktiv] = useState(0);
   // Auswahl verfällt auf die nächste Note, wenn es die gewählte nicht mehr gibt.
   const auswahl = useMemo<BlattPos | null>(() => {
@@ -124,10 +133,12 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern }: {
         });
         if (!gewaehlt) return;
         const p: BlattPos = gewaehlt;
-        setAuswahl(p);
-        // Ziehen (nur mit der Maus — auf Touch wäre es das Scrollen): Schritte auf der Leiter, nach unten positiv.
+        setAuswahl(p); setMehr([]);
+        // Ziehen nur mit der Maus: Schritte auf der Leiter, nach unten positiv.
+        // Bei Touch reicht abcjs hier keinen Event durch, sondern den
+        // Berührungspunkt — und das Scrollen zählte sonst als Ziehen.
         const s = stand.current;
-        if (s.aendern && drag.step && ev && ev.type !== 'touchend') {
+        if (s.aendern && drag.step && typeof MouseEvent !== 'undefined' && ev instanceof MouseEvent) {
           s.aendern(inStimme(s.stimmen, p.stimme, leiterVerschieben(s.stimmen[p.stimme].takte, s.raster, p, -drag.step, s.tonart), s.raster));
         }
       };
@@ -160,13 +171,13 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern }: {
     return () => { aktuell = false; };
   }, [abc, breite, farbe]);
 
-  // Auswahl färben (nach jedem Zeichnen neu).
+  // Auswahl färben (nach jedem Zeichnen neu) — die Hauptnote und die weiteren.
   useEffect(() => {
-    const i = auswahl ? index(auswahl) : -1;
-    if (auswahl && i >= 0) faerben(auswahl.stimme, i, farbe('--messing', '#a8781f'));
-    return () => { if (auswahl && i >= 0 && !vorspiel.current) faerben(auswahl.stimme, i, null); };
+    const alle = (auswahl ? [auswahl, ...mehr] : mehr).map((p) => [p.stimme, index(p)] as const).filter(([, i]) => i >= 0);
+    for (const [st, i] of alle) faerben(st, i, farbe('--messing', '#a8781f'));
+    return () => { if (!vorspiel.current) for (const [st, i] of alle) faerben(st, i, null); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auswahl, gezeichnet, faerben, farbe]);
+  }, [auswahl, mehr, gezeichnet, faerben, farbe]);
 
   // ── Vorspielen ──
   const anhalten = useCallback(() => {
@@ -227,19 +238,99 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern }: {
     aendern(inStimme(stimmen, aktiv, neu, raster));
     setAuswahl({ stimme: aktiv, ...(naechste ?? p) });
   };
-  const bewegen = (schritt: number) => { if (auswahl) { const i = index(auswahl) + schritt; const l = lagen[auswahl.stimme]?.[i]; if (l) setAuswahl({ stimme: auswahl.stimme, ...l }); } };
+  const bewegen = (schritt: number) => { if (auswahl) { const i = index(auswahl) + schritt; const l = lagen[auswahl.stimme]?.[i]; if (l) { setAuswahl({ stimme: auswahl.stimme, ...l }); setMehr([]); } } };
+  // Alle gewählten Noten, je Stimme — eine Änderung trifft sie alle.
+  const gewaehlt = useMemo(() => (auswahl ? [auswahl, ...mehr.filter((m) => !(m.stimme === auswahl.stimme && m.takt === auswahl.takt && m.note === auswahl.note))] : mehr), [auswahl, mehr]);
+  const aufAlle = (f: (t: Takt[], lagen: NotenPos[]) => Takt[]) => {
+    if (!aendern || !gewaehlt.length) return;
+    let st = stimmen;
+    const je = new Map<number, NotenPos[]>();
+    for (const g of gewaehlt) je.set(g.stimme, [...(je.get(g.stimme) ?? []), { takt: g.takt, note: g.note }]);
+    for (const [stimme, l] of je) st = inStimme(st, stimme, f(st[stimme].takte, l), raster);
+    aendern(st);
+  };
   const tasten = (e: React.KeyboardEvent) => {
     if (!aendern || (e.target as HTMLElement).closest('input, select, textarea')) return;
-    const p = auswahl;
-    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); if (p) inAktiver((t) => verschieben(t, raster, p, (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 12 : 1))); }
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); aufAlle((t, l) => verschiebenViele(t, raster, l, (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 12 : 1))); }
     else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); bewegen(e.key === 'ArrowLeft' ? -1 : 1); }
-    else if (e.key === 'Delete') { e.preventDefault(); if (p) inAktiver((t) => tonSetzen(t, raster, p, null)); }
-    else if (e.key === 'Backspace') { e.preventDefault(); if (p) inAktiver((t) => entfernen(t, raster, p)); }
+    else if (e.key === 'Delete') { e.preventDefault(); aufAlle((t, l) => pausenViele(t, raster, l)); }
+    else if (e.key === 'Backspace') { e.preventDefault(); aufAlle((t, l) => entfernenViele(t, raster, l)); setMehr([]); }
+    else if (e.key === 'a' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); alleWaehlen(); }
   };
-  const stimmeWaehlen = (i: number) => { setAktiv(i); setAuswahl(null); };
+  const stimmeWaehlen = (i: number) => { setAktiv(i); setAuswahl(null); setMehr([]); };
+  const alleWaehlen = () => {
+    const l = alleNoten(takte).map((p) => ({ stimme: aktiv, ...p }));
+    setAuswahl(l[0] ?? null); setMehr(l.slice(1));
+  };
+
+  // ── Markieren: Rahmen ziehen oder gewählte Noten mit Finger/Stift verschieben ──
+  const lage = (e: React.PointerEvent) => { const r = bild.current!.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+  // Alle gezeichneten Noten mit ihrem Rechteck (relativ zum Blatt).
+  const kaestchen = () => {
+    const r = bild.current!.getBoundingClientRect();
+    return elemente.current.flatMap((liste, stimme) => liste.map((e, i) => {
+      const b = e.svgEl.getBoundingClientRect();
+      const l = lagen[stimme]?.[i];
+      return l ? { pos: { stimme, ...l } as BlattPos, el: e.svgEl as unknown as HTMLElement, x: b.left - r.left, y: b.top - r.top, b: b.width, h: b.height } : null;
+    }).filter((k): k is NonNullable<typeof k> => !!k));
+  };
+  const gleich = (a: BlattPos, b: BlattPos) => a.stimme === b.stimme && a.takt === b.takt && a.note === b.note;
+  // Ein Leiterschritt in Bildschirm-Pixeln: der halbe Linienabstand des ersten Systems.
+  const schrittPx = () => { const st = bild.current?.querySelector('.abcjs-staff'); return st ? Math.max(2, st.getBoundingClientRect().height / 8) : 6; };
+  const lassoStart = (e: React.PointerEvent) => {
+    if (!markieren || !aendern) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const { x, y } = lage(e);
+    const treffer = kaestchen().find((k) => x >= k.x - 6 && x <= k.x + k.b + 6 && y >= k.y - 6 && y <= k.y + k.h + 6);
+    if (treffer) {
+      const drin = gewaehlt.some((g) => gleich(g, treffer.pos));
+      if (!drin) { setAuswahl(treffer.pos); setMehr([]); }
+      lasso.current = { x0: x, y0: y, ziehen: { lagen: drin ? gewaehlt : [treffer.pos], schritt: schrittPx(), schritte: 0 } };
+    } else {
+      lasso.current = { x0: x, y0: y, ziehen: null };
+      setRahmen({ x, y, b: 0, h: 0 });
+    }
+  };
+  const lassoBewegen = (e: React.PointerEvent) => {
+    const l = lasso.current;
+    if (!l) return;
+    const { x, y } = lage(e);
+    if (l.ziehen) {
+      const schritte = Math.round((y - l.y0) / l.ziehen.schritt);
+      if (schritte !== l.ziehen.schritte) {
+        l.ziehen.schritte = schritte;
+        const k = kaestchen();
+        for (const g of l.ziehen.lagen) { const el = k.find((x2) => gleich(x2.pos, g))?.el; if (el) el.style.transform = `translate(0, ${schritte * l.ziehen.schritt}px)`; }
+      }
+    } else setRahmen({ x: Math.min(x, l.x0), y: Math.min(y, l.y0), b: Math.abs(x - l.x0), h: Math.abs(y - l.y0) });
+  };
+  const lassoEnde = () => {
+    const l = lasso.current;
+    lasso.current = null;
+    if (!l) return;
+    if (l.ziehen) {
+      const k = kaestchen();
+      for (const g of l.ziehen.lagen) { const el = k.find((x2) => gleich(x2.pos, g))?.el; if (el) el.style.transform = ''; }
+      if (l.ziehen.schritte && aendern) {
+        let st = stimmen;
+        const je = new Map<number, NotenPos[]>();
+        for (const g of l.ziehen.lagen) je.set(g.stimme, [...(je.get(g.stimme) ?? []), { takt: g.takt, note: g.note }]);
+        for (const [stimme, lagen2] of je) st = inStimme(st, stimme, leiterVerschiebenViele(st[stimme].takte, raster, lagen2, -l.ziehen.schritte, tonart), raster);
+        aendern(st);
+      }
+      return;
+    }
+    const r = rahmen;
+    setRahmen(null);
+    if (!r || (r.b < 4 && r.h < 4)) { setAuswahl(null); setMehr([]); return; }
+    const drin = kaestchen().filter((k) => k.x + k.b / 2 >= r.x && k.x + k.b / 2 <= r.x + r.b && k.y + k.h / 2 >= r.y && k.y + k.h / 2 <= r.y + r.h)
+      .map((k) => k.pos).filter((p) => stimmen[p.stimme]?.takte[p.takt]?.noten[p.note]?.midi !== null);
+    setAuswahl(drin[0] ?? null); setMehr(drin.slice(1));
+  };
   const stummSchalten = (i: number, an: boolean) => setStumm((alt) => { const neu = new Set(alt); if (an) neu.add(i); else neu.delete(i); return neu; });
   const hatNoten = lagen.some((l) => l.length);
   const mitAuswahl = (f: (t: Takt[], p: NotenPos) => Takt[]) => () => { if (auswahl) { const p = auswahl; inAktiver((t) => f(t, p)); } };
+  const viele = gewaehlt.length > 1 ? ` (${gewaehlt.length})` : '';
 
   return (
     <div className="notensatz" onKeyDown={tasten}>
@@ -251,15 +342,15 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern }: {
         {aendern && (
           <>
             <span className="notensatz-trenner" aria-hidden="true" />
-            <button type="button" className="knopf knopf-leise knopf-klein" onClick={mitAuswahl((t, p) => verschieben(t, raster, p, 1))} disabled={!note || note.midi === null} aria-label="Halbton höher">▲</button>
-            <button type="button" className="knopf knopf-leise knopf-klein" onClick={mitAuswahl((t, p) => verschieben(t, raster, p, -1))} disabled={!note || note.midi === null} aria-label="Halbton tiefer">▼</button>
-            <button type="button" className="knopf knopf-leise knopf-klein" onClick={mitAuswahl((t, p) => verschieben(t, raster, p, 12))} disabled={!note || note.midi === null} aria-label="Oktave höher">▲8</button>
-            <button type="button" className="knopf knopf-leise knopf-klein" onClick={mitAuswahl((t, p) => verschieben(t, raster, p, -12))} disabled={!note || note.midi === null} aria-label="Oktave tiefer">▼8</button>
+            <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => aufAlle((t, l) => verschiebenViele(t, raster, l, 1))} disabled={!gewaehlt.length} aria-label="Halbton höher">▲</button>
+            <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => aufAlle((t, l) => verschiebenViele(t, raster, l, -1))} disabled={!gewaehlt.length} aria-label="Halbton tiefer">▼</button>
+            <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => aufAlle((t, l) => verschiebenViele(t, raster, l, 12))} disabled={!gewaehlt.length} aria-label="Oktave höher">▲8</button>
+            <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => aufAlle((t, l) => verschiebenViele(t, raster, l, -12))} disabled={!gewaehlt.length} aria-label="Oktave tiefer">▼8</button>
             <span className="notensatz-trenner" aria-hidden="true" />
             <button type="button" className="knopf knopf-leise knopf-klein" onClick={schreiben} disabled={!takte.length}>Note</button>
             <button type="button" className="knopf knopf-leise knopf-klein" onClick={mitAuswahl((t, p) => einfuegen(t, raster, p, dauerAus(wert, punkt, tri)))} disabled={!auswahl} title="Vor der gewählten Note Platz einfügen — alles danach rückt weiter">Einfügen</button>
-            <button type="button" className="knopf knopf-leise knopf-klein" onClick={mitAuswahl((t, p) => tonSetzen(t, raster, p, null))} disabled={!note || note.midi === null}>Pause</button>
-            <button type="button" className="knopf knopf-leise knopf-klein" onClick={mitAuswahl((t, p) => entfernen(t, raster, p))} disabled={!auswahl} title="Note herausnehmen — alles danach rückt nach">Löschen</button>
+            <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => aufAlle((t, l) => pausenViele(t, raster, l))} disabled={!gewaehlt.length}>Pause{viele}</button>
+            <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => { aufAlle((t, l) => entfernenViele(t, raster, l)); setMehr([]); }} disabled={!gewaehlt.length} title="Noten herausnehmen — alles danach rückt nach">Löschen{viele}</button>
             <button type="button" className="knopf knopf-leise knopf-klein" onClick={mitAuswahl((t, p) => bogenUmschalten(t, raster, p))} disabled={!note || note.midi === null}>
               {auswahl && angebunden(takte, auswahl) ? 'Bogen lösen' : 'Bogen'}
             </button>
@@ -280,6 +371,10 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern }: {
           <span className="notensatz-trenner" aria-hidden="true" />
           <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => { const nach = auswahl ? auswahl.takt : takte.length - 1; aendern(inAllen(stimmen, (t) => taktEinfuegen(t, raster, nach))); setAuswahl({ stimme: aktiv, takt: nach + 1, note: 0 }); }}>Takt +</button>
           <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => aendern(inAllen(stimmen, (t) => taktLoeschen(t, raster, auswahl ? auswahl.takt : takte.length - 1)))} disabled={!takte.length}>Takt −</button>
+          <span className="notensatz-trenner" aria-hidden="true" />
+          <button type="button" className="knopf knopf-leise knopf-klein" aria-pressed={markieren} onClick={() => { setMarkieren(!markieren); setRahmen(null); lasso.current = null; }}
+            title="Mit Finger oder Stift einen Rahmen um Noten ziehen; gewählte Noten ziehen verschiebt sie alle">Markieren</button>
+          <button type="button" className="knopf knopf-leise knopf-klein" onClick={alleWaehlen} disabled={!hatNoten}>Alle</button>
         </div>
       )}
       {(aendern || stimmen.length > 1) && (
@@ -306,7 +401,15 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern }: {
           )}
         </div>
       )}
-      <div ref={bild} className={`einspiel-noten ${aendern ? 'bearbeitbar' : ''}`} aria-label="Noten" tabIndex={aendern ? 0 : undefined} />
+      <div className={`notensatz-blatt ${markieren ? 'markieren' : ''}`}>
+        <div ref={bild} className={`einspiel-noten ${aendern ? 'bearbeitbar' : ''}`} aria-label="Noten" tabIndex={aendern ? 0 : undefined} />
+        {markieren && aendern && (
+          <div className="lasso-flaeche" onPointerDown={lassoStart} onPointerMove={lassoBewegen} onPointerUp={lassoEnde} onPointerCancel={lassoEnde} aria-hidden="true">
+            {rahmen && <div className="lasso-rahmen" style={{ left: rahmen.x, top: rahmen.y, width: rahmen.b, height: rahmen.h }} />}
+          </div>
+        )}
+      </div>
+      {markieren && aendern && <p className="gedaempft text-xs">Markieren: Rahmen um Noten ziehen; an einer gewählten Note ziehen verschiebt alle gewählten. Tippen daneben hebt die Auswahl auf.</p>}
       {hinweise.length > 0 && (
         <ul className="hinweise" aria-label="Hinweise zur Notation">
           {(alleHinweise ? hinweise : hinweise.slice(0, 6)).map((h, i) => (

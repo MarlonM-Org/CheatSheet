@@ -125,6 +125,9 @@ oder iPad. Vorher auf jedem Gerät eine Sicherung erstellen.
   - Speichern, öffnen, Komponieren: beide Stimmen kommen zurück; die PDF zeigt die Akkolade auf dem iPad lesbar.
 - Titel-Abgleich (G-01) · Umbenennen eines geschriebenen Stücks (⋯ → Umbenennen) schreibt PDF und Quelle neu, der Titel auf dem Blatt folgt · nur im Browser gesehen.
   - Umbenennen → Notenansicht zeigt die neue PDF mit neuem Titel; Stellen und Anmerkungen bleiben.
+- G-01 (Markieren) · Rahmen mit Finger/Stift, mehrere Noten verschieben, „Alle“ · nur im Browser mit Maus-Pointer geprüft.
+  - iPad mit Stift: „Markieren“ an, Rahmen über drei Noten, ▲8 — alle drei hoch? An einer gewählten Note ziehen: Vorschau folgt dem Stift, Loslassen setzt alle um; das Blatt scrollt dabei nicht.
+  - Ohne „Markieren“: Tippen wählt, Ziehen scrollt und ändert keine Höhe mehr.
 - G-10 · Notationsregeln mit Hinweisen (`notenregeln.ts` getestet) · Chips unter dem Blatt; Regeln und Vorschläge zum Bearbeiten in G-10.
   - Einen Ton über den Tonumfang schieben, einen Oktavsprung schreiben, Takte leer lassen: kommen die Hinweise, springt Antippen hin? Stimmt der Tonumfang aus dem Tonprofil für dein Instrument?
 - G-09 · Aufnahmen beim Üben (`Aufnahmen.tsx`, `lokal.ts` getestet) · MediaRecorder auf iOS (AAC in `audio/mp4`) ist nur aus der Doku bekannt.
@@ -410,6 +413,21 @@ schreiben und die Töne in der Höhe verschieben“):**
   - **Titel-Abgleich:** Umbenennen (⋯ → Umbenennen) eines geschriebenen
     Stücks tauscht die `T:`-Zeile (`abcMitTitel`) und schreibt PDF und
     Quelle neu (`notenpdf.ts`), die Notenansicht lädt neu.
+- **Vierte Runde (2026-10-27, Rückmeldung Marlon vom iPad):**
+  - **Ziehen auf Touch repariert:** abcjs reicht bei Touch keinen Event,
+    sondern den Berührungspunkt durch — der Scroll zählte als Ziehen, mal in
+    die eine, mal in die andere Richtung. Ziehen ändert jetzt nur noch mit
+    der Maus die Höhe.
+  - **Markieren** (Knopf in der Palette): Finger oder Stift ziehen einen
+    Rahmen über Noten — Mehrfachauswahl, auch über Stimmen; an einer
+    gewählten Note ziehen verschiebt alle gewählten auf der Leiter (mit
+    Vorschau); Tippen daneben hebt auf. ▲▼ ▲8 ▼8, Pause, Löschen wirken auf
+    alle gewählten („Löschen (3)“), „Alle“ wählt alle Noten der Stimme,
+    ⌘A/Strg+A ebenso. Fachlogik: `verschiebenViele`, `pausenViele`,
+    `entfernenViele` (von hinten nach vorn, damit Lagen gültig bleiben).
+  - **Titel-Abgleich** lädt die Notenansicht auch dann neu, wenn aus der
+    Bibliothek umbenannt wird, während das Stück offen ist (Ereignis
+    `ueben:stueck-neu` aus `stueckNeuSchreiben`).
 - **Noch offen aus der Liste oben:** Vorzeichen setzen (heute über
   Halbtonschritte), Wiederholungszeichen, Bindebögen als Phrasierung,
   weitere Schlüssel, Import/Export `.abc`, Triolen auch in der Erkennung,
