@@ -140,6 +140,9 @@ oder iPad. Vorher auf jedem Gerät eine Sicherung erstellen.
 - G-01 (Markieren) · Rahmen mit Finger/Stift, mehrere Noten verschieben, „Alle“ · nur im Browser mit Maus-Pointer geprüft.
   - iPad mit Stift: „Markieren“ an, Rahmen über drei Noten, ▲8 — alle drei hoch? An einer gewählten Note ziehen: Vorschau folgt dem Stift, Loslassen setzt alle um; das Blatt scrollt dabei nicht.
   - Ohne „Markieren“: Tippen wählt, Ziehen scrollt und ändert keine Höhe mehr.
+- G-01 (Bearbeiten, 27.10.) · Rückgängig/Wiederherstellen, Löschen nur im Takt, rote Takte, Note +/Pause +, Schlüsselwahl, geordnete Palette · nur im Browser geprüft.
+  - Eine Sechzehntelpause kurz vor Taktende löschen: nur dieser Takt wird rot und kürzer, die Takte danach bleiben; „Pause +“ im passenden Wert macht ihn wieder grün. ↶ holt den Schritt zurück.
+  - Palette auf dem iPad hochkant: alles sichtbar, nichts läuft über, Gruppen lesbar; Schlüssel-Knopf öffnet die Auswahl, Alt-/Tenorschlüssel werden gezeichnet und in der PDF.
 - G-10 · Notationsregeln mit Hinweisen (`notenregeln.ts` getestet) · Chips unter dem Blatt; Regeln und Vorschläge zum Bearbeiten in G-10.
   - Einen Ton über den Tonumfang schieben, einen Oktavsprung schreiben, Takte leer lassen: kommen die Hinweise, springt Antippen hin? Stimmt der Tonumfang aus dem Tonprofil für dein Instrument?
 - G-09 · Aufnahmen beim Üben (`Aufnahmen.tsx`, `lokal.ts` getestet) · MediaRecorder auf iOS (AAC in `audio/mp4`) ist nur aus der Doku bekannt.
@@ -440,6 +443,28 @@ schreiben und die Töne in der Höhe verschieben“):**
   - **Titel-Abgleich** lädt die Notenansicht auch dann neu, wenn aus der
     Bibliothek umbenannt wird, während das Stück offen ist (Ereignis
     `ueben:stueck-neu` aus `stueckNeuSchreiben`).
+- **Fünfte Runde (2026-10-27, Rückmeldung Marlon):**
+  - **Rückgängig / Wiederherstellen:** ↶ ↷ in der Palette, ⌘Z / ⇧⌘Z / ⌘Y;
+    Verlauf im Dialog bis 200 Schritte, je Grundlage (eine neue Aufnahme
+    hat ihren eigenen).
+  - **Bearbeiten lässt die Nachbartakte in Ruhe.** Löschen nimmt die Note
+    nur aus ihrem Takt; den Notenwert setzen füllt nichts auf und frisst
+    nichts mehr. Ein Takt darf dabei zu kurz oder zu lang sein: er wird
+    **rot** gezeichnet, mit Hinweis „Takt 3: 3½ statt 4 Schläge — Pause oder
+    Note einfügen“, bis er stimmt. So lässt sich ein bestehender Satz
+    aufräumen, ohne dass alles verrutscht (vorher schob Löschen die Noten
+    der folgenden Takte nach — „wilde Sachen“).
+  - **Hinter der gewählten Note einfügen:** „Note +“ (Höhe der gewählten)
+    und „Pause +“, jeweils im Palettenwert, nur in diesem Takt. Der
+    Palettenwert auf einer Pause teilt sie (vorn der Wert), auf einer Note
+    setzt er nur deren Wert. „Note“ schreibt wie bisher in die gewählte
+    Pause. Das Verschieben über Taktgrenzen („Einfügen“ alt) ist aus der
+    Palette raus; die Fachlogik dafür bleibt getestet liegen.
+  - **Schlüssel je Stimme:** Violin, Bass, Alt (Bratsche), Tenor — als
+    Knopf mit Auswahl; ABC `clef=treble|bass|alto|tenor`, gelesen und
+    geschrieben.
+  - **Palette** vom UI/UX-Durchgang geordnet: Gruppen mit Beschriftung,
+    gleiche Breiten, Zeilen auf Linie (siehe Commit).
 - **Noch offen aus der Liste oben:** Vorzeichen setzen (heute über
   Halbtonschritte), Wiederholungszeichen, Bindebögen als Phrasierung,
   weitere Schlüssel, Import/Export `.abc`, Triolen auch in der Erkennung,
@@ -731,6 +756,7 @@ im 3/4 jeder Schlag sichtbar, im 4/4 die Taktmitte); das
 
 | Regel | Hinweis | Art |
 |---|---|---|
+| Taktlänge passt nicht zur Taktart (beim Bearbeiten erlaubt, muss aber korrigiert werden; Takt rot) | „Takt 3: 3½ statt 4 Schläge — Pause oder Note einfügen.“ / „5 statt 4 Schläge — Note kürzen oder löschen.“ | takt |
 | Ton außerhalb des Tonumfangs (notiert; Umfang aus dem Tonprofil, Stimmgerät → Tonprofil) | „Takt 4: C6 liegt über dem Tonumfang (bis G5).“ | spielbar |
 | Sprung über eine Oktave zwischen zwei Tönen (Pause dazwischen zählt nicht) | „Takt 2: Sprung C4 → E5 (16 Halbtöne) — schwer zu treffen.“ | spielbar |
 | Acht und mehr Takte ohne eine Pause | „Takt 1–8: keine Pause zum Atmen.“ | spielbar |
