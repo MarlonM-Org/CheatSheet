@@ -463,8 +463,17 @@ schreiben und die Töne in der Höhe verschieben“):**
   - **Schlüssel je Stimme:** Violin, Bass, Alt (Bratsche), Tenor — als
     Knopf mit Auswahl; ABC `clef=treble|bass|alto|tenor`, gelesen und
     geschrieben.
-  - **Palette** vom UI/UX-Durchgang geordnet: Gruppen mit Beschriftung,
-    gleiche Breiten, Zeilen auf Linie (siehe Commit).
+  - **Palette** vom UI/UX-Durchgang geordnet: eine Hauptzeile gleich hoher
+    Symbolblöcke (▶ · ↶ ↷ · ▲ ▼ · Note/Pause/Löschen · Haltebogen/Bindebogen
+    · 1/1–1/16) und rechts zwei Menüs: „Mehr“ (Oktave, dahinter einfügen,
+    1/32/punktiert/Triole, Takt +/−, Markieren/Alle) und „Stimme“ (Stimmen,
+    Name, Schlüssel-Auswahl, stumm). Schnellabruf fürs Häufige, der Rest
+    aufklappbar — so wie Marlon es wollte.
+  - **Zwei Bögen:** *Haltebogen* (gleiche Höhe, Dauern addieren sich) bindet
+    über die ganze Auswahl jedes Paar aufeinanderfolgender gleicher Töne;
+    *Bindebogen* (Phrasierung, ABC `(` … `)`) spannt von der ersten zur
+    letzten gewählten Note, nochmal entfernt ihn. Vorher gab es nur den
+    Haltebogen zur vorigen Note.
 - **Noch offen aus der Liste oben:** Vorzeichen setzen (heute über
   Halbtonschritte), Wiederholungszeichen, Bindebögen als Phrasierung,
   weitere Schlüssel, Import/Export `.abc`, Triolen auch in der Erkennung,

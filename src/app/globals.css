@@ -1429,8 +1429,54 @@ ol.stichpunkte { list-style: decimal; }
 
 /* ── Notensatz (G-01/G-04): Palette, Blatt ── */
 .notensatz { display: flex; flex-direction: column; gap: 8px; }
-.notensatz-zeile { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.notensatz-trenner { width: 1px; height: 22px; background: var(--linie-stark); margin: 0 4px; }
+/* Palette: eine Zeile aus Knopfblöcken (Haarlinien-Rahmen, 40 px hoch,
+   Symbolknöpfe quadratisch); rechts die Menüs „Mehr“ und „Stimme“. Bricht die
+   Zeile um (iPad hochkant), rücken die Menüs in die zweite Zeile nach rechts. */
+.notensatz-palette { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.notensatz-menues { display: flex; gap: 8px; margin-left: auto; }
+.notensatz-block {
+  display: inline-flex; align-items: stretch; flex: none; height: 40px;
+  border: 1px solid var(--linie-stark); border-radius: 5px; background: var(--papier); overflow: hidden;
+}
+.notensatz-block > button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 40px; padding: 0 12px;
+  font-size: 0.88rem; font-weight: 600; color: var(--tinte); white-space: nowrap; line-height: 1;
+}
+.notensatz-block > button + button { border-left: 1px solid var(--linie-stark); }
+.notensatz-block > button.symbol { width: 42px; padding: 0; font-size: 1.3rem; }
+.notensatz-block > button.symbol.pfeil { font-size: 1rem; }
+.notensatz-block > button.symbol small { font-size: 0.7rem; font-weight: 700; margin-left: 1px; }
+.notensatz-block > button:active:not(:disabled), .notensatz-block > button:hover:not(:disabled) { background: var(--flaeche); }
+.notensatz-block > button[aria-pressed="true"] { background: var(--messing); color: var(--messing-text); }
+.notensatz-block > button[aria-pressed="true"]:hover:not(:disabled) { background: var(--messing); filter: brightness(1.08); }
+.notensatz-block > button:disabled { opacity: 0.35; cursor: not-allowed; }
+.notensatz-block > button:focus-visible { outline-offset: -3px; border-radius: 4px; }
+.notensatz-symbol { width: 20px; height: 20px; flex: none; }
+.notensatz-symbol.breit { width: 30px; }
+.notensatz-schluessel { font-size: 1.25rem; line-height: 1; width: 1.1em; text-align: center; flex: none; }
+/* Menü-Knöpfe: gleicher Rahmen wie die Blöcke, Pfeil rechts, Messing-Punkt wenn darin etwas an ist. */
+.notensatz-menue { position: relative; }
+.notensatz-menue-knopf {
+  position: relative; display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 10px 0 12px;
+  border: 1px solid var(--linie-stark); border-radius: 5px; background: var(--papier); color: var(--tinte);
+  font-size: 0.88rem; font-weight: 600; white-space: nowrap; max-width: 14rem;
+}
+.notensatz-menue-knopf:hover, .notensatz-menue-knopf:active, .notensatz-menue-knopf[aria-expanded="true"] { background: var(--flaeche); }
+.notensatz-menue-text { overflow: hidden; text-overflow: ellipsis; }
+.notensatz-pfeil { width: 12px; height: 12px; flex: none; color: var(--gedaempft); }
+.notensatz-menue-knopf[aria-expanded="true"] .notensatz-pfeil { transform: rotate(180deg); }
+.notensatz-blase {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 3; width: max-content; max-width: min(34rem, calc(100vw - 28px));
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, max-content)); gap: 12px 18px; padding: 12px 14px 14px; border-radius: 10px;
+  background: var(--papier); border: 1px solid var(--linie-stark); box-shadow: 0 10px 28px rgb(0 0 0 / 18%);
+}
+.notensatz-blase > .notensatz-gruppe.breit { grid-column: 1 / -1; }
+.notensatz-gruppe { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
+.notensatz-gruppe > span:first-child { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--leise); white-space: nowrap; padding-left: 1px; }
+.notensatz-reihe { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.notensatz-blase .notensatz-block { flex-wrap: wrap; height: auto; min-height: 40px; }
+.notensatz-blase .notensatz-block > button { min-height: 38px; }
+.feld.notensatz-feld { height: 40px; min-height: 40px; width: 14rem; }
 .einspiel-noten.bearbeitbar { touch-action: pan-y; cursor: pointer; border-radius: 6px; }
 .einspiel-noten.bearbeitbar:focus-visible { outline: 2px solid var(--messing); outline-offset: 2px; }
 .einspiel-noten svg [selectable] { cursor: pointer; }

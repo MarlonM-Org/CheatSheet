@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AbcElem, ClickListenerDrag, TuneObject } from 'abcjs';
-import { alsAbcStimmen, SCHLUESSEL, type Raster, type Schluessel, type Stimme, type Takt, type Tonart } from '@/domain/notation';
+import { alsAbcStimmen, SCHLUESSEL, type Raster, type Stimme, type Takt, type Tonart } from '@/domain/notation';
 import {
-  alleNoten, angebunden, bogenUmschalten, danachEinfuegen, inAllen, inStimme, klaengeAlle, leiterVerschieben, leiterVerschiebenViele,
+  alleNoten, angebunden, bindebogenUmschalten, danachEinfuegen, haltebogenViele, inAllen, inStimme, klaengeAlle, leiterVerschieben, leiterVerschiebenViele,
   letzteHoehe, loeschenViele, noteSchreiben, notenZeiten, paletteWerte, pausenViele, punktiert, stimmeAendern, stimmeHinzu, stimmeWeg, taktEinfuegen,
   taktLoeschen, taktStimmt, triole, verschiebenViele, wertSetzen, type NotenPos,
 } from '@/domain/notensatz';
@@ -61,6 +61,8 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern, verlauf }:
   // Weitere gewählte Noten (Mehrfachauswahl), auch in anderen Stimmen.
   const [mehr, setMehr] = useState<BlattPos[]>([]);
   const [markieren, setMarkieren] = useState(false);
+  // Offenes Menü der Palette: „Mehr“ oder „Stimme“.
+  const [menue, setMenue] = useState<'mehr' | 'stimme' | null>(null);
   const [rahmen, setRahmen] = useState<{ x: number; y: number; b: number; h: number } | null>(null);
   const lasso = useRef<{ x0: number; y0: number; ziehen: { lagen: BlattPos[]; schritt: number; schritte: number } | null } | null>(null);
   const [aktivRoh, setAktiv] = useState(0);
@@ -342,7 +344,6 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern, verlauf }:
   };
   const stummSchalten = (i: number, an: boolean) => setStumm((alt) => { const neu = new Set(alt); if (an) neu.add(i); else neu.delete(i); return neu; });
   const hatNoten = lagen.some((l) => l.length);
-  const mitAuswahl = (f: (t: Takt[], p: NotenPos) => Takt[]) => () => { if (auswahl) { const p = auswahl; inAktiver((t) => f(t, p)); } };
   const viele = gewaehlt.length > 1 ? ` (${gewaehlt.length})` : '';
   // Hinter der gewählten Note einfügen: Note (Höhe der gewählten) oder Pause, im Palettenwert.
   const danach = (midi: 'note' | null) => {
@@ -354,83 +355,185 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern, verlauf }:
     setAuswahl({ stimme: aktiv, ...lage2 }); setMehr([]);
   };
 
+  const stimmeName = (i: number) => stimmen[i]?.name || `Stimme ${i + 1}`;
+  const schluesselJetzt = SCHLUESSEL.find((s) => s.art === (stimmen[aktiv]?.schluessel ?? 'violin')) ?? SCHLUESSEL[0];
+  const hatBogen = !!auswahl && angebunden(takte, auswahl);
+  // Bindebogen: liegt genau über der Auswahl (erste Note Anfang, letzte Ende)?
+  const hatBinde = (() => {
+    if (gewaehlt.length < 2) return false;
+    const l = [...gewaehlt].sort((a, b) => a.stimme - b.stimme || a.takt - b.takt || a.note - b.note);
+    const a = stimmen[l[0].stimme]?.takte[l[0].takt]?.noten[l[0].note], z = stimmen[l[l.length - 1].stimme]?.takte[l[l.length - 1].takt]?.noten[l[l.length - 1].note];
+    return !!a?.bogenAuf && !!z?.bogenZu;
+  })();
+  // Die Hauptzeile zeigt 1/1 … 1/16, das Seltene (1/32) steht im Menü „Mehr“.
+  const werteHaupt = werte.filter((w) => w.kurz !== '1/32');
+  const werteMehr = werte.filter((w) => w.kurz === '1/32');
+  const wertKnopf = (w: { zellen: number; name: string; kurz: string }) => (
+    <button key={w.zellen} type="button" aria-pressed={wert === w.zellen} onClick={() => setWert(w.zellen)} aria-label={w.name} title={w.name}>{w.kurz}</button>
+  );
+  const menueTasten = (e: React.KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); setMenue(null); } };
+
   return (
     <div className="notensatz" onKeyDown={tasten}>
       {fehler && <p className="karte warnung" role="alert">{fehler}</p>}
-      <div className="notensatz-zeile">
-        <button type="button" className="knopf knopf-leise knopf-klein" onClick={abspielen} aria-pressed={spielt} disabled={!hatNoten}>
-          {spielt ? '■ Anhalten' : auswahl && index(auswahl) > 0 ? '▶ Ab hier' : '▶ Vorspielen'}
-        </button>
+      {/* Palette: eine Hauptzeile mit dem Meistgenutzten als Knopfblöcke
+          (gleiche Höhe, Symbolknöpfe quadratisch) — Vorspielen, Verlauf,
+          Halbton, Note/Pause/Löschen, Bögen, Notenwert. Das Seltenere steht
+          rechts in zwei Menüs: „Mehr“ (Oktave, Einfügen, 1/32, punktiert,
+          Triole, Takt, Auswahl) und „Stimme“ (Stimmen, Name, Schlüssel,
+          stumm). Tooltip und aria-label erklären jeden Knopf. */}
+      <div className="notensatz-palette" role="group" aria-label="Werkzeuge">
+        <div className="notensatz-block">
+          <button type="button" className="symbol pfeil" onClick={abspielen} aria-pressed={spielt} disabled={!hatNoten}
+            aria-label={spielt ? 'Anhalten' : auswahl && index(auswahl) > 0 ? 'Ab der gewählten Note vorspielen' : 'Vorspielen'}
+            title={spielt ? 'Anhalten' : auswahl && index(auswahl) > 0 ? 'Ab der gewählten Note vorspielen' : 'Vorspielen (alle Stimmen, Klavierklang)'}>
+            {spielt ? '■' : '▶'}
+          </button>
+        </div>
         {aendern && verlauf && (
-          <>
-            <span className="notensatz-trenner" aria-hidden="true" />
-            <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => verlauf.zurueck?.()} disabled={!verlauf.zurueck} aria-label="Rückgängig" title="Rückgängig (⌘Z)">↶</button>
-            <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => verlauf.vor?.()} disabled={!verlauf.vor} aria-label="Wiederherstellen" title="Wiederherstellen (⇧⌘Z)">↷</button>
-          </>
+          <div className="notensatz-block">
+            <button type="button" className="symbol" onClick={() => verlauf.zurueck?.()} disabled={!verlauf.zurueck} aria-label="Rückgängig" title="Rückgängig (⌘Z)">↶</button>
+            <button type="button" className="symbol" onClick={() => verlauf.vor?.()} disabled={!verlauf.vor} aria-label="Wiederherstellen" title="Wiederherstellen (⇧⌘Z)">↷</button>
+          </div>
         )}
         {aendern && (
           <>
-            <span className="notensatz-trenner" aria-hidden="true" />
-            <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => aufAlle((t, l) => verschiebenViele(t, raster, l, 1))} disabled={!gewaehlt.length} aria-label="Halbton höher">▲</button>
-            <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => aufAlle((t, l) => verschiebenViele(t, raster, l, -1))} disabled={!gewaehlt.length} aria-label="Halbton tiefer">▼</button>
-            <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => aufAlle((t, l) => verschiebenViele(t, raster, l, 12))} disabled={!gewaehlt.length} aria-label="Oktave höher">▲8</button>
-            <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => aufAlle((t, l) => verschiebenViele(t, raster, l, -12))} disabled={!gewaehlt.length} aria-label="Oktave tiefer">▼8</button>
-            <span className="notensatz-trenner" aria-hidden="true" />
-            <button type="button" className="knopf knopf-leise knopf-klein" onClick={schreiben} disabled={!takte.length}>Note</button>
-            <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => danach('note')} disabled={!auswahl} title="Hinter der gewählten Note eine Note im Palettenwert einfügen (nur in diesem Takt)">Note +</button>
-            <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => danach(null)} disabled={!auswahl} title="Hinter der gewählten Note eine Pause im Palettenwert einfügen (nur in diesem Takt)">Pause +</button>
-            <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => aufAlle((t, l) => pausenViele(t, raster, l))} disabled={!gewaehlt.length}>Pause{viele}</button>
-            <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => { aufAlle((t, l) => loeschenViele(t, raster, l)); setMehr([]); }} disabled={!gewaehlt.length} title="Noten aus dem Takt nehmen — die anderen Takte bleiben; der Takt ist dann zu kurz (rot), bis er stimmt">Löschen{viele}</button>
-            <button type="button" className="knopf knopf-leise knopf-klein" onClick={mitAuswahl((t, p) => bogenUmschalten(t, raster, p))} disabled={!note || note.midi === null}>
-              {auswahl && angebunden(takte, auswahl) ? 'Bogen lösen' : 'Bogen'}
-            </button>
+            <div className="notensatz-block">
+              <button type="button" className="symbol pfeil" onClick={() => aufAlle((t, l) => verschiebenViele(t, raster, l, 1))} disabled={!gewaehlt.length} aria-label={`Halbton höher${viele}`} title={`Halbton höher${viele} (↑)`}>▲</button>
+              <button type="button" className="symbol pfeil" onClick={() => aufAlle((t, l) => verschiebenViele(t, raster, l, -1))} disabled={!gewaehlt.length} aria-label={`Halbton tiefer${viele}`} title={`Halbton tiefer${viele} (↓)`}>▼</button>
+            </div>
+            <div className="notensatz-block">
+              <button type="button" className="symbol" onClick={schreiben} disabled={!takte.length} aria-label="Note schreiben" title="Note schreiben: die gewählte Pause wird zur Note im Palettenwert"><SymbolNote /></button>
+              <button type="button" className="symbol" onClick={() => aufAlle((t, l) => pausenViele(t, raster, l))} disabled={!gewaehlt.length} aria-label={`Zur Pause machen${viele}`} title={`Zur Pause machen${viele} (Entf)`}><SymbolPause /></button>
+              <button type="button" className="symbol" onClick={() => { aufAlle((t, l) => loeschenViele(t, raster, l)); setMehr([]); }} disabled={!gewaehlt.length} aria-label={`Löschen${viele}`}
+                title={`Löschen${viele} (⌫): Noten aus dem Takt nehmen — die anderen Takte bleiben; der Takt ist dann zu kurz (rot), bis er stimmt`}><SymbolKreuz /></button>
+            </div>
+            {/* Haltebogen (gleiche Höhe, Dauern addieren sich) über alle gewählten
+                Paare; Bindebogen (Phrasierung) von der ersten zur letzten gewählten Note. */}
+            <div className="notensatz-block">
+              <button type="button" className="symbol" onClick={() => aufAlle((t, l) => haltebogenViele(t, raster, l))} disabled={!gewaehlt.length || (gewaehlt.length === 1 && (!note || note.midi === null))} aria-pressed={hatBogen}
+                aria-label={`Haltebogen${viele}`} title={gewaehlt.length > 1 ? 'Haltebogen: gewählte Noten gleicher Höhe nacheinander binden' : hatBogen ? 'Haltebogen lösen — die Note wird ein eigener Einsatz' : 'Haltebogen: an die vorige Note binden (gleiche Höhe, Dauern addieren sich)'}><SymbolHaltebogen /></button>
+              <button type="button" className="symbol" onClick={() => aufAlle((t, l) => bindebogenUmschalten(t, raster, l))} disabled={gewaehlt.length < 2} aria-pressed={hatBinde}
+                aria-label={`Bindebogen${viele}`} title={hatBinde ? 'Bindebogen über die Auswahl entfernen' : 'Bindebogen: von der ersten zur letzten gewählten Note (Phrasierung) — erst Noten markieren'}><SymbolBindebogen /></button>
+            </div>
+            <div className="notensatz-block" role="group" aria-label="Notenwert">
+              {werteHaupt.map(wertKnopf)}
+            </div>
           </>
         )}
+        {(aendern || stimmen.length > 1) && (
+          <div className="notensatz-menues">
+            {aendern && (
+              <div className="notensatz-menue" onKeyDown={menueTasten}>
+                <button type="button" className="notensatz-menue-knopf" aria-expanded={menue === 'mehr'} aria-haspopup="true" onClick={() => setMenue(menue === 'mehr' ? null : 'mehr')}
+                  title="Mehr: Oktave, Einfügen, 1/32, punktiert, Triole, Takt, Auswahl">
+                  Mehr<SymbolPfeil />{(markieren || punkt || tri) && <span className="ziel-punkt" aria-hidden="true" />}
+                </button>
+                {menue === 'mehr' && (
+                  <>
+                    <button type="button" className="nav-fang" aria-label="Menü schließen" onClick={() => setMenue(null)} />
+                    <div className="notensatz-blase" role="group" aria-label="Mehr">
+                      <div className="notensatz-gruppe">
+                        <span>Oktave{viele}</span>
+                        <div className="notensatz-block">
+                          <button type="button" onClick={() => aufAlle((t, l) => verschiebenViele(t, raster, l, 12))} disabled={!gewaehlt.length} aria-label={`Oktave höher${viele}`} title="Oktave höher (⇧↑)">▲ höher</button>
+                          <button type="button" onClick={() => aufAlle((t, l) => verschiebenViele(t, raster, l, -12))} disabled={!gewaehlt.length} aria-label={`Oktave tiefer${viele}`} title="Oktave tiefer (⇧↓)">▼ tiefer</button>
+                        </div>
+                      </div>
+                      <div className="notensatz-gruppe">
+                        <span>Dahinter einfügen</span>
+                        <div className="notensatz-block">
+                          <button type="button" onClick={() => danach('note')} disabled={!auswahl} aria-label="Note dahinter einfügen" title="Hinter der gewählten Note eine Note im Palettenwert einfügen (nur in diesem Takt)"><SymbolNote /> Note</button>
+                          <button type="button" onClick={() => danach(null)} disabled={!auswahl} aria-label="Pause dahinter einfügen" title="Hinter der gewählten Note eine Pause im Palettenwert einfügen (nur in diesem Takt)"><SymbolPause /> Pause</button>
+                        </div>
+                      </div>
+                      <div className="notensatz-gruppe">
+                        <span>Notenwert</span>
+                        <div className="notensatz-block">
+                          {werteMehr.map(wertKnopf)}
+                          <button type="button" aria-pressed={punkt} onClick={() => setPunktUnd(!punkt)} disabled={punktiert(wert, raster) === null} aria-label="Punktiert" title="Punktiert: anderthalbfacher Wert">punktiert</button>
+                          <button type="button" aria-pressed={tri} onClick={() => setTriUnd(!tri)} disabled={triole(wert, raster) === null} aria-label="Triole" title="Triole: drei auf zwei">Triole</button>
+                        </div>
+                      </div>
+                      <div className="notensatz-gruppe">
+                        <span>Takt</span>
+                        <div className="notensatz-block">
+                          <button type="button" onClick={() => { const nach = auswahl ? auswahl.takt : takte.length - 1; aendern(inAllen(stimmen, (t) => taktEinfuegen(t, raster, nach))); setAuswahl({ stimme: aktiv, takt: nach + 1, note: 0 }); }}
+                            aria-label="Takt einfügen" title="Takt einfügen: hinter dem gewählten, in allen Stimmen">+ Takt</button>
+                          <button type="button" onClick={() => aendern(inAllen(stimmen, (t) => taktLoeschen(t, raster, auswahl ? auswahl.takt : takte.length - 1)))} disabled={!takte.length}
+                            aria-label="Takt löschen" title="Takt löschen: den gewählten, in allen Stimmen">− Takt</button>
+                        </div>
+                      </div>
+                      <div className="notensatz-gruppe">
+                        <span>Auswahl{gewaehlt.length > 1 ? ` · ${gewaehlt.length} Noten` : ''}</span>
+                        <div className="notensatz-block">
+                          <button type="button" aria-pressed={markieren} onClick={() => { setMarkieren(!markieren); setRahmen(null); lasso.current = null; }} aria-label="Markieren"
+                            title="Markieren: mit Finger oder Stift einen Rahmen um Noten ziehen; gewählte Noten ziehen verschiebt sie alle"><SymbolRahmen /> Markieren</button>
+                          <button type="button" onClick={alleWaehlen} disabled={!hatNoten} aria-label="Alle Noten der Stimme wählen" title="Alle Noten der Stimme wählen (⌘A)">Alle</button>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+            <div className="notensatz-menue" onKeyDown={menueTasten}>
+              <button type="button" className="notensatz-menue-knopf" aria-expanded={menue === 'stimme'} aria-haspopup="true" onClick={() => setMenue(menue === 'stimme' ? null : 'stimme')}
+                title={`Stimme: ${stimmeName(aktiv)}, ${schluesselJetzt.name}${stumm.has(aktiv) ? ', stumm' : ''}`}>
+                <span className="notensatz-schluessel" aria-hidden="true">{schluesselJetzt.zeichen}</span>
+                <span className="notensatz-menue-text">{stimmeName(aktiv)}{stumm.has(aktiv) ? ' ·' : ''}</span><SymbolPfeil />
+              </button>
+              {menue === 'stimme' && (
+                <>
+                  <button type="button" className="nav-fang" aria-label="Menü schließen" onClick={() => setMenue(null)} />
+                  <div className="notensatz-blase" role="group" aria-label="Stimme">
+                    <div className="notensatz-gruppe breit">
+                      <span>Stimme</span>
+                      <div className="notensatz-reihe">
+                        <div className="notensatz-block" role="group" aria-label="Stimme wählen">
+                          {stimmen.map((s, i) => <button key={i} type="button" aria-pressed={aktiv === i} onClick={() => stimmeWaehlen(i)} title={stumm.has(i) ? `${stimmeName(i)} (stumm)` : stimmeName(i)}>{s.name || (stimmen.length > 1 ? `Stimme ${i + 1}` : 'Stimme')}{stumm.has(i) ? ' ·' : ''}</button>)}
+                        </div>
+                        {aendern && (
+                          <div className="notensatz-block">
+                            <button type="button" className="symbol" onClick={() => { aendern(stimmeHinzu(stimmen, raster)); stimmeWaehlen(stimmen.length); }} aria-label="Stimme hinzufügen" title="Stimme hinzufügen: darunter, gleiche Takte">+</button>
+                            <button type="button" className="symbol" onClick={() => { aendern(stimmeWeg(stimmen, aktiv)); stimmeWaehlen(Math.max(0, aktiv - 1)); }} disabled={stimmen.length < 2} aria-label="Stimme entfernen" title="Diese Stimme entfernen">−</button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {aendern && (
+                      <>
+                        <label className="notensatz-gruppe"><span>Name</span>
+                          <input className="feld notensatz-feld" value={stimmen[aktiv]?.name ?? ''} placeholder={`Stimme ${aktiv + 1}`} aria-label="Name der Stimme"
+                            onChange={(e) => aendern(stimmeAendern(stimmen, aktiv, { name: e.target.value }))} />
+                        </label>
+                        <div className="notensatz-gruppe breit">
+                          <span>Schlüssel</span>
+                          <div className="notensatz-block" role="group" aria-label="Schlüssel">
+                            {SCHLUESSEL.map((s) => (
+                              <button key={s.art} type="button" aria-pressed={schluesselJetzt.art === s.art} onClick={() => aendern(stimmeAendern(stimmen, aktiv, { schluessel: s.art }))} aria-label={s.name} title={s.name}>
+                                <span className="notensatz-schluessel" aria-hidden="true">{s.zeichen}</span>{s.name.replace(/schlüssel.*$/, '')}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                    {stimmen.length > 1 && (
+                      <div className="notensatz-gruppe">
+                        <span>Vorspielen</span>
+                        <div className="notensatz-block">
+                          <button type="button" aria-pressed={stumm.has(aktiv)} onClick={() => stummSchalten(aktiv, !stumm.has(aktiv))} aria-label={`${stimmeName(aktiv)} stumm`} title="Stumm: diese Stimme beim Vorspielen auslassen"><SymbolStumm /> stumm</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
-      {aendern && (
-        <div className="notensatz-zeile">
-          <div className="segment !mx-0" role="group" aria-label="Notenwert">
-            {werte.map((w) => <button key={w.zellen} type="button" aria-pressed={wert === w.zellen} onClick={() => setWert(w.zellen)} aria-label={w.name}>{w.kurz}</button>)}
-          </div>
-          <label className="einspiel-feld"><span>punktiert</span>
-            <input type="checkbox" role="switch" className="ios-schalter" checked={punkt} onChange={(e) => setPunktUnd(e.target.checked)} disabled={punktiert(wert, raster) === null} />
-          </label>
-          <label className="einspiel-feld"><span>Triole</span>
-            <input type="checkbox" role="switch" className="ios-schalter" checked={tri} onChange={(e) => setTriUnd(e.target.checked)} disabled={triole(wert, raster) === null} />
-          </label>
-          <span className="notensatz-trenner" aria-hidden="true" />
-          <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => { const nach = auswahl ? auswahl.takt : takte.length - 1; aendern(inAllen(stimmen, (t) => taktEinfuegen(t, raster, nach))); setAuswahl({ stimme: aktiv, takt: nach + 1, note: 0 }); }}>Takt +</button>
-          <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => aendern(inAllen(stimmen, (t) => taktLoeschen(t, raster, auswahl ? auswahl.takt : takte.length - 1)))} disabled={!takte.length}>Takt −</button>
-          <span className="notensatz-trenner" aria-hidden="true" />
-          <button type="button" className="knopf knopf-leise knopf-klein" aria-pressed={markieren} onClick={() => { setMarkieren(!markieren); setRahmen(null); lasso.current = null; }}
-            title="Mit Finger oder Stift einen Rahmen um Noten ziehen; gewählte Noten ziehen verschiebt sie alle">Markieren</button>
-          <button type="button" className="knopf knopf-leise knopf-klein" onClick={alleWaehlen} disabled={!hatNoten}>Alle</button>
-        </div>
-      )}
-      {(aendern || stimmen.length > 1) && (
-        <div className="notensatz-zeile">
-          <div className="segment !mx-0" role="group" aria-label="Stimme">
-            {stimmen.map((s, i) => <button key={i} type="button" aria-pressed={aktiv === i} onClick={() => stimmeWaehlen(i)}>{s.name || (stimmen.length > 1 ? `Stimme ${i + 1}` : 'Stimme')}{stumm.has(i) ? ' ·' : ''}</button>)}
-          </div>
-          {aendern && (
-            <>
-              <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => { aendern(stimmeHinzu(stimmen, raster)); stimmeWaehlen(stimmen.length); }}>+ Stimme</button>
-              <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => { aendern(stimmeWeg(stimmen, aktiv)); stimmeWaehlen(Math.max(0, aktiv - 1)); }} disabled={stimmen.length < 2}>− Stimme</button>
-              <input className="feld feld-zahl" value={stimmen[aktiv]?.name ?? ''} placeholder={`Stimme ${aktiv + 1}`} aria-label="Name der Stimme"
-                onChange={(e) => aendern(stimmeAendern(stimmen, aktiv, { name: e.target.value }))} />
-              <select className="feld feld-zahl" value={stimmen[aktiv]?.schluessel ?? 'violin'} aria-label="Schlüssel"
-                onChange={(e) => aendern(stimmeAendern(stimmen, aktiv, { schluessel: e.target.value as Schluessel }))}>
-                {SCHLUESSEL.map((s) => <option key={s.art} value={s.art}>{s.zeichen} {s.name}</option>)}
-              </select>
-            </>
-          )}
-          {stimmen.length > 1 && (
-            <label className="einspiel-feld"><span>stumm</span>
-              <input type="checkbox" role="switch" className="ios-schalter" checked={stumm.has(aktiv)} onChange={(e) => stummSchalten(aktiv, e.target.checked)} />
-            </label>
-          )}
-        </div>
-      )}
       <div className={`notensatz-blatt ${markieren ? 'markieren' : ''}`}>
         <div ref={bild} className={`einspiel-noten ${aendern ? 'bearbeitbar' : ''}`} aria-label="Noten" tabIndex={aendern ? 0 : undefined} />
         {markieren && aendern && (
@@ -454,3 +557,19 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern, verlauf }:
     </div>
   );
 }
+
+// Strichsymbole der Palette (wie die nav-rund-Knöpfe im Betrachter).
+const symbol = (inhalt: React.ReactNode, breit = false) => (
+  <svg className={`notensatz-symbol${breit ? ' breit' : ''}`} viewBox={breit ? '0 0 36 24' : '0 0 24 24'} aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{inhalt}</svg>
+);
+// Viertelnote und Viertelpause.
+const SymbolNote = () => symbol(<><ellipse cx="10" cy="17.5" rx="3.6" ry="2.5" transform="rotate(-20 10 17.5)" fill="currentColor" stroke="none" /><path d="M13.2 16.5V4" /></>);
+const SymbolPause = () => symbol(<path d="M9 3l5 6.5-5 6 5 5.5c-3-2-6-.5-4 3" />);
+const SymbolKreuz = () => symbol(<path d="M6 6l12 12M18 6L6 18" />);
+// Haltebogen: zwei Notenköpfe gleicher Höhe, Bogen darunter.
+const SymbolHaltebogen = () => symbol(<><ellipse cx="9" cy="10" rx="3" ry="2.2" fill="currentColor" stroke="none" /><ellipse cx="27" cy="10" rx="3" ry="2.2" fill="currentColor" stroke="none" /><path d="M9 14c4 5 14 5 18 0" /></>, true);
+// Bindebogen: zwei verschiedene Notenköpfe, Bogen darüber.
+const SymbolBindebogen = () => symbol(<><ellipse cx="9" cy="17" rx="3" ry="2.2" fill="currentColor" stroke="none" /><ellipse cx="27" cy="12" rx="3" ry="2.2" fill="currentColor" stroke="none" /><path d="M8 11c5-7 15-8 20-3" /></>, true);
+const SymbolRahmen = () => symbol(<><rect x="4" y="4" width="16" height="16" rx="2" strokeDasharray="3 2.5" /><path d="M13 13l6 2-2.5 1-1 2.5z" fill="currentColor" /></>);
+const SymbolStumm = () => symbol(<><path d="M4 10v4h3l4 3V7L7 10zM16 9l5 6M21 9l-5 6" /></>);
+const SymbolPfeil = () => <svg className="notensatz-pfeil" viewBox="0 0 12 12" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M3 4.5l3 3 3-3" /></svg>;
