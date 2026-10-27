@@ -144,6 +144,11 @@ oder iPad. Vorher auf jedem Gerät eine Sicherung erstellen.
   - iPad mit Stift: „Markieren“ an, Rahmen über drei Noten, ▲8 — alle drei hoch? An einer gewählten Note ziehen: Vorschau folgt dem Stift, Loslassen setzt alle um; das Blatt scrollt dabei nicht.
   - Ohne „Markieren“: Tippen wählt, Ziehen scrollt und ändert keine Höhe mehr.
 - G-01 (Bearbeiten, 27.10.) · Rückgängig/Wiederherstellen, Löschen nur im Takt, rote Takte, Note +/Pause +, Schlüsselwahl, geordnete Palette · nur im Browser geprüft.
+- G-05 · Aufnehmen in ein geschriebenes Stück (Aufnahmeleiste, 28.10.) · ● in der Palette (nur beim Schreiben/Komponieren) öffnet unten eine schwebende Leiste, scharf am gewählten Takt; ● startet Vorlauf (Takte davor vorgespielt, Klick läuft; bei Takt 1 Einzähler) → Aufnahme → ■ → Vorschau messingfarben im Blatt mit Einfügen/Ersetzen (Vorgabe: leere Zieltakte und Stückende → Ersetzen), − +, Lesart umlegbar; Übernehmen = ein ↶-Schritt, danach steht die Leiste auf dem Folgetakt. Fachregeln in `taktaufnahme.ts` getestet (Nahtstellen-Bögen, Nachklang-Regel, Vorgabe, Vorlaufklänge); Konzept `reports/Einspielen im Stück UX.md`; Mikrofon-Aufnahme jetzt im Hook `mikrofonspur.ts`, den auch der Einsing-Dialog nutzt · nur im Browser gebaut, nie auf dem Gerät.
+  - iPhone: Pause im Zieltakt antippen, ● → Leiste zeigt „Aufnehmen ab Takt n“; ● → ein Takt Klavier + Klick, Einsatz sitzt; ■ → Vorschau; Einfügen ↔ Ersetzen, − +, Lesart; ↻ Nochmal; Übernehmen; ↶ holt den ganzen Abschnitt zurück.
+  - Lautsprecher an: der Klavier-Vorlauf taucht nicht als Noten im Vorschlag auf. Zweite Stimme: Einfügen schiebt dort leere Takte ein; „Begleitung weiter“ nur mit Kopfhörer.
+  - App-Wechsel im Lauf → Prüfen-Zustand mit Spur (gilt jetzt auch im Einsing-Dialog). Palette ist während Vorlauf/Aufnahme/Prüfen schreibgeschützt (sie schrumpft dabei — bewusste Abweichung vom Leitbild, bis eine Sperre ohne Layoutwechsel da ist).
+  - Nicht gebaut (siehe Konzept 4.5): Auftakt, „langsamer aufnehmen“ (zeitStrecken liegt bereit), Kalibrier-Knopf für die Latenz, Tipp in die leere Taktfläche, „nur Rhythmus“ als dritte Lesart.
 - G-01 (Transponieren, 27.10. nachts) · Mehr → „Transponieren · alle Stimmen“: −1/+1 Halbton für alle Noten aller Stimmen, die Tonart zieht mit (fehlt die Zieltonart in der Liste, bekommen die Noten einzelne Vorzeichen), ein Rückgängig-Schritt; ⓘ erklärt B (+2), Es (+9 oder −3) und F (+7 oder −5) · `transponieren`/`tonartTransponieren` getestet, nur im Browser gesehen.
   - Ein eingesungenes Stück zweimal +1: Noten und Vorzeichen stimmen, ↶ holt beides zurück; nach dem Speichern steht die neue Tonart in der PDF und im ABC.
   - Eine Sechzehntelpause kurz vor Taktende löschen: nur dieser Takt wird rot und kürzer, die Takte danach bleiben; „Pause +“ im passenden Wert macht ihn wieder grün. ↶ holt den Schritt zurück.
@@ -182,7 +187,6 @@ oder iPad. Vorher auf jedem Gerät eine Sicherung erstellen.
 - G-02/G-03 (Rest) · Triolen in der Erkennung; legato gesungene gleiche Töne bleiben eine Note (Grenze des Verfahrens).
 - G-04 (Rest) · Klick dazu, Einzählen, Soundfonts mit Instrumentwahl je Stimme.
 - G-09 (Rest) · Aufnahmen je Stelle aus dem Stellen-Blatt starten, Aufnahme neben dem Vorspielen laufen lassen, Vergleich mit Zeitversatz, Speicherübersicht je Stück, Aufnahmen in der Sicherung (optional, groß).
-- G-05 · Einspielen Takt für Takt · nur Einschätzung.
 - G-06 · Ganze Songs · bleibt Vision; Experiment (G-08) sagt: nichts bauen.
 - G-07 · Klänge einstellen · erst nach G-04.
 - H-01 (Rest), H-02…H-05 · Sicherung ohne PDFs, Ordner am Rechner, OneDrive/Drive/iCloud · Entscheidung zum Leitbild („kein Login“) offen.

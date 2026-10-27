@@ -45,7 +45,11 @@ type Elemente = Auswaehlbar[][];
 
 const lagenVon = (s: Stimme) => s.takte.flatMap((t, takt) => t.noten.map((_, note) => ({ takt, note })));
 
-export function Notenblatt({ stimmen, raster, tonart, titel, aendern, tonartAendern, verlauf }: {
+// Hervorgehobene Takte einer Stimme (Aufnahmeleiste: Zieltakt, Vorschau).
+export interface Hervorgehoben { stimme: number; von: number; bis: number; farbe: 'messing' | 'warnung' }
+export interface BlattStand { auswahl: BlattPos | null; aktiv: number; stumm: number[]; takte: number }
+
+export function Notenblatt({ stimmen, raster, tonart, titel, aendern, tonartAendern, verlauf, hervorgehoben, aufnehmen, beiStand, auswahlVorgabe }: {
   stimmen: Stimme[]; raster: Raster; tonart: Tonart | null; titel: string;
   // Ohne `aendern` nur ansehen und vorspielen.
   aendern?: (stimmen: Stimme[]) => void;
@@ -53,6 +57,13 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern, tonartAend
   tonartAendern?: (tonart: Tonart | null) => void;
   // Rückgängig/Wiederherstellen (null: gerade nicht möglich).
   verlauf?: { zurueck: (() => void) | null; vor: (() => void) | null };
+  hervorgehoben?: Hervorgehoben | null;
+  // ● in der Palette: ab dem gewählten Takt aufnehmen (Aufnahmeleiste).
+  aufnehmen?: () => void;
+  // Wer draußen mitlesen will, wo gerade gearbeitet wird (Auswahl, Stimme, stumme Stimmen, Taktzahl).
+  beiStand?: (stand: BlattStand) => void;
+  // Auswahl von außen setzen (nach dem Übernehmen einer Aufnahme: der nächste Takt).
+  auswahlVorgabe?: BlattPos | null;
 }) {
   const metro = useMetronom();
   const stimm = useStimmgeraetApi();
@@ -63,6 +74,9 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern, tonartAend
   const [auswahlRoh, setAuswahl] = useState<BlattPos | null>(null);
   // Weitere gewählte Noten (Mehrfachauswahl), auch in anderen Stimmen.
   const [mehr, setMehr] = useState<BlattPos[]>([]);
+  // Auswahl von außen (neue Vorgabe → übernehmen; abgeleiteter Zustand, kein Effekt).
+  const [letzteVorgabe, setLetzteVorgabe] = useState(auswahlVorgabe ?? null);
+  if ((auswahlVorgabe ?? null) !== letzteVorgabe) { setLetzteVorgabe(auswahlVorgabe ?? null); if (auswahlVorgabe) { setAuswahl(auswahlVorgabe); setMehr([]); } }
   const [markieren, setMarkieren] = useState(false);
   // Hinweis zu transponierenden Instrumenten im Mehr-Menü.
   const [transponierInfo, setTransponierInfo] = useState(false);
@@ -196,6 +210,18 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern, tonartAend
     return () => { if (!vorspiel.current) for (const [st, i] of alle) faerben(st, i, null); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auswahl, mehr, gezeichnet, faerben, farbe]);
+
+  // Hervorgehobene Takte färben (nach jedem Zeichnen neu).
+  useEffect(() => {
+    if (!hervorgehoben) return;
+    const f = farbe(hervorgehoben.farbe === 'warnung' ? '--warnung' : '--messing', hervorgehoben.farbe === 'warnung' ? '#b42318' : '#a8781f');
+    const st = hervorgehoben.stimme;
+    const liste = (lagen[st] ?? []).map((l, i) => (l.takt >= hervorgehoben.von && l.takt < hervorgehoben.bis ? i : -1)).filter((i) => i >= 0);
+    for (const i of liste) faerben(st, i, f);
+    return () => { if (!vorspiel.current) for (const i of liste) faerben(st, i, null); };
+  }, [hervorgehoben, lagen, gezeichnet, faerben, farbe]);
+  // Stand nach außen melden.
+  useEffect(() => { beiStand?.({ auswahl, aktiv, stumm: [...stumm], takte: takte.length }); }, [beiStand, auswahl, aktiv, stumm, takte.length]);
 
   // ── Vorspielen ──
   const anhalten = useCallback(() => {
@@ -396,6 +422,9 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern, tonartAend
             title={spielt ? 'Anhalten' : auswahl && index(auswahl) > 0 ? 'Ab der gewählten Note vorspielen' : 'Vorspielen (alle Stimmen, Klavierklang)'}>
             {spielt ? '■' : '▶'}
           </button>
+          {aendern && aufnehmen && (
+            <button type="button" className="symbol aufnahme-punkt" onClick={aufnehmen} aria-label="Ab dem gewählten Takt aufnehmen" title="Aufnehmen: ab dem gewählten Takt einsingen, dann einfügen oder ersetzen">●</button>
+          )}
         </div>
         {aendern && verlauf && (
           <div className="notensatz-block">

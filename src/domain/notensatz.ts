@@ -286,7 +286,7 @@ export function tonSetzen(takte: readonly Takt[], r: Raster, pos: NotenPos, midi
   return strecke === 0 && pos.takt > 0 ? bogenLoesen(ergebnis, r, pos.takt - 1) : ergebnis;
 }
 
-function bogenLoesen(takte: readonly Takt[], r: Raster, i: number): Takt[] {
+export function bogenLoesen(takte: readonly Takt[], r: Raster, i: number): Takt[] {
   const liste = strecken(takte[i]);
   if (!liste.length || !liste[liste.length - 1].bindung) return [...takte];
   const { bindung: _weg, ...rest } = liste[liste.length - 1]; void _weg;

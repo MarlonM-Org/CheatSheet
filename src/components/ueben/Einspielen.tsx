@@ -7,13 +7,15 @@ import {
   zellenDauer, zellenJeSchlag, type Feinheit, type Gelesen, type Lesart, type Raster, type Stimme, type Tonrahmen,
 } from '@/domain/notation';
 import type { Stueck } from '@/domain/bestand';
-import { schlaegeJeTakt, TAKTARTEN, taktartText, type Nenner } from '@/domain/takt';
+import { TAKTARTEN, taktartText, type Nenner } from '@/domain/takt';
 import { aufBlatt, aufsBlattStimmen, einstimmig, leeresBlatt, skalieren } from '@/domain/notensatz';
 import { frequenzZuTon, grundfrequenz, type Stimmung } from '@/domain/ueben';
-import { audioSitzung, gespeichert, klangPuffer, mikrofonOffen, mikrofonWunsch, speichern, wachHalten } from './klang';
+import { audioSitzung, gespeichert, speichern } from './klang';
+import { useMikrofonSpur } from './mikrofonspur';
 import { stueckAnlegen, stueckNeuSchreiben } from './lokal';
 import { useMetronom } from './MetronomKontext';
-import { Notenblatt } from './Notensatz';
+import { Notenblatt, type BlattPos, type BlattStand } from './Notensatz';
+import { Aufnahmeleiste, type LeistenZustand, type Vorschau } from './Aufnahmeleiste';
 import { useStimmgeraetApi } from './StimmgeraetKontext';
 import { notationPdf } from './notenpdf';
 import { fehlerGrund } from './speicherfehler';
@@ -46,9 +48,8 @@ const LESART_SCHLUESSEL = 'ueben:einspiel-lesart';
 const KLICK_SCHLUESSEL = 'ueben:einspiel-klick';
 const TONART_SCHLUESSEL = 'ueben:einspiel-tonart';
 const LAUTSPRECHER_SCHLUESSEL = 'ueben:einspiel-lautsprecher';
-// Pegel, ab dem ein Fenster als Ton gilt (−50 dBFS): das rohe Mikrofon ohne
-// Verstärkung liefert aus einem Meter Abstand deutlich weniger als das
-// Stimmgerät am Instrument gewohnt ist.
+// Pegel, ab dem ein Fenster als Ton gilt (−50 dBFS), für Audio-Dateien;
+// das Mikrofon regelt mikrofonspur.ts.
 const MINDEST_PEGEL = 0.003;
 // Längste Aufnahme in Takten — danach hält die App von selbst an.
 const MAX_TAKTE = 64;
@@ -74,10 +75,6 @@ function audioWaehlen(): Promise<File | null> {
   });
 }
 
-interface Mikro {
-  stream: MediaStream; ctx: AudioContext; raf: number; quellen: AudioBufferSourceNode[]; t0: number; freigeben: (() => void) | null;
-  abmelden: () => void;
-}
 interface Wiedergabe { ctx: AudioContext; quelle: AudioBufferSourceNode; beginn: number; raf: number }
 
 // Vorlage: ein gespeichertes Stück mit Quelle zum Weiterbearbeiten
@@ -139,12 +136,11 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
   const [titel, setTitel] = useState(vorlage?.stueck.titel ?? '');
   const [fehler, setFehler] = useState('');
   const [laeuft, setLaeuft] = useState<string | null>(null);
-  // Live-Anzeige (sparsam aktualisiert): Einzähler, Takt/Schlag, gehörter Ton.
-  const [anzeige, setAnzeige] = useState<{ zaehlt?: number; takt?: number; schlag?: number; ton?: string }>({});
   const [spielt, setSpielt] = useState(false);
 
-  const mikro = useRef<Mikro | null>(null);
-  const rahmen = useRef<Tonrahmen[]>([]);
+  // Mikrofon: Klick, Spur, Live-Anzeige — im Hook; hier nur die Phasen des Dialogs.
+  const mikrofon = useMikrofonSpur();
+  const anzeige = mikrofon.anzeige;
   const audio = useRef<AudioBuffer | null>(null);
   const wiedergabe = useRef<Wiedergabe | null>(null);
   const spurBild = useRef<HTMLCanvasElement>(null);
@@ -194,7 +190,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
     setBearbeitet({ basis, stimmen: neu });
     kannNeu(basis);
   }, [basis, kannNeu]);
-  const zurueck = useCallback(() => {
+  const zurueck = () => {
     const v = verlauf.current;
     const e = v.zurueck.pop();
     if (!e || e.basis !== basis) { if (e) v.zurueck.push(e); return; }
@@ -203,8 +199,8 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
     setBearbeitet({ basis, stimmen: e.stimmen });
     setTonartBlatt(e.tonart);
     kannNeu(basis);
-  }, [basis, kannNeu]);
-  const vor = useCallback(() => {
+  };
+  const vor = () => {
     const v = verlauf.current;
     const e = v.vor.pop();
     if (!e || e.basis !== basis) { if (e) v.vor.push(e); return; }
@@ -213,8 +209,22 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
     setBearbeitet({ basis, stimmen: e.stimmen });
     setTonartBlatt(e.tonart);
     kannNeu(basis);
-  }, [basis, kannNeu]);
+  };
   const kannZurueck = kann.zurueck, kannVor = kann.vor;
+
+  // ── Aufnahmeleiste (in das Blatt hinein aufnehmen) ──
+  const [leiste, setLeiste] = useState(false);
+  const [blattStand, setBlattStand] = useState<BlattStand>({ auswahl: null, aktiv: 0, stumm: [], takte: 0 });
+  const [vorschau, setVorschau] = useState<Vorschau | null>(null);
+  const [leistenZustand, setLeistenZustand] = useState<LeistenZustand>('scharf');
+  const [auswahlVorgabe, setAuswahlVorgabe] = useState<BlattPos | null>(null);
+  const leisteBeschaeftigt = leiste && leistenZustand !== 'scharf';
+  const leisteSchliessen = useCallback(() => { setLeiste(false); setVorschau(null); setLeistenZustand('scharf'); }, []);
+  const leisteUebernehmen = useCallback((neu: Stimme[], naechsterTakt: number) => {
+    aendern(neu);
+    const s = blattStand.aktiv;
+    setAuswahlVorgabe({ stimme: s, takt: Math.min(naechsterTakt, Math.max(0, (neu[s]?.takte.length ?? 1) - 1)), note: 0 });
+  }, [aendern, blattStand.aktiv]);
 
   // ── Spur zeichnen ──
   const zeichnen = useCallback((liste: readonly Tonrahmen[], jetzt: number | null) => {
@@ -272,95 +282,26 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
   }, [quelle, dauer, start]);
   useEffect(() => { if (phase !== 'nimmt' && phase !== 'zaehlt') zeichnen(spur, null); }, [zeichnen, spur, phase, raster]);
   useEffect(() => {
-    const neu = () => zeichnen(mikro.current ? rahmen.current : spur, null);
+    const neu = () => zeichnen(mikrofon.aktiv ? mikrofon.rahmen.current : spur, null);
     window.addEventListener('resize', neu);
     return () => window.removeEventListener('resize', neu);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zeichnen, spur]);
 
   // ── Mikrofon ──
-  const stoppen = useCallback((behalten: boolean) => {
-    const m = mikro.current;
-    if (!m) return;
-    cancelAnimationFrame(m.raf);
-    for (const q of m.quellen) { try { q.stop(); } catch { /* schon vorbei */ } }
-    m.stream.getTracks().forEach((t) => t.stop());
-    void m.ctx.close();
-    m.freigeben?.();
-    m.abmelden();
-    mikro.current = null;
-    setAnzeige({});
-    if (behalten) { setSpur([...rahmen.current]); setStart(0); setPhase('vorschlag'); } else setPhase('bereit');
-  }, []);
-
-  const aufnehmen = useCallback(async () => {
-    if (mikro.current) return;
+  const stoppen = useCallback((behalten: boolean) => mikrofon.stoppen(behalten), [mikrofon]);
+  const aufnehmen = useCallback(() => {
     setFehler('');
-    try {
-      audioSitzung('play-and-record');
-      // Lautsprecher: Echo-Unterdrückung und Verstärkung (iOS schaltet damit
-      // auf Freisprechen um); ohne: das rohe Mikrofon (mikrofonWunsch).
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: mikrofonWunsch(lautsprecher) });
-      const abmelden = mikrofonOffen();
-      const ctx = new AudioContext();
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 4096;
-      ctx.createMediaStreamSource(stream).connect(analyser);
-      const puffer = new Float32Array(analyser.fftSize);
-      const r = rasterRef.current;
-      const schlag = 60 / r.bpm, jeTakt = schlaegeJeTakt(r.zaehler, r.nenner), td = taktDauer(r);
-      const beginn = ctx.currentTime + 0.15;
-      const t0 = beginn + jeTakt * schlag;
-      const maxDauer = MAX_TAKTE * td;
-      // Klicks: ein Takt Einzähler, danach auf Wunsch weiter.
-      const gain = ctx.createGain();
-      gain.gain.value = metro.laut;
-      gain.connect(ctx.destination);
-      const betont = klangPuffer(ctx, metro.klang, 'betont'), normal = klangPuffer(ctx, metro.klang, 'normal');
-      const quellen: AudioBufferSourceNode[] = [];
-      const klick = (t: number, stark: boolean) => { const q = ctx.createBufferSource(); q.buffer = stark ? betont : normal; q.connect(gain); q.start(t); quellen.push(q); };
-      for (let i = 0; i < jeTakt; i++) klick(beginn + i * schlag, i === 0);
-      if (klickWeiter) for (let n = 0; n < jeTakt * MAX_TAKTE; n++) klick(t0 + n * schlag, n % jeTakt === 0);
-      rahmen.current = [];
-      // Der Analyser liefert die letzten 4096 Abtastwerte: Mitte des Fensters
-      // plus Eingangslatenz zurückrechnen.
-      const versatz = analyser.fftSize / 2 / ctx.sampleRate + (ctx.baseLatency || 0);
-      let zuletzt = 0, letzteAnzeige = 0, ton: ReturnType<typeof frequenzZuTon> = null;
-      const schleife = () => {
-        const m = mikro.current;
-        if (!m) return;
-        const jetzt = ctx.currentTime;
-        if (jetzt - zuletzt >= 0.02) {
-          zuletzt = jetzt;
-          analyser.getFloatTimeDomainData(puffer);
-          const g = grundfrequenz(puffer, ctx.sampleRate, undefined, MINDEST_PEGEL);
-          ton = g && g.klarheit > KLAR ? frequenzZuTon(g.frequenz, einst.current.kammerton, einst.current.stimmung) : null;
-          const zeit = jetzt - versatz - t0;
-          if (zeit >= -0.05) rahmen.current.push({ zeit, midi: ton ? ton.midi + ton.cent / 100 : null, pegel: effektivwert(puffer), mitte: bandpegel(puffer.subarray(puffer.length - 1024), ctx.sampleRate) });
-        }
-        const rel = jetzt - t0;
-        if (jetzt - letzteAnzeige > 0.08) {
-          letzteAnzeige = jetzt;
-          if (rel < 0) setAnzeige({ zaehlt: Math.max(1, jeTakt - Math.floor(-rel / schlag)) });
-          else {
-            setPhase('nimmt');
-            setAnzeige({ takt: Math.floor(rel / td) + 1, schlag: Math.floor((rel % td) / schlag) + 1, ton: ton ? `${ton.name}${ton.oktave}` : '' });
-          }
-          zeichnen(rahmen.current, Math.max(0, rel));
-        }
-        if (rel > maxDauer) { stoppen(true); return; }
-        m.raf = requestAnimationFrame(schleife);
-      };
-      mikro.current = { stream, ctx, raf: requestAnimationFrame(schleife), quellen, t0, freigeben: null, abmelden };
-      setPhase('zaehlt');
-      setAnzeige({ zaehlt: jeTakt });
-      const freigeben = await wachHalten();
-      if (mikro.current) mikro.current.freigeben = freigeben; else freigeben?.();
-    } catch (e) {
-      setFehler((e as Error).name === 'NotAllowedError'
-        ? 'Das Mikrofon ist nicht erlaubt. In den Einstellungen des Browsers für diese Seite erlauben.'
-        : `Mikrofon nicht verfügbar (${(e as Error).name}).`);
-    }
-  }, [metro.klang, metro.laut, klickWeiter, lautsprecher, stoppen, zeichnen]);
+    void mikrofon.starten({
+      raster: rasterRef.current, lautsprecher, klickWeiter, metro: { klang: metro.klang, laut: metro.laut },
+      stimmung: einst.current.stimmung, kammerton: einst.current.kammerton,
+      einzaehlTakte: 1, vorlauf: null, maxTakte: MAX_TAKTE,
+      beiPhase: setPhase,
+      beiFortschritt: (liste, rel) => zeichnen(liste, Math.max(0, rel)),
+      beiEnde: (liste, ok) => { if (ok) { setSpur(liste); setStart(0); setPhase('vorschlag'); } else setPhase('bereit'); },
+      beiFehler: setFehler,
+    });
+  }, [mikrofon, metro.klang, metro.laut, klickWeiter, lautsprecher, zeichnen]);
 
   // ── Audio-Datei ──
   const dateiLaden = useCallback(async (f: File) => {
@@ -482,7 +423,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
     }
   }
 
-  const beschaeftigt = phase === 'zaehlt' || phase === 'nimmt' || phase === 'rechnet' || !!laeuft;
+  const beschaeftigt = phase === 'zaehlt' || phase === 'nimmt' || phase === 'rechnet' || !!laeuft || leisteBeschaeftigt;
   useEscape(() => { if (!beschaeftigt) schliessen(); });
   useEffect(() => () => { stoppen(false); wiedergabeAus(); }, [stoppen, wiedergabeAus]);
 
@@ -505,7 +446,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
         </button>
       </div>
 
-      <div className="scan-inhalt">
+      <div className="scan-inhalt" style={leiste ? { paddingBottom: '10rem' } : undefined}>
         {fehler && <p className="karte warnung" role="alert">{fehler}</p>}
 
         {!vorlage && (
@@ -640,7 +581,12 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
         {phase === 'vorschlag' && (
           <div className="karte space-y-2">
             {takte.length
-              ? <Notenblatt stimmen={stimmen} raster={blattRaster} tonart={tonartAnzeige} titel={titel} aendern={aendern} tonartAendern={(t) => setTonartBlatt(t?.abc ?? '')} verlauf={{ zurueck: kannZurueck ? zurueck : null, vor: kannVor ? vor : null }} />
+              ? <Notenblatt stimmen={vorschau?.stimmen ?? stimmen} raster={blattRaster} tonart={tonartAnzeige} titel={titel}
+                  aendern={vorschau || leisteBeschaeftigt ? undefined : aendern} tonartAendern={(t) => setTonartBlatt(t?.abc ?? '')}
+                  verlauf={{ zurueck: kannZurueck ? zurueck : null, vor: kannVor ? vor : null }}
+                  hervorgehoben={vorschau ? { stimme: blattStand.aktiv, von: vorschau.von, bis: vorschau.bis, farbe: 'messing' } : null}
+                  aufnehmen={quelle === 'leer' && !leiste && typeof navigator !== 'undefined' && !!navigator.mediaDevices ? () => setLeiste(true) : undefined}
+                  beiStand={setBlattStand} auswahlVorgabe={auswahlVorgabe} />
               : (
                 <div className="einspiel-zeile">
                   <p className="gedaempft text-sm">Kein Ton erkannt. Näher ans Mikrofon, lauter, oder eine andere Datei.</p>
@@ -652,6 +598,12 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
         )}
       </div>
 
+      {leiste && phase === 'vorschlag' && quelle === 'leer' && (
+        <Aufnahmeleiste stimmen={stimmen} aktiv={blattStand.aktiv} stumm={blattStand.stumm} auswahlTakt={blattStand.auswahl?.takt ?? null}
+          raster={raster} blattRaster={blattRaster} tonart={tonart} lesart={lesart} setLesart={setLesart} lautsprecher={lautsprecher} setLautsprecher={setLautsprecher}
+          metro={{ klang: metro.klang, laut: metro.laut }} stimmung={stimm.stimmung} kammerton={stimm.kammerton}
+          vorschauAendern={setVorschau} zustandAendern={setLeistenZustand} uebernehmen={leisteUebernehmen} schliessen={leisteSchliessen} />
+      )}
       <form className="scan-fuss" onSubmit={(e) => { e.preventDefault(); void speichernUndSchliessen(); }}>
         <input className="feld" value={titel} onChange={(e) => setTitel(e.target.value)} placeholder="Titel des Stücks" aria-label="Titel" disabled={!!laeuft} />
         <button type="submit" className="knopf" disabled={phase !== 'vorschlag' || !takte.length || !!laeuft}>{laeuft ?? (vorlage ? 'Speichern' : 'Als Stück speichern')}</button>
