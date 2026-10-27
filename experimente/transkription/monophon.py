@@ -53,6 +53,7 @@ class Parameter:
     senke: float = 10.0         # dB: Einbruch des Mittenbands (600–1500 Hz), der eine Silbengrenze anzeigt (0 = aus)
     pause: float | None = None  # s: Stille ab dieser Länge wird Pause (None = ein Achtel, mindestens 0,15 s)
     ansatz: float = 60.0        # ms: Anfang einer Note, der beim Tonhöhen-Median ausgelassen wird
+    wechsel: float = 150.0      # ms: Fenster, über das ein dauerhafter Tonwechsel beurteilt wird (eine Vibratoperiode)
     tonart: str | None = None
     versatz: float = 0.0        # s: Lage des ersten Schlags
     nachbessern: bool = True
@@ -233,7 +234,7 @@ def _median_stimmhaft(midi: np.ndarray, prob: np.ndarray, i: int, j: int) -> flo
 
 
 def an_tonwechseln_teilen(bereiche, midi: np.ndarray, prob: np.ndarray, mindest_rahmen: int,
-                          ansatz_rahmen: int = 0, schwelle: float = 0.7):
+                          ansatz_rahmen: int = 0, schwelle: float = 0.7, fenster_s: float = 0.15):
     """Einen HMM-Bereich teilen, wo die Tonhöhe dauerhaft auf ein neues Plateau wechselt.
 
     Das Noten-HMM ist träge und zieht einen kurzen Ton (eine Achtel) gern mit
@@ -246,7 +247,7 @@ def an_tonwechseln_teilen(bereiche, midi: np.ndarray, prob: np.ndarray, mindest_
     """
     # Fenster mindestens eine Vibratoperiode (5–7 Hz → ~150 ms), sonst liest
     # der Median einer Halbperiode ±30 Cent und zwei Fenster streiten sich.
-    w = max(2, mindest_rahmen, int(round(0.15 / RAHMEN_S)))
+    w = max(2, mindest_rahmen, int(round(fenster_s / RAHMEN_S)))
     ab = max(0, ansatz_rahmen)
     ergebnis = []
     for i, j in bereiche:
@@ -539,7 +540,7 @@ def segmentieren(midi: np.ndarray, prob: np.ndarray, db: np.ndarray, p: Paramete
     hmm = NotenHMM(librosa.hz_to_midi(p.von), librosa.hz_to_midi(p.bis))
     mindest = max(1, int(round(p.mindest / 1000 / RAHMEN_S)))
     roh = bereiche_aus_zustaenden(hmm.dekodieren(midi, prob))
-    wechsel = an_tonwechseln_teilen(roh, midi, prob, mindest, int(round(p.ansatz / 1000 / RAHMEN_S)))
+    wechsel = an_tonwechseln_teilen(roh, midi, prob, mindest, int(round(p.ansatz / 1000 / RAHMEN_S)), fenster_s=p.wechsel / 1000)
     senken = senken_finden(mitte_db[:len(db)], p.senke) if mitte_db is not None else np.array([], dtype=int)
     anschlaege = grenzen_vereinen(anschlaege_finden(db, p.anschlag), senken)
     geteilt = kurze_verwerfen(an_anschlaegen_teilen(wechsel, anschlaege, mindest), mindest)

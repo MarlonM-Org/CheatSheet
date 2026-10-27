@@ -53,8 +53,10 @@ def stimme(noten: list[tuple[int | None, float]], tempo: float, konsonant: bool 
             teile.append(RNG.normal(0, 10 ** (-50 / 20), n).astype(np.float32))
             continue
         seg = np.zeros(n, dtype=np.float64)
-        k0 = int(0.02 * SR) if konsonant and not weich else 0
-        k1 = k0 + (int(0.05 * SR) if konsonant and not weich else 0)
+        # Kurze Noten bekommen kürzere Konsonanten (ein Sänger kürzt das „t" bei Sechzehnteln).
+        kurz = dauer * viertel < 0.3
+        k0 = int((0.01 if kurz else 0.02) * SR) if konsonant and not weich else 0
+        k1 = k0 + (int((0.03 if kurz else 0.05) * SR) if konsonant and not weich else 0)
         if konsonant and not weich:
             rausch = RNG.normal(0, 1, k1 - k0)
             rausch = np.convolve(rausch, np.ones(8) / 8, mode="same")   # dumpfer machen
@@ -74,7 +76,8 @@ def stimme(noten: list[tuple[int | None, float]], tempo: float, konsonant: bool 
         daempfung = np.where(t < 0.1, 0.1, 1.0) if weich else 1.0                        # das „l": alle Obertöne 100 ms lang leise
         for h in range(1, 12):
             ton += np.sin(h * phase + RNG.uniform(0, 2 * np.pi)) / h ** 1.3 * (1 if h < 6 else 0.5) * (daempfung if h >= 2 else 1.0)
-        huelle = np.clip(t / 0.04, 0, 1) * np.clip((t[-1] - t) / 0.06, 0, 1)             # an- und abschwellen
+        an, ab = min(0.04, 0.2 * t[-1]), min(0.06, 0.25 * t[-1])                          # kurze Noten schwellen schneller
+        huelle = np.clip(t / an, 0, 1) * np.clip((t[-1] - t) / ab, 0, 1)                   # an- und abschwellen
         if weich:
             huelle = np.clip(t / 0.01, 0, 1) * np.clip((t[-1] - t) / 0.03, 0, 1) * np.where(t < 0.1, 0.85, 1.0)   # kaum Pegelbewegung
         huelle *= 10 ** (tremolo_db * np.sin(2 * np.pi * 6.3 * t) / 20)                  # Tremolo
