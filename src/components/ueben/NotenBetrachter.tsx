@@ -15,7 +15,7 @@ import {
   sprungNeu, sprungText, sprungVerschieben, SPRUNG_ARTEN, zielAnsicht, type Punkt as SprungPunkt, type Setzen, type Sprung,
 } from '@/domain/spruenge';
 import { inSicht, zurPdf } from '@/domain/sicht';
-import { mixKopf, stelleFavorit, tempoStand, zielAusText, zielStand } from '@/domain/stellen';
+import { mixKopf, stelleFavorit, stelleZurSeite, tempoStand, zielAusText, zielStand } from '@/domain/stellen';
 import {
   einstellungPruefen, pipettenFarbe, pipettenPruefen, radiererPruefen, TEXT_GROESSE,
   type Pipetten, type StiftEinstellung, type ZeichenWerkzeug,
@@ -1522,7 +1522,8 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
                 setAnsichtOffen(false);
                 // Noch keine Stellen: erklären, der Schalter geht beim Schließen wieder aus.
                 if (e.target.checked && !stellen.length) { setStellenInfo('leer'); return; }
-                if (e.target.checked) { setModus('stellen'); setWerkzeug(null); setPaletteOffen(false); setLinieEinstellen(false); setBearbeiten(null); }
+                // Die Stelle der Seite, auf der man gerade ist — nicht die erste des Stücks.
+                if (e.target.checked) { setStelleNr(stelleZurSeite(stellen, hauptseite(ansicht))); setModus('stellen'); setWerkzeug(null); setPaletteOffen(false); setLinieEinstellen(false); setBearbeiten(null); }
                 else { zumLesen(); mix?.beenden(); }
               }} />
           </div>

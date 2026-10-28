@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   mischen, mixAuswahl, mixBereichLesen, mixSchluessel, neueRunde, reserveVon, rundeAbgleichen, rundeLesen, rundeStand, steigerung, stelleFavorit, stelleOffen,
-  mixMenge, mixLeer, mixFertigText, mixKopf,
+  mixMenge, mixLeer, mixFertigText, mixKopf, stelleZurSeite,
   tagesbeste, tempoAchse, tempoStand, zielAusText, zielStand, type MixStelle,
 } from '@/domain/stellen';
 
@@ -24,6 +24,24 @@ describe('Tempo einer Stelle', () => {
   });
   it('gleicher Zeitpunkt: der später eingetragene gilt', () => {
     expect(tempoStand([{ tempo: 80, am: 5 }, { tempo: 82, am: 5 }]).zuletzt).toBe(82);
+  });
+});
+
+describe('Stellen-Modus einschalten: Stelle zur Seite', () => {
+  const liste = [{ seite: 1 }, { seite: 2 }, { seite: 4 }, { seite: 4 }, { seite: 7 }];
+  it('die erste Stelle auf der Seite', () => {
+    expect(stelleZurSeite(liste, 4)).toBe(2);
+    expect(stelleZurSeite(liste, 1)).toBe(0);
+  });
+  it('ohne Stelle auf der Seite: die erste danach', () => {
+    expect(stelleZurSeite(liste, 3)).toBe(2);
+    expect(stelleZurSeite(liste, 5)).toBe(4);
+  });
+  it('nichts mehr danach: die letzte davor', () => {
+    expect(stelleZurSeite(liste, 9)).toBe(4);
+  });
+  it('ohne Stellen', () => {
+    expect(stelleZurSeite([], 3)).toBe(-1);
   });
 });
 

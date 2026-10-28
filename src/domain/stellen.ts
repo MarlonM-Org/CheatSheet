@@ -15,6 +15,15 @@ export function tempoStand(tempi: Tempo[]): { zuletzt: number | null; bestes: nu
   return { zuletzt: zuletzt?.tempo ?? null, bestes: bestes || null };
 }
 
+// Stellen-Modus einschalten: die Stelle der Seite, auf der man gerade ist —
+// die erste dort (Liste ist nach Seite und Höhe sortiert), sonst die erste
+// danach, sonst die letzte davor. -1 ohne Stellen.
+export function stelleZurSeite(stellen: { seite: number }[], seite: number): number {
+  if (!stellen.length) return -1;
+  const i = stellen.findIndex((s) => s.seite >= seite);
+  return i < 0 ? stellen.length - 1 : i;
+}
+
 // ── Ziel und Tempo-Verlauf (F-12) ──
 
 const TAG = 86_400_000;

@@ -968,6 +968,13 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
 
 *(Abgeschlossene Punkte hierher verschieben, mit Datum und Commit.)*
 
+- **Stellen-Modus: auf der Seite bleiben** (2026-10-28): Rückmeldung
+  Marlon: Wer auf Seite 4 den Stellen-Schalter umlegt, landete bei der
+  ersten Stelle des Stücks auf Seite 1. Jetzt gilt die erste Stelle der
+  Seite, auf der man gerade ist; hat die Seite keine, die nächste danach,
+  und erst ganz hinten die letzte davor. Regel `stelleZurSeite` in
+  `src/domain/stellen.ts`, getestet.
+
 - **F-21 · Sammlungen sortieren und große Ansicht** (2026-10-26): Wunsch
   Marlon: Manche Sammlungen immer vorn auf Abruf, andere hinten; und bei
   vielen Sammlungen eine Ansicht, die alle mit ihren Stücken zeigt.
