@@ -289,10 +289,13 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
   }, [zeichnen, spur]);
 
   // ── Mikrofon ──
-  const stoppen = useCallback((behalten: boolean) => mikrofon.stoppen(behalten), [mikrofon]);
+  // `stoppen`/`starten` des Hooks sind stabil — nur daran hängen, nicht am
+  // Hook-Objekt: der Aufräum-Effekt unten darf nur beim Schließen laufen.
+  const stoppen = mikrofon.stoppen;
+  const mikrofonStarten = mikrofon.starten;
   const aufnehmen = useCallback(() => {
     setFehler('');
-    void mikrofon.starten({
+    void mikrofonStarten({
       raster: rasterRef.current, lautsprecher, klickWeiter, metro: { klang: metro.klang, laut: metro.laut },
       stimmung: einst.current.stimmung, kammerton: einst.current.kammerton,
       einzaehlTakte: 1, vorlauf: null, maxTakte: MAX_TAKTE,
@@ -301,7 +304,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
       beiEnde: (liste, ok) => { if (ok) { setSpur(liste); setStart(0); setPhase('vorschlag'); } else setPhase('bereit'); },
       beiFehler: setFehler,
     });
-  }, [mikrofon, metro.klang, metro.laut, klickWeiter, lautsprecher, zeichnen]);
+  }, [mikrofonStarten, metro.klang, metro.laut, klickWeiter, lautsprecher, zeichnen]);
 
   // ── Audio-Datei ──
   const dateiLaden = useCallback(async (f: File) => {

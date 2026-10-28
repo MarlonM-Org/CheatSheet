@@ -61,6 +61,7 @@ export function Aufnahmeleiste({ stimmen, aktiv, stumm, auswahlTakt, raster, bla
   const [letzterVersatz, setLetzterVersatz] = useState(0);
 
   const mikrofon = useMikrofonSpur();
+  const mikrofonStarten = mikrofon.starten, mikrofonStoppen = mikrofon.stoppen;
   useEffect(() => { zustandAendern(zustand); }, [zustand, zustandAendern]);
 
   // ── Vorschlag aus der Spur ──
@@ -85,7 +86,7 @@ export function Aufnahmeleiste({ stimmen, aktiv, stumm, auswahlTakt, raster, bla
     setFehler('');
     const vorlaufTakte = Math.min(vorlauf, zielTakt);
     const klaenge = vorlaufKlaenge(stimmen, blattRaster, new Set(stumm), aktiv, zielTakt, vorlaufTakte, begleitung);
-    void mikrofon.starten({
+    void mikrofonStarten({
       raster, lautsprecher, klickWeiter: true, metro, stimmung, kammerton,
       einzaehlTakte: vorlaufTakte ? 0 : 1,
       vorlauf: vorlaufTakte ? { klaenge, takte: vorlaufTakte } : null,
@@ -104,8 +105,8 @@ export function Aufnahmeleiste({ stimmen, aktiv, stumm, auswahlTakt, raster, bla
       },
       beiFehler: (t) => { setFehler(t); setZustand('scharf'); },
     });
-  }, [vorlauf, zielTakt, stimmen, blattRaster, stumm, aktiv, begleitung, mikrofon, raster, lautsprecher, metro, stimmung, kammerton, letzterVersatz]);
-  const stoppen = () => mikrofon.stoppen(zustand === 'nimmt');
+  }, [vorlauf, zielTakt, stimmen, blattRaster, stumm, aktiv, begleitung, mikrofonStarten, raster, lautsprecher, metro, stimmung, kammerton, letzterVersatz]);
+  const stoppen = () => mikrofonStoppen(zustand === 'nimmt');
   const verwerfen = () => { setSpur([]); setZustand('scharf'); };
   const nochmal = () => { setSpur([]); setZustand('scharf'); starten(); };
   const fertig = () => {
