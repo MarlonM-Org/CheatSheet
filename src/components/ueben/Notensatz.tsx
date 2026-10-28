@@ -428,8 +428,8 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern, tonartAend
         </div>
         {aendern && verlauf && (
           <div className="notensatz-block">
-            <button type="button" className="symbol" onClick={() => verlauf.zurueck?.()} disabled={!verlauf.zurueck} aria-label="Rückgängig" title="Rückgängig (⌘Z)">↶</button>
-            <button type="button" className="symbol" onClick={() => verlauf.vor?.()} disabled={!verlauf.vor} aria-label="Wiederherstellen" title="Wiederherstellen (⇧⌘Z)">↷</button>
+            <button type="button" className="symbol" onClick={() => verlauf.zurueck?.()} disabled={!verlauf.zurueck} aria-label="Rückgängig" title="Rückgängig (⌘Z)"><SymbolZurueck /></button>
+            <button type="button" className="symbol" onClick={() => verlauf.vor?.()} disabled={!verlauf.vor} aria-label="Wiederherstellen" title="Wiederherstellen (⇧⌘Z)"><SymbolVor /></button>
           </div>
         )}
         {aendern && (
@@ -617,6 +617,9 @@ const symbol = (inhalt: React.ReactNode, breit = false) => (
 const SymbolNote = () => symbol(<><ellipse cx="10" cy="17.5" rx="3.6" ry="2.5" transform="rotate(-20 10 17.5)" fill="currentColor" stroke="none" /><path d="M13.2 16.5V4" /></>);
 const SymbolPause = () => symbol(<path d="M9 3l5 6.5-5 6 5 5.5c-3-2-6-.5-4 3" />);
 const SymbolKreuz = () => symbol(<path d="M6 6l12 12M18 6L6 18" />);
+// Rückgängig/Wiederherstellen: der gebogene Pfeil, wie man ihn aus Word kennt.
+const SymbolZurueck = () => symbol(<><path d="M8.5 5.5L4.5 9.5l4 4" /><path d="M4.5 9.5H14a5 5 0 0 1 0 10h-3.5" /></>);
+const SymbolVor = () => symbol(<><path d="M15.5 5.5l4 4-4 4" /><path d="M19.5 9.5H10a5 5 0 0 0 0 10h3.5" /></>);
 // Haltebogen: zwei Notenköpfe gleicher Höhe, Bogen darunter.
 const SymbolHaltebogen = () => symbol(<><ellipse cx="9" cy="10" rx="3" ry="2.2" fill="currentColor" stroke="none" /><ellipse cx="27" cy="10" rx="3" ry="2.2" fill="currentColor" stroke="none" /><path d="M9 14c4 5 14 5 18 0" /></>, true);
 // Bindebogen: zwei verschiedene Notenköpfe, Bogen darüber.
