@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Raster, Stimme, Takt } from '@/domain/notation';
 import { legen } from '@/domain/notensatz';
-import { abschnittKuerzen, nachlaufKuerzen, takteEinsetzen, vorgabeArt, vorlaufKlaenge, zeitStrecken } from '@/domain/taktaufnahme';
+import { abschnittKuerzen, bereichSetzen, bereichTakte, nachlaufKuerzen, takteEinsetzen, vorgabeArt, vorlaufKlaenge, zeitStrecken } from '@/domain/taktaufnahme';
 
 const R: Raster = { bpm: 120, zaehler: 4, nenner: 4, feinheit: 16 };
 const kurz = (t: Takt) => t.noten.map((n) => `${n.midi ?? 'z'}/${n.dauer}${n.bindung ? '-' : ''}`).join(' ');
@@ -72,6 +72,36 @@ describe('abschnittKuerzen und vorgabeArt', () => {
     expect(vorgabeArt(t, 1, 3)).toBe('einfuegen');
     expect(vorgabeArt(t, 3, 1)).toBe('einfuegen');
     expect(vorgabeArt(t, 4, 2)).toBe('ersetzen');
+  });
+  it('mit Endtakt ist Ersetzen die Vorgabe, auch über geschriebene Takte', () => {
+    const t = [takt([60, 16]), takt([62, 16]), takt([64, 16])];
+    expect(vorgabeArt(t, 1, 1, true)).toBe('ersetzen');
+    expect(vorgabeArt(t, 1, 1)).toBe('einfuegen');
+  });
+});
+
+describe('Aufnahmebereich (Start- und Endtakt)', () => {
+  it('Endtakt setzen und wieder öffnen', () => {
+    expect(bereichSetzen({ von: 3, bis: null }, { bis: 3 }, 8)).toEqual({ von: 3, bis: 3 });
+    expect(bereichSetzen({ von: 3, bis: 5 }, { bis: null }, 8)).toEqual({ von: 3, bis: null });
+  });
+  it('Endtakt nie vor dem Start, nie hinter dem Stück', () => {
+    expect(bereichSetzen({ von: 3, bis: 5 }, { bis: 1 }, 8)).toEqual({ von: 3, bis: 3 });
+    expect(bereichSetzen({ von: 3, bis: 5 }, { bis: 20 }, 8)).toEqual({ von: 3, bis: 7 });
+  });
+  it('rückt der Start hinter das Ende, zieht das Ende mit', () => {
+    expect(bereichSetzen({ von: 3, bis: 4 }, { von: 6 }, 8)).toEqual({ von: 6, bis: 6 });
+    expect(bereichSetzen({ von: 3, bis: 4 }, { von: 1 }, 8)).toEqual({ von: 1, bis: 4 });
+  });
+  it('Anhängen hat keinen Endtakt; Start bleibt im Stück', () => {
+    expect(bereichSetzen({ von: 3, bis: 4 }, { von: 8 }, 8)).toEqual({ von: 8, bis: null });
+    expect(bereichSetzen({ von: 3, bis: 4 }, { von: 12 }, 8)).toEqual({ von: 8, bis: null });
+    expect(bereichSetzen({ von: 3, bis: null }, { von: -2 }, 8)).toEqual({ von: 0, bis: null });
+  });
+  it('Taktzahl der Aufnahme: bis zum Endtakt, sonst die Höchstzahl', () => {
+    expect(bereichTakte({ von: 3, bis: 3 }, 32)).toBe(1);
+    expect(bereichTakte({ von: 2, bis: 5 }, 32)).toBe(4);
+    expect(bereichTakte({ von: 2, bis: null }, 32)).toBe(32);
   });
 });
 

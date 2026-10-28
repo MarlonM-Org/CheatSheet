@@ -968,6 +968,32 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
 
 *(Abgeschlossene Punkte hierher verschieben, mit Datum und Commit.)*
 
+- **G-01/G-05 · Komponieren: Markieren immer da, Aufnahmebereich, Leiste
+  und Mehr-Menü schiebbar** (2026-10-28): Rückmeldung Marlon („die Buttons
+  sind noch ein bisschen ass“).
+  - **Markieren** ist ein eigener Knopf in der Palette (Rahmen-Symbol,
+    neben Rückgängig) — ein Tipp, dann Töne auswählen; nicht mehr im
+    Mehr-Menü versteckt. Dort bleibt „Alle“.
+  - **Aufnahmebereich:** neben dem Zieltakt ein **Endtakt** (offen · nur
+    diesen · bis Takt n). Mit Endtakt hält die Aufnahme dort von selbst,
+    und nur diese Takte werden ersetzt — wer einen Takt nachbessern will,
+    nimmt genau den auf, nichts dahinter wird überschrieben. Vorgabe dann
+    „Ersetzen“. Nach Übernehmen steht die Leiste wieder offen auf dem
+    Folgetakt. Regeln `bereichSetzen`, `bereichTakte`, `vorgabeArt(…,
+    geschlossen)` in `src/domain/taktaufnahme.ts`, getestet.
+  - **Aufnahmeleiste überarbeitet:** liegt im Dialog oberhalb des Fußes,
+    „Als Stück speichern“ steht nicht mehr halb verdeckt dahinter. Die
+    Steuerzeile bricht um statt zu scrollen; Verwerfen/Übernehmen stehen
+    in einer eigenen Zeile rechts.
+  - **Schiebbar mit Gedächtnis:** Aufnahmeleiste (Griff im Kopf) und das
+    Mehr-Menü der Palette (Griffzeile oben) lassen sich überallhin ziehen;
+    die Lage wird je Gerät gemerkt (`ueben:lage-aufnahme`,
+    `ueben:lage-notensatz-mehr`) und beim nächsten Öffnen wieder
+    eingenommen. Ablegen nahe des Dialog-Fußes dockt wieder an.
+    `useSchiebbar` kennt dafür die Grenze (`.scan-fuss`) und darf die
+    Breite behalten. Im Browser (Tablet- und Telefonbreite, Aufnahme mit
+    Endtakt bis „Übernehmen“) durchgespielt, nie auf dem Gerät.
+
 - **Stellen-Modus: auf der Seite bleiben** (2026-10-28): Rückmeldung
   Marlon: Wer auf Seite 4 den Stellen-Schalter umlegt, landete bei der
   ersten Stelle des Stücks auf Seite 1. Jetzt gilt die erste Stelle der

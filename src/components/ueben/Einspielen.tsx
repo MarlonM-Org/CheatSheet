@@ -449,6 +449,8 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
         </button>
       </div>
 
+      {/* Mitte: Inhalt scrollt; die Aufnahmeleiste liegt darüber am unteren Rand, der Fuß mit „Speichern“ bleibt frei. */}
+      <div className="scan-mitte">
       <div className="scan-inhalt" style={leiste ? { paddingBottom: '10rem' } : undefined}>
         {fehler && <p className="karte warnung" role="alert">{fehler}</p>}
 
@@ -600,13 +602,13 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
           </div>
         )}
       </div>
-
       {leiste && phase === 'vorschlag' && quelle === 'leer' && (
         <Aufnahmeleiste stimmen={stimmen} aktiv={blattStand.aktiv} stumm={blattStand.stumm} auswahlTakt={blattStand.auswahl?.takt ?? null}
           raster={raster} blattRaster={blattRaster} tonart={tonart} lesart={lesart} setLesart={setLesart} lautsprecher={lautsprecher} setLautsprecher={setLautsprecher}
           metro={{ klang: metro.klang, laut: metro.laut }} stimmung={stimm.stimmung} kammerton={stimm.kammerton}
           vorschauAendern={setVorschau} zustandAendern={setLeistenZustand} uebernehmen={leisteUebernehmen} schliessen={leisteSchliessen} />
       )}
+      </div>
       <form className="scan-fuss" onSubmit={(e) => { e.preventDefault(); void speichernUndSchliessen(); }}>
         <input className="feld" value={titel} onChange={(e) => setTitel(e.target.value)} placeholder="Titel des Stücks" aria-label="Titel" disabled={!!laeuft} />
         <button type="submit" className="knopf" disabled={phase !== 'vorschlag' || !takte.length || !!laeuft}>{laeuft ?? (vorlage ? 'Speichern' : 'Als Stück speichern')}</button>

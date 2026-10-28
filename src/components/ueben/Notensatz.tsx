@@ -15,6 +15,7 @@ import { audioSitzung, gespeichert, speichern } from './klang';
 import { vorspielen, type Vorspiel } from './klavier';
 import { useMetronom } from './MetronomKontext';
 import { useStimmgeraetApi } from './StimmgeraetKontext';
+import { useSchiebbar } from './schiebbar';
 import { fehlerGrund } from './speicherfehler';
 
 // Notenblatt (G-01/G-04): abcjs zeichnet die Stimmen als Akkolade; eine Note
@@ -27,9 +28,10 @@ import { fehlerGrund } from './speicherfehler';
 // Rechnen in @/domain/notensatz.
 //
 // Mit der Maus verschiebt Ziehen eine Note; auf Touch scrollt Ziehen. Für
-// Finger und Stift gibt es „Markieren“: dann zieht ein Rahmen über Noten
-// alle hinein (Mehrfachauswahl), Ziehen an einer gewählten Note verschiebt
-// alle gewählten auf der Leiter, und ▲▼, Pause, Löschen wirken auf alle.
+// Finger und Stift gibt es „Markieren“ (eigener Knopf in der Palette, immer
+// da): dann zieht ein Rahmen über Noten alle hinein (Mehrfachauswahl),
+// Ziehen an einer gewählten Note verschiebt alle gewählten auf der Leiter,
+// und ▲▼, Pause, Löschen wirken auf alle.
 // Tastatur: ↑↓ Halbton, ⇧↑↓ Oktave, ←→ Note wechseln, Entf Pause,
 // Rückschritt löscht.
 
@@ -435,6 +437,10 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern, tonartAend
         {aendern && (
           <>
             <div className="notensatz-block">
+              <button type="button" className="symbol" aria-pressed={markieren} onClick={() => { setMarkieren(!markieren); setRahmen(null); lasso.current = null; }} aria-label="Markieren"
+                title="Markieren: mit Finger oder Stift einen Rahmen um Noten ziehen; gewählte Noten ziehen verschiebt sie alle"><SymbolRahmen /></button>
+            </div>
+            <div className="notensatz-block">
               <button type="button" className="symbol pfeil" onClick={() => aufAlle((t, l) => verschiebenViele(t, raster, l, 1))} disabled={!gewaehlt.length} aria-label={`Halbton höher${viele}`} title={`Halbton höher${viele} (↑)`}>▲</button>
               <button type="button" className="symbol pfeil" onClick={() => aufAlle((t, l) => verschiebenViele(t, raster, l, -1))} disabled={!gewaehlt.length} aria-label={`Halbton tiefer${viele}`} title={`Halbton tiefer${viele} (↓)`}>▼</button>
             </div>
@@ -463,12 +469,12 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern, tonartAend
               <div className="notensatz-menue" onKeyDown={menueTasten}>
                 <button type="button" className="notensatz-menue-knopf" aria-expanded={menue === 'mehr'} aria-haspopup="true" onClick={() => setMenue(menue === 'mehr' ? null : 'mehr')}
                   title="Mehr: Oktave, Transponieren, Einfügen, 1/32, punktiert, Triole, Takt, Auswahl">
-                  Mehr<SymbolPfeil />{(markieren || punkt || tri) && <span className="ziel-punkt" aria-hidden="true" />}
+                  Mehr<SymbolPfeil />{(punkt || tri) && <span className="ziel-punkt" aria-hidden="true" />}
                 </button>
                 {menue === 'mehr' && (
                   <>
                     <button type="button" className="nav-fang" aria-label="Menü schließen" onClick={() => setMenue(null)} />
-                    <div className="notensatz-blase" role="group" aria-label="Mehr">
+                    <SchiebbareBlase schluessel="ueben:lage-notensatz-mehr" label="Mehr">
                       <div className="notensatz-gruppe">
                         <span>Oktave{viele}</span>
                         <div className="notensatz-block">
@@ -518,12 +524,10 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern, tonartAend
                       <div className="notensatz-gruppe">
                         <span>Auswahl{gewaehlt.length > 1 ? ` · ${gewaehlt.length} Noten` : ''}</span>
                         <div className="notensatz-block">
-                          <button type="button" aria-pressed={markieren} onClick={() => { setMarkieren(!markieren); setRahmen(null); lasso.current = null; }} aria-label="Markieren"
-                            title="Markieren: mit Finger oder Stift einen Rahmen um Noten ziehen; gewählte Noten ziehen verschiebt sie alle"><SymbolRahmen /> Markieren</button>
                           <button type="button" onClick={alleWaehlen} disabled={!hatNoten} aria-label="Alle Noten der Stimme wählen" title="Alle Noten der Stimme wählen (⌘A)">Alle</button>
                         </div>
                       </div>
-                    </div>
+                    </SchiebbareBlase>
                   </>
                 )}
               </div>
@@ -605,6 +609,23 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern, tonartAend
           {hinweise.length > 6 && !alleHinweise && <li><button type="button" className="hinweis" onClick={() => setAlleHinweise(true)}>… und {hinweise.length - 6} weitere</button></li>}
         </ul>
       )}
+    </div>
+  );
+}
+
+// Blase eines Palettenmenüs, die sich am Griff überallhin schieben lässt
+// (wie die Widgets, useSchiebbar); ohne gemerkte Lage hängt sie unter dem
+// Knopf. Die Lage wird je Gerät gemerkt und beim nächsten Öffnen wieder
+// eingenommen. Ablegen nahe des Dialog-Fußes hängt sie wieder unter den Knopf.
+function SchiebbareBlase({ schluessel, label, children }: { schluessel: string; label: string; children: React.ReactNode }) {
+  const { panel, lage, anfassen, bewegen, loslassen } = useSchiebbar<HTMLDivElement>(schluessel, { grenze: '.scan-fuss', schwebBreite: null });
+  return (
+    <div ref={panel} className={`notensatz-blase ${lage ? 'schwebt' : ''}`} style={lage ? { left: lage.x, top: lage.y } : undefined} role="group" aria-label={label}>
+      <div className="blase-griff" onPointerDown={anfassen} onPointerMove={bewegen} onPointerUp={loslassen} onPointerCancel={loslassen} title="Anfassen und verschieben">
+        <svg className="griff" viewBox="0 0 10 16" aria-hidden="true"><circle cx="3" cy="3" r="1.2" /><circle cx="7" cy="3" r="1.2" /><circle cx="3" cy="8" r="1.2" /><circle cx="7" cy="8" r="1.2" /><circle cx="3" cy="13" r="1.2" /><circle cx="7" cy="13" r="1.2" /></svg>
+        {label}
+      </div>
+      {children}
     </div>
   );
 }

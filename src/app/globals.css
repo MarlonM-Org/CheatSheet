@@ -1346,6 +1346,7 @@ ol.stichpunkte { list-style: decimal; }
   background: var(--papier); color: var(--tinte);
   padding-top: env(safe-area-inset-top, 0px);
 }
+.scan-mitte { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .scan-inhalt { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
 .scan-blatt { position: relative; width: 100%; max-height: 58vh; margin: 0 auto; }
 @supports (aspect-ratio: 1) { .scan-blatt { width: auto; max-width: 100%; height: min(58vh, 70vw * 1.5); } }
@@ -1471,6 +1472,14 @@ ol.stichpunkte { list-style: decimal; }
   background: var(--papier); border: 1px solid var(--linie-stark); box-shadow: 0 10px 28px rgb(0 0 0 / 18%);
 }
 .notensatz-blase > .notensatz-gruppe.breit { grid-column: 1 / -1; }
+/* Schiebbare Blase („Mehr“): Griffzeile oben, am Griff überallhin ziehen; die Lage wird gemerkt. */
+.notensatz-blase.schwebt { position: fixed; right: auto; top: auto; }
+.blase-griff {
+  grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; margin: -4px 0 -6px;
+  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--leise);
+  cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.blase-griff .griff { width: 10px; height: 16px; flex: none; fill: var(--leise); opacity: 0.7; }
 .notensatz-gruppe { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
 .notensatz-gruppe > span:first-child { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--leise); white-space: nowrap; padding-left: 1px; }
 .notensatz-reihe { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -1509,22 +1518,31 @@ ol.stichpunkte { list-style: decimal; }
 .aufnahme-zusammen { display: flex; align-items: center; gap: 4px; flex: none; }
 @media (prefers-reduced-motion: reduce) { .nav-aufnahme[aria-pressed="true"] { animation: none; } }
 
-/* Aufnahmeleiste (G-05): schwebt unten über dem Notenblatt, feste Höhe, zwei Zeilen. */
+/* Aufnahmeleiste (G-05): liegt unten über dem Notenblatt, oberhalb des
+   Dialog-Fußes (.scan-mitte); am Griff frei schiebbar (.schwebt), die Lage
+   wird gemerkt. Die Steuerzeile bricht um statt zu scrollen. */
 .aufnahme-leiste {
-  position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); z-index: 96;
+  position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); z-index: 96;
   width: min(100%, 42rem); display: flex; flex-direction: column; gap: 8px;
-  padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+  padding: 8px 12px 10px;
   background: var(--papier); border: 1px solid var(--linie-stark); border-bottom: 0; border-radius: 12px 12px 0 0;
   box-shadow: 0 -10px 28px rgb(0 0 0 / 16%);
 }
+.aufnahme-leiste.schwebt {
+  position: fixed; bottom: auto; transform: none; width: min(42rem, calc(100vw - 16px));
+  border-bottom: 1px solid var(--linie-stark); border-radius: 12px; box-shadow: 0 10px 36px rgb(0 0 0 / 25%);
+}
 .aufnahme-kopf { display: flex; align-items: center; gap: 12px; min-height: 56px; }
+.aufnahme-kopf.anfasser { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+.aufnahme-kopf .griff { width: 10px; height: 16px; flex: none; fill: var(--leise); opacity: 0.7; }
 .aufnahme-stand { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 0.9rem; line-height: 1.25; }
 .aufnahme-stand > .gedaempft { white-space: normal; }
 .aufnahme-stand .einspiel-ton { font-size: 1rem; min-height: 0; }
-.aufnahme-steuer { display: flex; align-items: center; gap: 8px; min-height: 42px; overflow-x: auto; overflow-y: visible; scrollbar-width: none; }
-.aufnahme-steuer::-webkit-scrollbar { display: none; }
+.aufnahme-steuer { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 42px; }
 .aufnahme-steuer > * { flex-shrink: 0; }
 .aufnahme-steuer .notensatz-menue { position: relative; }
+/* Verwerfen/Übernehmen: eigene Zeile, rechts. */
+.aufnahme-aktionen { display: flex; gap: 8px; margin-left: auto; flex-basis: 100%; justify-content: flex-end; }
 .einspiel-aufnahme.klein { width: 56px; height: 56px; flex-shrink: 0; }
 .einspiel-aufnahme.klein .einspiel-punkt { width: 34px; height: 34px; }
 .einspiel-aufnahme.klein .einspiel-stopp { width: 20px; height: 20px; border-radius: 4px; }

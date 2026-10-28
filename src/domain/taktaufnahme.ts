@@ -65,10 +65,30 @@ export function abschnittKuerzen(takte: readonly Takt[], n: number, r: Raster): 
   return t.length ? bogenLoesen(t, r, t.length - 1) : t;
 }
 
+// Aufnahmebereich: ab Takt `von` (0-basiert; = Länge heißt Anhängen) bis
+// Takt `bis` einschließlich, oder offen (null: bis ■ bzw. zur Höchstzahl).
+// Mit Endtakt hält die Aufnahme dort von selbst, und nur diese Takte
+// werden ersetzt — wer einen Takt nachbessern will, nimmt genau den auf.
+export interface Bereich { von: number; bis: number | null }
+
+// Bereich stimmig halten: `von` innerhalb des Stücks (Anhängen erlaubt),
+// `bis` nie vor `von` und nie hinter dem letzten Takt; beim Anhängen gibt es
+// keinen Endtakt. Rückt `von` hinter `bis`, zieht `bis` mit.
+export function bereichSetzen(b: Bereich, neu: Partial<Bereich>, laenge: number): Bereich {
+  const von = Math.max(0, Math.min(laenge, neu.von ?? b.von));
+  const gewollt = neu.bis === undefined ? b.bis : neu.bis;
+  if (gewollt === null || von >= laenge) return { von, bis: null };
+  return { von, bis: Math.max(von, Math.min(laenge - 1, gewollt)) };
+}
+
+// Wie viele Takte die Aufnahme höchstens läuft.
+export const bereichTakte = (b: Bereich, offen: number): number => (b.bis === null ? offen : b.bis - b.von + 1);
+
 // Vorgabe nach der Aufnahme: Anhängen oder lauter leere Zieltakte →
 // ersetzen; sonst einfügen (nichts Geschriebenes geht ungefragt verloren).
-export function vorgabeArt(takte: readonly Takt[], ab: number, n: number): EinsetzArt {
-  if (ab >= takte.length) return 'ersetzen';
+// Mit gesetztem Endtakt (`geschlossen`) war das Ersetzen der Zweck → ersetzen.
+export function vorgabeArt(takte: readonly Takt[], ab: number, n: number, geschlossen = false): EinsetzArt {
+  if (geschlossen || ab >= takte.length) return 'ersetzen';
   const ziel = takte.slice(ab, ab + n);
   return ziel.every((t) => t.noten.every((x) => x.midi === null)) ? 'ersetzen' : 'einfuegen';
 }

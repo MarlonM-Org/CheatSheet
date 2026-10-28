@@ -1,27 +1,30 @@
 'use client';
 // Die Aufnahmeleiste (G-05): in ein geschriebenes Stück hinein aufnehmen.
-// Schwebt unten über dem Notenblatt (Portal), das Blatt bleibt sichtbar.
-// Ablauf je Abschnitt: scharf (Zieltakt, Lesart, Vorlauf) → ● → Vorlauf
-// (Takte davor vorgespielt, Klick läuft; bei Takt 1 ein Einzähltakt) →
-// Aufnahme → ■ → prüfen (die erkannten Takte liegen als Vorschau im Blatt,
-// Einfügen oder Ersetzen, − +, Lesart umlegbar) → Übernehmen schreibt sie
-// als einen Rückgängig-Schritt; die Leiste steht danach auf dem Folgetakt.
+// Liegt unten über dem Notenblatt, oberhalb des Dialog-Fußes („Speichern“
+// bleibt frei); am Griff lässt sie sich überallhin schieben, die Lage wird
+// gemerkt (useSchiebbar). Ablauf je Abschnitt: scharf (Zieltakt, auf Wunsch
+// ein Endtakt, Lesart, Vorlauf) → ● → Vorlauf (Takte davor vorgespielt,
+// Klick läuft; bei Takt 1 ein Einzähltakt) → Aufnahme (mit Endtakt hält sie
+// dort von selbst) → ■ → prüfen (die erkannten Takte liegen als Vorschau im
+// Blatt, Einfügen oder Ersetzen, − +, Lesart umlegbar) → Übernehmen schreibt
+// sie als einen Rückgängig-Schritt; die Leiste steht danach auf dem Folgetakt.
 // Konzept und Begründungen: reports/Einspielen im Stück UX.md.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { LESARTEN, rastern, versatzSchaetzen, type Lesart, type Raster, type Stimme, type Takt, type Tonart, type Tonrahmen } from '@/domain/notation';
 import { leererTakt, skalieren } from '@/domain/notensatz';
-import { abschnittKuerzen, nachlaufKuerzen, takteEinsetzen, vorgabeArt, vorlaufKlaenge, type EinsetzArt } from '@/domain/taktaufnahme';
+import { abschnittKuerzen, bereichSetzen, bereichTakte, nachlaufKuerzen, takteEinsetzen, vorgabeArt, vorlaufKlaenge, type Bereich, type EinsetzArt } from '@/domain/taktaufnahme';
 import { schlaegeJeTakt, taktartText } from '@/domain/takt';
 import type { Stimmung } from '@/domain/ueben';
 import { gespeichert, speichern, type Klang as MetronomKlang } from './klang';
 import { useMikrofonSpur } from './mikrofonspur';
+import { useSchiebbar } from './schiebbar';
 
 const VORLAUF_SCHLUESSEL = 'ueben:einspiel-vorlauf';
 const BEGLEITUNG_SCHLUESSEL = 'ueben:einspiel-begleitung';
-// Längste Aufnahme je Abschnitt in Takten.
+// Längste Aufnahme je Abschnitt in Takten (ohne Endtakt).
 const MAX_TAKTE = 32;
+const LAGE_SCHLUESSEL = 'ueben:lage-aufnahme';
 
 export type LeistenZustand = 'scharf' | 'zaehlt' | 'nimmt' | 'pruefen';
 export interface Vorschau { stimmen: Stimme[]; von: number; bis: number }
@@ -42,10 +45,14 @@ export function Aufnahmeleiste({ stimmen, aktiv, stumm, auswahlTakt, raster, bla
 }) {
   const takte = stimmen[aktiv]?.takte ?? [];
   const [zustand, setZustand] = useState<LeistenZustand>('scharf');
-  const [zielTakt, setZielTakt] = useState(() => auswahlTakt ?? takte.length);
+  // Aufnahmebereich: Zieltakt und auf Wunsch ein Endtakt (Regeln in taktaufnahme.ts).
+  const [bereichRoh, setBereich] = useState<Bereich>(() => ({ von: auswahlTakt ?? takte.length, bis: null }));
+  const { von: zielTakt, bis } = bereichSetzen(bereichRoh, {}, takte.length);
+  const bereichAendern = (neu: Partial<Bereich>) => setBereich((b) => bereichSetzen(b, neu, takte.length));
   // Antippen im Blatt setzt den Zieltakt, solange nichts läuft (abgeleitet, kein Effekt).
   const [letzteAuswahl, setLetzteAuswahl] = useState(auswahlTakt);
-  if (auswahlTakt !== letzteAuswahl) { setLetzteAuswahl(auswahlTakt); if (zustand === 'scharf' && auswahlTakt !== null) setZielTakt(auswahlTakt); }
+  if (auswahlTakt !== letzteAuswahl) { setLetzteAuswahl(auswahlTakt); if (zustand === 'scharf' && auswahlTakt !== null) bereichAendern({ von: auswahlTakt }); }
+  const { panel, lage, anfassen, bewegen, loslassen } = useSchiebbar<HTMLDivElement>(LAGE_SCHLUESSEL, { grenze: '.scan-fuss', schwebBreite: null });
   const [vorlauf, setVorlaufRoh] = useState(() => { const v = gespeichert<number>(VORLAUF_SCHLUESSEL, 1); return v === 0 || v === 2 ? v : 1; });
   const setVorlauf = (v: number) => { setVorlaufRoh(v); speichern(VORLAUF_SCHLUESSEL, v); };
   const [begleitung, setBegleitungRoh] = useState(() => gespeichert(BEGLEITUNG_SCHLUESSEL, false));
@@ -72,7 +79,7 @@ export function Aufnahmeleiste({ stimmen, aktiv, stumm, auswahlTakt, raster, bla
     return { takte: gekuerzt, nachklangWeg: gekuerzt.length < roh.length };
   }, [zustand, spur, raster, blattRaster, tonart, lesart]);
   const n = Math.min(anzahl ?? erkannt.takte.length, erkannt.takte.length);
-  const art: EinsetzArt = artWahl ?? vorgabeArt(takte, zielTakt, erkannt.takte.length || 1);
+  const art: EinsetzArt = artWahl ?? vorgabeArt(takte, zielTakt, erkannt.takte.length || 1, bis !== null);
   const setArt = setArtWahl;
   const vorschau = useMemo<Vorschau | null>(() => {
     if (zustand !== 'pruefen' || !n) return null;
@@ -90,7 +97,7 @@ export function Aufnahmeleiste({ stimmen, aktiv, stumm, auswahlTakt, raster, bla
       raster, lautsprecher, klickWeiter: true, metro, stimmung, kammerton,
       einzaehlTakte: vorlaufTakte ? 0 : 1,
       vorlauf: vorlaufTakte ? { klaenge, takte: vorlaufTakte } : null,
-      maxTakte: MAX_TAKTE,
+      maxTakte: bereichTakte({ von: zielTakt, bis }, MAX_TAKTE),
       beiPhase: setZustand,
       beiEnde: (liste, ok) => {
         if (ok) {
@@ -105,7 +112,7 @@ export function Aufnahmeleiste({ stimmen, aktiv, stumm, auswahlTakt, raster, bla
       },
       beiFehler: (t) => { setFehler(t); setZustand('scharf'); },
     });
-  }, [vorlauf, zielTakt, stimmen, blattRaster, stumm, aktiv, begleitung, mikrofonStarten, raster, lautsprecher, metro, stimmung, kammerton, letzterVersatz]);
+  }, [vorlauf, zielTakt, bis, stimmen, blattRaster, stumm, aktiv, begleitung, mikrofonStarten, raster, lautsprecher, metro, stimmung, kammerton, letzterVersatz]);
   const stoppen = () => mikrofonStoppen(zustand === 'nimmt');
   const verwerfen = () => { setSpur([]); setZustand('scharf'); };
   const nochmal = () => { setSpur([]); setZustand('scharf'); starten(); };
@@ -113,38 +120,44 @@ export function Aufnahmeleiste({ stimmen, aktiv, stumm, auswahlTakt, raster, bla
     if (!vorschau) return;
     const weiter = zielTakt + n;
     uebernehmen(vorschau.stimmen, weiter);
-    setSpur([]); setZielTakt(weiter); setZustand('scharf');
+    // Weiter auf dem Folgetakt, wieder offen — der Endtakt galt für diesen Abschnitt.
+    setSpur([]); setBereich({ von: weiter, bis: null }); setZustand('scharf');
   };
   // Ohne Ton: einen leeren Takt einsetzen, zum Schreiben von Hand.
   const leerenTakt = () => {
     const e = takteEinsetzen(stimmen, aktiv, zielTakt, [leererTakt(blattRaster)], 'einfuegen', blattRaster);
     uebernehmen(e.stimmen, zielTakt + 1);
-    setSpur([]); setZielTakt(zielTakt + 1); setZustand('scharf');
+    setSpur([]); setBereich({ von: zielTakt + 1, bis: null }); setZustand('scharf');
   };
   useEffect(() => () => vorschauAendern(null), [vorschauAendern]);
 
   const anhaengen = zielTakt >= takte.length;
   const taktText = anhaengen ? 'Anhängen' : `Takt ${zielTakt + 1}`;
+  // „Takt 4“ oder „Takt 4–6“ (mit Endtakt).
+  const bereichText = bis === null || bis === zielTakt ? taktText : `Takt ${zielTakt + 1}–${bis + 1}`;
+  const bisText = bis === null ? 'offen' : bis === zielTakt ? 'nur diesen' : `bis Takt ${bis + 1}`;
   const jeTakt = schlaegeJeTakt(raster.zaehler, raster.nenner);
   const stimmeText = stimmen.length > 1 ? ` · ${stimmen[aktiv]?.name || `Stimme ${aktiv + 1}`}` : '';
   const vorlaufText = zielTakt === 0 || vorlauf === 0 ? 'Einzähler, dann singen' : `Vorlauf: ${vorlauf === 1 ? `Takt ${zielTakt}` : `Takte ${Math.max(1, zielTakt - 1)}–${zielTakt}`} wird vorgespielt, dann singen`;
   const a = mikrofon.anzeige;
   const laeuft = zustand === 'zaehlt' || zustand === 'nimmt';
 
-  return createPortal(
-    <div className="aufnahme-leiste" role="region" aria-label="Aufnehmen im Stück">
-      <div className="aufnahme-kopf">
+  return (
+    <div ref={panel} className={`aufnahme-leiste ${lage ? 'schwebt' : ''}`} style={lage ? { left: lage.x, top: lage.y } : undefined} role="region" aria-label="Aufnehmen im Stück">
+      {/* Am Kopf anfassen und schieben; Knöpfe darin bleiben Knöpfe. */}
+      <div className="aufnahme-kopf anfasser" onPointerDown={anfassen} onPointerMove={bewegen} onPointerUp={loslassen} onPointerCancel={loslassen}>
+        <svg className="griff" viewBox="0 0 10 16" aria-hidden="true"><circle cx="3" cy="3" r="1.2" /><circle cx="7" cy="3" r="1.2" /><circle cx="3" cy="8" r="1.2" /><circle cx="7" cy="8" r="1.2" /><circle cx="3" cy="13" r="1.2" /><circle cx="7" cy="13" r="1.2" /></svg>
         {zustand === 'pruefen'
           ? <button type="button" className="einspiel-aufnahme klein" onClick={nochmal} disabled={gesperrt} aria-label="Nochmal aufnehmen" title="Nochmal: gleicher Zieltakt, der Vorschlag verfällt"><span className="aufnahme-nochmal" aria-hidden="true">↻</span></button>
           : laeuft
             ? <button type="button" className={`einspiel-aufnahme klein ${zustand === 'nimmt' ? 'nimmt' : ''}`} onClick={stoppen} aria-label={zustand === 'nimmt' ? 'Aufnahme beenden' : 'Vorlauf abbrechen'}><span className="einspiel-stopp" aria-hidden="true" /></button>
             : <button type="button" className="einspiel-aufnahme klein" onClick={starten} aria-label="Aufnahme starten"><span className="einspiel-punkt" aria-hidden="true" /></button>}
         <div className="aufnahme-stand" role="status" aria-live="polite">
-          {zustand === 'scharf' && <><strong>Aufnehmen ab {taktText}</strong>{stimmeText} · {raster.bpm} bpm · {taktartText(raster.zaehler, raster.nenner)}<span className="gedaempft text-xs">{fehler || vorlaufText}</span></>}
+          {zustand === 'scharf' && <><strong>{anhaengen ? 'Anhängen' : bis === null ? `Aufnehmen ab ${taktText}` : `Aufnehmen ${bereichText}`}</strong>{stimmeText} · {raster.bpm} bpm · {taktartText(raster.zaehler, raster.nenner)}<span className="gedaempft text-xs">{fehler || vorlaufText}</span></>}
           {zustand === 'zaehlt' && <><strong>{a.vor ? `Vorlauf · Takt ${zielTakt - a.vor + 1}` : 'Einzähler'}</strong> · {a.zaehlt ?? jeTakt}<span className="gedaempft text-xs">Einsatz auf der Eins von {taktText}</span></>}
-          {zustand === 'nimmt' && <><strong>Takt {zielTakt + (a.takt ?? 1)} · Schlag {a.schlag ?? 1}</strong> <span className="einspiel-ton">{a.ton || ''}</span><span className="gedaempft text-xs">Aufnahme läuft — ■, wenn der Abschnitt zu Ende ist</span></>}
+          {zustand === 'nimmt' && <><strong>Takt {zielTakt + (a.takt ?? 1)} · Schlag {a.schlag ?? 1}</strong> <span className="einspiel-ton">{a.ton || ''}</span><span className="gedaempft text-xs">{bis === null ? 'Aufnahme läuft — ■, wenn der Abschnitt zu Ende ist' : `Aufnahme läuft bis Takt ${bis + 1}, dann hält sie von selbst`}</span></>}
           {zustand === 'pruefen' && (erkannt.takte.length
-            ? <><strong>{n} {n === 1 ? 'Takt' : 'Takte'} erkannt</strong> · ab {taktText}<span className="gedaempft text-xs">{art === 'einfuegen' && !anhaengen ? `Einfügen schiebt ab Takt ${zielTakt + 1} nach hinten` : anhaengen ? 'wird angehängt' : `Ersetzen überschreibt Takt ${zielTakt + 1}–${zielTakt + n}`}{erkannt.nachklangWeg ? ' · letzter Takt weggelassen (Nachklang)' : ''}</span></>
+            ? <><strong>{n} {n === 1 ? 'Takt' : 'Takte'} erkannt</strong> · ab {taktText}<span className="gedaempft text-xs">{art === 'einfuegen' && !anhaengen ? `Einfügen schiebt ab Takt ${zielTakt + 1} nach hinten` : anhaengen ? 'wird angehängt' : n === 1 ? `Ersetzen überschreibt Takt ${zielTakt + 1}` : `Ersetzen überschreibt Takt ${zielTakt + 1}–${zielTakt + n}`}{erkannt.nachklangWeg ? ' · letzter Takt weggelassen (Nachklang)' : ''}</span></>
             : <><strong>Kein Ton erkannt</strong><span className="gedaempft text-xs">Näher ans Mikrofon oder lauter; der Klick bleibt draußen</span></>)}
         </div>
         <button type="button" className="panel-zu" onClick={schliessen} disabled={laeuft} aria-label="Aufnahmeleiste schließen">
@@ -154,11 +167,23 @@ export function Aufnahmeleiste({ stimmen, aktiv, stumm, auswahlTakt, raster, bla
       <div className="aufnahme-steuer">
         {zustand === 'scharf' && (
           <>
-            <div className="notensatz-block">
-              <button type="button" onClick={() => setZielTakt(Math.max(0, zielTakt - 1))} disabled={zielTakt === 0} aria-label="Zieltakt zurück">−</button>
-              <button type="button" disabled aria-label="Zieltakt">{taktText}</button>
-              <button type="button" onClick={() => setZielTakt(Math.min(takte.length, zielTakt + 1))} disabled={anhaengen} aria-label="Zieltakt vor">+</button>
+            <div className="notensatz-block" role="group" aria-label="Zieltakt">
+              <button type="button" onClick={() => bereichAendern({ von: zielTakt - 1 })} disabled={zielTakt === 0} aria-label="Zieltakt zurück">−</button>
+              <button type="button" disabled aria-label="Zieltakt" title="Ab hier wird aufgenommen; eine Note im Blatt antippen setzt ihn">{taktText}</button>
+              <button type="button" onClick={() => bereichAendern({ von: zielTakt + 1 })} disabled={anhaengen} aria-label="Zieltakt vor">+</button>
             </div>
+            {/* Endtakt: offen (bis ■) oder bis zu einem Takt — dann hält die
+                Aufnahme dort und nur diese Takte werden ersetzt. */}
+            {!anhaengen && (
+              <div className="notensatz-block" role="group" aria-label="Endtakt">
+                <button type="button" onClick={() => bereichAendern({ bis: bis === null ? zielTakt : bis - 1 })} disabled={bis === null || bis === zielTakt} aria-label="Endtakt zurück">−</button>
+                <button type="button" aria-pressed={bis !== null} onClick={() => bereichAendern({ bis: bis === null ? zielTakt : null })} aria-label={bis === null ? 'Endtakt setzen' : 'Endtakt aufheben'}
+                  title={bis === null ? `Offen: Aufnahme läuft bis ■ (höchstens ${MAX_TAKTE} Takte). Antippen: nur den Zieltakt aufnehmen` : 'Die Aufnahme hält am Endtakt von selbst; nur diese Takte werden ersetzt. Antippen: wieder offen'}>
+                  {bisText}
+                </button>
+                <button type="button" onClick={() => bereichAendern({ bis: bis === null ? zielTakt : bis + 1 })} disabled={bis !== null && bis >= takte.length - 1} aria-label="Endtakt vor">+</button>
+              </div>
+            )}
             <div className="notensatz-block" role="group" aria-label="Lesart">
               {LESARTEN.map((l) => <button key={l.lesart} type="button" aria-pressed={lesart === l.lesart} onClick={() => setLesart(l.lesart)} title={l.hinweis}>{l.name}</button>)}
             </div>
@@ -192,7 +217,7 @@ export function Aufnahmeleiste({ stimmen, aktiv, stumm, auswahlTakt, raster, bla
             </div>
           </>
         )}
-        {laeuft && <span className="gedaempft text-xs">{zustand === 'zaehlt' ? 'Vorlauf läuft — ■ bricht ab' : `höchstens ${MAX_TAKTE} Takte, dann hält die Aufnahme von selbst`}</span>}
+        {laeuft && <span className="gedaempft text-xs">{zustand === 'zaehlt' ? 'Vorlauf läuft — ■ bricht ab' : bis === null ? `höchstens ${MAX_TAKTE} Takte, dann hält die Aufnahme von selbst` : `${bereichTakte({ von: zielTakt, bis }, MAX_TAKTE)} ${bis === zielTakt ? 'Takt' : 'Takte'}, dann hält die Aufnahme von selbst — ■ vorher, wenn es reicht`}</span>}
         {zustand === 'pruefen' && erkannt.takte.length > 0 && (
           <>
             <div className="notensatz-block" role="group" aria-label="Einfügen oder Ersetzen">
@@ -207,20 +232,22 @@ export function Aufnahmeleiste({ stimmen, aktiv, stumm, auswahlTakt, raster, bla
             <div className="notensatz-block" role="group" aria-label="Lesart">
               {LESARTEN.map((l) => <button key={l.lesart} type="button" aria-pressed={lesart === l.lesart} onClick={() => setLesart(l.lesart)} title={l.hinweis}>{l.name}</button>)}
             </div>
-            <span className="flex-1" />
-            <button type="button" className="knopf knopf-leise knopf-klein" onClick={verwerfen}>Verwerfen</button>
-            <button type="button" className="knopf knopf-klein" onClick={fertig}>Übernehmen</button>
+            {/* Die Entscheidung in einer eigenen Zeile, rechts — nichts scrollt. */}
+            <div className="aufnahme-aktionen">
+              <button type="button" className="knopf knopf-leise knopf-klein" onClick={verwerfen}>Verwerfen</button>
+              <button type="button" className="knopf knopf-klein" onClick={fertig}>Übernehmen</button>
+            </div>
           </>
         )}
         {zustand === 'pruefen' && !erkannt.takte.length && (
           <>
             <button type="button" className="knopf knopf-leise knopf-klein" onClick={leerenTakt}>Leeren Takt einfügen</button>
-            <span className="flex-1" />
-            <button type="button" className="knopf knopf-leise knopf-klein" onClick={verwerfen}>Verwerfen</button>
+            <div className="aufnahme-aktionen">
+              <button type="button" className="knopf knopf-leise knopf-klein" onClick={verwerfen}>Verwerfen</button>
+            </div>
           </>
         )}
       </div>
-    </div>,
-    document.body,
+    </div>
   );
 }
