@@ -983,11 +983,16 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
   // Stift-Vorrang (E-14): Solange der Stift schreibt — und kurz danach —
   // zählen Berührungen nicht (Handballen beim Schreiben). Sonst überschrieb
   // die Hand den laufenden Zug, der Strich ging verloren oder endete, sobald
-  // die Hand abhob.
+  // die Hand abhob. Nur die Berührung zählt, nicht das Schweben des Pencil
+  // (neuere iPads melden es als Bewegung ohne Druck): Sonst sperrte der
+  // Stift in der Hand jeden Finger-Tipp, und der Doppeltipp tat nichts.
   const stiftZuletzt = useRef(0);
   const STIFT_SCHONZEIT = 700;
   function handballen(e: React.PointerEvent): boolean {
-    if (e.pointerType === 'pen') { stiftZuletzt.current = e.timeStamp; return false; }
+    if (e.pointerType === 'pen') {
+      if (e.type !== 'pointermove' || e.buttons !== 0) stiftZuletzt.current = e.timeStamp;
+      return false;
+    }
     if (e.pointerType !== 'touch') return false;
     return zug.current?.zeiger === 'pen' || e.timeStamp - stiftZuletzt.current < STIFT_SCHONZEIT;
   }

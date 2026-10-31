@@ -1317,6 +1317,16 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
   zählen Berührungen nicht (Zeichnen, Blättern, Zoom), und nur der Zeiger,
   der einen Zug begonnen hat, darf ihn beenden. „Auch mit dem Finger“
   zeichnet weiter, sobald kein Stift im Spiel ist.
+  - **Nachbesserung (2026-10-31):** Rückmeldung Marlon: Im frisch geöffneten
+    Stück tat der Doppeltipp mit dem Finger gar nichts, erst nach Zoomen von
+    Hand ging es. Verdacht: Das **Schweben des Pencil** (iPad Pro ab M2
+    meldet es als Zeigerbewegung ohne Druck) zählte als Stift-Ereignis und
+    hielt die Schonzeit dauernd offen — mit dem Pencil in der Hand war jeder
+    Finger-Tipp ein „Handballen“; Zwei-Finger-Zoom ging trotzdem (Safari-
+    Gesten-Ereignisse). Jetzt zählt nur die Berührung des Pencil (Aufsetzen,
+    Bewegung mit Druck, Abheben), nicht das Schweben. Auf dem iPad prüfen:
+    Doppeltipp mit dem Finger, während der Pencil in der Hand über dem
+    Display schwebt.
 
 - **E-13 · Schreiben ohne Hänger: Striche nachzeichnen statt Blatt neu
   setzen** (2026-10-23): Rückmeldung Marlon, das Schreiben hakt nach dem
