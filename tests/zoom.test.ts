@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { anBreite, begrenzen, einrasten, istDoppeltipp, OHNE_ZOOM, sichtbarerTeil, ZOOM_MAX, zoomenUm, zweiFinger } from '@/domain/zoom';
+import { anBreite, aufStelle, begrenzen, einrasten, istDoppeltipp, OHNE_ZOOM, sichtbarerTeil, ZOOM_MAX, zoomenUm, zweiFinger } from '@/domain/zoom';
 
 const rahmen = { b: 600, h: 800 };
 
@@ -86,6 +86,28 @@ describe('Doppeltipp: an die Breite', () => {
     const z = anBreite(platz, { b: 490, h: 346 }, { b: 490, h: 692, x: 0, y: -346 }, 0.75);
     // 75 % der Seite liegt genau in der Rahmenmitte → keine Verschiebung.
     expect(z.y).toBeCloseTo(0);
+  });
+  it('Stelle: so weit heran, dass sie den Platz füllt, ihre Mitte in der Bildschirmmitte', () => {
+    // Breites Band in der oberen Hälfte: die Breite stößt zuerst an.
+    const st = { x: 0.1, y: 0.2, b: 0.8, h: 0.1 };
+    const z = aufStelle(platz, r, blatt, st);
+    expect(z.z).toBeCloseTo((1000 / (0.8 * 490)) * 0.92);
+    // Mitte der Stelle (245 px, 173 px) liegt in der Mitte: Rahmenmitte (245, 346) wird um (346 − 173) · z nach unten geschoben.
+    expect(z.x).toBeCloseTo(0);
+    expect(z.y).toBeCloseTo((346 - 0.25 * 692) * z.z);
+    // Hohe, schmale Stelle: die Höhe stößt zuerst an, der Faktor bleibt unter dem Höchstwert.
+    const hoch = aufStelle(platz, r, blatt, { x: 0.4, y: 0.1, b: 0.1, h: 0.8 });
+    expect(hoch.z).toBeCloseTo((700 / (0.8 * 692)) * 0.92);
+    expect(aufStelle(platz, r, blatt, { x: 0.45, y: 0.45, b: 0.02, h: 0.02 }).z).toBe(ZOOM_MAX);
+  });
+  it('Stelle, die den Platz schon füllt, oder ohne Fläche: kein Zoom', () => {
+    expect(aufStelle({ b: 600, h: 1000 }, { b: 592, h: 837 }, { b: 592, h: 837, x: 0, y: 0 }, { x: 0, y: 0, b: 1, h: 1 })).toEqual(OHNE_ZOOM);
+    expect(aufStelle(platz, r, blatt, { x: 0.2, y: 0.2, b: 0, h: 0.1 })).toEqual(OHNE_ZOOM);
+  });
+  it('Stelle am Rand: die Verschiebung bleibt in den Grenzen', () => {
+    const z = aufStelle(platz, r, blatt, { x: 0, y: 0, b: 0.3, h: 0.05 });
+    expect(Math.abs(z.x)).toBeLessThanOrEqual((r.b * z.z) / 2);
+    expect(Math.abs(z.y)).toBeLessThanOrEqual((r.h * z.z) / 2);
   });
   it('erkennt zwei Tipps kurz nacheinander nahe beieinander', () => {
     expect(istDoppeltipp(null, { x: 0, y: 0, t: 1000 })).toBe(false);

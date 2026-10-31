@@ -108,6 +108,7 @@ ist auf `main` und damit auf cheat-sheet.ma-und-ma.de.
 Alles hier hat Code und Tests; was fehlt, ist der Praxisbeweis auf iPhone
 oder iPad. Vorher auf jedem Gerät eine Sicherung erstellen.
 
+- B-16 · Doppeltipp auf eine Stelle: heran und Schreibmodus, noch einer zurück in den Spielmodus · `aufStelle` in `zoom.ts` getestet; auf dem iPad prüfen: Finger-Doppeltipp im Stellen-Modus hinein und wieder heraus, dazwischen mit dem Pencil schreiben.
 - G-02/G-03 · Einsingen oder Audio laden (`Einspielen.tsx`, `notation.ts` mit synthetischer Messlatte „Alle meine Entchen“) · einmal auf dem iPhone probiert (Mund dicht am Mikrofon), seitdem Lesart, Tonart, Anschläge, Latenz und Pegel umgebaut — echte Stimme noch nie gegen den neuen Stand.
   - Lesart 27.10.2026 nach der Recherche (`reports/Gesang zu Noten transkribieren.md`) umgebaut: erst Tonstücke in Sekunden (`segmentieren`: Mindestdauer 100 ms, Lücken bis 130 ms überbrücken, Anschläge nur zum Trennen gleicher Töne, Tonhöhe ohne den Ansatz), dann Legato-Rasterung (nur Einsätze gerundet, Note dauert bis zum nächsten Einsatz, Pause erst ab einer halben Schlaglänge Stille). Prüfen: Ein lang gehaltener Ton bleibt eine Note statt „Sechzehntel, Pause, Sechzehntel“; „schwim-men auf dem“ bleiben vier Viertel; Atempausen zwischen Phrasen werden Pausen.
   - Rückmeldung Marlon 27.10. abends: abgesetztes „la la la“ wird getrennt, weich gesungenes nicht (vier „la“ wurden eine 2,3-s-Note). Aus seiner Aufnahme gemessen: Das weiche „l“ senkt den Gesamtpegel nur 1–2 dB, das Band 600–1500 Hz aber 15–25 dB. Seitdem trägt jeder Rahmen `mitte` (`bandpegel`, Goertzel über 600–1500 Hz) und `silbengrenzen` trennt gleiche Töne an einem Einbruch ≥ 10 dB; an der Aufnahme werden daraus vier Viertel. Prüfen: weiches „la la la la“ auf einem Ton → vier Noten; gehaltener Ton mit Vibrato → eine Note; Mikrofon-Pfad (Analyser 4096) und Datei-Pfad (Fenster 1024) verhalten sich gleich.
@@ -967,6 +968,28 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
 ## Erledigt
 
 *(Abgeschlossene Punkte hierher verschieben, mit Datum und Commit.)*
+
+- **B-16 · Doppeltipp auf eine Stelle: heran und schreiben** (2026-10-31):
+  Wunsch Marlon: Doppeltipp auf eine Stelle soll an sie heranzoomen und
+  gleich den Schreibmodus einschalten; noch ein Doppeltipp zurück in den
+  Spielmodus (Schreibmodus aus, ganze Seite). Im **Stellen-Modus** meint
+  jeder Doppeltipp in die Mitte die gezeigte Stelle; auf der Stelle selbst
+  gilt das auch am Rand (dort blättert sonst ein Tipp — daneben weiterhin).
+  Beim **Lesen** mit offener Palette treffen Doppeltipps die gestrichelten
+  Stellen-Rahmen (B-11); unsichtbare Stellen sind nichts zu treffen, dort
+  bleibt es beim Breiten-Zoom (B-15). Der Zoom füllt den Platz mit der
+  Stelle samt Rand (Breite oder Höhe, was zuerst anstößt, 8 % Luft, bis
+  600 %), ihre Mitte in der Bildschirmmitte. Die Palette öffnet mit dem
+  zuletzt gewählten Zeichenwerkzeug (Stift, Marker, Radierer) — Text,
+  Stelle, Schere und Stempel nähmen den Finger-Tipp selbst, dann käme man
+  nicht mehr heraus. Der zweite Doppeltipp schließt die Palette nur, wenn
+  der erste sie geöffnet hat (sonst nur zurück auf ganz, wie B-15); mit dem
+  Weiterblättern zur nächsten Stelle ist der Zoom vorbei, die Palette
+  bleibt. Grenze: Mit „auch mit dem Finger“ zeichnet der Finger-Doppeltipp,
+  ebenso ein Maus-Doppelklick bei offener Palette — heraus dann über den
+  Stift-Knopf oder „%“. Regel `aufStelle` in `src/domain/zoom.ts`,
+  getestet; Verdrahtung in `NotenBetrachter.tsx` (`stelleUnter`,
+  `tippZoom`).
 
 - **G-01/G-05 · Komponieren: Markieren immer da, Aufnahmebereich, Leiste
   und Mehr-Menü schiebbar** (2026-10-28): Rückmeldung Marlon („die Buttons
