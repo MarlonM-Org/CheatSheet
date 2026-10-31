@@ -465,15 +465,15 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
   useEinstellungenGeladen(useCallback(() => setZoomImmer(gespeicherterWert(ZOOM_IMMER, false)), []));
   const zoomImmerSetzen = (an: boolean) => { setZoomImmer(an); speichern(ZOOM_IMMER, an); };
   // Doppeltipp in die Mitte: deutlich heran, der Tipp in die Mitte (umPunkt);
-  // auf eine Stelle: an die Stelle heran (aufStelle) und in den Schreibmodus
-  // (B-16). Danach ist Zoomen und Schieben auf dieser Seite erlaubt, auch
+  // auf eine Stelle: an die Stelle heran (aufStelle) — beides schaltet den
+  // Schreibmodus ein (B-16). Danach ist Zoomen und Schieben auf dieser Seite erlaubt, auch
   // ohne „Immer zoomen“; mit der nächsten Seite (anderer Schlüssel) ist es
   // vorbei. tippZoom merkt sich Art, Ziel und Schlüssel, für den es gilt.
   const seitenSchluessel = `${stelle?.seite ?? hauptseite(ansicht)}:${stelle?.id ?? ''}:${rahmen?.b ?? 0}x${rahmen?.h ?? 0}`;
   const [tippZoom, setTippZoom] = useState<{ schluessel: string; ziel: Zoom; art: 'punkt' | 'stelle' } | null>(null);
   const tippZoomGilt = tippZoom !== null && tippZoom.schluessel === seitenSchluessel;
-  // Schreibmodus per Doppeltipp auf die Stelle: der nächste Doppeltipp beendet ihn wieder.
-  const stelleSchreiben = tippZoomGilt && tippZoom.art === 'stelle';
+  // Schreibmodus per Doppeltipp: der nächste Doppeltipp beendet ihn wieder (Spielmodus).
+  const tippSchreiben = tippZoomGilt;
   const zoomSchluessel = (paletteOffen || zoomImmer || tippZoomGilt) && zeichenbar && bearbeitenSeite === null && rahmen ? seitenSchluessel : null;
   const zoomAktiv = zoomSchluessel !== null;
   const [zoom, setZoom] = useState<Zoom>(OHNE_ZOOM);
@@ -507,26 +507,27 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
     setLeisteWeg(true); setAnsichtOffen(false);
     if (!darst || bearbeitenSeite !== null || !zeichenbar) return;
     if (ansicht.art === 'doppel' && !stelle) { setTippZoom(null); setZoom(OHNE_ZOOM); return; }
-    // Schon gezoomt (auf Breite, Stelle oder von Hand) oder im Schreibmodus
-    // per Doppeltipp: zurück zur ganzen Seite — der sichere Weg heraus, auch
-    // ohne Zwei-Finger-Geste. Kam der Schreibmodus vom Doppeltipp, geht er
-    // mit zu: wieder Spielmodus.
-    if (zoomLive.current.z > 1 || stelleSchreiben) {
-      if (stelleSchreiben) paletteWechsel(false);
+    // Schon gezoomt (per Doppeltipp oder von Hand) oder im Schreibmodus per
+    // Doppeltipp: zurück zur ganzen Seite — der sichere Weg heraus, auch
+    // ohne Zwei-Finger-Geste. Kam der Zoom vom Doppeltipp, geht der
+    // Schreibmodus mit zu: wieder Spielmodus.
+    if (zoomLive.current.z > 1 || tippSchreiben) {
+      if (tippSchreiben) paletteWechsel(false);
       setTippZoom(null); setZoom(OHNE_ZOOM); return;
     }
+    let zoom: Zoom;
     if (ziel) {
       const r = mitRand(ziel, RAND);
-      const zoom = aufStelle(platz, darst.rahmen, darst.blatt, rechteckAufBlatt(ziel.seite, r) ?? r);
-      setTippZoom({ schluessel: seitenSchluessel, ziel: zoom, art: 'stelle' }); setZoom(zoom);
-      // Schreibmodus mit einem Zeichenwerkzeug: Text, Stelle, Schere und
-      // Stempel nähmen den Finger-Tipp selbst — dann käme man per Doppeltipp
-      // nicht mehr heraus.
-      if (!paletteOffen) paletteWechsel(true, ['stift', 'marker', 'radierer'].includes(werkzeugZuletzt) ? werkzeugZuletzt : 'stift');
-      return;
+      zoom = aufStelle(platz, darst.rahmen, darst.blatt, rechteckAufBlatt(ziel.seite, r) ?? r);
+    } else {
+      const m = rahmenMitte();
+      zoom = umPunkt({ x: tipp.x - m.x, y: tipp.y - m.y }, darst.rahmen);
     }
-    const m = rahmenMitte(), zoom = umPunkt({ x: tipp.x - m.x, y: tipp.y - m.y }, darst.rahmen);
-    setTippZoom({ schluessel: seitenSchluessel, ziel: zoom, art: 'punkt' }); setZoom(zoom);
+    setTippZoom({ schluessel: seitenSchluessel, ziel: zoom, art: ziel ? 'stelle' : 'punkt' }); setZoom(zoom);
+    // Schreibmodus mit einem Zeichenwerkzeug: Text, Stelle, Schere und
+    // Stempel nähmen den Finger-Tipp selbst — dann käme man per Doppeltipp
+    // nicht mehr heraus.
+    if (!paletteOffen) paletteWechsel(true, ['stift', 'marker', 'radierer'].includes(werkzeugZuletzt) ? werkzeugZuletzt : 'stift');
   };
   // Während einer Geste läuft der Zoom an React vorbei (flüssig); festgelegt
   // wird er am Ende (zoom), dann folgt der scharfe Ausschnitt.
