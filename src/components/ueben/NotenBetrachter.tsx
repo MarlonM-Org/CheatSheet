@@ -26,7 +26,7 @@ import {
 } from '@/domain/schnitte';
 import { mitRand, rechteckAus, type Rechteck } from '@/domain/ueben';
 import {
-  anBreite, begrenzen, einrasten, istDoppeltipp, OHNE_ZOOM, sichtbarerTeil, ZOOM_IMMER, ZOOM_MAX, zoomenUm, zweiFinger, type Punkt, type Tipp, type Zoom,
+  anBreite, aufStelle, begrenzen, einrasten, istDoppeltipp, OHNE_ZOOM, sichtbarerTeil, ZOOM_IMMER, ZOOM_MAX, zoomenUm, zweiFinger, type Punkt, type Tipp, type Zoom,
 } from '@/domain/zoom';
 import { AusschnittRahmen } from './Ausschnitt';
 import { gespeichert as gespeicherterWert, speichern, useEinstellungenGeladen } from './klang';
@@ -464,36 +464,69 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
   const [zoomImmer, setZoomImmer] = useState(() => gespeicherterWert(ZOOM_IMMER, false));
   useEinstellungenGeladen(useCallback(() => setZoomImmer(gespeicherterWert(ZOOM_IMMER, false)), []));
   const zoomImmerSetzen = (an: boolean) => { setZoomImmer(an); speichern(ZOOM_IMMER, an); };
-  // Doppeltipp in die Mitte: Seite an die Bildschirmbreite (anBreite) — dann
-  // ist Zoomen und Schieben auf dieser Seite erlaubt, auch ohne „Immer
-  // zoomen“; mit der nächsten Seite (anderer Schlüssel) ist es vorbei.
-  // breitenZoom merkt sich Ziel und Schlüssel, für den es gilt.
+  // Doppeltipp in die Mitte: Seite an die Bildschirmbreite (anBreite); auf
+  // eine Stelle: an die Stelle heran (aufStelle) und in den Schreibmodus
+  // (B-16). Danach ist Zoomen und Schieben auf dieser Seite erlaubt, auch
+  // ohne „Immer zoomen“; mit der nächsten Seite (anderer Schlüssel) ist es
+  // vorbei. tippZoom merkt sich Art, Ziel und Schlüssel, für den es gilt.
   const seitenSchluessel = `${stelle?.seite ?? hauptseite(ansicht)}:${stelle?.id ?? ''}:${rahmen?.b ?? 0}x${rahmen?.h ?? 0}`;
-  const [breitenZoom, setBreitenZoom] = useState<{ schluessel: string; ziel: Zoom } | null>(null);
-  const breiteGilt = breitenZoom !== null && breitenZoom.schluessel === seitenSchluessel;
-  const zoomSchluessel = (paletteOffen || zoomImmer || breiteGilt) && zeichenbar && bearbeitenSeite === null && rahmen ? seitenSchluessel : null;
+  const [tippZoom, setTippZoom] = useState<{ schluessel: string; ziel: Zoom; art: 'breite' | 'stelle' } | null>(null);
+  const tippZoomGilt = tippZoom !== null && tippZoom.schluessel === seitenSchluessel;
+  // Schreibmodus per Doppeltipp auf die Stelle: der nächste Doppeltipp beendet ihn wieder.
+  const stelleSchreiben = tippZoomGilt && tippZoom.art === 'stelle';
+  const zoomSchluessel = (paletteOffen || zoomImmer || tippZoomGilt) && zeichenbar && bearbeitenSeite === null && rahmen ? seitenSchluessel : null;
   const zoomAktiv = zoomSchluessel !== null;
   const [zoom, setZoom] = useState<Zoom>(OHNE_ZOOM);
   const [zoomFuer, setZoomFuer] = useState(zoomSchluessel);
   if (zoomSchluessel !== zoomFuer) {
     setZoomFuer(zoomSchluessel);
-    setZoom(breiteGilt && zoomSchluessel ? breitenZoom.ziel : OHNE_ZOOM);
-    if (breitenZoom && !breiteGilt) setBreitenZoom(null);
+    setZoom(tippZoomGilt && zoomSchluessel ? tippZoom.ziel : OHNE_ZOOM);
+    if (tippZoom && !tippZoomGilt) setTippZoom(null);
   }
-  // Doppeltipp: Leisten weg; einzelne Seite an die Breite (Stelle in die
-  // Mitte), Doppelseite zurück auf ganz.
+  // Doppeltipp: Leisten weg; auf eine Stelle: heran und Schreibmodus an;
+  // sonst einzelne Seite an die Breite, Doppelseite zurück auf ganz. Noch
+  // ein Doppeltipp: zurück zur ganzen Seite (Spielmodus, Schreibmodus aus).
   const letzterTipp = useRef<Tipp | null>(null);
   // Eigene Uhr statt e.timeStamp: die ist je Browser anders aufgehängt.
   const uhr = useCallback(() => performance.now(), []);
-  const doppeltipp = () => {
+  // Die Stellen, auf die ein Tipp treffen kann: im Stellen-Modus die
+  // gezeigte, beim Lesen die Rahmen bei offener Palette (B-11) — unsichtbar
+  // ist nichts zu treffen.
+  const stellenZumTippen = stelle ? [stelle] : paletteOffen && !bearbeiten ? stellen : [];
+  const stelleUnter = (x: number, y: number): Stelle | null => {
+    if (!stellenZumTippen.length || !imRahmen(x, y)) return null;
+    const o = ortVon(relativ({ clientX: x, clientY: y }));
+    if (!o || o.luecke) return null;
+    return stellenZumTippen.find((s) => {
+      if (s.seite !== o.seite) return false;
+      const r = mitRand(s, RAND);
+      return o.x >= r.x && o.x <= r.x + r.b && o.y >= r.y && o.y <= r.y + r.h;
+    }) ?? null;
+  };
+  const doppeltipp = (ziel: Stelle | null) => {
     setLeisteWeg(true); setAnsichtOffen(false);
     if (!darst || bearbeitenSeite !== null || !zeichenbar) return;
-    if (ansicht.art === 'doppel' && !stelle) { setBreitenZoom(null); setZoom(OHNE_ZOOM); return; }
-    // Schon gezoomt (auf Breite oder von Hand): der Doppeltipp führt zurück
-    // zur ganzen Seite — der sichere Weg heraus, auch ohne Zwei-Finger-Geste.
-    if (zoomLive.current.z > 1) { setBreitenZoom(null); setZoom(OHNE_ZOOM); return; }
-    const ziel = anBreite(platz, darst.rahmen, darst.blatt, stelle ? stelle.y + stelle.h / 2 : null);
-    setBreitenZoom({ schluessel: seitenSchluessel, ziel }); setZoom(ziel);
+    if (ansicht.art === 'doppel' && !stelle) { setTippZoom(null); setZoom(OHNE_ZOOM); return; }
+    // Schon gezoomt (auf Breite, Stelle oder von Hand) oder im Schreibmodus
+    // per Doppeltipp: zurück zur ganzen Seite — der sichere Weg heraus, auch
+    // ohne Zwei-Finger-Geste. Kam der Schreibmodus vom Doppeltipp, geht er
+    // mit zu: wieder Spielmodus.
+    if (zoomLive.current.z > 1 || stelleSchreiben) {
+      if (stelleSchreiben) paletteWechsel(false);
+      setTippZoom(null); setZoom(OHNE_ZOOM); return;
+    }
+    if (ziel) {
+      const r = mitRand(ziel, RAND);
+      const zoom = aufStelle(platz, darst.rahmen, darst.blatt, rechteckAufBlatt(ziel.seite, r) ?? r);
+      setTippZoom({ schluessel: seitenSchluessel, ziel: zoom, art: 'stelle' }); setZoom(zoom);
+      // Schreibmodus mit einem Zeichenwerkzeug: Text, Stelle, Schere und
+      // Stempel nähmen den Finger-Tipp selbst — dann käme man per Doppeltipp
+      // nicht mehr heraus.
+      if (!paletteOffen) paletteWechsel(true, ['stift', 'marker', 'radierer'].includes(werkzeugZuletzt) ? werkzeugZuletzt : 'stift');
+      return;
+    }
+    const zoom = anBreite(platz, darst.rahmen, darst.blatt);
+    setTippZoom({ schluessel: seitenSchluessel, ziel: zoom, art: 'breite' }); setZoom(zoom);
   };
   // Während einer Geste läuft der Zoom an React vorbei (flüssig); festgelegt
   // wird er am Ende (zoom), dann folgt der scharfe Ausschnitt.
@@ -1085,10 +1118,14 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
       }
       const sprungHier = z.marke && modus === 'lesen' ? spruenge.find((s) => s.id === z.marke) : undefined;
       if (sprungHier) { springen(sprungHier); return; }
-      const b = window.innerWidth, x = e.clientX;
-      if (x < b * 0.3) zurueck(); else if (x > b * 0.7) weiter(); else {
+      // Auf einer Stelle zählt der Tipp wie in der Mitte, auch am Rand:
+      // Doppeltipp führt an sie heran (B-16), blättern tut der Rand daneben.
+      // Gezoomt füllt die Stelle den Schirm — da blättert der Rand weiter.
+      const b = window.innerWidth, x = e.clientX, getroffen = z.art === 'tippen' ? stelleUnter(z.x, z.y) : null;
+      if (!getroffen && x < b * 0.3) zurueck(); else if (!getroffen && x > b * 0.7) weiter(); else {
         const tipp: Tipp = { x: e.clientX, y: e.clientY, t: uhr() };
-        if (istDoppeltipp(letzterTipp.current, tipp)) { letzterTipp.current = null; doppeltipp(); } else { letzterTipp.current = tipp; setAnsichtOffen(false); setLeisteWeg(leiste); }
+        // In der Mitte meint der Doppeltipp im Stellen-Modus immer die gezeigte Stelle.
+        if (istDoppeltipp(letzterTipp.current, tipp)) { letzterTipp.current = null; doppeltipp(getroffen ?? stelle ?? null); } else { letzterTipp.current = tipp; setAnsichtOffen(false); setLeisteWeg(leiste); }
       }
       return;
     }
@@ -1484,9 +1521,9 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
   // Beim Öffnen steht wieder das zuletzt gewählte Werkzeug bereit (E-11) —
   // solange die App läuft, über Stückwechsel hinweg.
   useEffect(() => { if (werkzeug) werkzeugZuletzt = werkzeug; }, [werkzeug]);
-  const paletteWechsel = (offen: boolean) => {
+  const paletteWechsel = (offen: boolean, mit: Werkzeug = werkzeugZuletzt) => {
     setPaletteOffen(offen);
-    setWerkzeug(offen ? werkzeugZuletzt : null);
+    setWerkzeug(offen ? mit : null);
     setFarbeAufnehmen(false);
     if (offen) setLinieEinstellen(false);
   };

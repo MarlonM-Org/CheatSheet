@@ -16,7 +16,9 @@ funktioniert danach auch offline.
   alle Seiten gleich oder je Seite anders; per Wischen, Blätterpedal, Mausrad
   oder Bluetooth-Scroll-Ring. Je Seite ein Ausschnitt (z. B. ohne breite
   Ränder); die Leisten verschwinden mit einem Tipp in die Mitte, ein
-  Doppeltipp zieht die Seite zusätzlich auf die Bildschirmbreite.
+  Doppeltipp zieht die Seite zusätzlich auf die Bildschirmbreite; ein
+  Doppeltipp auf eine Stelle zoomt an sie heran und öffnet den Stift, noch
+  einer führt zurück zur ganzen Seite.
 - **Sprünge:** Wiederholung, D.S., D.C. und Coda als Marken; Weiterblättern
   folgt ihnen in der Reihenfolge der Liste (umstellbar), zurück geht
   denselben Weg.

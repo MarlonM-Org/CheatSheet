@@ -85,6 +85,19 @@ export function anBreite(platz: Groesse, rahmen: Groesse, blatt: { b: number; h:
   return begrenzen({ z, x: 0, y }, rahmen);
 }
 
+// Doppeltipp auf eine Stelle (Wunsch Marlon): so weit heran, dass die Stelle
+// (`r`: Anteile des Blatts, mit Rand) den Platz füllt — in Breite und Höhe,
+// was zuerst anstößt —, ihre Mitte in der Bildschirmmitte. `luft` lässt
+// rundum etwas Platz. Füllt die Stelle den Platz ohnehin: kein Zoom.
+export function aufStelle(platz: Groesse, rahmen: Groesse, blatt: { b: number; h: number; x: number; y: number }, r: Rechteck, luft = 0.92): Zoom {
+  const b = r.b * blatt.b, h = r.h * blatt.h; // px im Rahmen, ungezoomt
+  if (b <= 0 || h <= 0) return OHNE_ZOOM;
+  const z = faktor(Math.min(platz.b / b, platz.h / h) * luft);
+  if (z < EINRASTEN) return OHNE_ZOOM;
+  const mx = blatt.x + (r.x + r.b / 2) * blatt.b, my = blatt.y + (r.y + r.h / 2) * blatt.h;
+  return begrenzen({ z, x: -(mx - rahmen.b / 2) * z, y: -(my - rahmen.h / 2) * z }, rahmen);
+}
+
 // Zwei Tipps kurz nacheinander nahe beieinander sind ein Doppeltipp. Großzügig
 // bemessen: Beim Spielen tippt man nicht so flink wie am Rechner, und ein
 // Finger landet nicht zweimal auf demselben Punkt.
