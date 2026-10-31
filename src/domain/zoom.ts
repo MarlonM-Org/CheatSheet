@@ -63,26 +63,13 @@ export function sichtbarerTeil(zoom: Zoom, platz: Groesse, rahmen: Groesse,
   return { x: x0, y: y0, b: x1 - x0, h: y1 - y0 };
 }
 
-// Doppeltipp in die Mitte (Wunsch Marlon): Leisten weg und die Seite auf die
-// Bildschirmbreite ziehen — so groß, dass sie den Platz in der Breite genau
-// füllt. Ohne `mitte` steht der obere Rand der Seite oben (zum Lesen ab
-// Zeile 1); mit `mitte` (Anteil der Seitenhöhe, etwa die Mitte einer
-// Stelle) liegt dieser Punkt in der Bildschirmmitte. Füllt die Seite die
-// Breite schon (Hochformat), bleibt es bei z = 1.
-export function anBreite(platz: Groesse, rahmen: Groesse, blatt: { b: number; h: number; x: number; y: number }, mitte: number | null = null): Zoom {
-  const z = faktor(platz.b / rahmen.b);
-  // Der Rahmen lässt 8 px Luft (darstellung): das ist kein Zoom wert.
-  if (z < EINRASTEN) return OHNE_ZOOM;
-  let y: number;
-  if (mitte === null) {
-    // Oberkante des Rahmens an die Oberkante des Platzes — nur, wenn der
-    // Rahmen gezoomt höher ist als der Platz, sonst mittig.
-    y = Math.max(0, (rahmen.h * z - platz.h) / 2);
-  } else {
-    const punkt = blatt.y + mitte * blatt.h; // px vom oberen Rahmenrand
-    y = -(punkt - rahmen.h / 2) * z;
-  }
-  return begrenzen({ z, x: 0, y }, rahmen);
+// Doppeltipp beim Lesen (Wunsch Marlon, zweite Runde): deutlich heran, nicht
+// nur auf die Seitenbreite — ein fester Faktor, der getippte Punkt
+// (Bildschirm, von der Rahmenmitte aus) rückt in die Bildschirmmitte, so
+// weit es die Grenzen des Verschiebens zulassen.
+export const DOPPELTIPP_ZOOM = 3;
+export function umPunkt(p: Punkt, rahmen: Groesse, z = DOPPELTIPP_ZOOM): Zoom {
+  return begrenzen({ z, x: -p.x * z, y: -p.y * z }, rahmen);
 }
 
 // Doppeltipp auf eine Stelle (Wunsch Marlon): so weit heran, dass die Stelle

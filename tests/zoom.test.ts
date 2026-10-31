@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { anBreite, aufStelle, begrenzen, einrasten, istDoppeltipp, OHNE_ZOOM, sichtbarerTeil, ZOOM_MAX, zoomenUm, zweiFinger } from '@/domain/zoom';
+import { aufStelle, DOPPELTIPP_ZOOM, begrenzen, einrasten, istDoppeltipp, OHNE_ZOOM, sichtbarerTeil, umPunkt, ZOOM_MAX, zoomenUm, zweiFinger } from '@/domain/zoom';
 
 const rahmen = { b: 600, h: 800 };
 
@@ -57,35 +57,23 @@ describe('Sichtbarer Teil der Seite', () => {
   });
 });
 
-describe('Doppeltipp: an die Breite', () => {
+describe('Doppeltipp: heran und auf die Stelle', () => {
   // Querformat: Platz 1000 × 700, hochformatige Seite füllt die Höhe: Rahmen 490 × 692.
   const platz = { b: 1000, h: 700 }, r = { b: 490, h: 692 };
   const blatt = { b: 490, h: 692, x: 0, y: 0 };
-  it('zieht die Seite auf die Platzbreite, Oberkante oben', () => {
-    const z = anBreite(platz, r, blatt);
-    expect(z.z).toBeCloseTo(1000 / 490);
-    expect(z.x).toBe(0);
-    // Gezoomte Rahmenhöhe 1412 > 700: Oberkante des Rahmens an die Oberkante des Platzes.
-    expect(z.y).toBeCloseTo((692 * z.z - 700) / 2);
+  it('Doppeltipp beim Lesen: fester Faktor, der getippte Punkt in der Mitte', () => {
+    // Tipp 100 px rechts, 50 px über der Rahmenmitte: dieser Blattpunkt soll nach dem Zoom in der Mitte liegen.
+    const z = umPunkt({ x: 100, y: -50 }, r);
+    expect(z.z).toBe(DOPPELTIPP_ZOOM);
+    expect((0 - z.x) / z.z).toBeCloseTo(100);
+    expect((0 - z.y) / z.z).toBeCloseTo(-50);
+    const mitte = umPunkt({ x: 0, y: 0 }, r);
+    expect(mitte.z).toBe(DOPPELTIPP_ZOOM); expect(mitte.x).toBeCloseTo(0); expect(mitte.y).toBeCloseTo(0);
   });
-  it('legt die Mitte einer Stelle in die Bildschirmmitte', () => {
-    const z = anBreite(platz, r, blatt, 0.25);
-    // Punkt bei 25 % der Seite (173 px) soll in der Mitte liegen: Verschiebung = (346 − 173) · z nach unten.
-    expect(z.y).toBeCloseTo((692 / 2 - 0.25 * 692) * z.z);
-    expect(anBreite(platz, r, blatt, 0.5).y).toBeCloseTo(0);
-  });
-  it('bleibt in den Grenzen des Verschiebens', () => {
-    const z = anBreite(platz, r, blatt, 0);
-    expect(z.y).toBeLessThanOrEqual((r.h * z.z) / 2);
-  });
-  it('Hochformat: die Seite füllt die Breite schon — kein Zoom', () => {
-    expect(anBreite({ b: 600, h: 1000 }, { b: 592, h: 837 }, { b: 592, h: 837, x: 0, y: 0 })).toEqual(OHNE_ZOOM);
-  });
-  it('mit Ausschnitt rechnet die Seitenlage im Rahmen mit', () => {
-    // Ausschnitt zeigt die untere Hälfte: das Blatt ragt oben aus dem Rahmen (y negativ).
-    const z = anBreite(platz, { b: 490, h: 346 }, { b: 490, h: 692, x: 0, y: -346 }, 0.75);
-    // 75 % der Seite liegt genau in der Rahmenmitte → keine Verschiebung.
-    expect(z.y).toBeCloseTo(0);
+  it('Doppeltipp am Rand: die Verschiebung bleibt in den Grenzen', () => {
+    const z = umPunkt({ x: 5000, y: -5000 }, r);
+    expect(z.x).toBe(-(r.b * z.z) / 2);
+    expect(z.y).toBe((r.h * z.z) / 2);
   });
   it('Stelle: so weit heran, dass sie den Platz füllt, ihre Mitte in der Bildschirmmitte', () => {
     // Breites Band in der oberen Hälfte: die Breite stößt zuerst an.

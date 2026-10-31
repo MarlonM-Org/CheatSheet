@@ -26,7 +26,7 @@ import {
 } from '@/domain/schnitte';
 import { mitRand, rechteckAus, type Rechteck } from '@/domain/ueben';
 import {
-  anBreite, aufStelle, begrenzen, einrasten, istDoppeltipp, OHNE_ZOOM, sichtbarerTeil, ZOOM_IMMER, ZOOM_MAX, zoomenUm, zweiFinger, type Punkt, type Tipp, type Zoom,
+  aufStelle, begrenzen, einrasten, istDoppeltipp, OHNE_ZOOM, sichtbarerTeil, umPunkt, ZOOM_IMMER, ZOOM_MAX, zoomenUm, zweiFinger, type Punkt, type Tipp, type Zoom,
 } from '@/domain/zoom';
 import { AusschnittRahmen } from './Ausschnitt';
 import { gespeichert as gespeicherterWert, speichern, useEinstellungenGeladen } from './klang';
@@ -464,13 +464,13 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
   const [zoomImmer, setZoomImmer] = useState(() => gespeicherterWert(ZOOM_IMMER, false));
   useEinstellungenGeladen(useCallback(() => setZoomImmer(gespeicherterWert(ZOOM_IMMER, false)), []));
   const zoomImmerSetzen = (an: boolean) => { setZoomImmer(an); speichern(ZOOM_IMMER, an); };
-  // Doppeltipp in die Mitte: Seite an die Bildschirmbreite (anBreite); auf
-  // eine Stelle: an die Stelle heran (aufStelle) und in den Schreibmodus
+  // Doppeltipp in die Mitte: deutlich heran, der Tipp in die Mitte (umPunkt);
+  // auf eine Stelle: an die Stelle heran (aufStelle) und in den Schreibmodus
   // (B-16). Danach ist Zoomen und Schieben auf dieser Seite erlaubt, auch
   // ohne „Immer zoomen“; mit der nächsten Seite (anderer Schlüssel) ist es
   // vorbei. tippZoom merkt sich Art, Ziel und Schlüssel, für den es gilt.
   const seitenSchluessel = `${stelle?.seite ?? hauptseite(ansicht)}:${stelle?.id ?? ''}:${rahmen?.b ?? 0}x${rahmen?.h ?? 0}`;
-  const [tippZoom, setTippZoom] = useState<{ schluessel: string; ziel: Zoom; art: 'breite' | 'stelle' } | null>(null);
+  const [tippZoom, setTippZoom] = useState<{ schluessel: string; ziel: Zoom; art: 'punkt' | 'stelle' } | null>(null);
   const tippZoomGilt = tippZoom !== null && tippZoom.schluessel === seitenSchluessel;
   // Schreibmodus per Doppeltipp auf die Stelle: der nächste Doppeltipp beendet ihn wieder.
   const stelleSchreiben = tippZoomGilt && tippZoom.art === 'stelle';
@@ -484,7 +484,7 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
     if (tippZoom && !tippZoomGilt) setTippZoom(null);
   }
   // Doppeltipp: Leisten weg; auf eine Stelle: heran und Schreibmodus an;
-  // sonst einzelne Seite an die Breite, Doppelseite zurück auf ganz. Noch
+  // sonst um den Tipp heran, Doppelseite zurück auf ganz. Noch
   // ein Doppeltipp: zurück zur ganzen Seite (Spielmodus, Schreibmodus aus).
   const letzterTipp = useRef<Tipp | null>(null);
   // Eigene Uhr statt e.timeStamp: die ist je Browser anders aufgehängt.
@@ -503,7 +503,7 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
       return o.x >= r.x && o.x <= r.x + r.b && o.y >= r.y && o.y <= r.y + r.h;
     }) ?? null;
   };
-  const doppeltipp = (ziel: Stelle | null) => {
+  const doppeltipp = (ziel: Stelle | null, tipp: Punkt) => {
     setLeisteWeg(true); setAnsichtOffen(false);
     if (!darst || bearbeitenSeite !== null || !zeichenbar) return;
     if (ansicht.art === 'doppel' && !stelle) { setTippZoom(null); setZoom(OHNE_ZOOM); return; }
@@ -525,8 +525,8 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
       if (!paletteOffen) paletteWechsel(true, ['stift', 'marker', 'radierer'].includes(werkzeugZuletzt) ? werkzeugZuletzt : 'stift');
       return;
     }
-    const zoom = anBreite(platz, darst.rahmen, darst.blatt);
-    setTippZoom({ schluessel: seitenSchluessel, ziel: zoom, art: 'breite' }); setZoom(zoom);
+    const m = rahmenMitte(), zoom = umPunkt({ x: tipp.x - m.x, y: tipp.y - m.y }, darst.rahmen);
+    setTippZoom({ schluessel: seitenSchluessel, ziel: zoom, art: 'punkt' }); setZoom(zoom);
   };
   // Während einer Geste läuft der Zoom an React vorbei (flüssig); festgelegt
   // wird er am Ende (zoom), dann folgt der scharfe Ausschnitt.
@@ -1125,7 +1125,7 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
       if (!getroffen && x < b * 0.3) zurueck(); else if (!getroffen && x > b * 0.7) weiter(); else {
         const tipp: Tipp = { x: e.clientX, y: e.clientY, t: uhr() };
         // In der Mitte meint der Doppeltipp im Stellen-Modus immer die gezeigte Stelle.
-        if (istDoppeltipp(letzterTipp.current, tipp)) { letzterTipp.current = null; doppeltipp(getroffen ?? stelle ?? null); } else { letzterTipp.current = tipp; setAnsichtOffen(false); setLeisteWeg(leiste); }
+        if (istDoppeltipp(letzterTipp.current, tipp)) { letzterTipp.current = null; doppeltipp(getroffen ?? stelle ?? null, tipp); } else { letzterTipp.current = tipp; setAnsichtOffen(false); setLeisteWeg(leiste); }
       }
       return;
     }
