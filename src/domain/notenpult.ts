@@ -290,6 +290,19 @@ export function nachTitel(a: { titel: string; stimme: string }, b: { titel: stri
   return sammler.compare(a.titel, b.titel) || sammler.compare(a.stimme, b.stimme);
 }
 
+// Beim Öffnen der Bibliothek zum offenen Stück (B-17): Es soll zu sehen sein
+// und das nächste darunter auch, zum Weitertippen. Liegen beide schon im
+// Bild, bleibt die Liste stehen (oben, mit Sammlungen und Werkzeugen). Sonst
+// rückt die offene Zeile ins obere Drittel — davor ein Stück zur
+// Orientierung, darunter die folgenden. Maße in Pixeln ab Anfang des
+// Inhalts; `unten` ist die Unterkante des nächsten Stücks (beim letzten die
+// eigene). Ergebnis: neue Scroll-Position, null heißt nicht scrollen.
+export function zumOffenen(m: { oben: number; unten: number; scroll: number; sicht: number; gesamt: number }): number | null {
+  if (m.oben >= m.scroll && m.unten <= m.scroll + m.sicht) return null;
+  const ziel = Math.round(m.oben - m.sicht / 3);
+  return Math.max(0, Math.min(ziel, m.gesamt - m.sicht));
+}
+
 // „11.10., 18:48“ — aus einem anderen Jahr „24.12.2025, 09:30“.
 export function zeitpunkt(t: number, jetzt = Date.now()): string {
   const d = new Date(t), z = (x: number) => String(x).padStart(2, '0');

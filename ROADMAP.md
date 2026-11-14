@@ -108,6 +108,7 @@ ist auf `main` und damit auf cheat-sheet.ma-und-ma.de.
 Alles hier hat Code und Tests; was fehlt, ist der Praxisbeweis auf iPhone
 oder iPad. Vorher auf jedem Gerät eine Sicherung erstellen.
 
+- B-17 · Bibliothek öffnet beim offenen Stück · `zumOffenen` getestet. Prüfen: in A–Z ein Stück weit unten öffnen, „Noten“ tippen — offenes und nächstes Stück sichtbar, ohne Ruckeln; danach Sortieren oder Filtern springt nicht.
 - B-16 · Doppeltipp auf eine Stelle: heran und Schreibmodus, noch einer zurück in den Spielmodus · `aufStelle` in `zoom.ts` getestet; vom iPad bestätigt („funktioniert gut“). Beim Lesen zoomt der Doppeltipp auf 300 % um den Tipp (`umPunkt`, Faktor vom iPad bestätigt) und schaltet ebenfalls den Schreibmodus ein; der zweite Doppeltipp schaltet beides aus.
 - G-02/G-03 · Einsingen oder Audio laden (`Einspielen.tsx`, `notation.ts` mit synthetischer Messlatte „Alle meine Entchen“) · einmal auf dem iPhone probiert (Mund dicht am Mikrofon), seitdem Lesart, Tonart, Anschläge, Latenz und Pegel umgebaut — echte Stimme noch nie gegen den neuen Stand.
   - Lesart 27.10.2026 nach der Recherche (`reports/Gesang zu Noten transkribieren.md`) umgebaut: erst Tonstücke in Sekunden (`segmentieren`: Mindestdauer 100 ms, Lücken bis 130 ms überbrücken, Anschläge nur zum Trennen gleicher Töne, Tonhöhe ohne den Ansatz), dann Legato-Rasterung (nur Einsätze gerundet, Note dauert bis zum nächsten Einsatz, Pause erst ab einer halben Schlaglänge Stille). Prüfen: Ein lang gehaltener Ton bleibt eine Note statt „Sechzehntel, Pause, Sechzehntel“; „schwim-men auf dem“ bleiben vier Viertel; Atempausen zwischen Phrasen werden Pausen.
@@ -968,6 +969,22 @@ per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
 ## Erledigt
 
 *(Abgeschlossene Punkte hierher verschieben, mit Datum und Commit.)*
+
+- **B-17 · Bibliothek öffnet beim offenen Stück** (2026-11-14): Wunsch
+  Marlon: Der Knopf „Noten“ öffnete die Bibliothek immer ganz oben — das
+  gerade offene Stück war oft nicht zu sehen, das nächste auch nicht.
+  Jetzt steht die Liste beim Öffnen so, dass das offene Stück (Messing-
+  Strich) im Bild ist **und das nächste darunter**, zum direkten
+  Weitertippen. Liegen beide schon im Bild, bleibt die Liste oben stehen
+  (Sammlungen, Tags, Mix und Werkzeuge bleiben sichtbar); sonst rückt das
+  offene Stück ins obere Drittel, davor eins zur Orientierung, darunter
+  die folgenden. Das geschieht einmal beim Öffnen, vor dem ersten Bild —
+  kein sichtbares Springen. Sortieren, Filtern und Neuladen danach lassen
+  die Liste stehen (Bedienregel). Zeigt der Filter (Sammlung, Tag) das
+  offene Stück nicht, bleibt die Liste oben; der Filter wird nicht
+  umgestellt. Im Stellen-Mix gilt das Stück der gezeigten Stelle. Regel
+  `zumOffenen` in `src/domain/notenpult.ts`, getestet in
+  `tests/bibliothek.test.ts`; Verdrahtung in `Bibliothek.tsx`.
 
 - **B-16 · Doppeltipp auf eine Stelle: heran und schreiben** (2026-10-31):
   Wunsch Marlon: Doppeltipp auf eine Stelle soll an sie heranzoomen und
