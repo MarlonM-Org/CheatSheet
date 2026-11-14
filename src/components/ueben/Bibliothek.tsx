@@ -1,9 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { loeschHinweis } from '@/domain/bestand';
 import { stand } from '@/domain/einspielen';
-import { ausDateiname, nachTitel, zeitpunkt, zuordnen } from '@/domain/notenpult';
+import { ausDateiname, nachTitel, zeitpunkt, zumOffenen, zuordnen } from '@/domain/notenpult';
 import {
   dateiSchluessel, gleicheSammlung, imFilter, mitSammlung, ohneSammlung, ordnerPlanen, reihenfolgeUmbenennen, reihenfolgeVerschieben,
   sammlungenOrdnen, sammlungenUebersicht, sammlungenVon, sammlungUmbenennen, sicherungFaellig,
@@ -235,6 +235,26 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
   // Ein virtuelles Stück zählt die Stellen seiner Quelle in seinem Bereich (F-03).
   const stellenJe = useMemo(() => stellenJeStueck(noten ?? [], stellen), [noten, stellen]);
   const titelVon = (id: string) => noten?.find((x) => x.id === id)?.titel;
+
+  // Beim Öffnen einmal zum offenen Stück (B-17), noch vor dem ersten Bild
+  // der Liste — danach nie wieder von selbst: Sortieren, Filtern und
+  // Neuladen lassen die Liste stehen.
+  const liste = useRef<HTMLUListElement>(null);
+  const hingescrollt = useRef(false);
+  useLayoutEffect(() => {
+    if (hingescrollt.current || !noten) return;
+    hingescrollt.current = true;
+    const zeile = liste.current?.querySelector<HTMLElement>('.offen-markiert');
+    const box = liste.current?.closest<HTMLElement>('.bib-inhalt');
+    if (!zeile || !box) return;
+    const anfang = box.getBoundingClientRect().top - box.scrollTop;
+    const naechste = zeile.nextElementSibling ?? zeile;
+    const ziel = zumOffenen({
+      oben: zeile.getBoundingClientRect().top - anfang, unten: naechste.getBoundingClientRect().bottom - anfang,
+      scroll: box.scrollTop, sicht: box.clientHeight, gesamt: box.scrollHeight,
+    });
+    if (ziel !== null) box.scrollTop = ziel;
+  }, [noten]);
 
   // Dateien oder einen Ordner hinzufügen. Was schon in der Bibliothek liegt
   // (gleicher Dateiname, gleiche Größe), wird nicht doppelt angelegt, nur
@@ -555,7 +575,7 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
       )}
 
       {!!gefiltert.length && (
-        <ul className="bib-liste">
+        <ul className="bib-liste" ref={liste}>
           {gefiltert.map((n) => (
             <StueckZeile key={n.id} n={n} tags={tags} zuletzt={zuletztAus(zuletzt, n)} anzahlStellen={stellenJe[n.id] ?? 0} aktiv={aktiv}
               quelle={n.quelle ? quellenText(n.quelle, titelVon(n.quelle.stueckId)) : ''}
