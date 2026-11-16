@@ -8,6 +8,7 @@ import {
   rundeMerken, STUFEN, vorlaufFuerRunde, stufeFinden, tonBezeichnung, verlaufLesen, zufall, type Ergebnis, type Phrase, type Runde, type StufenId,
 } from '@/domain/gehoer';
 import { segmentieren, segmentOptionen, type Raster } from '@/domain/notation';
+import { GriffeBlatt } from './Griffe';
 import { gespeichert, speichern } from './klang';
 import { skillErgebnis, skillFuerOhrStufe } from './skillspeicher';
 import { vorspielen, type Vorspiel } from './klavier';
@@ -82,6 +83,8 @@ export function OhrTrainerBlatt({ schliessen, stufe: anfangsStufe }: { schliesse
   const [ergebnis, setErgebnis] = useState<Ergebnis | null>(null);
   const [kopfhoerer, setKopfhoerer] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
+  // Griff zu einer Note im Ergebnis (I-13), als Blatt über dem Blatt.
+  const [griff, setGriff] = useState<number | null>(null);
   const vorspiel = useRef<Vorspiel | null>(null);
   const stufe = stufeFinden(ein.stufe);
 
@@ -92,7 +95,7 @@ export function OhrTrainerBlatt({ schliessen, stufe: anfangsStufe }: { schliesse
   useEffect(() => { if (anfangsStufe) speichern(EINSTELLUNG, { ...gespeichert<OhrEinstellung>(EINSTELLUNG, EINSTELLUNG_STANDARD[EINSTELLUNG]), stufe: anfangsStufe }); }, [anfangsStufe]);
 
   const zu = () => { anhoerenStopp(); if (spur.aktiv) spur.stoppen(false); schliessen(); };
-  useEscape(zu);
+  useEscape(zu, griff === null);
 
   const runde = (p: Phrase) => {
     anhoerenStopp();
@@ -230,10 +233,13 @@ export function OhrTrainerBlatt({ schliessen, stufe: anfangsStufe }: { schliesse
             </div>
             <ol className="ohr-noten" aria-label="Töne">
               {ergebnis.noten.map((b, i) => (
-                <li key={i} className={`ohr-note ${b.art}`}>
-                  <strong>{tonBezeichnung(b.ziel)}</strong>
-                  <span>{b.gespielt === null ? '—' : b.art === 'richtig' ? (b.oktave ? '8va' : '✓') : tonBezeichnung(b.gespielt)}</span>
-                  {b.art === 'richtig' && !b.imTakt && <em>Takt</em>}
+                <li key={i}>
+                  <button type="button" className={`ohr-note ${b.art}`} aria-haspopup="dialog" onClick={() => setGriff(b.ziel)}
+                    aria-label={`${tonBezeichnung(b.ziel)} ${b.art} — Griff zeigen`} title="Griff zeigen">
+                    <strong>{tonBezeichnung(b.ziel)}</strong>
+                    <span>{b.gespielt === null ? '—' : b.art === 'richtig' ? (b.oktave ? '8va' : '✓') : tonBezeichnung(b.gespielt)}</span>
+                    {b.art === 'richtig' && !b.imTakt && <em>Takt</em>}
+                  </button>
                 </li>
               ))}
             </ol>
@@ -254,6 +260,7 @@ export function OhrTrainerBlatt({ schliessen, stufe: anfangsStufe }: { schliesse
             <button type="button" className="knopf knopf-leise knopf-klein w-full" onClick={() => setAnsicht('bereit')}>Stufe und Tempo</button>
           </div>
         )}
+        {griff !== null && <GriffeBlatt midi={griff} schliessen={() => setGriff(null)} />}
       </div>
     </div>,
     document.body,

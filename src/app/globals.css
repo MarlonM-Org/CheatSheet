@@ -1691,3 +1691,42 @@ ol.stichpunkte { list-style: decimal; }
 .hoer-gruppe { display: flex; flex-wrap: wrap; gap: 6px; }
 .hoer-gruppe button { flex: 1 1 auto; min-height: 2.75rem; padding: 0 12px; border: 1px solid var(--linie-stark); border-radius: 6px; background: var(--karte); font-weight: 600; }
 .hoer-gruppe button[aria-pressed="true"] { border-color: var(--messing); background: var(--messing-hell); }
+
+/* Griffweisen (I-13) */
+.griff-bild { display: block; width: 7.5rem; height: auto; flex-shrink: 0; }
+.griff-bild.klein { width: 4.4rem; }
+.griff-korpus { fill: var(--flaeche); stroke: var(--linie-stark); stroke-width: 1; }
+.griff-fuge { stroke: var(--linie-stark); stroke-width: 1; }
+.griff-taste { fill: var(--karte); stroke: var(--tinte); stroke-width: 1.4; }
+.griff-taste.zu { fill: var(--tinte); }
+.griff-taste.triller { stroke: var(--messing); stroke-width: 3; }
+.griff-taste.triller:not(.zu) { fill: var(--messing-hell); }
+.griff-text { font-size: 6.5px; font-weight: 700; text-anchor: middle; fill: var(--gedaempft); pointer-events: none; }
+.griff-text.zu { fill: var(--karte); }
+.griff-wahl { display: flex; flex-direction: column; gap: 10px; }
+.griff-schritte { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.griff-schritte .rund-knopf:disabled { opacity: 0.35; }
+.griff-ton { flex: 1; display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.griff-ton strong { font-size: 1.9rem; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.griff-ton span { font-size: 0.8rem; color: var(--gedaempft); white-space: nowrap; }
+.griff-klavier { position: relative; display: flex; height: 3.2rem; }
+.griff-klavier-taste { flex: 1; border: 1px solid var(--linie-stark); border-right-width: 0; background: var(--karte); }
+.griff-klavier > .griff-klavier-taste:nth-child(7) { border-right-width: 1px; border-radius: 0 0 6px 0; }
+.griff-klavier > .griff-klavier-taste:first-child { border-radius: 0 0 0 6px; }
+.griff-klavier-taste.schwarz { position: absolute; top: 0; width: 11%; height: 60%; background: var(--tinte); border: 1px solid var(--tinte); border-radius: 0 0 4px 4px; z-index: 1; }
+.griff-klavier-taste[aria-pressed="true"] { background: var(--messing); border-color: var(--messing); }
+.griff-klavier-taste:disabled { opacity: 0.3; }
+.griff-aktionen { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.griff-aktionen button[aria-pressed="true"] { border-color: var(--messing); background: var(--messing-hell); color: var(--tinte); }
+.griff-hoert { min-height: 1.25rem; margin: 0; }
+.griff-standard { display: flex; gap: 14px; align-items: flex-start; }
+.griff-legende { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.griff-legende p { margin: 0; }
+.griff-punkt { display: inline-block; width: 0.8rem; height: 0.8rem; border-radius: 50%; border: 1.5px solid var(--tinte); vertical-align: -1px; margin-right: 4px; }
+.griff-punkt.zu { background: var(--tinte); }
+.griff-punkt.triller { border: 2.5px solid var(--messing); background: var(--messing-hell); }
+.griff-karten { display: grid; grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr)); gap: 8px; }
+.griff-karte { display: flex; flex-direction: column; gap: 6px; align-items: center; text-align: center; padding: 8px; border: 1px solid var(--linie); border-radius: 6px; }
+.griff-karte p { margin: 0; font-size: 0.8rem; line-height: 1.3; }
+button.ohr-note { background: none; color: inherit; font: inherit; cursor: pointer; }
+.griff-skill { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin-top: 4px; }
