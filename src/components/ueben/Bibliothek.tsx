@@ -26,12 +26,13 @@ import { EinspielenDialog, type EinspielQuelle } from './Einspielen';
 import { bilderWaehlen, ScanDialog, type ScanArt } from './Scan';
 import { useSicherungLaden } from './Sicherung';
 import { MixZeile } from './StellenMix';
+import { OhrTrainerZeile } from './OhrTrainer';
 import { TagEtikett, TagFilter, TagWahl } from './Tags';
 import { fehlerGrund } from './speicherfehler';
 import { ohneCancelAbbrechen } from './dateiwahl';
 import { useEscape } from './tasten';
 
-// Bibliothek (B-02): Overlay über den Noten — Sammlungen (F-13), Stellen-Mix,
+// Bibliothek (B-02): Overlay über den Noten — Sammlungen (F-13), Stellen-Mix, Ohr-Trainer (I-01),
 // Liste, Hinzufügen (Dateien oder Ordner); Einsortieren, Aktualisieren und
 // Löschen im Auswahl-Modus. Tipp auf ein Stück öffnet es vollflächig.
 export function Bibliothek({ offen, oeffnen, schliessen, einstellungen, offenEntfernt, aktualisiert, escapeAktiv, stand, mixStarten, mixAktiv }: {
@@ -446,6 +447,8 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
       {!!noten?.length && (
         <MixZeile sammlung={aktiv} tag={zielTag} noten={noten} stellen={stellen} starten={mixStarten} aktiv={mixAktiv} />
       )}
+
+      <OhrTrainerZeile />
 
       {/* Leere Liste: Hinzufügen und Laden stehen in der Hinweis-Karte, Sortieren gibt es noch nichts. */}
       {!!noten?.length && (auswaehlen ? (

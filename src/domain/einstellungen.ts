@@ -2,15 +2,17 @@
 // zum Instrument gehört — Stimmung und Kammerton, Metronom (Klang, Lautstärke,
 // Taktart, Akzente, Unterteilung, Trainer), Stift-, Marker- und Textfarbe,
 // Wischrichtung, Zoomen auch beim Lesen, Tonumfang fürs Tonprofil, Reihenfolge der
-// Sammlungen. Was zum Gerät gehört, bleibt:
+// Sammlungen, Ohr-Trainer (Stufe, Grundton, Tempo). Was zum Gerät gehört, bleibt:
 // Hell/Dunkel und Farbwelten, Lage der Fenster, zuletzt Geöffnetes, Filter,
-// das Tempo (folgt den Stellen). Tags und Tonprofile haben eigene Felder.
+// das Tempo (folgt den Stellen), der Verlauf des Ohr-Trainers (ueben:ohr-verlauf).
+// Tags und Tonprofile haben eigene Felder.
 //
 // Auf dem Gerät liegen die Werte im localStorage (JSON) unter ihrem
 // Schlüssel; dazu der Zeitpunkt der letzten echten Änderung
 // (EINSTELLUNGEN_STAND). Beim Laden einer Sicherung gewinnt der neuere Stand,
 // und zwar als Ganzes. Rein und getestet.
 
+import { GRUNDTOENE, istStufe, type StufenId } from './gehoer';
 import { STIFT_STANDARD, type StiftEinstellung } from './stift';
 import { istNenner, NENNER_STANDARD, ZAEHLER_MAX, ZAEHLER_MIN, type Nenner } from './takt';
 import { STIMMUNGEN, type Stimmung } from './ueben';
@@ -21,6 +23,7 @@ const AKZENTE = ['betont', 'normal', 'stumm'] as const;
 export type Akzent = (typeof AKZENTE)[number];
 export interface Trainer { an: boolean; schritt: number; takte: number; ziel: number }
 export interface Tonumfang { von: number; bis: number; stamm: boolean }
+export interface OhrEinstellung { stufe: StufenId; grundton: number; bpm: number; wechseln: boolean }
 
 export interface Einstellungswerte {
   'stimm:st': Stimmung;
@@ -40,6 +43,8 @@ export interface Einstellungswerte {
   'ueben:tonprofil-umfang': Tonumfang;
   // Namen der Sammlungen in der Reihenfolge der Leiste (F-13; fehlende kommen dahinter, A–Z).
   'ueben:sammlungen-reihenfolge': string[];
+  // Ohr-Trainer (I-01): Stufe, Grundton (notiert), Tempo, Grundton jede Runde wechseln.
+  'ueben:ohr': OhrEinstellung;
 }
 export type Mitreisend = keyof Einstellungswerte;
 export type Werte = Partial<Einstellungswerte>;
@@ -66,6 +71,7 @@ export const EINSTELLUNG_STANDARD: Einstellungswerte = {
   'ueben:zoom-immer': false,
   'ueben:tonprofil-umfang': { von: 55, bis: 79, stamm: false },
   'ueben:sammlungen-reihenfolge': [],
+  'ueben:ohr': { stufe: 'drei', grundton: 60, bpm: 80, wechseln: false },
 };
 
 // Zeitpunkt der letzten echten Änderung eines mitreisenden Werts (ms).
@@ -102,6 +108,7 @@ const PRUEFEN: Record<Mitreisend, (v: unknown) => boolean> = {
   'ueben:zoom-immer': (v) => typeof v === 'boolean',
   'ueben:tonprofil-umfang': (v) => objekt(v) && ganz(v.von, 0, 127) && ganz(v.bis, 0, 127) && v.von <= v.bis && typeof v.stamm === 'boolean',
   'ueben:sammlungen-reihenfolge': (v) => Array.isArray(v) && v.length <= 1000 && v.every((x) => typeof x === 'string' && x.length > 0 && x.length <= 60),
+  'ueben:ohr': (v) => objekt(v) && istStufe(v.stufe) && ganz(v.grundton, GRUNDTOENE.von, GRUNDTOENE.bis) && ganz(v.bpm, 40, 160) && typeof v.wechseln === 'boolean',
 };
 
 export const MITREISEND = Object.keys(PRUEFEN) as Mitreisend[];
