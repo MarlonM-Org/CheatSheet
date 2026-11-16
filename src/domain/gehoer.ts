@@ -150,6 +150,16 @@ export function phraseKlaenge(p: Phrase, bpm: number, ab = 0): Klang[] {
 
 export const phraseDauer = (p: Phrase, bpm: number) => p.takte * SCHLAEGE_JE_TAKT * 60 / bpm;
 
+// Zwischen Vorspiel und Antwort zählt die App noch einmal einen Takt ein —
+// erst hören, kurz sortieren, dann eingezählt einsetzen (Wunsch 2026-11-16).
+export const ANTWORT_EINZAEHLEN = 1;
+
+// Vorlauf für die Mikrofon-Spur: Phrase, danach ein leerer Takt nur mit Klick.
+export function vorlaufFuerRunde(p: Phrase, bpm: number): { klaenge: Klang[]; takte: number } {
+  const takt = SCHLAEGE_JE_TAKT * 60 / bpm;
+  return { klaenge: phraseKlaenge(p, bpm, -(phraseDauer(p, bpm) + ANTWORT_EINZAEHLEN * takt)), takte: p.takte + ANTWORT_EINZAEHLEN };
+}
+
 // Grundton für die nächste Runde: fest oder, beim Wechseln, ein anderer
 // Leiter-Grundton (notiert) als zuletzt.
 export function naechsterGrundton(aktuell: number, wechseln: boolean, z: () => number): number {

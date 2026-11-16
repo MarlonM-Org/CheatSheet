@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   bewerten, dauern, einsaetze, empfehlung, hinweis, istStufe, nachbarStufe, naechsterGrundton, phraseDauer, phraseErzeugen,
-  phraseKlaenge, rundeMerken, STUFEN, UMFANG, verlaufLesen, VERLAUF_MAX, zufall, type Phrase, type Runde,
+  phraseKlaenge, rundeMerken, vorlaufFuerRunde, STUFEN, UMFANG, verlaufLesen, VERLAUF_MAX, zufall, type Phrase, type Runde,
 } from '@/domain/gehoer';
 import type { Tonstueck } from '@/domain/notation';
 
@@ -72,6 +72,16 @@ describe('Phrasen', () => {
     expect(phraseKlaenge(p, 60).map((k) => k.beginn)).toEqual([0, 1, 2]);
     expect(phraseKlaenge(p, 120, -2).map((k) => k.beginn)).toEqual([-2, -1.5, -1]);
     expect(phraseDauer(p, 120)).toBe(2);
+  });
+
+  it('Vorlauf: Phrase, dann ein Takt Einzählen vor der Antwort', () => {
+    const p: Phrase = { stufe: 'drei', grundton: 60, takte: 1, toene: [{ midi: 60, dauer: 1 }, { midi: 62, dauer: 1 }, { midi: 64, dauer: 2 }] };
+    const v = vorlaufFuerRunde(p, 60);
+    expect(v.takte).toBe(2);
+    expect(v.klaenge.map((k) => k.beginn)).toEqual([-8, -7, -6]);
+    // Der letzte Ton endet vor dem Einzähl-Takt.
+    const letzter = v.klaenge[v.klaenge.length - 1];
+    expect(letzter.beginn + letzter.dauer).toBeLessThanOrEqual(-4);
   });
 
   it('Grundton wechselt nur auf Wunsch und bleibt ein Leiterton im Bereich', () => {
