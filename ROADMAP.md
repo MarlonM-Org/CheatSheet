@@ -62,7 +62,7 @@ Soundbearbeitung.
 | M6 | **Extras** | Stempel/Formen (Kamera-Scan F-07, Themes B-04 und Design B-05 erledigt) — *vorgezogen 2026-10-23, vor M4 und M5* | E-04 |
 | M7 | **Komponieren** (Vision) | Noteneingabe, Rhythmus-/Melodie-Transkription; Ausbau: Vorspielen, Einspielen Takt für Takt, Song-Transkription, Klänge; Ort offen: App oder separates Werkzeug (Wunsch 2026-10-26) | G-01…G-08 |
 | M8 | **Geräteübergreifend** (Vision, Entscheidung offen) | Noten und Übe-Daten über die eigene Cloud auf mehreren Geräten | H-01…H-05 |
-| M9 | **Freies Spielen** (Vision, begonnen 2026-11-16) | Nach Gehör mitspielen, improvisieren, begleiten: Ohr-Trainer zuerst, dann Lernpfad, Song-Liste, Begleitung aus Akkorden, Impro-Feedback | I-01…I-06 |
+| M9 | **Freies Spielen** (Vision, begonnen 2026-11-16) | Nach Gehör mitspielen, improvisieren, begleiten: Ohr-Trainer zuerst, dann Lernpfad, Song-Liste, Begleitung aus Akkorden, Impro-Feedback | I-01…I-10 |
 
 **Quick Wins** (klein, unabhängig, jederzeit zwischenschieben — guter
 Einstieg): C-01, C-02, C-03, D-01 — *alle am 2026-10-10 erledigt.*
@@ -194,6 +194,7 @@ oder iPad. Vorher auf jedem Gerät eine Sicherung erstellen.
 - G-07 · Klänge einstellen · erst nach G-04.
 - I-01 · Ohr-Trainer · erste Fassung im Browser gebaut (2026-11-16), nie auf dem Gerät.
 - I-02…I-06 · Lernpfad, Song-Liste, Akkordblatt mit Begleitung, Impro-Feedback, Mitspielen nach Gehör · Vision.
+- I-07…I-09 · Skill-Kartei, Hör-Übungen per Antippen, „Heute“-Einheit · im Bau (2026-11-16). I-10 · Vision.
 - H-01 (Rest), H-02…H-05 · Sicherung ohne PDFs, Ordner am Rechner, OneDrive/Drive/iCloud · Entscheidung zum Leitbild („kein Login“) offen.
 
 ### Was Marlon jetzt tun sollte
@@ -1079,6 +1080,113 @@ Einen Song-Ausschnitt (eigene Audio-Datei, z. B. aus Moises ohne Gesang)
 loopen, langsamer stellen, darüber spielen; die App hört mit und zeigt die
 gespielten Töne als Noten (G-03) — als Gedächtnisstütze, nicht als Vorlage.
 Dateien nur abspielen, nicht bearbeiten (Leitbild).
+
+### I-07 · Skill-Kartei: was ich kann, was ich lernen will — Bau 2026-11-16
+
+Wunsch Marlon (2026-11-16): eine geführte Übe-Erfahrung mit Gesamtsicht.
+Simply Piano führt gut, zeigt aber nicht, welche Skills man in Summe kann,
+wohin man sich entwickeln kann und was man lange nicht geübt hat. Gewünscht:
+eine große Kartei aller Musik-Skills (Intervalle, Dur/Moll, Septakkorde,
+komplexere Akkorde, Modi …), Skills selbst markieren (lernen will ich / kann
+ich / gerade nicht), eine Favoritenliste für die Zukunft, und sichtbar, was
+schon geschafft ist.
+
+Vorbilder (Recherche 2026-11-16): Complete Ear Trainer (Kapitel, erst
+beherrschen, dann weiter — aber wer hängt, bleibt hängen), Duolingo
+(Stärke je Skill, verblasst nach Übungsabstand), Khan Academy (feste
+Stufen, Kurs-Fortschritt = Anteil Skills ab „sicher“). Gelernt: Tonerkennung
+kann sich verhören — **nichts blockiert**, die eigene Markierung gilt immer.
+
+**Zwei Ebenen je Skill**
+1. **Markierung** (von Marlon gesetzt): `offen` (Standard) · `will` (☆, die
+   Favoritenliste) · `lerne` (gerade dran) · `kann` (selbst eingeschätzt) ·
+   `pause` (gerade nicht). Ein Tipp auf den Chip öffnet die Auswahl.
+2. **Gemessene Stufe 0–4** aus Übungen in der App: 0 neu · 1 kennengelernt ·
+   2 vertraut · 3 sicher · 4 gemeistert. Eine Runde mit Quote q zählt;
+   Aufstieg: Durchschnitt der letzten 5 Runden ≥ 0,6 → mind. 1, ≥ 0,75 → 2,
+   ≥ 0,85 → 3, ≥ 0,9 über 10 Runden an ≥ 3 verschiedenen Tagen → 4.
+   Gespeichert werden je Skill nur Zusammenfassungen (letzte 10 Quoten mit
+   Tag, zuletzt geübt, **höchste Stufe je erreicht**), nicht jede Runde.
+3. **Verblassen**: Die aktuelle Stufe sinkt ohne Übung — Halbwertszeit wächst
+   mit der Stufe (Stufe 1: 4 Tage, 2: 10, 3: 21, 4: 45). Angezeigt wird die
+   *wirksame* Stufe (gemessene Stufe, abgerundet nach Verblassen) und
+   **zusätzlich die höchste je erreichte Stufe**, sobald sie darüber liegt
+   (z. B. zwei volle Punkte, ein hohler Punkt = „war schon 3“), dazu
+   „zuletzt vor 23 Tagen“. Eine gute Runde bringt die Stufe schneller
+   zurück als beim ersten Mal (Wiederauffrischen: ab 3 guten Runden).
+   Skills ohne Übung in der App (nur Markierung) verblassen nicht.
+
+**Kartei (Katalog, fest im Code, erweiterbar)** — Bereiche und Skills, je
+Skill: id, Name, ein Satz „was ist das“, ein Satz „warum fürs freie
+Spielen“, Voraussetzungen (ids), Übung in der App (falls es eine gibt),
+sonst Hinweis „extern üben“ (iReal Pro, Moises) mit „Heute geübt“-Knopf.
+- **Gehör:** Melodie nachspielen (Ohr-Trainer-Stufen 1–6 als eigene Skills:
+  drei Töne … chromatisch), Intervalle (klein/groß, Sekunde bis Oktave;
+  aufwärts, abwärts, zusammen), Dur und Moll hören, vermindert und
+  übermäßig, Septakkorde (maj7, 7, m7, m7♭5, dim7), Optionstöne (9/11/13),
+  Akkordfolgen (I–IV–V, ii–V–I, Blues-Schema), Grundton eines Songs finden.
+- **Harmonie:** Stufen und Funktionen, ii–V–I in allen Tonarten (notiert für
+  B-Klarinette), Akkordaufbau (Dreiklang → Septakkord → Optionen), Dur-
+  Tonleitern und Vorzeichen, Pentatonik (Dur/Moll), Blues-Tonleiter, Modi
+  der ii–V–I (Ionisch, Dorisch, Mixolydisch), weitere Modi (Lydisch,
+  Phrygisch, Äolisch, Lokrisch — optional), Leadsheet lesen.
+- **Klarinette:** Dur-Tonleitern in 12 Tonarten, Dreiklang-Arpeggien,
+  Septakkord-Arpeggien, Guide Tones (3 und 7 durch die ii–V–I), Swing-
+  Achtel und Artikulation, sauberes Clarion/Altissimo.
+- **Improvisation:** Frage–Antwort, mit 3 Tönen improvisieren, Motiv
+  entwickeln, Akkordtöne auf Zählzeiten, chromatische Annäherung,
+  Umspielung (Enclosure), Blues-Phrasen, Licks lernen und transponieren,
+  Pausen und Phrasierung, Solo heraushören (Transkribieren).
+- **Mitspielen & Begleiten:** Song nach Gehör mitspielen, Tonart eines
+  Songs finden, Haltetöne als Begleitung, Gegenstimme und Fills.
+- **Repertoire:** Blues in B, Blue Bossa, Autumn Leaves, Summertime, eigener
+  Lieblingssong (z. B. Ashe „Stop The Wedding!“).
+
+**Übersicht (eigene Seite oder Blatt aus der Bibliothek, Zeile „Skills“)**
+- Kopf: „9 von 48 sicher“ (wirksame Stufe ≥ 3 oder Markierung `kann`), je
+  Bereich ein Balken.
+- Filter-Chips: Alle · ☆ Will ich · Lerne ich · Kann ich · Verblasst ·
+  Gerade nicht.
+- Liste je Bereich: Name, Punkte 0–4 (wirksam voll, höchste je hohl),
+  Uhr-Symbol bei verblasst, Markierungs-Chip. Tipp auf die Zeile: Detail
+  mit Erklärung, Voraussetzungen, Verlauf (letzte Quoten), „Üben“-Knopf.
+- Bedienregel: Auswahl und Detail legen sich als Blatt/Popover über die
+  Liste, nichts verschiebt sich.
+
+**Speicher:** `ueben:skills` (Markierungen + Zusammenfassungen je Skill)
+ist persönlich und reist mit der Sicherung (`einstellungen.ts`). Prüfung
+beim Lesen, unbekannte Skill-ids bleiben erhalten (künftige Kartei).
+
+### I-08 · Hör-Übungen per Antippen — Bau 2026-11-16
+
+Die App spielt, man tippt die Antwort (kein Mikrofon nötig): **Intervalle**
+(Auswahl je Stufe: erst Prime/Quinte/Oktave, dann Terzen, dann alle;
+aufwärts, abwärts, zusammen), **Dreiklänge** (Dur/Moll, dann +vermindert/
+übermäßig), **Septakkorde** (maj7/7/m7, dann +m7♭5/dim7). Runde = 10
+Fragen, sofortige Rückmeldung (richtig / was es war), Nochmal anhören,
+Vergleich „so klingt deine Antwort“. Ergebnis einer Runde (Quote) geht an
+den passenden Skill (I-07). Klang aus `klavier.ts` (Akkorde: Töne
+gleichzeitig, Tonhöhe klingend wie im Stimmgerät gewählt). Fachlogik
+(Fragen erzeugen mit Startwert, Antwortoptionen je Stufe, Bewertung) rein
+und getestet in `src/domain/`.
+
+### I-09 · „Heute“: geführte Einheit — Bau 2026-11-16
+
+Oben in der Skill-Übersicht: „Heute · 30 Min.“ — drei Blöcke à 10 Minuten
+(Leitlinie aus I): **Ohr** (ein Skill mit Übung in der App, bevorzugt
+`lerne`/`will`, sonst der am stärksten verblasste), **Stück/Mitspielen**
+(ein Repertoire- oder Mitspiel-Skill, extern), **Impro** (ein
+Improvisations-Skill, extern). Auswahl deterministisch aus Markierungen,
+Stufen und Frische (pausierte nie; `kann` nur zum Auffrischen, wenn
+verblasst); „Anderer Vorschlag“ tauscht einen Block. Jeder Block: Start der
+App-Übung oder „Erledigt“ (zählt als geübt heute). Fortschritt der Woche:
+„2 von 4 Einheiten“.
+
+### I-10 · Später: Klarinetten-Checks, Akkordfolgen, Modi-Klang
+
+Tonleitern und Arpeggien per Mikrofon prüfen (Stimmgerät-Erkennung),
+Akkordfolgen hören (ii–V–I erkennen), Modi als Vamp hören und darüber
+spielen (braucht I-04).
 
 ## Erledigt
 
