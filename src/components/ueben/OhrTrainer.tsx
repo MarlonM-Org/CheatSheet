@@ -4,11 +4,12 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { EINSTELLUNG_STANDARD, type OhrEinstellung } from '@/domain/einstellungen';
 import {
-  bewerten, empfehlung, GRUNDTOENE, hinweis, nachbarStufe, naechsterGrundton, phraseDauer, phraseErzeugen, phraseKlaenge,
-  rundeMerken, STUFEN, stufeFinden, tonBezeichnung, verlaufLesen, zufall, type Ergebnis, type Phrase, type Runde,
+  bewerten, empfehlung, GRUNDTOENE, hinweis, nachbarStufe, naechsterGrundton, phraseErzeugen, phraseKlaenge,
+  rundeMerken, STUFEN, vorlaufFuerRunde, stufeFinden, tonBezeichnung, verlaufLesen, zufall, type Ergebnis, type Phrase, type Runde, type StufenId,
 } from '@/domain/gehoer';
 import { segmentieren, segmentOptionen, type Raster } from '@/domain/notation';
 import { gespeichert, speichern } from './klang';
+import { skillErgebnis, skillFuerOhrStufe } from './skillspeicher';
 import { vorspielen, type Vorspiel } from './klavier';
 import { useMetronom } from './MetronomKontext';
 import { useMikrofonSpur } from './mikrofonspur';
@@ -45,8 +46,10 @@ function standText(): string {
   return letzte.length ? `${name} · zuletzt ${prozent(letzte.reduce((s, r) => s + r.quote, 0) / letzte.length)}` : name;
 }
 
-export function OhrTrainerZeile() {
-  const [offen, setOffen] = useState(false);
+// `offenMelden`: die Bibliothek lässt Escape dem offenen Blatt.
+export function OhrTrainerZeile({ offenMelden }: { offenMelden?: (offen: boolean) => void }) {
+  const [offen, setOffenRoh] = useState(false);
+  const setOffen = (o: boolean) => { setOffenRoh(o); offenMelden?.(o); };
   const [stand, setStand] = useState(standText);
   return (
     <>
@@ -63,12 +66,16 @@ export function OhrTrainerZeile() {
 
 type Ansicht = 'bereit' | 'laeuft' | 'ergebnis';
 
-export function OhrTrainerBlatt({ schliessen }: { schliessen: () => void }) {
+// `stufe`: mit dieser Stufe öffnen (aus der Skill-Kartei, I-07).
+export function OhrTrainerBlatt({ schliessen, stufe: anfangsStufe }: { schliessen: () => void; stufe?: StufenId }) {
   const fokus = useDialogFokus<HTMLDivElement>();
   const stimm = useStimmgeraetApi();
   const metro = useMetronom();
   const spur = useMikrofonSpur();
-  const [ein, setEinRoh] = useState<OhrEinstellung>(() => gespeichert<OhrEinstellung>(EINSTELLUNG, EINSTELLUNG_STANDARD[EINSTELLUNG]));
+  const [ein, setEinRoh] = useState<OhrEinstellung>(() => {
+    const e = gespeichert<OhrEinstellung>(EINSTELLUNG, EINSTELLUNG_STANDARD[EINSTELLUNG]);
+    return anfangsStufe ? { ...e, stufe: anfangsStufe } : e;
+  });
   const [verlauf, setVerlauf] = useState<Runde[]>(verlaufLaden);
   const [ansicht, setAnsicht] = useState<Ansicht>('bereit');
   const [phrase, setPhrase] = useState<Phrase | null>(null);
@@ -81,6 +88,8 @@ export function OhrTrainerBlatt({ schliessen }: { schliessen: () => void }) {
   const setEin = (neu: Partial<OhrEinstellung>) => { const e = { ...ein, ...neu }; setEinRoh(e); speichern(EINSTELLUNG, e); };
   const anhoerenStopp = () => { vorspiel.current?.stopp(); vorspiel.current = null; };
   useEffect(() => () => anhoerenStopp(), []);
+  // Eine vorgegebene Stufe gilt auch fürs nächste Öffnen über die Bibliothek.
+  useEffect(() => { if (anfangsStufe) speichern(EINSTELLUNG, { ...gespeichert<OhrEinstellung>(EINSTELLUNG, EINSTELLUNG_STANDARD[EINSTELLUNG]), stufe: anfangsStufe }); }, [anfangsStufe]);
 
   const zu = () => { anhoerenStopp(); if (spur.aktiv) spur.stoppen(false); schliessen(); };
   useEscape(zu);
@@ -98,7 +107,8 @@ export function OhrTrainerBlatt({ schliessen }: { schliessen: () => void }) {
       metro: { klang: metro.klang, laut: metro.laut },
       stimmung: stimm.stimmung, kammerton: stimm.kammerton,
       einzaehlTakte: 1,
-      vorlauf: { klaenge: phraseKlaenge(p, bpm, -phraseDauer(p, bpm)), takte: p.takte },
+      // Phrase, dann ein Takt Einzählen für die Antwort.
+      vorlauf: vorlaufFuerRunde(p, bpm),
       // Ein Takt Luft, falls man spät einsetzt; „Fertig" beendet früher.
       maxTakte: p.takte + 1,
       beiEnde: (rahmen, behalten) => {
@@ -107,6 +117,8 @@ export function OhrTrainerBlatt({ schliessen }: { schliessen: () => void }) {
         const stuecke = segmentieren(rahmen, segmentOptionen(st.achtel ? 'rhythmisch' : 'melodisch', raster));
         const e = bewerten(p, stuecke, bpm);
         setErgebnis(e);
+        // Skill-Kartei (I-07): die Runde zählt für den Skill dieser Stufe.
+        skillErgebnis(skillFuerOhrStufe(p.stufe), e.quote);
         setVerlauf((v) => {
           const neu = rundeMerken(v, { am: Date.now(), stufe: p.stufe, grundton: p.grundton, quote: e.quote });
           speichern(VERLAUF, neu);
@@ -146,8 +158,8 @@ export function OhrTrainerBlatt({ schliessen }: { schliessen: () => void }) {
 
         {ansicht === 'bereit' && (
           <div className="space-y-4">
-            <p className="text-sm">Ein Takt wird eingezählt, dann spielt die App eine kurze Phrase. Direkt danach bist du dran — der Klick läuft
-              weiter. Erst innerlich mitsingen, dann spielen und dazu stehen: Fehler korrigierst du in der nächsten Runde.</p>
+            <p className="text-sm">Ein Takt wird eingezählt, dann spielt die App eine kurze Phrase. Danach zählt sie noch einmal ein, und du
+              spielst nach — der Klick läuft weiter. Erst innerlich mitsingen, dann spielen und dazu stehen: Fehler korrigierst du in der nächsten Runde.</p>
             <div className="space-y-2">
               <span className="kennzahl-label">Stufe</span>
               <div className="ohr-stufen" role="group" aria-label="Stufe">
@@ -185,10 +197,15 @@ export function OhrTrainerBlatt({ schliessen }: { schliessen: () => void }) {
                 <strong className="ohr-gross">Jetzt du!</strong>
                 <span className="gedaempft">Takt {spur.anzeige.takt ?? 1} · {spur.anzeige.ton || '…'}</span>
               </>
+            ) : spur.anzeige.vor === 1 ? (
+              <>
+                <strong className="ohr-gross">{4 + 1 - (spur.anzeige.zaehlt ?? 4)}</strong>
+                <span className="gedaempft">Gleich du — mitzählen, auf 1 einsetzen</span>
+              </>
             ) : spur.anzeige.vor ? (
               <>
                 <strong className="ohr-gross">Hör zu …</strong>
-                <span className="gedaempft">noch {spur.anzeige.vor} {spur.anzeige.vor === 1 ? 'Takt' : 'Takte'}</span>
+                <span className="gedaempft">dann ein Takt Einzählen</span>
               </>
             ) : (
               <>

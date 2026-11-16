@@ -27,6 +27,7 @@ import { bilderWaehlen, ScanDialog, type ScanArt } from './Scan';
 import { useSicherungLaden } from './Sicherung';
 import { MixZeile } from './StellenMix';
 import { OhrTrainerZeile } from './OhrTrainer';
+import { SkillsZeile } from './Skills';
 import { TagEtikett, TagFilter, TagWahl } from './Tags';
 import { fehlerGrund } from './speicherfehler';
 import { ohneCancelAbbrechen } from './dateiwahl';
@@ -54,7 +55,9 @@ export function Bibliothek({ offen, oeffnen, schliessen, einstellungen, offenEnt
   const [gewaehlt, setGewaehlt] = useState<number | null>(null);
   // Ein offenes Kontext-Blatt (F-08) schluckt Escape selbst.
   const [kontextOffen, setKontextOffen] = useState(false);
-  useEscape(schliessen, escapeAktiv && !kontextOffen);
+  // Ebenso ein offenes Blatt der Skill-Kartei oder des Ohr-Trainers.
+  const [blattOffen, setBlattOffen] = useState(false);
+  useEscape(schliessen, escapeAktiv && !kontextOffen && !blattOffen);
 
   return (
     <section className="bibliothek" role="region" aria-label="Bibliothek">
@@ -74,7 +77,7 @@ export function Bibliothek({ offen, oeffnen, schliessen, einstellungen, offenEnt
         </button>
       </div>
       <div className="bib-inhalt">
-        <NotenListe offen={offen} oeffnen={oeffnen} anzahlMelden={setAnzahl} auswahlMelden={setGewaehlt} offenEntfernt={offenEntfernt} aktualisiert={aktualisiert} stand={stand} mixStarten={mixStarten} mixAktiv={mixAktiv} einstellungen={einstellungen} kontextMelden={setKontextOffen} />
+        <NotenListe offen={offen} oeffnen={oeffnen} anzahlMelden={setAnzahl} auswahlMelden={setGewaehlt} offenEntfernt={offenEntfernt} aktualisiert={aktualisiert} stand={stand} mixStarten={mixStarten} mixAktiv={mixAktiv} einstellungen={einstellungen} kontextMelden={setKontextOffen} blattMelden={setBlattOffen} />
       </div>
       <div className="bib-fuss">Alles bleibt auf diesem Gerät. Kein Konto, kein Server.</div>
     </section>
@@ -142,8 +145,9 @@ async function ausVerweis(n: Stueck): Promise<File | null> {
   } catch { return null; }
 }
 
-function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt, aktualisiert, stand: bibStand, mixStarten, mixAktiv, einstellungen, kontextMelden }: {
+function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt, aktualisiert, stand: bibStand, mixStarten, mixAktiv, einstellungen, kontextMelden, blattMelden }: {
   offen: string | null; oeffnen: (id: string, blatt?: boolean | 'teilen') => void; anzahlMelden: (n: number) => void; kontextMelden: (offen: boolean) => void;
+  blattMelden: (offen: boolean) => void;
   // Im Auswahl-Modus: wie viele gewählt sind (für den Kopf), sonst null.
   auswahlMelden: (n: number | null) => void;
   offenEntfernt: () => void; aktualisiert: (ids: string[]) => void; stand: number;
@@ -448,7 +452,9 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
         <MixZeile sammlung={aktiv} tag={zielTag} noten={noten} stellen={stellen} starten={mixStarten} aktiv={mixAktiv} />
       )}
 
-      <OhrTrainerZeile />
+      <SkillsZeile offenMelden={blattMelden} />
+
+      <OhrTrainerZeile offenMelden={blattMelden} />
 
       {/* Leere Liste: Hinzufügen und Laden stehen in der Hinweis-Karte, Sortieren gibt es noch nichts. */}
       {!!noten?.length && (auswaehlen ? (

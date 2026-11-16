@@ -1575,3 +1575,119 @@ ol.stichpunkte { list-style: decimal; }
 .ohr-note.fehlt { background: var(--flaeche2); border-style: dashed; }
 .ohr-rat { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 6px; background: var(--messing-hell); }
 .ohr-rat span { flex: 1; }
+
+/* Skill-Kartei (I-07) und „Heute“ (I-09) */
+.skill-blatt, .skill-detail, .skill-wahl { display: flex; flex-direction: column; gap: 14px; padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px)); }
+/* Das Blatt scrollt als Ganzes; ohne das schrumpften die Kinder auf die Höhe des Blatts. */
+.skill-blatt > *, .skill-detail > *, .skill-wahl > * { flex-shrink: 0; }
+.skill-sicher-zahl { color: var(--tinte); font-variant-numeric: tabular-nums; }
+.skill-bereiche { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 14px; }
+@media (min-width: 640px) { .skill-bereiche { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.skill-bereiche li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 2px 6px; }
+.skill-bereich-name { font-size: 0.8rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.skill-bereich-zahl { font-size: 0.72rem; color: var(--gedaempft); font-variant-numeric: tabular-nums; }
+.skill-balken { grid-column: 1 / -1; height: 4px; border-radius: 2px; background: var(--flaeche2); overflow: hidden; }
+.skill-balken span { display: block; height: 100%; background: var(--messing); border-radius: 2px; }
+
+.skill-heute { border: 1px solid var(--linie-stark); border-radius: 8px; background: var(--flaeche); padding: 10px 12px 4px; }
+.skill-heute-kopf { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding-bottom: 4px; }
+.skill-heute-kopf strong { font-size: 1rem; }
+.skill-woche { font-size: 0.78rem; color: var(--gedaempft); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.skill-woche.fertig { color: var(--gut); font-weight: 650; }
+.skill-heute-bloecke li { display: flex; align-items: center; gap: 6px; padding: 8px 0; min-height: 58px; }
+.skill-heute-bloecke li + li { border-top: 1px solid var(--linie); }
+.skill-heute-text { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; }
+.skill-heute-name { font-weight: 650; font-size: 0.92rem; line-height: 1.25; text-align: left; }
+.skill-heute-bloecke li.erledigt .skill-heute-name { color: var(--gedaempft); }
+.skill-heute-knoepfe { flex: none; display: flex; align-items: center; gap: 2px; }
+.skill-anderer { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 6px; color: var(--messing); }
+.skill-anderer svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.skill-anderer:active { background: var(--flaeche2); }
+.skill-heute-los { min-width: 5.6rem; justify-content: center; }
+.skill-heute-fertig { min-width: 5.6rem; min-height: 38px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 650; color: var(--gut); }
+
+.skill-filter { display: flex; gap: 6px; overflow-x: auto; margin: 0 -1.25rem; padding: 0 1.25rem 2px; scrollbar-width: none; }
+.skill-filter::-webkit-scrollbar { display: none; }
+.skill-listen { display: flex; flex-direction: column; gap: 14px; }
+.skill-bereich-titel { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--leise); padding: 0 2px 6px; }
+.skill-zeile { display: flex; align-items: center; gap: 8px; padding: 0 10px 0 12px; min-height: 52px; }
+.skill-zeile + .skill-zeile { border-top: 1px solid var(--linie); }
+.skill-zeile-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; padding: 8px 0; text-align: left; }
+.skill-name { font-weight: 600; font-size: 0.92rem; line-height: 1.25; }
+.skill-uhr { flex: none; width: 14px; height: 14px; color: var(--messing); }
+.skill-zeile-rechts { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 5px; padding: 8px 0; }
+.skill-zeile-stand { display: flex; align-items: center; gap: 6px; min-height: 14px; padding-right: 4px; }
+
+.skill-punkte { flex: none; display: inline-flex; gap: 3px; align-items: center; }
+.skill-punkte span { width: 8px; height: 8px; border-radius: 50%; background: var(--flaeche2); box-sizing: border-box; }
+.skill-punkte span.voll { background: var(--messing); }
+.skill-punkte span.hohl { background: transparent; border: 1.5px solid var(--messing); }
+
+.skill-chip {
+  flex: none; display: inline-flex; align-items: center; justify-content: center; min-height: 28px; padding: 0 10px;
+  border: 1px solid var(--linie-stark); border-radius: 999px; font-size: 0.75rem; font-weight: 650; white-space: nowrap;
+  color: var(--gedaempft); background: var(--karte);
+}
+.skill-chip.offen { border-style: dashed; color: var(--leise); font-weight: 600; }
+.skill-chip.will { background: var(--messing-hell); border-color: var(--messing-hell); color: var(--messing); }
+.skill-chip.lerne { background: var(--messing); border-color: var(--messing); color: var(--messing-text); }
+.skill-chip.kann { background: var(--gut-hell); border-color: var(--gut-hell); color: var(--gut); }
+.skill-chip.pause { background: var(--flaeche2); border-color: var(--flaeche2); color: var(--gedaempft); }
+/* Unsichtbar vergrößerte Tippfläche (≥ 44 px) ohne Platz in der Zeile. */
+.skill-zeile .skill-chip { position: relative; }
+.skill-zeile .skill-chip::after { content: ""; position: absolute; inset: -8px -6px; }
+.skill-wahl-liste .skill-chip { min-width: 7.4rem; }
+
+.skill-detail-stand { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--linie); border-radius: 6px; }
+.skill-verblasst { color: var(--messing); font-weight: 600; }
+.skill-absatz { display: flex; flex-direction: column; gap: 4px; }
+.skill-absatz p { font-size: 0.92rem; line-height: 1.45; }
+.skill-voraus { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.skill-voraus-knopf { display: inline-flex; align-items: center; gap: 8px; min-height: 34px; font-size: 0.88rem; font-weight: 600; color: var(--tinte); text-align: left; }
+.skill-voraus-knopf .skill-punkte span { width: 6px; height: 6px; }
+.skill-verlauf { display: flex; align-items: flex-end; gap: 4px; height: 64px; }
+.skill-verlauf li { flex: 1; max-width: 28px; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 2px; }
+.skill-verlauf-saeule { width: 100%; background: var(--messing); border-radius: 2px 2px 0 0; opacity: 0.85; }
+.skill-verlauf-zahl { font-size: 0.65rem; color: var(--gedaempft); font-variant-numeric: tabular-nums; }
+.skill-extern { padding: 8px 12px; border-radius: 6px; background: var(--flaeche); color: var(--gedaempft); }
+
+.skill-wahl-hintergrund { z-index: 85; }
+@media (min-width: 640px) { .skill-wahl { max-width: 24rem; } .skill-detail { max-width: 28rem; } }
+.skill-wahl-liste { border: 1px solid var(--linie); border-radius: 6px; overflow: hidden; }
+.skill-wahl-liste li + li { border-top: 1px solid var(--linie); }
+.skill-wahl-liste button { width: 100%; display: flex; align-items: center; gap: 10px; min-height: 50px; padding: 0 12px; text-align: left; }
+.skill-wahl-liste button:active { background: var(--flaeche); }
+.skill-wahl-liste button[aria-checked="true"] { background: var(--messing-hell); }
+.skill-wahl-text { flex: 1; min-width: 0; font-size: 0.82rem; color: var(--gedaempft); }
+.skill-wahl-haken { flex: none; width: 1rem; font-weight: 800; color: var(--messing); }
+@media (min-width: 640px) { .skill-zeile-rechts { flex-direction: row; align-items: center; gap: 12px; } }
+/* Feste Höhe: Filtern ändert die Liste, das Blatt bleibt stehen (Bedienregel). */
+.skill-blatt { height: 92vh; }
+.skill-zeile .bib-unterzeile { white-space: normal; }
+/* Hör-Übungen (I-08): Antworttasten fest, Rückmeldung in reserviertem Feld — nichts rutscht. */
+.hoer-fortschritt { display: flex; gap: 4px; }
+.hoer-fortschritt i { flex: 1; height: 6px; border-radius: 3px; background: var(--linie-stark); }
+.hoer-fortschritt i.richtig { background: var(--gut); }
+.hoer-fortschritt i.falsch { background: var(--warnung); }
+.hoer-fortschritt i.jetzt { background: var(--messing); }
+.hoer-antworten { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.hoer-antworten button {
+  min-height: 3.5rem; padding: 6px 8px; border: 1px solid var(--linie-stark); border-radius: 6px; background: var(--karte);
+  font-weight: 700; font-size: 1rem; line-height: 1.2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+}
+.hoer-antworten button small { font-size: 0.75rem; font-weight: 500; color: var(--gedaempft); }
+.hoer-antworten button:disabled { opacity: 1; }
+.hoer-antworten button.gewaehlt { border-color: var(--messing); border-width: 2px; }
+.hoer-antworten button.richtig { background: var(--gut-hell); border-color: var(--gut); color: var(--gut); }
+.hoer-antworten button.falsch { background: var(--warnung-hell); border-color: var(--warnung); color: var(--warnung); }
+.hoer-antworten button.hoert { box-shadow: 0 0 0 2px var(--messing); }
+.hoer-rueckmeldung { min-height: 4.2rem; display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 8px 12px; border-radius: 6px; background: var(--flaeche2); }
+.hoer-rueckmeldung.richtig { background: var(--gut-hell); }
+.hoer-rueckmeldung.falsch { background: var(--warnung-hell); }
+.hoer-rueckmeldung strong { font-size: 1.05rem; }
+.hoer-aktionen { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.hoer-aktionen .knopf { min-width: 0; padding: 0 0.5rem; font-size: 0.9rem; line-height: 1.15; text-align: center; white-space: normal; }
+.hoer-aktionen .breit { grid-column: 1 / -1; }
+.hoer-gruppe { display: flex; flex-wrap: wrap; gap: 6px; }
+.hoer-gruppe button { flex: 1 1 auto; min-height: 2.75rem; padding: 0 12px; border: 1px solid var(--linie-stark); border-radius: 6px; background: var(--karte); font-weight: 600; }
+.hoer-gruppe button[aria-pressed="true"] { border-color: var(--messing); background: var(--messing-hell); }

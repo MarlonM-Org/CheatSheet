@@ -14,15 +14,15 @@ const speicher = (werte: Record<string, unknown>) => {
 describe('Welche Einstellungen mitreisen', () => {
   it('Person und Instrument reisen mit', () => {
     for (const k of ['stimm:st', 'stimm:a', 'metro:klang', 'metro:laut', 'metro:takt', 'metro:nenner', 'metro:akzente', 'metro:unter', 'metro:trainer',
-      'ueben:stift', 'ueben:marker', 'ueben:text', 'ueben:wisch-umkehren', 'ueben:zoom-immer', 'ueben:tonprofil-umfang', 'ueben:sammlungen-reihenfolge', 'ueben:ohr']) {
+      'ueben:stift', 'ueben:marker', 'ueben:text', 'ueben:wisch-umkehren', 'ueben:zoom-immer', 'ueben:tonprofil-umfang', 'ueben:sammlungen-reihenfolge', 'ueben:ohr', 'ueben:skills', 'ueben:hoerquiz']) {
       expect(istMitreisend(k), k).toBe(true);
     }
-    expect(MITREISEND).toHaveLength(17);
+    expect(MITREISEND).toHaveLength(19);
   });
   it('Gerät, Tempo und was eigene Felder hat, bleibt', () => {
     for (const k of ['ueben:modus', 'ueben:thema-hell', 'ueben:thema-dunkel', 'ueben:lage-metronom', 'metro:bpm', 'ueben:metronom-an',
       'ueben:offen', 'ueben:zuletzt', 'ueben:sort', 'ueben:sammlung', 'ueben:tag', 'ueben:mix', 'ueben:mix-an', 'ueben:mix-offen',
-      'ueben:letzte-sicherung', 'ueben:sicherung-erinnern', 'ueben:geloescht', 'ueben:tags', 'ueben:tonprofile', 'ueben:ohr-verlauf', 'ueben:tonleiter-grundton', 'ueben:tonleiter-art',
+      'ueben:letzte-sicherung', 'ueben:sicherung-erinnern', 'ueben:geloescht', 'ueben:tags', 'ueben:tonprofile', 'ueben:ohr-verlauf', 'ueben:heute', 'ueben:tonleiter-grundton', 'ueben:tonleiter-art',
       EINSTELLUNGEN_STAND, 'toString', '__proto__', 'constructor']) {
       expect(istMitreisend(k), k).toBe(false);
     }
@@ -97,8 +97,16 @@ describe('Prüfen der Werte', () => {
     expect(gilt('ueben:tonprofil-umfang', { von: 84, bis: 50, stamm: true })).toBe(false);
     expect(gilt('ueben:tonprofil-umfang', { von: 50, bis: 84 })).toBe(false);
     expect(gilt('ueben:ohr', { stufe: 'leiter', grundton: 62, bpm: 90, wechseln: true })).toBe(true);
+    expect(gilt('ueben:hoerquiz', { intervalle: { stufe: 3, richtung: 'gemischt' }, dreiklaenge: { stufe: 2 }, septakkorde: { stufe: 1 } })).toBe(true);
+    expect(gilt('ueben:hoerquiz', { intervalle: { stufe: 4, richtung: 'auf' }, dreiklaenge: { stufe: 2 }, septakkorde: { stufe: 1 } })).toBe(false);
+    expect(gilt('ueben:hoerquiz', { intervalle: { stufe: 1 } })).toBe(false);
     expect(gilt('ueben:ohr', { stufe: 'gibtsnicht', grundton: 62, bpm: 90, wechseln: true })).toBe(false);
     expect(gilt('ueben:ohr', { stufe: 'leiter', grundton: 80, bpm: 90, wechseln: true })).toBe(false);
+    expect(gilt('ueben:skills', {})).toBe(true);
+    expect(gilt('ueben:skills', { intervalle: { markierung: 'will' }, 'kuenftig-unbekannt': { stufe: 2, hoechste: 3, quoten: [{ q: 0.8, am: 1_700_000_000_000 }], zuletzt: 1_700_000_000_000 } })).toBe(true);
+    expect(gilt('ueben:skills', { intervalle: { markierung: 'vielleicht' } })).toBe(false);
+    expect(gilt('ueben:skills', { intervalle: { stufe: 7 } })).toBe(false);
+    expect(gilt('ueben:skills', [])).toBe(false);
   });
 });
 
