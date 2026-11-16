@@ -31,6 +31,9 @@ verstoßen muss, trägt es hier als Entscheidung ein.
 **Bewusst außen vor** (nicht bauen, auch nicht „mal eben“):
 
 - MIDI, Audio-Begleitspuren, Soundbearbeitung
+  (Entscheidung Marlon 2026-11-16: eigene **Aufnahmen zum Vergleichen**
+  — nur aufnehmen und abspielen — sind erlaubt, I-20; erzeugte Liegetöne
+  wie Klick und Klavier ebenfalls, I-18.)
 - Kollaboration/Mehrbenutzer
 - Server-Code, eigene Konten, Datenbanken außerhalb des Geräts
 
@@ -62,7 +65,7 @@ Soundbearbeitung.
 | M6 | **Extras** | Stempel/Formen (Kamera-Scan F-07, Themes B-04 und Design B-05 erledigt) — *vorgezogen 2026-10-23, vor M4 und M5* | E-04 |
 | M7 | **Komponieren** (Vision) | Noteneingabe, Rhythmus-/Melodie-Transkription; Ausbau: Vorspielen, Einspielen Takt für Takt, Song-Transkription, Klänge; Ort offen: App oder separates Werkzeug (Wunsch 2026-10-26) | G-01…G-08 |
 | M8 | **Geräteübergreifend** (Vision, Entscheidung offen) | Noten und Übe-Daten über die eigene Cloud auf mehreren Geräten | H-01…H-05 |
-| M9 | **Freies Spielen** (Vision, begonnen 2026-11-16) | Nach Gehör mitspielen, improvisieren, begleiten: Ohr-Trainer zuerst, dann Lernpfad, Song-Liste, Begleitung aus Akkorden, Impro-Feedback | I-01…I-10 |
+| M9 | **Freies Spielen** (Vision, begonnen 2026-11-16) | Nach Gehör mitspielen, improvisieren, begleiten: Ohr-Trainer zuerst, dann Lernpfad, Song-Liste, Begleitung aus Akkorden, Impro-Feedback | I-01…I-20 |
 
 **Quick Wins** (klein, unabhängig, jederzeit zwischenschieben — guter
 Einstieg): C-01, C-02, C-03, D-01 — *alle am 2026-10-10 erledigt.*
@@ -195,6 +198,7 @@ oder iPad. Vorher auf jedem Gerät eine Sicherung erstellen.
 - I-01 · Ohr-Trainer · erste Fassung im Browser gebaut (2026-11-16), nie auf dem Gerät.
 - I-02…I-06 · Lernpfad, Song-Liste, Akkordblatt mit Begleitung, Impro-Feedback, Mitspielen nach Gehör · Vision.
 - I-07…I-09 · Skill-Kartei, Hör-Übungen per Antippen, „Heute“-Einheit · im Bau (2026-11-16). I-10 · Vision.
+- I-11…I-20 · Werkzeuge (Spickzettel, Transponieren, Griffe, Etüden, Spielhilfe, Licks, Swing-Metronom, Drone, Jam-Karte, Aufnahme-Tagebuch) · im Bau (2026-11-16).
 - H-01 (Rest), H-02…H-05 · Sicherung ohne PDFs, Ordner am Rechner, OneDrive/Drive/iCloud · Entscheidung zum Leitbild („kein Login“) offen.
 
 ### Was Marlon jetzt tun sollte
@@ -1212,6 +1216,66 @@ Reihenfolge der Kandidaten: lerne → will (je am längsten nicht geübt zuerst)
 Tonleitern und Arpeggien per Mikrofon prüfen (Stimmgerät-Erkennung),
 Akkordfolgen hören (ii–V–I erkennen), Modi als Vamp hören und darüber
 spielen (braucht I-04).
+
+### I-11…I-20 · Werkzeuge fürs freie Spielen — Bau ab 2026-11-16
+
+Marlon 2026-11-16: „Bau alles“ — zehn Ideen aus der Recherche. Alle
+Werkzeuge erreicht man aus der Bibliothek über einen Block **Werkzeuge**
+(Kacheln, je ein Blatt). Tonhöhen immer **notiert für die gewählte Stimmung**
+(Stimmgerät), daneben klingend, wo es hilft.
+
+- **I-11 · Akkord-Spickzettel.** Akkordsymbol eingeben oder antippen (C,
+  Cm, C7, Cmaj7, Cm7, Cm7♭5, Cdim7, C6, Cm6, C9, C7♭9, C7♯11, Csus4, C+,
+  Slash-Akkorde C/E). Anzeige: Akkordtöne mit Funktion (1–3–5–7, Optionen),
+  Guide Tones (3 und 7), passende Tonleiter(n) mit kurzem Satz warum (Dur →
+  Ionisch/Lydisch, m7 → Dorisch, 7 → Mixolydisch, m7♭5 → Lokrisch, dim7 →
+  Ganzton-Halbton, alteriert → alteriert), als Notenzeile (abcjs) und zum
+  Anhören (Akkord, dann Leiter). Eingabe wahlweise **klingend** („Gitarrist
+  sagt E7“) oder **notiert**. Fachlogik `src/domain/akkorde.ts`.
+- **I-12 · Transponier-Helfer.** Tonart klingend → notiert (und zurück) mit
+  Vorzeichen, Akkordfolge einfügen („E A B7 E“) → für dich notiert, bequemste
+  enharmonische Schreibweise. Hinweis bei unbequemen Tonarten.
+- **I-13 · Griffweisen.** Grifftabelle der B-Klarinette (Böhm), notiert E3
+  bis C7: Standardgriff plus gängige Alternativen, Triller-Griffe für
+  häufige Fälle, Altissimo; Zeichnung als SVG. Ton wählbar per Tippen auf
+  eine kleine Klaviatur/Notenzeile oder per Mikrofon (Stimmgerät-Erkennung
+  zeigt den Griff zum gespielten Ton). Im Ohr-Trainer-Ergebnis: Tipp auf
+  eine Note zeigt den Griff. Daten sorgfältig gegen verlässliche Quellen
+  (z. B. The Woodwind Fingering Guide) geprüft; Quelle im Code nennen.
+- **I-14 · Generierte Etüden.** Muster durch alle 12 Tonarten (Quintenzirkel
+  oder chromatisch): Dur-Tonleiter, Dreiklang- und Septakkord-Arpeggien,
+  Guide-Tone-Linien durch ii–V–I, 1-2-3-5-Muster, Umspielungen. Notenzeile
+  (abcjs), Tempo, Vorspielen mit Klick, Umfang auf den Klarinetten-Umfang
+  geklemmt (Oktavlage je Tonart wählen). Zählt auf die Klarinetten-Skills.
+- **I-15 · Spielhilfe in deinen Noten.** Zu einer Stelle Akkordsymbole je
+  Takt eintragen (klingend oder notiert). In der Stelle: Akkord des
+  aktuellen Takts groß, Akkordtöne, Guide Tones; Drone (I-18) auf dem
+  Grundton zum Loopen. **Keine Begleitspur** (Leitbild) — I-04 bleibt offen.
+  Speicherung als zusätzliches Feld an der Stelle (reist ohnehin mit).
+- **I-16 · Lick-Sammlung.** Licks notieren (Tasten-Eingabe oder per
+  Einspielen G-05), in 12 Tonarten anzeigen und vorspielen, Wiederholen nach
+  dem Prinzip der Skill-Kartei (verblassen, „heute fällig“). Start-Licks
+  mitgeliefert (eigene Formulierungen, keine Transkriptionen geschützter
+  Soli).
+- **I-17 · Swing-Metronom.** Im Metronom: Klick nur auf 2 und 4, Swing-Anteil
+  (gerade … triolisch) für hörbare Achtel, Akzent-Optionen.
+- **I-18 · Drone.** Liegeton oder Akkord (Grundton, Quinte, Dur/Moll/Modus-
+  Farbe) als ruhiger Klangteppich, Tonart wählbar (notiert), Lautstärke;
+  zum Improvisieren und Intonieren. Wie Klick und Klavier: erzeugt, keine
+  Datei.
+- **I-19 · Jam-Karte.** Die typischen Session-Stücke (Blues in B und F,
+  Blue Bossa, Autumn Leaves, Summertime, Fly Me to the Moon, All the Things
+  You Are, Take the A Train, So What, Cantaloupe Island, Watermelon Man …)
+  mit Form, Tonart und Akkorden je Takt — klingend gespeichert, für dich
+  notiert angezeigt; Tipp auf einen Akkord öffnet den Spickzettel. Nur
+  Akkordfolgen und Form (keine Melodien, keine Texte). Eigene Stücke
+  hinzufügbar. Zählt auf die Repertoire-Skills.
+- **I-20 · Aufnahme-Tagebuch.** Eine Übung oder ein Stück aufnehmen, mit
+  Datum und Skill/Stück verknüpft, später alt gegen neu anhören. Nur
+  aufnehmen und abspielen (keine Bearbeitung). Speicher ohne Blob in
+  IndexedDB (Regel aus `CLAUDE.md`), Schemaänderung nur per Versionssprung
+  mit Migrationstest; Aufnahmen reisen nicht mit der Sicherung (zu groß),
+  Hinweis darauf in der Oberfläche.
 
 ## Erledigt
 
