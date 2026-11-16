@@ -1,5 +1,7 @@
 // Stellen üben: welches Tempo gilt, und der Stellen-Mix (F-11). Rein, getestet.
 
+import { gleicheSammlung } from './sammlungen';
+
 export interface Tempo { tempo: number; am: number }
 
 // Zuletzt (nach Datum) und am schnellsten geschafftes Tempo einer Stelle —
@@ -180,6 +182,22 @@ export function mixAuswahl<S extends MixStelle & { zielTempo: number | null; tem
 export const mixSchluessel = (b: MixBereich) =>
   !b.sammlung && !b.tag && !b.offen && !b.favoriten ? 'ueben:mix'
     : `ueben:mix:${b.offen ? 'offen:' : ''}${b.favoriten ? 'fav:' : ''}${b.sammlung ?? '*'}${b.tag ? `#${b.tag}` : ''}`;
+
+// Woraus der Stellen-Mix auf der Lernen-Seite mischt (B-18): am Gerät
+// gemerkt (ueben:mix-woraus); noch nichts gemerkt oder Unsinn im Speicher →
+// die zuletzt in der Bibliothek gewählte Sammlung und der Tag. Eine Sammlung
+// oder ein Tag, die es nicht mehr gibt, wird „alle“.
+export interface MixQuelle { sammlung: string | null; tag: string | null }
+export function mixQuelle(gemerkt: unknown, bibliothek: MixQuelle, sammlungen: readonly string[], tags: readonly string[]): MixQuelle {
+  const g = gemerkt as { sammlung?: unknown; tag?: unknown } | null;
+  const textOderNull = (x: unknown) => x === null || typeof x === 'string';
+  const roh = g && typeof g === 'object' && textOderNull(g.sammlung) && textOderNull(g.tag)
+    ? { sammlung: g.sammlung as string | null, tag: g.tag as string | null } : bibliothek;
+  return {
+    sammlung: roh.sammlung === null ? null : sammlungen.find((n) => gleicheSammlung(n, roh.sammlung!)) ?? null,
+    tag: roh.tag !== null && tags.includes(roh.tag) ? roh.tag : null,
+  };
+}
 
 // Gespeicherter Bereich des laufenden Mix (bis 2026-10-12 nur true/false).
 export function mixBereichLesen(roh: unknown): MixBereich | null {
