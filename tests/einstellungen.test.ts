@@ -13,11 +13,11 @@ const speicher = (werte: Record<string, unknown>) => {
 
 describe('Welche Einstellungen mitreisen', () => {
   it('Person und Instrument reisen mit', () => {
-    for (const k of ['stimm:st', 'stimm:a', 'metro:klang', 'metro:laut', 'metro:takt', 'metro:nenner', 'metro:akzente', 'metro:unter', 'metro:trainer',
-      'ueben:stift', 'ueben:marker', 'ueben:text', 'ueben:wisch-umkehren', 'ueben:zoom-immer', 'ueben:tonprofil-umfang', 'ueben:sammlungen-reihenfolge', 'ueben:ohr', 'ueben:skills', 'ueben:hoerquiz', 'ueben:jamkarte']) {
+    for (const k of ['stimm:st', 'stimm:a', 'metro:klang', 'metro:laut', 'metro:takt', 'metro:nenner', 'metro:akzente', 'metro:unter', 'metro:trainer', 'metro:swing',
+      'ueben:stift', 'ueben:marker', 'ueben:text', 'ueben:wisch-umkehren', 'ueben:zoom-immer', 'ueben:tonprofil-umfang', 'ueben:sammlungen-reihenfolge', 'ueben:ohr', 'ueben:skills', 'ueben:hoerquiz', 'ueben:jamkarte', 'ueben:drone']) {
       expect(istMitreisend(k), k).toBe(true);
     }
-    expect(MITREISEND).toHaveLength(20);
+    expect(MITREISEND).toHaveLength(22);
   });
   it('Gerät, Tempo und was eigene Felder hat, bleibt', () => {
     for (const k of ['ueben:modus', 'ueben:thema-hell', 'ueben:thema-dunkel', 'ueben:lage-metronom', 'metro:bpm', 'ueben:metronom-an',
@@ -61,6 +61,11 @@ describe('Prüfen der Werte', () => {
     expect(gilt('stimm:a', 450)).toBe(true);
     expect(gilt('stimm:a', 451)).toBe(false);
     expect(gilt('stimm:a', '443')).toBe(false);
+  });
+  it('Swing-Metronom', () => {
+    expect(gilt('metro:swing', { zweiVier: true, achtel: true, anteil: 67 })).toBe(true);
+    expect(gilt('metro:swing', { zweiVier: true, achtel: true, anteil: 20 })).toBe(false);
+    expect(gilt('metro:swing', { zweiVier: 'ja', achtel: true, anteil: 60 })).toBe(false);
   });
   it('Metronom', () => {
     expect(gilt('metro:klang', 'klick')).toBe(true);

@@ -1,6 +1,6 @@
 // Persönliche Einstellungen, die mit der Sicherung reisen: was zur Person und
 // zum Instrument gehört — Stimmung und Kammerton, Metronom (Klang, Lautstärke,
-// Taktart, Akzente, Unterteilung, Trainer), Stift-, Marker- und Textfarbe,
+// Taktart, Akzente, Unterteilung, Trainer, Swing), Stift-, Marker- und Textfarbe,
 // Wischrichtung, Zoomen auch beim Lesen, Tonumfang fürs Tonprofil, Reihenfolge der
 // Sammlungen, Ohr-Trainer (Stufe, Grundton, Tempo), Skill-Kartei (Markierungen
 // und Stufen je Skill), eigene Stücke der Jam-Karte. Was zum Gerät gehört, bleibt:
@@ -18,6 +18,8 @@ import { GRUNDTOENE, istStufe, type StufenId } from './gehoer';
 import { skillsGueltig, type SkillSpeicher } from './skills';
 import { jamStueckeGueltig, type JamStueck } from './jamkarte';
 import { HOER_STANDARD, istHoerEinstellung, type HoerEinstellung } from './hoerquiz';
+import { DRONE_STANDARD, istDroneEinstellung, type DroneEinstellung } from './drone';
+import { istSwing, SWING_STANDARD, type Swing } from './swing';
 import { STIFT_STANDARD, type StiftEinstellung } from './stift';
 import { istNenner, NENNER_STANDARD, ZAEHLER_MAX, ZAEHLER_MIN, type Nenner } from './takt';
 import { STIMMUNGEN, type Stimmung } from './ueben';
@@ -40,6 +42,8 @@ export interface Einstellungswerte {
   'metro:akzente': Akzent[];
   'metro:unter': number;
   'metro:trainer': Trainer;
+  // Swing-Metronom (I-17): nur 2 und 4, hörbare Achtel mit Swing-Anteil.
+  'metro:swing': Swing;
   'ueben:stift': StiftEinstellung;
   'ueben:marker': StiftEinstellung;
   'ueben:text': StiftEinstellung;
@@ -56,6 +60,8 @@ export interface Einstellungswerte {
   'ueben:hoerquiz': HoerEinstellung;
   // Jam-Karte (I-19): eigene Stücke (Form, Tonart, Akkorde klingend).
   'ueben:jamkarte': JamStueck[];
+  // Drone (I-18): zuletzt gewählter Grundton (Tonklasse, notiert), Farbe und Lautstärke.
+  'ueben:drone': DroneEinstellung;
 }
 export type Mitreisend = keyof Einstellungswerte;
 export type Werte = Partial<Einstellungswerte>;
@@ -75,6 +81,7 @@ export const EINSTELLUNG_STANDARD: Einstellungswerte = {
   'metro:akzente': ['betont', 'normal', 'normal', 'normal'],
   'metro:unter': 1,
   'metro:trainer': { an: false, schritt: 4, takte: 4, ziel: 120 },
+  'metro:swing': SWING_STANDARD,
   'ueben:stift': STIFT_STANDARD.stift,
   'ueben:marker': STIFT_STANDARD.marker,
   'ueben:text': STIFT_STANDARD.text,
@@ -86,6 +93,7 @@ export const EINSTELLUNG_STANDARD: Einstellungswerte = {
   'ueben:skills': {},
   'ueben:hoerquiz': HOER_STANDARD,
   'ueben:jamkarte': [],
+  'ueben:drone': DRONE_STANDARD,
 };
 
 // Zeitpunkt der letzten echten Änderung eines mitreisenden Werts (ms).
@@ -115,6 +123,7 @@ const PRUEFEN: Record<Mitreisend, (v: unknown) => boolean> = {
   'metro:unter': (v) => ganz(v, 1, 8),
   'metro:trainer': (v) => objekt(v) && typeof v.an === 'boolean'
     && ganz(v.schritt, 1, 1000) && ganz(v.takte, 1, 1000) && ganz(v.ziel, 1, 1000),
+  'metro:swing': istSwing,
   'ueben:stift': stift,
   'ueben:marker': stift,
   'ueben:text': stift,
@@ -126,6 +135,7 @@ const PRUEFEN: Record<Mitreisend, (v: unknown) => boolean> = {
   'ueben:skills': skillsGueltig,
   'ueben:hoerquiz': istHoerEinstellung,
   'ueben:jamkarte': jamStueckeGueltig,
+  'ueben:drone': istDroneEinstellung,
 };
 
 export const MITREISEND = Object.keys(PRUEFEN) as Mitreisend[];
