@@ -5,10 +5,11 @@ import { createPortal } from 'react-dom';
 import { EINSTELLUNG_STANDARD, type OhrEinstellung } from '@/domain/einstellungen';
 import {
   bewerten, empfehlung, GRUNDTOENE, hinweis, nachbarStufe, naechsterGrundton, phraseErzeugen, phraseKlaenge,
-  rundeMerken, STUFEN, vorlaufFuerRunde, stufeFinden, tonBezeichnung, verlaufLesen, zufall, type Ergebnis, type Phrase, type Runde,
+  rundeMerken, STUFEN, vorlaufFuerRunde, stufeFinden, tonBezeichnung, verlaufLesen, zufall, type Ergebnis, type Phrase, type Runde, type StufenId,
 } from '@/domain/gehoer';
 import { segmentieren, segmentOptionen, type Raster } from '@/domain/notation';
 import { gespeichert, speichern } from './klang';
+import { skillErgebnis, skillFuerOhrStufe } from './skillspeicher';
 import { vorspielen, type Vorspiel } from './klavier';
 import { useMetronom } from './MetronomKontext';
 import { useMikrofonSpur } from './mikrofonspur';
@@ -45,8 +46,10 @@ function standText(): string {
   return letzte.length ? `${name} · zuletzt ${prozent(letzte.reduce((s, r) => s + r.quote, 0) / letzte.length)}` : name;
 }
 
-export function OhrTrainerZeile() {
-  const [offen, setOffen] = useState(false);
+// `offenMelden`: die Bibliothek lässt Escape dem offenen Blatt.
+export function OhrTrainerZeile({ offenMelden }: { offenMelden?: (offen: boolean) => void }) {
+  const [offen, setOffenRoh] = useState(false);
+  const setOffen = (o: boolean) => { setOffenRoh(o); offenMelden?.(o); };
   const [stand, setStand] = useState(standText);
   return (
     <>
@@ -63,12 +66,16 @@ export function OhrTrainerZeile() {
 
 type Ansicht = 'bereit' | 'laeuft' | 'ergebnis';
 
-export function OhrTrainerBlatt({ schliessen }: { schliessen: () => void }) {
+// `stufe`: mit dieser Stufe öffnen (aus der Skill-Kartei, I-07).
+export function OhrTrainerBlatt({ schliessen, stufe: anfangsStufe }: { schliessen: () => void; stufe?: StufenId }) {
   const fokus = useDialogFokus<HTMLDivElement>();
   const stimm = useStimmgeraetApi();
   const metro = useMetronom();
   const spur = useMikrofonSpur();
-  const [ein, setEinRoh] = useState<OhrEinstellung>(() => gespeichert<OhrEinstellung>(EINSTELLUNG, EINSTELLUNG_STANDARD[EINSTELLUNG]));
+  const [ein, setEinRoh] = useState<OhrEinstellung>(() => {
+    const e = gespeichert<OhrEinstellung>(EINSTELLUNG, EINSTELLUNG_STANDARD[EINSTELLUNG]);
+    return anfangsStufe ? { ...e, stufe: anfangsStufe } : e;
+  });
   const [verlauf, setVerlauf] = useState<Runde[]>(verlaufLaden);
   const [ansicht, setAnsicht] = useState<Ansicht>('bereit');
   const [phrase, setPhrase] = useState<Phrase | null>(null);
@@ -81,6 +88,8 @@ export function OhrTrainerBlatt({ schliessen }: { schliessen: () => void }) {
   const setEin = (neu: Partial<OhrEinstellung>) => { const e = { ...ein, ...neu }; setEinRoh(e); speichern(EINSTELLUNG, e); };
   const anhoerenStopp = () => { vorspiel.current?.stopp(); vorspiel.current = null; };
   useEffect(() => () => anhoerenStopp(), []);
+  // Eine vorgegebene Stufe gilt auch fürs nächste Öffnen über die Bibliothek.
+  useEffect(() => { if (anfangsStufe) speichern(EINSTELLUNG, { ...gespeichert<OhrEinstellung>(EINSTELLUNG, EINSTELLUNG_STANDARD[EINSTELLUNG]), stufe: anfangsStufe }); }, [anfangsStufe]);
 
   const zu = () => { anhoerenStopp(); if (spur.aktiv) spur.stoppen(false); schliessen(); };
   useEscape(zu);
@@ -108,6 +117,8 @@ export function OhrTrainerBlatt({ schliessen }: { schliessen: () => void }) {
         const stuecke = segmentieren(rahmen, segmentOptionen(st.achtel ? 'rhythmisch' : 'melodisch', raster));
         const e = bewerten(p, stuecke, bpm);
         setErgebnis(e);
+        // Skill-Kartei (I-07): die Runde zählt für den Skill dieser Stufe.
+        skillErgebnis(skillFuerOhrStufe(p.stufe), e.quote);
         setVerlauf((v) => {
           const neu = rundeMerken(v, { am: Date.now(), stufe: p.stufe, grundton: p.grundton, quote: e.quote });
           speichern(VERLAUF, neu);

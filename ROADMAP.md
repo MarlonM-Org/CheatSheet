@@ -1157,6 +1157,17 @@ sonst Hinweis „extern üben“ (iReal Pro, Moises) mit „Heute geübt“-Knop
 ist persönlich und reist mit der Sicherung (`einstellungen.ts`). Prüfung
 beim Lesen, unbekannte Skill-ids bleiben erhalten (künftige Kartei).
 
+**Umgesetzt 2026-11-16** (Regeln `src/domain/skills.ts`, Katalog
+`src/domain/skillkatalog.ts` mit 47 Skills, Ansicht `Skills.tsx`). Festgelegt
+beim Bau: Stufe 1 schon ab einer Runde (≥ 0,6), Stufe 2 und 3 brauchen 5
+Runden. Verblassen = je abgelaufene Halbwertszeit der gemessenen Stufe eine
+Stufe weniger (Stufe 3 → nach 21 Tagen 2, nach 42 Tagen 1). Nach dem
+Verblassen zählen nur die neuen Runden; bis drei beisammen sind, bleibt die
+verblasste Stufe stehen, mit drei guten Runden ist die alte Stufe zurück.
+„Kann ich“-Filter = sicher (markiert oder gemessen). „Heute geübt“ setzt nur
+„zuletzt“, misst nichts. Die Ohr-Trainer-Stufen melden jede Runde an ihren
+Skill; „Üben“ öffnet den Ohr-Trainer auf dieser Stufe.
+
 ### I-08 · Hör-Übungen per Antippen — Bau 2026-11-16
 
 Die App spielt, man tippt die Antwort (kein Mikrofon nötig): **Intervalle**
@@ -1181,6 +1192,13 @@ Stufen und Frische (pausierte nie; `kann` nur zum Auffrischen, wenn
 verblasst); „Anderer Vorschlag“ tauscht einen Block. Jeder Block: Start der
 App-Übung oder „Erledigt“ (zählt als geübt heute). Fortschritt der Woche:
 „2 von 4 Einheiten“.
+
+**Umgesetzt 2026-11-16:** Eine Einheit = ein Tag, an dem alle Blöcke mit
+Vorschlag erledigt sind; Woche ab Montag. Der Tagesstand (`ueben:heute`:
+Vorschlags-Wechsel, Erledigtes, Einheiten) bleibt am Gerät. Ein aus „Heute“
+gestarteter Ohr-Block ist erledigt, sobald die Übung eine Runde meldet.
+Reihenfolge der Kandidaten: lerne → will (je am längsten nicht geübt zuerst)
+→ verblasst (am stärksten zuerst) → offen (Voraussetzungen erfüllt zuerst).
 
 ### I-10 · Später: Klarinetten-Checks, Akkordfolgen, Modi-Klang
 

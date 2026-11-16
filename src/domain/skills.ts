@@ -250,7 +250,7 @@ export function imFilter(s: SkillStand | undefined, f: Filter, jetzt: number): b
 
 export const BLOECKE = ['ohr', 'stueck', 'impro'] as const;
 export type Block = (typeof BLOECKE)[number];
-export const BLOCK_NAMEN: Record<Block, string> = { ohr: 'Ohr', stueck: 'Stück · Mitspielen', impro: 'Impro' };
+export const BLOCK_NAMEN: Record<Block, string> = { ohr: 'Ohr', stueck: 'Stück / Mitspielen', impro: 'Impro' };
 export const WOCHENZIEL = 4;
 
 const imBlock = (b: Block, s: Skill) => (b === 'ohr' ? !!s.uebung
