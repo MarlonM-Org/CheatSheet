@@ -19,8 +19,9 @@ export const BEREICHE: readonly Bereich[] = [
 ];
 
 // Hör-Übungen per Antippen (I-08) — ids wie in @/domain/hoerquiz.
-export type HoerUebungId = 'intervalle' | 'dreiklaenge' | 'septakkorde';
-export const HOER_UEBUNGEN: readonly HoerUebungId[] = ['intervalle', 'dreiklaenge', 'septakkorde'];
+import type { HoerUebungId } from './hoerquiz';
+export type { HoerUebungId } from './hoerquiz';
+export { HOER_UEBUNGEN } from './hoerquiz';
 
 // Übung in der App: eine Stufe des Ohr-Trainers (I-01) oder eine Hör-Übung (I-08).
 export type SkillUebung = { art: 'ohr'; stufe: StufenId } | { art: 'hoer'; id: HoerUebungId };

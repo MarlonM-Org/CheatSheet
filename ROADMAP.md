@@ -1181,6 +1181,13 @@ gleichzeitig, Tonhöhe klingend wie im Stimmgerät gewählt). Fachlogik
 (Fragen erzeugen mit Startwert, Antwortoptionen je Stufe, Bewertung) rein
 und getestet in `src/domain/`.
 
+**Umgesetzt 2026-11-16:** `src/domain/hoerquiz.ts` (Stufen: Intervalle 3,
+Dreiklänge 2, Septakkorde 2; Richtung bei Intervallen), Blatt
+`HoerUebung.tsx`. Start aus der Skill-Kartei („Üben“ und „Heute“), jede
+Runde zählt auf den Skill (Dreiklänge → „Dur und Moll hören“). Nach dem
+Antworten spielt ein Tipp auf jede Antwort deren Klang (Vergleich). Letzte
+Stufe je Übung in `ueben:hoerquiz` (reist mit der Sicherung).
+
 ### I-09 · „Heute“: geführte Einheit — Bau 2026-11-16
 
 Oben in der Skill-Übersicht: „Heute · 30 Min.“ — drei Blöcke à 10 Minuten

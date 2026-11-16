@@ -10,8 +10,9 @@ import {
   type Block, type Filter, type HeuteStand, type Markierung, type SkillSpeicher, type SkillStand,
 } from '@/domain/skills';
 import { useEinstellungenGeladen } from './klang';
+import { HoerUebungBlatt } from './HoerUebung';
 import { OhrTrainerBlatt } from './OhrTrainer';
-import { heuteLaden, heuteSpeichern, SKILLS_GEAENDERT, skillGeuebt, skillMarkieren, skillsLaden } from './skillspeicher';
+import { heuteLaden, heuteSpeichern, SKILLS_GEAENDERT, skillErgebnis, skillGeuebt, skillMarkieren, skillsLaden } from './skillspeicher';
 import { useDialogFokus, useEscape } from './tasten';
 
 // Skill-Kartei (I-07) mit „Heute“ (I-09): Gesamtsicht, was ich kann, was ich
@@ -120,11 +121,15 @@ export function SkillsBlatt({ schliessen, hoerUebungStarten }: { schliessen: () 
   const [detail, setDetail] = useState<string | null>(null);
   const [wahl, setWahl] = useState<string | null>(null);
   const [ohr, setOhr] = useState<StufenId | null>(null);
+  // Hör-Übung (I-08), wenn niemand von außen eine eigene Startfunktion mitgibt.
+  const [hoer, setHoer] = useState<{ id: HoerUebungId; skillId: string } | null>(null);
+  const hoerStarten: HoerUebungStarten = hoerUebungStarten ?? ((id, skillId) => setHoer({ id, skillId }));
   // Aus „Heute“ gestartete Übung: meldet sie eine Runde, ist der Block erledigt.
   const laeuft = useRef<{ block: Block; skillId: string; seit: number } | null>(null);
 
   const setHeute = (h: HeuteStand) => { setHeuteRoh(h); heuteSpeichern(h); };
-  const verfuegbar = useCallback((s: Skill) => s.uebung?.art !== 'hoer' || !!hoerUebungStarten, [hoerUebungStarten]);
+  // Alle Übungen sind eingebaut (Ohr-Trainer, Hör-Übungen) — nichts ist gesperrt.
+  const verfuegbar = useCallback((s: Skill) => s !== undefined, []);
   const bloecke = useMemo(() => heuteVorschlag(heute, sp, jetzt, verfuegbar), [heute, sp, jetzt, verfuegbar]);
   const noetig = bloecke.filter((b) => b.skill).map((b) => b.block);
   const noetigRef = useRef(noetig);
@@ -153,11 +158,11 @@ export function SkillsBlatt({ schliessen, hoerUebungStarten }: { schliessen: () 
     if (!s.uebung || !verfuegbar(s)) return;
     laeuft.current = block ? { block, skillId: s.id, seit: Date.now() } : null;
     if (s.uebung.art === 'ohr') setOhr(s.uebung.stufe);
-    else hoerUebungStarten?.(s.uebung.id, s.id);
+    else hoerStarten(s.uebung.id, s.id);
   };
 
   const zu = () => schliessen();
-  useEscape(zu, !detail && !wahl && !ohr);
+  useEscape(zu, !detail && !wahl && !ohr && !hoer);
 
   const u = uebersicht(sp, jetzt);
   const woche = wocheEinheiten(heute, jetzt);
@@ -270,11 +275,13 @@ export function SkillsBlatt({ schliessen, hoerUebungStarten }: { schliessen: () 
     document.body,
   )}
       {detail && (
-        <SkillDetail id={detail} sp={sp} jetzt={jetzt} aktiv={!wahl && !ohr} schliessen={() => setDetail(null)} wechseln={setDetail}
+        <SkillDetail id={detail} sp={sp} jetzt={jetzt} aktiv={!wahl && !ohr && !hoer} schliessen={() => setDetail(null)} wechseln={setDetail}
           markierungAendern={() => setWahl(detail)} kannUeben={kannUeben} ueben={(s) => ueben(s)} />
       )}
       {wahl && <MarkierungsWahl id={wahl} m={markierungVon(sp[wahl])} schliessen={() => setWahl(null)} />}
       {ohr && <OhrTrainerBlatt stufe={ohr} schliessen={() => { setOhr(null); laeuft.current = null; }} />}
+      {hoer && <HoerUebungBlatt uebung={hoer.id} schliessen={() => { setHoer(null); laeuft.current = null; }}
+        beiErgebnis={(r) => skillErgebnis(hoer.skillId, r.quote)} />}
   </>);
 }
 
