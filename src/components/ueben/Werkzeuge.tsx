@@ -2,8 +2,10 @@
 
 import { useState, type ReactNode } from 'react';
 import { DroneBlatt } from './Drone';
+import { EtuedenBlatt } from './Etueden';
 import { GriffeBlatt } from './Griffe';
 import { JamKarteBlatt } from './JamKarte';
+import { LicksBlatt } from './Licks';
 import { SpickzettelBlatt } from './Spickzettel';
 import { TransponierBlatt } from './Transponieren';
 
@@ -23,6 +25,8 @@ const WERKZEUGE: readonly Werkzeug[] = [
   { id: 'spick', name: 'Akkord-Spickzettel', info: 'Töne, Guide Tones, Leitern', zeichen: '♯', blatt: (z) => <SpickzettelBlatt schliessen={z} /> },
   { id: 'trans', name: 'Transponieren', info: 'klingend ↔ notiert', zeichen: '⇅', blatt: (z) => <TransponierBlatt schliessen={z} /> },
   { id: 'griffe', name: 'Griffweisen', info: 'Standard, Alternativen, Triller', zeichen: '◉', blatt: (z) => <GriffeBlatt schliessen={z} /> },
+  { id: 'etueden', name: 'Etüden', info: 'Muster durch alle 12 Tonarten', zeichen: '♫', blatt: (z) => <EtuedenBlatt schliessen={z} /> },
+  { id: 'licks', name: 'Licks', info: 'Sammeln, transponieren, wiederholen', zeichen: '♪', blatt: (z) => <LicksBlatt schliessen={z} /> },
   { id: 'drone', name: 'Drone', info: 'Liegeton zum Improvisieren', zeichen: '∿', blatt: (z) => <DroneBlatt schliessen={z} /> },
 ];
 

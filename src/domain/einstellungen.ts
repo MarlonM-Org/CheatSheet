@@ -3,7 +3,8 @@
 // Taktart, Akzente, Unterteilung, Trainer, Swing), Stift-, Marker- und Textfarbe,
 // Wischrichtung, Zoomen auch beim Lesen, Tonumfang fürs Tonprofil, Reihenfolge der
 // Sammlungen, Ohr-Trainer (Stufe, Grundton, Tempo), Skill-Kartei (Markierungen
-// und Stufen je Skill), eigene Stücke der Jam-Karte. Was zum Gerät gehört, bleibt:
+// und Stufen je Skill), eigene Stücke der Jam-Karte, Etüden-Wahl, Licks
+// (eigene, Wiederholungsstand). Was zum Gerät gehört, bleibt:
 // Hell/Dunkel und Farbwelten, Lage der Fenster, zuletzt Geöffnetes, Filter,
 // das Tempo (folgt den Stellen), der Verlauf des Ohr-Trainers (ueben:ohr-verlauf),
 // der Tagesstand von „Heute“ (ueben:heute).
@@ -19,6 +20,8 @@ import { skillsGueltig, type SkillSpeicher } from './skills';
 import { jamStueckeGueltig, type JamStueck } from './jamkarte';
 import { HOER_STANDARD, istHoerEinstellung, type HoerEinstellung } from './hoerquiz';
 import { DRONE_STANDARD, istDroneEinstellung, type DroneEinstellung } from './drone';
+import { ETUEDEN_STANDARD, istEtuedenEinstellung, type EtuedenEinstellung } from './etueden';
+import { LICKS_STANDARD, licksGueltig, type LickSpeicher } from './licks';
 import { istSwing, SWING_STANDARD, type Swing } from './swing';
 import { STIFT_STANDARD, type StiftEinstellung } from './stift';
 import { istNenner, NENNER_STANDARD, ZAEHLER_MAX, ZAEHLER_MIN, type Nenner } from './takt';
@@ -62,6 +65,10 @@ export interface Einstellungswerte {
   'ueben:jamkarte': JamStueck[];
   // Drone (I-18): zuletzt gewählter Grundton (Tonklasse, notiert), Farbe und Lautstärke.
   'ueben:drone': DroneEinstellung;
+  // Etüden (I-14): Muster, Tonarten-Folge, erste Tonart, Rhythmus, Tempo, obere Grenze.
+  'ueben:etueden': EtuedenEinstellung;
+  // Lick-Sammlung (I-16): eigene Licks, Stand je Lick (zuletzt, Stärke), ausgeblendete Start-Licks.
+  'ueben:licks': LickSpeicher;
 }
 export type Mitreisend = keyof Einstellungswerte;
 export type Werte = Partial<Einstellungswerte>;
@@ -94,6 +101,8 @@ export const EINSTELLUNG_STANDARD: Einstellungswerte = {
   'ueben:hoerquiz': HOER_STANDARD,
   'ueben:jamkarte': [],
   'ueben:drone': DRONE_STANDARD,
+  'ueben:etueden': ETUEDEN_STANDARD,
+  'ueben:licks': LICKS_STANDARD,
 };
 
 // Zeitpunkt der letzten echten Änderung eines mitreisenden Werts (ms).
@@ -136,6 +145,8 @@ const PRUEFEN: Record<Mitreisend, (v: unknown) => boolean> = {
   'ueben:hoerquiz': istHoerEinstellung,
   'ueben:jamkarte': jamStueckeGueltig,
   'ueben:drone': istDroneEinstellung,
+  'ueben:etueden': istEtuedenEinstellung,
+  'ueben:licks': licksGueltig,
 };
 
 export const MITREISEND = Object.keys(PRUEFEN) as Mitreisend[];
