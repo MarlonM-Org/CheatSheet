@@ -1707,3 +1707,276 @@ ol.stichpunkte { list-style: decimal; }
 .hoer-gruppe { display: flex; flex-wrap: wrap; gap: 6px; }
 .hoer-gruppe button { flex: 1 1 auto; min-height: 2.75rem; padding: 0 12px; border: 1px solid var(--linie-stark); border-radius: 6px; background: var(--karte); font-weight: 600; }
 .hoer-gruppe button[aria-pressed="true"] { border-color: var(--messing); background: var(--messing-hell); }
+
+/* Harmonie-Werkzeuge (I-11 Spickzettel, I-12 Transponieren, I-19 Jam-Karte).
+   Feste Höhen und reservierte Felder: Tippen ändert Inhalte, nichts rutscht. */
+.harmonie-blatt { display: flex; flex-direction: column; gap: 12px; height: 92vh; padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px)); }
+.harmonie-blatt > * { flex-shrink: 0; }
+.harmonie-ueber { z-index: 85; }
+.abc-zeile { width: 100%; overflow: hidden; }
+.abc-zeile svg { display: block; }
+.harmonie-eingabe { display: flex; gap: 8px; align-items: stretch; }
+.harmonie-eingabe .hoer-gruppe { flex: none; flex-wrap: nowrap; }
+.harmonie-eingabe .hoer-gruppe button { padding: 0 10px; font-size: 0.85rem; }
+.harmonie-feld { flex: 1; font-size: 1.15rem; font-weight: 700; }
+.harmonie-grundtoene { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+.harmonie-arten { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+@media (min-width: 640px) { .harmonie-grundtoene { grid-template-columns: repeat(12, minmax(0, 1fr)); } .harmonie-arten { grid-template-columns: repeat(8, minmax(0, 1fr)); } }
+.harmonie-grundtoene button, .harmonie-arten button {
+  min-height: 2.5rem; padding: 0 2px; border: 1px solid var(--linie-stark); border-radius: 6px; background: var(--karte);
+  font-weight: 650; font-size: 0.88rem; white-space: nowrap;
+}
+.harmonie-grundtoene button[aria-pressed="true"], .harmonie-arten button[aria-pressed="true"] { border-color: var(--messing); background: var(--messing-hell); color: var(--tinte); }
+.harmonie-ergebnis { min-height: 12.5rem; display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--linie); border-radius: 6px; }
+.harmonie-kopfzeile { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.harmonie-kopfzeile > div { display: flex; flex-direction: column; gap: 0; }
+.harmonie-symbol { font-size: 2.1rem; font-weight: 800; line-height: 1.05; }
+.harmonie-klingend { align-items: flex-end; text-align: right; color: var(--gedaempft); }
+.harmonie-klingend > span:first-child { font-size: 1.15rem; font-weight: 700; }
+.harmonie-toene { display: flex; flex-wrap: wrap; gap: 6px; }
+.harmonie-toene li {
+  min-width: 3.1rem; display: flex; flex-direction: column; align-items: center; padding: 4px 8px; border-radius: 6px;
+  border: 1px solid var(--linie-stark); background: var(--karte);
+}
+.harmonie-toene li strong { font-size: 1.05rem; }
+.harmonie-toene li span { font-size: 0.72rem; color: var(--gedaempft); font-variant-numeric: tabular-nums; }
+.harmonie-toene li.guide { background: var(--messing-hell); border-color: var(--messing); }
+.harmonie-toene li.guide span { color: var(--tinte); font-weight: 650; }
+.harmonie-toene li.bass { border-style: dashed; }
+.harmonie-legende { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: var(--messing-hell); border: 1px solid var(--messing); vertical-align: -1px; }
+.harmonie-fehler { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+.harmonie-hinweis { margin-top: auto; padding: 6px 8px; border-radius: 6px; background: var(--flaeche2); }
+.harmonie-leitern { border: 1px solid var(--linie); border-radius: 6px; overflow: hidden; }
+.harmonie-leitern li + li { border-top: 1px solid var(--linie); }
+.harmonie-leitern button { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 12px; text-align: left; }
+.harmonie-leitern button[aria-checked="true"] { background: var(--messing-hell); box-shadow: inset 3px 0 0 var(--messing); }
+.harmonie-leiter-name { font-weight: 700; font-size: 0.95rem; }
+.harmonie-leiter-name small { font-weight: 500; color: var(--gedaempft); }
+.harmonie-leiter-toene { font-weight: 600; font-size: 0.9rem; letter-spacing: 0.02em; }
+.harmonie-leiter-warum { font-size: 0.82rem; color: var(--gedaempft); line-height: 1.35; }
+
+.harmonie-richtung { display: flex; align-items: center; justify-content: center; gap: 12px; text-transform: capitalize; }
+.harmonie-tonarten { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--linie); border-radius: 6px; min-height: 5rem; }
+.harmonie-tonarten > div { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.harmonie-tonarten strong { font-size: 1.3rem; font-weight: 800; line-height: 1.15; }
+.harmonie-tonarten .ziel strong { color: var(--messing); }
+.harmonie-pfeil { flex: none; font-size: 1.3rem; color: var(--leise); }
+.harmonie-schwer { min-height: 3.6rem; padding: 8px 12px; border-radius: 6px; background: var(--gut-hell); font-size: 0.88rem; line-height: 1.4; }
+.harmonie-schwer.unbequem { background: var(--messing-hell); }
+.harmonie-folge { font-size: 1rem; font-weight: 600; }
+.harmonie-ausgabe {
+  min-height: 4.6rem; margin: 0; padding: 10px 12px; border-radius: 6px; background: var(--flaeche); border: 1px solid var(--linie);
+  font-family: inherit; font-weight: 700; font-size: 1.05rem; line-height: 1.6; white-space: pre-wrap; overflow-x: auto;
+}
+.harmonie-fehlerzeile { min-height: 2.6rem; }
+
+.jam-liste { border: 1px solid var(--linie); border-radius: 6px; overflow: hidden; }
+.jam-liste li + li { border-top: 1px solid var(--linie); }
+.jam-liste button { width: 100%; display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 6px 10px 6px 12px; text-align: left; }
+.jam-liste button:active { background: var(--flaeche); }
+.jam-zeile-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.jam-titel { font-weight: 650; font-size: 0.95rem; line-height: 1.25; }
+.jam-eigen { margin-left: 6px; padding: 1px 6px; border-radius: 999px; background: var(--messing-hell); color: var(--messing); font-size: 0.68rem; font-weight: 700; vertical-align: 1px; }
+.jam-zeile-tonart { flex: none; display: flex; flex-direction: column; align-items: flex-end; }
+.jam-zeile-tonart strong { font-size: 1rem; }
+.jam-zeile-tonart small { font-size: 0.7rem; color: var(--gedaempft); white-space: nowrap; }
+.jam-info { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.jam-info > div:first-child { display: flex; flex-direction: column; min-width: 0; }
+.jam-info strong { font-size: 1.15rem; font-weight: 800; }
+.jam-info .hoer-gruppe { flex: none; flex-wrap: nowrap; }
+.jam-info .hoer-gruppe button { padding: 0 10px; font-size: 0.85rem; }
+.jam-teile { display: flex; flex-direction: column; gap: 10px; }
+.jam-teil { display: flex; gap: 6px; }
+.jam-teil-name { flex: none; width: 1.6rem; padding-top: 6px; font-weight: 800; color: var(--messing); text-align: center; }
+.jam-raster { flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-left: 2px solid var(--tinte); }
+.jam-takt { position: relative; min-height: 3.1rem; display: flex; align-items: stretch; border-right: 1px solid var(--linie-stark); border-bottom: 1px solid var(--linie); }
+.jam-takt button { flex: 1; min-width: 0; padding: 12px 2px 4px; font-weight: 750; font-size: 0.98rem; line-height: 1.1; overflow-wrap: anywhere; }
+.jam-takt button.klein { font-size: 0.78rem; padding-left: 1px; padding-right: 1px; }
+.jam-takt button + button { border-left: 1px dotted var(--linie-stark); }
+.jam-takt button:active { background: var(--messing-hell); }
+.jam-taktnr { position: absolute; top: 1px; left: 3px; font-size: 0.6rem; color: var(--leise); font-variant-numeric: tabular-nums; pointer-events: none; }
+@media (min-width: 640px) { .jam-takt button { font-size: 1.1rem; } .jam-takt button.klein { font-size: 0.92rem; } }
+.jam-notiz { padding: 8px 12px; border-radius: 6px; background: var(--flaeche); }
+.jam-feld { display: flex; flex-direction: column; gap: 4px; }
+.jam-zwei { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.jam-akkorde { font-weight: 600; }
+.jam-formular { height: auto; }
+/* Griffweisen (I-13) */
+.griff-bild { display: block; width: 7.5rem; height: auto; flex-shrink: 0; }
+.griff-bild.klein { width: 4.4rem; }
+.griff-korpus { fill: var(--flaeche); stroke: var(--linie-stark); stroke-width: 1; }
+.griff-fuge { stroke: var(--linie-stark); stroke-width: 1; }
+.griff-taste { fill: var(--karte); stroke: var(--tinte); stroke-width: 1.4; }
+.griff-taste.zu { fill: var(--tinte); }
+.griff-taste.triller { stroke: var(--messing); stroke-width: 3; }
+.griff-taste.triller:not(.zu) { fill: var(--messing-hell); }
+.griff-text { font-size: 6.5px; font-weight: 700; text-anchor: middle; fill: var(--gedaempft); pointer-events: none; }
+.griff-text.zu { fill: var(--karte); }
+.griff-wahl { display: flex; flex-direction: column; gap: 10px; }
+.griff-schritte { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.griff-schritte .rund-knopf:disabled { opacity: 0.35; }
+.griff-ton { flex: 1; display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.griff-ton strong { font-size: 1.9rem; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.griff-ton span { font-size: 0.8rem; color: var(--gedaempft); white-space: nowrap; }
+.griff-klavier { position: relative; display: flex; height: 3.2rem; }
+.griff-klavier-taste { flex: 1; border: 1px solid var(--linie-stark); border-right-width: 0; background: var(--karte); }
+.griff-klavier > .griff-klavier-taste:nth-child(7) { border-right-width: 1px; border-radius: 0 0 6px 0; }
+.griff-klavier > .griff-klavier-taste:first-child { border-radius: 0 0 0 6px; }
+.griff-klavier-taste.schwarz { position: absolute; top: 0; width: 11%; height: 60%; background: var(--tinte); border: 1px solid var(--tinte); border-radius: 0 0 4px 4px; z-index: 1; }
+.griff-klavier-taste[aria-pressed="true"] { background: var(--messing); border-color: var(--messing); }
+.griff-klavier-taste:disabled { opacity: 0.3; }
+.griff-aktionen { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.griff-aktionen button[aria-pressed="true"] { border-color: var(--messing); background: var(--messing-hell); color: var(--tinte); }
+.griff-hoert { min-height: 1.25rem; margin: 0; }
+.griff-standard { display: flex; gap: 14px; align-items: flex-start; }
+.griff-legende { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.griff-legende p { margin: 0; }
+.griff-punkt { display: inline-block; width: 0.8rem; height: 0.8rem; border-radius: 50%; border: 1.5px solid var(--tinte); vertical-align: -1px; margin-right: 4px; }
+.griff-punkt.zu { background: var(--tinte); }
+.griff-punkt.triller { border: 2.5px solid var(--messing); background: var(--messing-hell); }
+.griff-karten { display: grid; grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr)); gap: 8px; }
+.griff-karte { display: flex; flex-direction: column; gap: 6px; align-items: center; text-align: center; padding: 8px; border: 1px solid var(--linie); border-radius: 6px; }
+.griff-karte p { margin: 0; font-size: 0.8rem; line-height: 1.3; }
+button.ohr-note { background: none; color: inherit; font: inherit; cursor: pointer; }
+.griff-skill { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin-top: 4px; }
+/* Swing-Metronom (I-17): feste Höhe, nichts rutscht; Nicht-Mögliches ist abgeblendet. */
+.swing-block { display: flex; flex-direction: column; gap: 10px; }
+.swing-chip { min-height: 2.75rem; padding: 0 12px; border: 1px solid var(--linie-stark); border-radius: 6px; background: var(--karte); font-weight: 700; }
+.swing-chip[aria-pressed="true"] { border-color: var(--messing); background: var(--messing-hell); }
+.swing-chip:disabled, .swing-block .segment button:disabled { opacity: 0.45; }
+.swing-block > p { min-height: 2.2em; }
+/* Drone (I-18): Tasten fest in einem Raster, Hinweis in reserviertem Feld. */
+.dr-tasten { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+.dr-farben { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.dr-tasten button, .dr-farben button { min-height: 2.75rem; padding: 0 4px; border: 1px solid var(--linie-stark); border-radius: 6px; background: var(--karte); font-weight: 700; font-size: 0.95rem; }
+.dr-tasten button[aria-pressed="true"], .dr-farben button[aria-pressed="true"] { border-color: var(--messing); border-width: 2px; background: var(--messing-hell); }
+.dr-hinweis { min-height: 2.6em; }
+.dr-status { min-height: 1.5em; }
+.swing-block .segment { display: flex; width: 100%; }
+.swing-block .segment button { flex: 1 1 0; min-width: 0; padding-left: 4px; padding-right: 4px; }
+
+/* Werkzeuge (I-11…I-20): Kacheln in der Bibliothek */
+.werkzeuge { display: grid; gap: 6px; }
+.werkzeuge-raster { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+@media (min-width: 700px) { .werkzeuge-raster { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.werkzeug-kachel {
+  display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 8px 10px; text-align: left;
+  border: 1px solid var(--linie-stark); border-radius: 6px; background: var(--karte);
+}
+.werkzeug-kachel:active { background: var(--flaeche); }
+.werkzeug-zeichen {
+  flex: none; width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center;
+  background: var(--messing-hell); color: var(--messing); font-size: 1.1rem; font-weight: 700;
+}
+.werkzeug-text { display: flex; flex-direction: column; min-width: 0; }
+.werkzeug-text strong { font-size: 0.9rem; line-height: 1.2; }
+.werkzeug-text span { font-size: 0.75rem; color: var(--gedaempft); line-height: 1.25; }
+
+/* Spielhilfe (I-15): Streifen über der Stellen-Leiste — absolut, liegt über
+   den Noten, verschiebt nichts; feste Maße, ‹ › ändern nur den Inhalt. */
+.sh-streifen, .sh-klein {
+  position: absolute; right: 0.6rem; bottom: calc(100% + 8px); z-index: 7;
+  background: var(--karte); color: var(--tinte); border: 1px solid var(--linie-stark); border-radius: 10px;
+  box-shadow: 0 6px 22px rgb(0 0 0 / 22%);
+}
+.sh-streifen { display: flex; align-items: stretch; width: min(24rem, calc(100% - 1.2rem)); height: 5.6rem; overflow: hidden; }
+.sh-pfeil { flex: none; width: 2.6rem; font-size: 1.6rem; font-weight: 600; color: var(--tinte); }
+.sh-pfeil:disabled { opacity: 0.3; }
+.sh-pfeil:active, .sh-akkord:active { background: var(--flaeche); }
+.sh-akkord { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 4px 6px; text-align: left; }
+.sh-kopf { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.sh-symbol { flex: none; font-size: 1.9rem; font-weight: 800; line-height: 1; }
+.sh-kopf { align-items: center; }
+.sh-takt { min-width: 0; display: flex; flex-direction: column; font-size: 0.72rem; line-height: 1.25; color: var(--gedaempft); }
+.sh-takt > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sh-toene { display: flex; gap: 4px; overflow: hidden; }
+.sh-toene span { flex: none; min-width: 1.9rem; padding: 1px 5px; border: 1px solid var(--linie-stark); border-radius: 5px; font-size: 0.82rem; font-weight: 700; text-align: center; }
+.sh-toene span.guide { background: var(--messing-hell); border-color: var(--messing); }
+.sh-rechts { flex: none; display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 4px 0; }
+.sh-drone { width: 2.5rem; height: 2.5rem; border-radius: 8px; border: 1px solid var(--linie-stark); font-size: 1.25rem; font-weight: 700; }
+.sh-drone[aria-pressed="true"] { background: var(--messing); border-color: var(--messing); color: var(--messing-text); }
+.sh-zu { width: 2.5rem; height: 1.9rem; border-radius: 8px; color: var(--gedaempft); font-size: 1.1rem; font-weight: 700; }
+.sh-klein { display: flex; align-items: center; gap: 6px; height: 2.6rem; padding: 0 12px; font-weight: 800; font-size: 1.05rem; }
+.sh-punkt { width: 8px; height: 8px; border-radius: 50%; background: var(--messing); }
+.sh-zeile {
+  width: 100%; display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 6px 12px; text-align: left; font-weight: 600;
+  border: 1px solid var(--linie); border-radius: 6px;
+}
+.sh-zeile small { display: block; font-size: 0.75rem; font-weight: 500; color: var(--gedaempft); }
+.sh-blatt { display: flex; flex-direction: column; gap: 12px; }
+.sh-eingabe { font-size: 1.05rem; font-weight: 650; resize: none; }
+.sh-vorschau { min-height: 4.4rem; display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 8px 12px; border-radius: 6px; background: var(--flaeche); }
+.sh-folge { font-weight: 750; font-size: 1.05rem; line-height: 1.4; overflow-wrap: anywhere; }
+.sh-fehler { color: var(--warnung); }
+
+/* Aufnahme-Tagebuch (I-20): feste Höhe, Liste scrollt; Hinweis in
+   reserviertem Feld; der Vergleich liegt unten über der Liste. */
+.tb-blatt { position: relative; }
+.tb-hinweis { min-height: 2.6em; margin: 0; padding: 6px 10px; border-radius: 6px; background: var(--flaeche); line-height: 1.3; display: flex; align-items: center; }
+.tb-hinweis.waehlen { background: var(--messing-hell); font-weight: 650; }
+.tb-werkzeuge { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.tb-filter { grid-column: 1 / -1; min-width: 0; }
+.tb-werkzeuge .knopf { justify-content: center; min-height: 2.75rem; }
+.tb-werkzeuge .knopf[aria-pressed="true"] { border-color: var(--messing); background: var(--messing-hell); color: var(--tinte); }
+.tb-neu { gap: 6px; }
+.tb-liste { flex: 1 1 0 !important; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding-bottom: 12rem; }
+.tb-tag ul { border-top: 1px solid var(--linie); }
+.tb-tag h3 { display: block; margin-bottom: 4px; }
+.tb-zeile { display: flex; align-items: center; gap: 6px; padding: 6px 0; border-bottom: 1px solid var(--linie); }
+.tb-zeile.gewaehlt { background: var(--messing-hell); box-shadow: inset 3px 0 0 var(--messing); }
+.tb-zeile.aus { opacity: 0.4; }
+.tb-text { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; text-align: left; padding: 2px 4px; }
+.tb-text > * { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tb-text > .tb-wo { white-space: normal; line-height: 1.3; }
+.tb-leer { display: flex; flex-direction: column; gap: 4px; padding: 12px; border: 1px dashed var(--linie-stark); border-radius: 6px; }
+.tb-vergleich {
+  position: absolute; left: 0.75rem; right: 0.75rem; bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px)); z-index: 2;
+  display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 10px;
+  background: var(--karte); border: 1px solid var(--linie-stark); box-shadow: 0 -6px 26px rgb(0 0 0 / 22%);
+}
+.tb-vergleich-zeile { display: flex; align-items: center; gap: 10px; padding: 4px 6px; border-radius: 6px; }
+.tb-vergleich-zeile.an { background: var(--messing-hell); }
+.tb-marke { flex: none; width: 1.8rem; height: 1.8rem; border-radius: 50%; display: grid; place-items: center; font-weight: 800; background: var(--flaeche2); }
+.tb-vergleich-zeile.an .tb-marke { background: var(--messing); color: var(--messing-text); }
+.tb-vergleich-knoepfe { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tb-vergleich-knoepfe .knopf { justify-content: center; min-width: 0; padding: 0 0.5rem; }
+.tb-vergleich-fehler { min-height: 1.2em; margin: 0; color: var(--warnung); }
+.tb-feld { display: flex; flex-direction: column; gap: 4px; }
+.tb-aufnehmen {
+  display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 3.5rem; border-radius: 10px;
+  border: 2px solid var(--warnung); font-weight: 750; font-size: 1.05rem;
+}
+.tb-aufnehmen.laeuft { background: var(--warnung); color: #fff; }
+.tb-stopp { width: 14px; height: 14px; border-radius: 2px; background: currentColor; }
+/* Etüden (I-14) und Licks (I-16): Wahl oben, Noten unten — die Notenzeile wächst, nichts darüber rutscht. */
+.et-blatt, .lk-blatt { gap: 10px; }
+.et-muster { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+@media (min-width: 640px) { .et-muster { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+.et-was { min-height: 2.7em; margin: 0; line-height: 1.35; }
+.et-feld { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.et-segment { flex-wrap: nowrap; gap: 4px; }
+.et-segment button { flex: 1 1 0; min-width: 0; padding: 0 4px; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.et-zwei { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 8px; }
+.et-tempo { display: flex; align-items: center; gap: 10px; }
+.et-tempo input[type="range"] { flex: 1; min-width: 0; accent-color: var(--messing); }
+.et-tempo-zahl { flex: none; width: 3.4rem; display: flex; flex-direction: column; align-items: center; line-height: 1.05; }
+.et-tempo-zahl strong { font-size: 1.3rem; font-variant-numeric: tabular-nums; }
+.et-tempo-zahl span { font-size: 0.65rem; color: var(--gedaempft); letter-spacing: 0.08em; }
+.et-hinweis { min-height: 2.6em; margin: 0; }
+.et-noten { width: 100%; padding: 6px 0 4px; border-top: 1px solid var(--linie); }
+.lk-zeile-stand { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+.lk-zeile-stand small { font-size: 0.7rem; color: var(--gedaempft); white-space: nowrap; }
+.lk-staerke { display: inline-flex; gap: 3px; vertical-align: middle; }
+.lk-staerke span { width: 7px; height: 7px; border-radius: 50%; border: 1px solid var(--messing); }
+.lk-staerke span.an { background: var(--messing); }
+.lk-bewerten { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--linie); border-radius: 6px; }
+.lk-bewerten-kopf { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.lk-hinweis { min-height: 1.4em; margin: 0; }
+.lk-text { min-height: 4.5rem; font-weight: 600; font-size: 1rem; }
+.lk-tasten { display: flex; flex-direction: column; gap: 4px; }
+.lk-reihe { display: grid; gap: 4px; }
+.lk-reihe-7 { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.lk-reihe button { min-height: 2.6rem; padding: 0 2px; border: 1px solid var(--linie-stark); border-radius: 6px; background: var(--karte); font-weight: 700; font-size: 0.95rem; white-space: nowrap; }
+.lk-reihe button:active { background: var(--messing-hell); }
+.lk-vorschau { min-height: 6.5rem; display: flex; flex-direction: column; gap: 4px; }
+.et-muster button { white-space: normal; line-height: 1.1; font-size: 0.82rem; hyphens: manual; }

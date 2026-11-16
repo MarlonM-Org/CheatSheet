@@ -296,6 +296,11 @@ describe('Aufnahmen', () => {
     expect((await roh('dateien')).map((d) => d.id).sort()).toEqual([a2, id].sort());
     await expect(g.lokal.aufnahmeDatei({ id: a1, typ: 'audio/mp4' })).rejects.toThrow();
   });
+  it('merken sich optional den Skill (I-20) — ein zusätzliches Feld der Angabe, ohne Schemaänderung', async () => {
+    const id = await anlegen('A');
+    const a = await g.lokal.aufnahmeAnlegen(id, ton('eins'), { am: 1, dauer: 2, skillId: 'blues-b' });
+    expect((await g.lokal.stueckHolen(id))!.aufnahmen).toEqual([{ id: a, am: 1, dauer: 2, typ: 'audio/mp4', skillId: 'blues-b' }]);
+  });
   it('gehen mit dem Stück weg und reisen nicht mit der Sicherung', async () => {
     const id = await anlegen('A');
     const b = await anlegen('B');
@@ -415,6 +420,53 @@ describe('Stellen', () => {
     expect(s.tempi[0].am).toBeTypeOf('number');
     await g.lokal.stelleLoeschen(id);
     expect(await g.lokal.stellenVon('n')).toEqual([]);
+  });
+
+  // I-15: Akkorde (Spielhilfe) sind ein zusätzliches Feld der Stelle — Version und Schema bleiben.
+  it('Akkorde (Spielhilfe) reisen mit der Sicherung: im Kopf an der Stelle (notenId), auf dem neuen Gerät gleich', async () => {
+    const a = await anlegen('A');
+    await g.lokal.stelleAnlegen(stelle(a, 1, 0.1));
+    const [{ id }] = await g.lokal.stellenVon(a);
+    const akkorde = { text: '| Cm7 F7 | Bbmaj7 |', eingabe: 'klingend' as const };
+    await g.lokal.stelleAendern(id, { akkorde });
+    const { datei } = await g.lokal.sicherungErstellen();
+    const { kopf } = await sicherungLesen(datei);
+    expect(kopf.version).toBe(1);
+    expect(kopf.stellen).toEqual([expect.objectContaining({ id, notenId: a, akkorde })]);
+    g = await neuesGeraet();
+    await g.lokal.sicherungSchreiben(await g.lokal.sicherungPruefen(datei));
+    expect((await g.lokal.stellenVon(a))[0].akkorde).toEqual(akkorde);
+  });
+
+  it('entfernte Akkorde (leerer Text) bringt eine ältere Sicherung nicht zurück; neuere Akkorde aus der Sicherung kommen an', async () => {
+    const a = await anlegen('A');
+    await g.lokal.stelleAnlegen(stelle(a, 1, 0.1));
+    const [{ id }] = await g.lokal.stellenVon(a);
+    await g.lokal.stelleAendern(id, { akkorde: { text: '| C | G7 |', eingabe: 'notiert' } });
+    const alt = (await g.lokal.sicherungErstellen()).datei;
+    await new Promise((ok) => setTimeout(ok, 5));
+    await g.lokal.stelleAendern(id, { akkorde: { text: '', eingabe: 'notiert' } });
+    await g.lokal.sicherungSchreiben(await g.lokal.sicherungPruefen(alt));
+    expect((await g.lokal.stellenVon(a))[0].akkorde).toEqual({ text: '', eingabe: 'notiert' });
+    // Umgekehrt: auf dem anderen Gerät später eingetragen → kommt hier an.
+    await new Promise((ok) => setTimeout(ok, 5));
+    await g.lokal.stelleAendern(id, { akkorde: { text: '| F |', eingabe: 'klingend' } });
+    const neuer = (await g.lokal.sicherungErstellen()).datei;
+    g = await neuesGeraet();
+    await g.lokal.sicherungSchreiben(await g.lokal.sicherungPruefen(alt));
+    await g.lokal.sicherungSchreiben(await g.lokal.sicherungPruefen(neuer));
+    expect((await g.lokal.stellenVon(a))[0].akkorde).toEqual({ text: '| F |', eingabe: 'klingend' });
+  });
+
+  it('eine Sicherung mit unbrauchbarem Akkord-Feld lädt trotzdem; das Feld bleibt unangetastet', async () => {
+    const a = await anlegen('A');
+    await g.lokal.stelleAnlegen(stelle(a, 1, 0.1));
+    const [{ id }] = await g.lokal.stellenVon(a);
+    await g.lokal.stelleAendern(id, { akkorde: { text: 42, eingabe: 'quer' } as never });
+    const { datei } = await g.lokal.sicherungErstellen();
+    g = await neuesGeraet();
+    await g.lokal.sicherungSchreiben(await g.lokal.sicherungPruefen(datei));
+    expect((await g.lokal.stellenVon(a))[0].akkorde).toEqual({ text: 42, eingabe: 'quer' });
   });
 
   it('ignoriert Änderungen an einer Stelle, die es nicht gibt', async () => {

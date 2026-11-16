@@ -13,12 +13,14 @@ import { HeuteAbschnitt, SkillStand, SkillsZeile } from './Skills';
 import { ladeFehler } from './speicherfehler';
 import { MixZeile } from './StellenMix';
 import { useEscape } from './tasten';
+import { Werkzeuge } from './Werkzeuge';
 
 // Lernen (B-18): der Ort neben den Noten — oben „Heute“ (I-09), darunter
 // Üben (Stellen-Mix, Ohr-Trainer, Hör-Übungen), zuletzt „Mein Stand“ mit der
 // Skill-Kartei. Legt sich wie die Bibliothek über die Noten und öffnet immer
 // oben; Mix, Übungen und Kartei legen sich als Blatt darüber.
-// Was aus I-02…I-10 dazukommt, erscheint hier erst, wenn es gebaut ist.
+// Darunter die Werkzeuge (I-11…I-20). Was aus I-02…I-06 dazukommt, erscheint
+// hier erst, wenn es gebaut ist.
 
 // Woraus der Mix hier mischt (am Gerät, reist nicht mit — ein Filter).
 const MIX_WORAUS = 'ueben:mix-woraus';
@@ -78,6 +80,9 @@ export function Lernen({ schliessen, escapeAktiv, stand, mixStarten, mixAktiv }:
         )}
         <OhrTrainerZeile offenMelden={setBlattOffen} />
         <HoerUebungenZeile offenMelden={setBlattOffen} />
+
+        <h3 className="lernen-titel">Werkzeuge</h3>
+        <Werkzeuge offenMelden={setBlattOffen} />
 
         <h3 className="lernen-titel">Mein Stand</h3>
         <SkillsZeile offenMelden={setBlattOffen} />

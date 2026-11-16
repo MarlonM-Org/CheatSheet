@@ -1,9 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import { akkordeKurz, akkordeLesen } from '@/domain/spielhilfe';
 import { reserveVon, stelleFavorit, steigerung, tagesbeste, tempoStand, zielAusText, zielStand } from '@/domain/stellen';
 import { stelleAendern, stelleLoeschen, type Stelle } from './lokal';
 import { speicherFehler } from './speicherfehler';
+import { AkkordeBlatt } from './Spielhilfe';
 import { Stern } from './Stern';
 import { useDialogFokus, useEscape } from './tasten';
 import { TempoKurve } from './TempoKurve';
@@ -22,7 +24,9 @@ export function StelleBlatt({ stelle, stueck, aktionen = [], geaendert, schliess
   geaendert: () => void; schliessen: () => void; geloescht: () => void;
 }) {
   const [bearbeiten, setBearbeiten] = useState(false);
-  useEscape(schliessen);
+  // Akkorde (Spielhilfe, I-15): Formular liegt als Blatt darüber.
+  const [akkordeOffen, setAkkordeOffen] = useState(false);
+  useEscape(schliessen, !akkordeOffen);
   const fokus = useDialogFokus<HTMLDivElement>();
   const [jetzt] = useState(() => Date.now());
   const [eingabe, setEingabe] = useState(stelle.zielTempo ? String(stelle.zielTempo) : '');
@@ -103,6 +107,14 @@ export function StelleBlatt({ stelle, stueck, aktionen = [], geaendert, schliess
             : 'Das Tempo, bei dem die Stelle sitzen soll (Schläge pro Minute wie im Metronom).')}
         </p>
 
+        <button type="button" className="sh-zeile" onClick={() => setAkkordeOffen(true)} aria-haspopup="dialog">
+          <span className="min-w-0 flex-1">
+            Akkorde (Spielhilfe)
+            <small className="truncate">{akkordeKurz(akkordeLesen(stelle.akkorde)) || 'Akkordsymbole je Takt — beim Üben Akkord, Töne und Drone'}</small>
+          </span>
+          <span className="knopf knopf-leise knopf-klein" aria-hidden="true">{akkordeKurz(akkordeLesen(stelle.akkorde)) ? 'Ändern' : 'Eintragen'}</span>
+        </button>
+
         <label className="favorit-zeile">
           <Stern an={favorit} />
           <span className="min-w-0 flex-1">Favorit<small>Im Stellen-Mix unter „Nur Favoriten“</small></span>
@@ -147,6 +159,7 @@ export function StelleBlatt({ stelle, stueck, aktionen = [], geaendert, schliess
         {stelle.notiz && <p className="text-sm">{stelle.notiz}</p>}
         <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => void loeschen()}>Stelle löschen</button>
       </div>
+      {akkordeOffen && <AkkordeBlatt stelle={stelle} schliessen={() => setAkkordeOffen(false)} gespeichert={geaendert} />}
     </div>
   );
 }

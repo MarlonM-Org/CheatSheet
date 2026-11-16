@@ -15,7 +15,9 @@ import { bandpegel, effektivwert, taktDauer, type Raster, type Tonrahmen } from 
 import type { Klang } from '@/domain/notensatz';
 import { schlaegeJeTakt } from '@/domain/takt';
 import { frequenzZuTon, grundfrequenz, type Stimmung } from '@/domain/ueben';
-import { audioSitzung, klangPuffer, mikrofonOffen, mikrofonWunsch, useBeimVerlassen, wachHalten, type Klang as MetronomKlang } from './klang';
+import { EINSTELLUNG_STANDARD } from '@/domain/einstellungen';
+import { schlagKlingt, type Swing } from '@/domain/swing';
+import { audioSitzung, gespeichert, klangPuffer, mikrofonOffen, mikrofonWunsch, useBeimVerlassen, wachHalten, type Klang as MetronomKlang } from './klang';
 import { klavierTon, klingend } from './klavier';
 
 // Pegel, ab dem ein Fenster als Ton gilt (−50 dBFS): das rohe Mikrofon ohne
@@ -102,7 +104,10 @@ export function useMikrofonSpur() {
       const quellen: AudioBufferSourceNode[] = [];
       const klick = (t: number, stark: boolean) => { const q = ctx.createBufferSource(); q.buffer = stark ? betont : normal; q.connect(gain); q.start(t); quellen.push(q); };
       for (let i = 0; i < vorTakte * jeTakt; i++) klick(beginn + i * schlag, i % jeTakt === 0);
-      if (o.klickWeiter) for (let n = 0; n < jeTakt * o.maxTakte; n++) klick(t0 + n * schlag, n % jeTakt === 0);
+      // Einzähler und Vorlauf zählen jeden Schlag; der Klick danach folgt dem Metronom:
+      // „nur 2 und 4“ gilt (I-17), hörbare Achtel nicht (die Spur misst Töne, kein Swing-Raster).
+      const zweiVier = gespeichert<Swing>('metro:swing', EINSTELLUNG_STANDARD['metro:swing']).zweiVier;
+      if (o.klickWeiter) for (let n = 0; n < jeTakt * o.maxTakte; n++) if (schlagKlingt(r.zaehler, r.nenner, n % jeTakt, zweiVier)) klick(t0 + n * schlag, n % jeTakt === 0);
       // Vorlauf: die Takte davor aus dem Stück, im selben Kontext wie der Klick.
       if (o.vorlauf?.klaenge.length) {
         const klavier = ctx.createGain();

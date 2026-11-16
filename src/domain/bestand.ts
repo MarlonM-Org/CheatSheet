@@ -44,7 +44,8 @@ export interface Stueck {
 }
 // Eine Aufnahme: wann, wie lang (Sekunden), Audio-Typ (audio/mp4, audio/webm),
 // auf welcher Seite bzw. bei welcher Stelle sie entstand, optional ein Name.
-export interface Aufnahme { id: string; am: number; dauer: number; typ: string; seite?: number; stelleId?: string; titel?: string }
+// Optional der Skill aus der Kartei (I-20, Aufnahme-Tagebuch), zu dem sie entstand.
+export interface Aufnahme { id: string; am: number; dauer: number; typ: string; seite?: number; stelleId?: string; titel?: string; skillId?: string }
 export interface Quelle { stueckId: string; von: number; bis: number }
 // `art`: wie das Stück entstand — getippt, live eingesungen oder aus einer Audio-Datei.
 export interface Notation { format: 'abc'; text: string; art: 'geschrieben' | 'eingesungen' | 'audio' }
@@ -54,8 +55,15 @@ export interface Stelle {
   titel: string; notiz: string; zielTempo: number | null; tempi: { tempo: number; am: number }[];
   // Favorit (★): für den Stellen-Mix „nur Favoriten“. Abgewählt bleibt `false` stehen.
   favorit?: boolean;
+  // Spielhilfe (I-15): Akkordsymbole je Takt (Syntax von `folgeLesen` in
+  // ./akkorde, Takte mit `|`), klingend oder notiert eingegeben. Entfernt
+  // bleibt `{ text: '' }` stehen (wie `favorit: false`), damit eine ältere
+  // Sicherung die Akkorde nicht zurückbringt. Gelesen über `akkordeLesen`
+  // (./spielhilfe): Unbrauchbares wird übergangen, nicht gelöscht.
+  akkorde?: StellenAkkorde;
   geaendert?: number;
 }
+export interface StellenAkkorde { text: string; eingabe: 'klingend' | 'notiert' }
 // entfernt: ids weg-radierter Striche — damit sie beim Laden einer Sicherung
 // nicht zurückkehren.
 export interface SeitenAnmerkungen {

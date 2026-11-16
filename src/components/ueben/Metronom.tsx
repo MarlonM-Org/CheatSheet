@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { NENNER, nennerSchritt, schlaegeJeTakt, schlagName, TAKTARTEN, taktartText, unterteilungen, ZAEHLER_MAX, ZAEHLER_MIN } from '@/domain/takt';
+import { ANTEIL_MAX, ANTEIL_MIN, ANTEILE, swingMoeglich, zweiVierMoeglich } from '@/domain/swing';
 import { tempoBezeichnung } from '@/domain/ueben';
 import type { Klang } from './klang';
 import { useMetronom } from './MetronomKontext';
@@ -11,8 +12,9 @@ const KLAENGE: { k: Klang; name: string }[] = [{ k: 'holz', name: 'Holzblock' },
 export function Metronom() {
   const {
     bpm, setBpm, laeuft, start, stopp, aktiv, takt, nenner, taktartSetzen, akzente, akzentWechseln,
-    unter, setUnter, klang, setKlang, laut, setLaut, trainer, setTrainer,
+    unter, setUnter, klang, setKlang, laut, setLaut, trainer, setTrainer, swing, setSwing,
   } = useMetronom();
+  const zweiVier = zweiVierMoeglich(takt, nenner), swingGeht = swingMoeglich(takt, nenner);
   const taps = useRef<number[]>([]);
   function tippen() {
     const jetzt = performance.now();
@@ -111,6 +113,33 @@ export function Metronom() {
             <span className="block text-lg leading-none">{u.zeichen}</span><span className="block text-[0.7rem]">{u.kurz}</span>
           </button>
         ))}
+      </div>
+
+      {/* Swing (I-17): feste Höhe, nichts verschiebt sich — nicht Mögliches ist abgeblendet. */}
+      <div className="swing-block" role="group" aria-label="Swing">
+        <button type="button" className="swing-chip" aria-pressed={swing.zweiVier && zweiVier} disabled={!zweiVier}
+          onClick={() => setSwing({ ...swing, zweiVier: !swing.zweiVier })}>
+          Klick nur auf 2 und 4
+        </button>
+        <div className="segment" role="group" aria-label="Achtel hörbar, Swing-Anteil">
+          <button type="button" aria-pressed={!swing.achtel || !swingGeht} disabled={!swingGeht} onClick={() => setSwing({ ...swing, achtel: false })}>Achtel aus</button>
+          {ANTEILE.map((a) => (
+            <button key={a.anteil} type="button" disabled={!swingGeht} aria-pressed={swingGeht && swing.achtel && swing.anteil === a.anteil}
+              onClick={() => setSwing({ ...swing, achtel: true, anteil: a.anteil })}>
+              <span className="block">{a.name}</span><span className="block text-[0.7rem]">{a.anteil} %</span>
+            </button>
+          ))}
+        </div>
+        <label className="flex items-center gap-3 text-sm">Swing {swing.anteil} %
+          <input className="regler flex-1" type="range" min={ANTEIL_MIN} max={ANTEIL_MAX} step={1} value={swing.anteil} disabled={!swing.achtel || !swingGeht}
+            onChange={(e) => setSwing({ ...swing, anteil: Number(e.target.value) })} aria-label="Swing-Anteil in Prozent" />
+        </label>
+        <p className="gedaempft text-xs">
+          {!zweiVier && !swingGeht ? 'In dieser Taktart gibt es weder „2 und 4“ noch Swing-Achtel.'
+            : !zweiVier ? '„Nur 2 und 4“ gibt es bei einfachen Taktarten mit gerader Schlagzahl ab vier (4/4, 6/4 …).'
+              : !swingGeht ? 'Swing-Achtel gibt es nicht in zusammengesetzten Takten.'
+                : 'Hörbare Achtel ersetzen die Unterteilung. Ein stummer Schlag schweigt samt Achtel.'}
+        </p>
       </div>
 
       <details className="space-y-3">

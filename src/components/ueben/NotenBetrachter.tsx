@@ -39,6 +39,7 @@ import { ladeFehler, speicherFehler } from './speicherfehler';
 import { faktorPruefen, SPRUNG_STEMPEL, STEMPEL_FAKTOR, stempelAnlegen, type StempelZeichen } from '@/domain/stempel';
 import { StiftPalette, type SchereModus, type Werkzeug } from './StiftPalette';
 import { ausschnittRendern, seiteMitEbene, type Dokument, type SeitenBild } from './pdf';
+import { SpielhilfeStreifen } from './Spielhilfe';
 import { StelleBlatt } from './StelleBlatt';
 import { StellenInfo } from './StellenInfo';
 import { SprungZeichen } from './SprungZeichen';
@@ -1946,6 +1947,8 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
           </div>
           <button type="button" className="knopf b-geschafft" onClick={() => void geschafft(stelle.id)} title="Dieses Tempo als geschafft speichern">✓ {bpm} geschafft</button>
           <button type="button" className="b-knopf gross" onClick={weiter} disabled={!mix && stelleNr >= stellen.length - 1} aria-label="Nächste Stelle">›</button>
+          {/* Spielhilfe (I-15): liegt über den Noten, verschiebt nichts; je Stelle frisch. */}
+          {stelle.akkorde && <SpielhilfeStreifen key={stelle.id} stelle={stelle} />}
         </div>
       )}
 
