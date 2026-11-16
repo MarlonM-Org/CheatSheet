@@ -195,6 +195,7 @@ oder iPad. Vorher auf jedem Gerät eine Sicherung erstellen.
 - I-01 · Ohr-Trainer · erste Fassung im Browser gebaut (2026-11-16), nie auf dem Gerät.
 - I-02…I-06 · Lernpfad, Song-Liste, Akkordblatt mit Begleitung, Impro-Feedback, Mitspielen nach Gehör · Vision.
 - I-07…I-09 · Skill-Kartei, Hör-Übungen per Antippen, „Heute“-Einheit · im Bau (2026-11-16). I-10 · Vision.
+- B-18 · Reiter „Lernen“ (Stellen-Mix, Skills, Ohr-Trainer und alles aus I an einem Ort) · Entwürfe A–C liegen vor, Entscheidung Marlon offen.
 - H-01 (Rest), H-02…H-05 · Sicherung ohne PDFs, Ordner am Rechner, OneDrive/Drive/iCloud · Entscheidung zum Leitbild („kein Login“) offen.
 
 ### Was Marlon jetzt tun sollte
@@ -228,6 +229,37 @@ bleibt damit bestehen.
 
 *(komplett umgesetzt am 2026-10-10 — alle Punkte unter „Erledigt“;
 Branch `feature/ui-noten-im-zentrum`, PR #1)*
+
+### B-18 · Reiter „Lernen“ — Entscheidung offen
+
+Wunsch Marlon (2026-11-16): Stellen-Mix, Skills und Ohr-Trainer stehen heute
+als drei Zeilen in der Bibliothek; mit I-02…I-10 kommt mehr dazu. All das
+gehört unter einen eigenen Ort **„Lernen“**. Die drei Knöpfe unten (Noten,
+Metronom, Stimmgerät) gefallen; Ausweich-Möglichkeit ist ein vierter Knopf
+in der Reihenfolge **Lernen · Noten · Stimmgerät · Metronom**.
+
+**Inhalt der Lernen-Seite** (legt sich wie die Bibliothek über die Noten):
+oben „Heute · 30 Min.“ (I-09) mit Wochenstand; darunter „Üben“ mit
+Stellen-Mix, Ohr-Trainer und — neu direkt erreichbar statt nur über die
+Kartei — Hör-Übungen (I-08); zuletzt „Mein Stand“ mit der Skill-Kartei
+(I-07). Lernpfad, Song-Liste, Akkordblatt, Impro und Mitspielen (I-02…I-06,
+I-10) kommen dort hinzu, sobald sie gebaut sind — vorher nichts Ausgegrautes.
+Der Stellen-Mix verliert damit die Bibliotheks-Auswahl als Quelle: Sein Blatt
+bekommt eine eigene Wahl „Woraus: alle Noten · Sammlung · Tag“, vorbelegt mit
+der zuletzt in der Bibliothek gewählten.
+
+**Entwürfe (2026-11-16):** (A) vier Knöpfe in zwei Gruppen — Orte (Lernen,
+Noten) links, Werkzeuge (Stimmgerät, Metronom) rechts; (B) drei Knöpfe,
+Reiter „Noten | Lernen“ oben in der Bibliothek; (C) drei Knöpfe, eine
+Zeile „Lernen“ in der Bibliothek statt drei. Verworfen: Halten auf „Noten“,
+Wischen vom Rand, schwebender Knopf über den Noten, Lernen als Startseite
+(Leitbild: Die Noten sind die App), Knopf in der Kopfleiste des Stücks
+(die gehört dem offenen Stück). Empfehlung: **A** — Lernen ist ein Ort
+neben den Noten, nicht ein Teil davon; ein Tipp führt hin, der Knopf
+leuchtet, solange man dort ist, und Metronom und Stimmgerät bleiben auch
+beim Lernen einen Tipp entfernt. Bei B leuchtet beim Lernen „Noten“.
+Wer die drei Knöpfe behalten will: B. A ändert „drei Knöpfe unten“ aus M2
+— Marlon entscheidet.
 
 ---
 
@@ -1132,7 +1164,8 @@ sonst Hinweis „extern üben“ (iReal Pro, Moises) mit „Heute geübt“-Knop
   Phrygisch, Äolisch, Lokrisch — optional), Leadsheet lesen.
 - **Klarinette:** Dur-Tonleitern in 12 Tonarten, Dreiklang-Arpeggien,
   Septakkord-Arpeggien, Guide Tones (3 und 7 durch die ii–V–I), Swing-
-  Achtel und Artikulation, sauberes Clarion/Altissimo.
+  Achtel und Artikulation, sauberes Clarion/Altissimo, Doppelzunge,
+  Triolenzunge (baut auf der Doppelzunge auf; Wunsch Marlon 2026-11-16).
 - **Improvisation:** Frage–Antwort, mit 3 Tönen improvisieren, Motiv
   entwickeln, Akkordtöne auf Zählzeiten, chromatische Annäherung,
   Umspielung (Enclosure), Blues-Phrasen, Licks lernen und transponieren,
@@ -1158,7 +1191,8 @@ ist persönlich und reist mit der Sicherung (`einstellungen.ts`). Prüfung
 beim Lesen, unbekannte Skill-ids bleiben erhalten (künftige Kartei).
 
 **Umgesetzt 2026-11-16** (Regeln `src/domain/skills.ts`, Katalog
-`src/domain/skillkatalog.ts` mit 47 Skills, Ansicht `Skills.tsx`). Festgelegt
+`src/domain/skillkatalog.ts` mit 47 Skills, seit 2026-11-16 abends 49 mit
+Doppel- und Triolenzunge, Ansicht `Skills.tsx`). Festgelegt
 beim Bau: Stufe 1 schon ab einer Runde (≥ 0,6), Stufe 2 und 3 brauchen 5
 Runden. Verblassen = je abgelaufene Halbwertszeit der gemessenen Stufe eine
 Stufe weniger (Stufe 3 → nach 21 Tagen 2, nach 42 Tagen 1). Nach dem
