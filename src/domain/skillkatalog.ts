@@ -41,6 +41,7 @@ export interface Skill {
 const IREAL = 'Extern üben: iReal Pro oder ein Backing-Track von YouTube.';
 const MOISES = 'Extern üben: den Song in Moises laden (Stimmen stumm, langsamer, Tonart).';
 const NOTEN = 'Extern üben: mit Noten oder Leadsheet, Metronom aus der App.';
+const ZUNGE = 'Extern üben: erst ohne Instrument sprechen, dann auf einem Ton mit dem Metronom aus der App — langsam beginnen, das Tempo in kleinen Schritten steigern.';
 
 export const SKILLS: readonly Skill[] = [
   // ── Gehör ──
@@ -135,6 +136,12 @@ export const SKILLS: readonly Skill[] = [
   { id: 'clarion-altissimo', bereich: 'klarinette', name: 'Sauberes Clarion und Altissimo', voraussetzungen: [], extern: NOTEN,
     was: 'Über den Registerwechsel und in die hohe Lage ohne Bruch.',
     warum: 'Soli steigen gern nach oben — die Höhe muss sicher ansprechen.' },
+  { id: 'doppelzunge', bereich: 'klarinette', name: 'Doppelzunge', voraussetzungen: [], extern: ZUNGE,
+    was: 'Abwechselnd vorn und hinten anstoßen („ta-ka“, weicher „da-ga“), beide Silben gleich laut und gleich lang.',
+    warum: 'Schnelle Tonwiederholungen und Läufe bleiben artikuliert, wenn die einfache Zunge nicht mehr mitkommt.' },
+  { id: 'triolenzunge', bereich: 'klarinette', name: 'Triolenzunge', voraussetzungen: ['doppelzunge'], extern: ZUNGE,
+    was: 'Dreiergruppen gleichmäßig stoßen („ta-ka-ta ta-ka-ta“ oder „ta-ta-ka“), die Betonung auf dem ersten Ton.',
+    warum: 'Schnelle Triolen — in Swing-Linien, Fanfaren und Licks — klingen klar statt verschluckt.' },
 
   // ── Improvisation ──
   { id: 'frage-antwort', bereich: 'impro', name: 'Frage und Antwort', voraussetzungen: ['melodie-fuenf'], extern: IREAL,

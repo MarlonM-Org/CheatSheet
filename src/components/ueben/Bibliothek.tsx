@@ -10,7 +10,6 @@ import {
 } from '@/domain/sammlungen';
 import { notationText } from '@/domain/notation';
 import { quellenText, stellenJeStueck } from '@/domain/sicht';
-import type { MixBereich } from '@/domain/stellen';
 import { imTagFilter, mitTag, tagsVon, tagUebersicht, type Tag } from '@/domain/tags';
 import { gespeichert, speichern } from './klang';
 import { zuletztAus } from '@/domain/speicher';
@@ -25,19 +24,15 @@ import { SammlungenAnsicht } from './SammlungenAnsicht';
 import { EinspielenDialog, type EinspielQuelle } from './Einspielen';
 import { bilderWaehlen, ScanDialog, type ScanArt } from './Scan';
 import { useSicherungLaden } from './Sicherung';
-import { MixZeile } from './StellenMix';
-import { OhrTrainerZeile } from './OhrTrainer';
-import { SkillsZeile } from './Skills';
-import { Werkzeuge } from './Werkzeuge';
 import { TagEtikett, TagFilter, TagWahl } from './Tags';
 import { fehlerGrund } from './speicherfehler';
 import { ohneCancelAbbrechen } from './dateiwahl';
 import { useEscape } from './tasten';
 
-// Bibliothek (B-02): Overlay über den Noten — Sammlungen (F-13), Stellen-Mix, Ohr-Trainer (I-01),
+// Bibliothek (B-02): Overlay über den Noten — Sammlungen (F-13), Tags (F-14),
 // Liste, Hinzufügen (Dateien oder Ordner); Einsortieren, Aktualisieren und
 // Löschen im Auswahl-Modus. Tipp auf ein Stück öffnet es vollflächig.
-export function Bibliothek({ offen, oeffnen, schliessen, einstellungen, offenEntfernt, aktualisiert, escapeAktiv, stand, mixStarten, mixAktiv }: {
+export function Bibliothek({ offen, oeffnen, schliessen, einstellungen, offenEntfernt, aktualisiert, escapeAktiv, stand }: {
   offen: string | null;
   // Öffnen — auf Wunsch gleich mit dem Stück-Blatt (Lesezeichen, Stellen).
   oeffnen: (id: string, blatt?: boolean | 'teilen') => void;
@@ -48,17 +43,12 @@ export function Bibliothek({ offen, oeffnen, schliessen, einstellungen, offenEnt
   escapeAktiv: boolean;
   // Ändert sich, wenn anderswo (Einstellungen) eine Sicherung geladen wurde.
   stand: number;
-  mixStarten: (neu: boolean, bereich: MixBereich) => void;
-  // Der gerade laufende Mix (null: keiner) — seine Runde heißt „Weiter bei …“.
-  mixAktiv: MixBereich | null;
 }) {
   const [anzahl, setAnzahl] = useState<number | null>(null);
   const [gewaehlt, setGewaehlt] = useState<number | null>(null);
   // Ein offenes Kontext-Blatt (F-08) schluckt Escape selbst.
   const [kontextOffen, setKontextOffen] = useState(false);
-  // Ebenso ein offenes Blatt der Skill-Kartei oder des Ohr-Trainers.
-  const [blattOffen, setBlattOffen] = useState(false);
-  useEscape(schliessen, escapeAktiv && !kontextOffen && !blattOffen);
+  useEscape(schliessen, escapeAktiv && !kontextOffen);
 
   return (
     <section className="bibliothek" role="region" aria-label="Bibliothek">
@@ -78,14 +68,15 @@ export function Bibliothek({ offen, oeffnen, schliessen, einstellungen, offenEnt
         </button>
       </div>
       <div className="bib-inhalt">
-        <NotenListe offen={offen} oeffnen={oeffnen} anzahlMelden={setAnzahl} auswahlMelden={setGewaehlt} offenEntfernt={offenEntfernt} aktualisiert={aktualisiert} stand={stand} mixStarten={mixStarten} mixAktiv={mixAktiv} einstellungen={einstellungen} kontextMelden={setKontextOffen} blattMelden={setBlattOffen} />
+        <NotenListe offen={offen} oeffnen={oeffnen} anzahlMelden={setAnzahl} auswahlMelden={setGewaehlt} offenEntfernt={offenEntfernt} aktualisiert={aktualisiert} stand={stand} einstellungen={einstellungen} kontextMelden={setKontextOffen} />
       </div>
       <div className="bib-fuss">Alles bleibt auf diesem Gerät. Kein Konto, kein Server.</div>
     </section>
   );
 }
 
-const REIHENFOLGE = 'ueben:sammlungen-reihenfolge';
+// Auch die Lernen-Seite ordnet die Sammlungen im „Woraus“ des Mix so (B-18).
+export const REIHENFOLGE = 'ueben:sammlungen-reihenfolge';
 
 // ── Dateien wählen ──
 type HandleFenster = Window & {
@@ -146,13 +137,12 @@ async function ausVerweis(n: Stueck): Promise<File | null> {
   } catch { return null; }
 }
 
-function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt, aktualisiert, stand: bibStand, mixStarten, mixAktiv, einstellungen, kontextMelden, blattMelden }: {
+function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt, aktualisiert, stand: bibStand, einstellungen, kontextMelden }: {
   offen: string | null; oeffnen: (id: string, blatt?: boolean | 'teilen') => void; anzahlMelden: (n: number) => void; kontextMelden: (offen: boolean) => void;
-  blattMelden: (offen: boolean) => void;
   // Im Auswahl-Modus: wie viele gewählt sind (für den Kopf), sonst null.
   auswahlMelden: (n: number | null) => void;
   offenEntfernt: () => void; aktualisiert: (ids: string[]) => void; stand: number;
-  mixStarten: (neu: boolean, bereich: MixBereich) => void; mixAktiv: MixBereich | null; einstellungen: () => void;
+  einstellungen: () => void;
 }) {
   const [noten, setNoten] = useState<Stueck[] | null>(null);
   const [stellen, setStellen] = useState<Stelle[]>([]);
@@ -449,15 +439,6 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
 
       {!!noten?.length && tagUeber.length > 0 && <TagFilter uebersicht={tagUeber} aktiv={aktivTag} waehlen={tagWaehlen} />}
 
-      {!!noten?.length && (
-        <MixZeile sammlung={aktiv} tag={zielTag} noten={noten} stellen={stellen} starten={mixStarten} aktiv={mixAktiv} />
-      )}
-
-      <SkillsZeile offenMelden={blattMelden} />
-
-      <OhrTrainerZeile offenMelden={blattMelden} />
-
-      <Werkzeuge offenMelden={blattMelden} />
 
       {/* Leere Liste: Hinzufügen und Laden stehen in der Hinweis-Karte, Sortieren gibt es noch nichts. */}
       {!!noten?.length && (auswaehlen ? (

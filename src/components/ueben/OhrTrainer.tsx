@@ -10,7 +10,7 @@ import {
 import { segmentieren, segmentOptionen, type Raster } from '@/domain/notation';
 import { GriffeBlatt } from './Griffe';
 import { gespeichert, speichern } from './klang';
-import { skillErgebnis, skillFuerOhrStufe } from './skillspeicher';
+import { SKILLS_GEAENDERT, skillErgebnis, skillFuerOhrStufe } from './skillspeicher';
 import { vorspielen, type Vorspiel } from './klavier';
 import { useMetronom } from './MetronomKontext';
 import { useMikrofonSpur } from './mikrofonspur';
@@ -39,7 +39,7 @@ function OhrSymbol() {
   );
 }
 
-// Einstieg in der Bibliothek, unter dem Stellen-Mix.
+// Einstieg auf der Lernen-Seite (B-18), unter dem Stellen-Mix.
 function standText(): string {
   const ein = gespeichert<OhrEinstellung>(EINSTELLUNG, EINSTELLUNG_STANDARD[EINSTELLUNG]);
   const letzte = verlaufLaden().filter((r) => r.stufe === ein.stufe).slice(-5);
@@ -47,11 +47,17 @@ function standText(): string {
   return letzte.length ? `${name} · zuletzt ${prozent(letzte.reduce((s, r) => s + r.quote, 0) / letzte.length)}` : name;
 }
 
-// `offenMelden`: die Bibliothek lässt Escape dem offenen Blatt.
+// `offenMelden`: die Seite lässt Escape dem offenen Blatt.
 export function OhrTrainerZeile({ offenMelden }: { offenMelden?: (offen: boolean) => void }) {
   const [offen, setOffenRoh] = useState(false);
   const setOffen = (o: boolean) => { setOffenRoh(o); offenMelden?.(o); };
   const [stand, setStand] = useState(standText);
+  // Auch aus „Heute“ gestartet: jede Runde meldet sich bei ihrem Skill.
+  useEffect(() => {
+    const neu = () => setStand(standText());
+    window.addEventListener(SKILLS_GEAENDERT, neu);
+    return () => window.removeEventListener(SKILLS_GEAENDERT, neu);
+  }, []);
   return (
     <>
       <button type="button" className="mix-einstieg" aria-haspopup="dialog" aria-expanded={offen} onClick={() => setOffen(true)}>

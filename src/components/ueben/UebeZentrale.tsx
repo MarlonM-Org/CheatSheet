@@ -4,11 +4,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Bibliothek } from './Bibliothek';
 import { Einstellungen } from './Einstellungen';
 import { gespeichert, speichern } from './klang';
+import { Lernen } from './Lernen';
 import { MetronomAnbieter } from './MetronomKontext';
 import { MetronomWidget } from './MetronomWidget';
 import { speicherBehalten, tagsLaden } from './lokal';
 import { NotenPult } from './NotenPult';
 import { ladeFehler, SpeicherHinweis } from './speicherfehler';
+import { ortUmschalten } from '@/domain/leiste';
 import { mixBereichLesen, type MixBereich } from '@/domain/stellen';
 import { MixFertig, mixLaden, mixTitel, rundeSpeichern, type MixStand, type MixSteuerung } from './StellenMix';
 import { StimmgeraetAnbieter, useStimmgeraetApi } from './StimmgeraetKontext';
@@ -16,8 +18,9 @@ import { StimmgeraetWidget } from './StimmgeraetWidget';
 import { UntereLeiste } from './UntereLeiste';
 
 // Die Noten sind die App (B-01/B-02): Das zuletzt geöffnete Stück füllt die
-// Bühne, die Bibliothek ist ein Overlay, Metronom und Stimmgerät schweben
-// als Widgets. Ohne gemerktes Stück startet die Bibliothek geöffnet.
+// Bühne, Bibliothek und Lernen (B-18) sind Overlays — höchstens eins zugleich —,
+// Metronom und Stimmgerät schweben als Widgets. Ohne gemerktes Stück startet
+// die Bibliothek geöffnet.
 export function UebeZentrale() {
   return <MetronomAnbieter><StimmgeraetAnbieter><Zentrale /></StimmgeraetAnbieter></MetronomAnbieter>;
 }
@@ -34,6 +37,8 @@ function Zentrale() {
   const mixAn = mixBereich !== null;
   const [mix, setMix] = useState<MixStand | null>(null);
   const [bibliothek, setBibliothek] = useState(() => gespeichert<string | null>('ueben:offen', null) === null && !mixBereichLesen(gespeichert<unknown>('ueben:mix-an', false)));
+  // Lernen (B-18): der zweite Ort neben der Bibliothek, nie mit ihr zugleich.
+  const [lernen, setLernen] = useState(false);
   const [einstellungen, setEinstellungen] = useState(false);
   // Zählt hoch, wenn in den Einstellungen eine Sicherung geladen wurde —
   // die Bibliothek liest ihre Liste dann neu.
@@ -58,7 +63,7 @@ function Zentrale() {
   const mixStelle = mix ? mix.runde.reihe[mix.runde.pos] : undefined;
   const mixNoten = mixStelle ? mix?.stueckVon[mixStelle] : undefined;
   const mixStarten = (neu: boolean, bereich: MixBereich) => {
-    mixLaden(bereich, neu).then((m) => { setMix(m); setMixBereich(bereich); speichern('ueben:mix-an', bereich); setBibliothek(false); }, ladeFehler);
+    mixLaden(bereich, neu).then((m) => { setMix(m); setMixBereich(bereich); speichern('ueben:mix-an', bereich); setBibliothek(false); setLernen(false); }, ladeFehler);
   };
   // „Märsche · Wichtig üben“: Sammlung und Tag, aus denen gemischt wird.
   const mixTag = mix?.bereich.tag ? tagsLaden().find((t) => t.id === mix.bereich.tag) ?? null : null;
@@ -89,9 +94,9 @@ function Zentrale() {
     setBlattAnfang(blatt);
     if (mixAn || id === offen) setFassung((f) => f + 1);
     else { setOffen(id); speichern('ueben:offen', id); }
-    setBibliothek(false);
+    setBibliothek(false); setLernen(false);
   };
-  const offenWeg = () => { setOffen(null); speichern('ueben:offen', null); setBibliothek(true); };
+  const offenWeg = () => { setOffen(null); speichern('ueben:offen', null); setLernen(false); setBibliothek(true); };
   // Gelöscht, während der Mix es zeigt: Runde ohne seine Stellen weiter.
   const angezeigtWeg = () => { if (mixAn) mixAbgleichen(); else offenWeg(); };
   // Nach „aktualisieren" in der Bibliothek: offenes Stück neu aufbauen.
@@ -101,17 +106,21 @@ function Zentrale() {
   // die Geste dafür, ein zweiter Tipp im Widget entfällt (C-05).
   const stimmUmschalten = (an: boolean) => { setStimmAn(an); if (an) void stimmStart(); else { stimmStopp(); setStimmVoll(false); } };
 
-  const umschalten = (ziel: 'bibliothek' | 'metronom' | 'stimmgeraet') => {
-    if (ziel === 'bibliothek') setBibliothek(!bibliothek);
+  const umschalten = (ziel: 'lernen' | 'bibliothek' | 'metronom' | 'stimmgeraet') => {
+    if (ziel === 'lernen' || ziel === 'bibliothek') {
+      const ort = ortUmschalten(lernen ? 'lernen' : bibliothek ? 'bibliothek' : null, ziel);
+      setLernen(ort === 'lernen'); setBibliothek(ort === 'bibliothek');
+    }
     if (ziel === 'metronom') metroUmschalten(!metroAn);
     if (ziel === 'stimmgeraet') stimmUmschalten(!stimmAn);
   };
 
   const dialogOffen = einstellungen || metroVoll || stimmVoll;
   // Leisten über den Noten: Tippen in die Mitte blendet oben und unten aus.
-  // Die untere bleibt, solange Bibliothek oder ein Dialog offen ist.
+  // Die untere bleibt, solange Bibliothek, Lernen oder ein Dialog offen ist.
   const [leisteWeg, setLeisteWeg] = useState(false);
-  const navWeg = leisteWeg && !bibliothek && !dialogOffen;
+  const ortOffen = bibliothek || lernen;
+  const navWeg = leisteWeg && !ortOffen && !dialogOffen;
   const leisten = { leisteWeg, setLeisteWeg, navDa: !navWeg };
 
   return (
@@ -122,19 +131,19 @@ function Zentrale() {
           !mix ? <div className="leer"><p className="gedaempft">Stellen werden gemischt …</p></div>
           : mixSteuerung && mixNoten ? (
             <NotenPult key={`${mixNoten}:${fassung}`} notenId={mixNoten} mix={mixSteuerung} leisten={leisten}
-              tastenAktiv={!bibliothek && !dialogOffen} verschwunden={mixAbgleichen} />
+              tastenAktiv={!ortOffen && !dialogOffen} verschwunden={mixAbgleichen} />
           ) : (
             <MixFertig anzahl={mix.runde.reihe.length} bereich={mix.bereich} tag={mixTag} starten={mixStarten} beenden={mixAus}
               zurueck={() => { const runde = { ...mix.runde, pos: Math.max(0, mix.runde.reihe.length - 1) }; rundeSpeichern(mix.bereich, runde); setMix({ ...mix, runde }); }} />
           )
         ) : offen ? (
           <NotenPult key={`${offen}:${fassung}`} notenId={offen} leisten={leisten} blattAnfang={blattAnfang}
-            tastenAktiv={!bibliothek && !dialogOffen} verschwunden={offenWeg} />
+            tastenAktiv={!ortOffen && !dialogOffen} verschwunden={offenWeg} />
         ) : (
           <div className="leer">
             <p className="titel">CheatSheet</p>
             <p className="gedaempft max-w-xs">Noten, schwierige Stellen, Metronom und Stimmgerät. Alles auf diesem Gerät.</p>
-            <button type="button" className="knopf" onClick={() => setBibliothek(true)}>Bibliothek öffnen</button>
+            <button type="button" className="knopf" onClick={() => { setLernen(false); setBibliothek(true); }}>Bibliothek öffnen</button>
           </div>
         )}
       </main>
@@ -147,11 +156,14 @@ function Zentrale() {
       {bibliothek && (
         <Bibliothek offen={angezeigt} oeffnen={oeffnen} schliessen={() => setBibliothek(false)}
           einstellungen={() => setEinstellungen(true)} offenEntfernt={angezeigtWeg}
-          aktualisiert={aktualisiert} escapeAktiv={!dialogOffen} stand={bibStand} mixStarten={mixStarten} mixAktiv={mixBereich} />
+          aktualisiert={aktualisiert} escapeAktiv={!dialogOffen} stand={bibStand} />
+      )}
+      {lernen && (
+        <Lernen schliessen={() => setLernen(false)} escapeAktiv={!dialogOffen} stand={bibStand} mixStarten={mixStarten} mixAktiv={mixBereich} />
       )}
       {einstellungen && <Einstellungen schliessen={() => setEinstellungen(false)} geaendert={() => setBibStand((n) => n + 1)} />}
 
-      <UntereLeiste weg={navWeg} bibliothekOffen={bibliothek} metroAn={metroAn} stimmAn={stimmAn} umschalten={umschalten} />
+      <UntereLeiste weg={navWeg} lernenOffen={lernen} bibliothekOffen={bibliothek} mixLaeuft={mixAn} metroAn={metroAn} stimmAn={stimmAn} umschalten={umschalten} />
     </div>
   );
 }

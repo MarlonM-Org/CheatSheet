@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   mischen, mixAuswahl, mixBereichLesen, mixSchluessel, neueRunde, reserveVon, rundeAbgleichen, rundeLesen, rundeStand, steigerung, stelleFavorit, stelleOffen,
-  mixMenge, mixLeer, mixFertigText, mixKopf, stelleZurSeite,
+  mixMenge, mixLeer, mixFertigText, mixKopf, mixQuelle, stelleZurSeite,
   tagesbeste, tempoAchse, tempoStand, zielAusText, zielStand, type MixStelle,
 } from '@/domain/stellen';
 
@@ -311,5 +311,31 @@ describe('Stellen-Mix: Texte je Auswahl', () => {
     expect(mixKopf(null, fav, 1, 4)).toEqual({ formen: ['Mix ★ · 1 von 4', 'Mix ★ 1 von 4', 'Mix · 1 von 4'], aria: 'Stellen-Mix, nur Favoriten, Stelle 1 von 4' });
     expect(mixKopf('2026', offen, 2, 5).formen).toEqual(['Mix 2026 · offen · 2 von 5', 'Mix offen · 2 von 5', 'Mix · 2 von 5']);
     expect(mixKopf(null, alle, 2, 5)).toEqual({ formen: ['Mix · 2 von 5'], aria: 'Stellen-Mix, Stelle 2 von 5' });
+  });
+});
+
+// Woraus der Stellen-Mix auf der Lernen-Seite mischt (B-18).
+describe('mixQuelle', () => {
+  const bib = { sammlung: 'Orchester', tag: 't1' };
+  const sammlungen = ['Jazz', 'Orchester'];
+  const tags = ['t1', 't2'];
+  it('noch nichts gemerkt: die Wahl aus der Bibliothek', () => {
+    expect(mixQuelle(null, bib, sammlungen, tags)).toEqual({ sammlung: 'Orchester', tag: 't1' });
+    expect(mixQuelle(undefined, { sammlung: null, tag: null }, sammlungen, tags)).toEqual({ sammlung: null, tag: null });
+  });
+  it('gemerkt gewinnt über die Bibliothek, auch „alle“', () => {
+    expect(mixQuelle({ sammlung: 'Jazz', tag: null }, bib, sammlungen, tags)).toEqual({ sammlung: 'Jazz', tag: null });
+    expect(mixQuelle({ sammlung: null, tag: null }, bib, sammlungen, tags)).toEqual({ sammlung: null, tag: null });
+  });
+  it('Sammlung ohne Rücksicht auf Groß/Klein, mit dem Namen aus der Liste', () => {
+    expect(mixQuelle({ sammlung: 'jazz', tag: null }, bib, sammlungen, tags).sammlung).toBe('Jazz');
+  });
+  it('was es nicht mehr gibt, wird „alle“', () => {
+    expect(mixQuelle({ sammlung: 'Weg', tag: 'tx' }, bib, sammlungen, tags)).toEqual({ sammlung: null, tag: null });
+    expect(mixQuelle(null, { sammlung: 'Weg', tag: 't2' }, sammlungen, tags)).toEqual({ sammlung: null, tag: 't2' });
+  });
+  it('Unsinn im Speicher: die Wahl aus der Bibliothek', () => {
+    expect(mixQuelle('kaputt', bib, sammlungen, tags)).toEqual({ sammlung: 'Orchester', tag: 't1' });
+    expect(mixQuelle({ sammlung: 3, tag: [] }, bib, sammlungen, tags)).toEqual({ sammlung: 'Orchester', tag: 't1' });
   });
 });

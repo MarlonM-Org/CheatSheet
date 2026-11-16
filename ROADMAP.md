@@ -11,7 +11,8 @@ Stand: 2026-11-16.
 ## Leitbild
 
 **Die Noten sind die App.** Alles andere (Metronom, Stimmgerät, Einstellungen)
-sind Werkzeuge, die über den Noten schweben. Eine lokal laufende, statische
+sind Werkzeuge, die über den Noten schweben. Lernen (B-18) ist neben der
+Bibliothek der zweite Ort, der sich als Seite über die Noten legt. Eine lokal laufende, statische
 Web-App: alle Daten bleiben auf dem Gerät, kein Login, kein Server. Vorbild
 für Notenmanagement und Übe-Komfort ist **forScore** (https://forscore.co) —
 nicht in der Breite, aber in der Sorgfalt.
@@ -58,7 +59,7 @@ Soundbearbeitung.
 | # | Meilenstein | Inhalt | Backlog-Punkte |
 |---|---|---|---|
 | M1 | **Fundament aufräumen** | Datenmodell klären, Tests für die Speicherschicht (A-01 verworfen) — *erledigt 2026-10-12* | A-02, A-03 |
-| M2 | **Noten im Zentrum** | UI-Neuaufbau: Noten vollflächig, Werkzeuge als Overlays, drei Knöpfe unten | B-01…B-03 |
+| M2 | **Noten im Zentrum** | UI-Neuaufbau: Noten vollflächig, Werkzeuge als Overlays, drei Knöpfe unten (seit B-18 vier: Lernen · Noten · Stimmgerät · Metronom) | B-01…B-03 |
 | M3 | **Werkzeuge schärfen** | Stimmgerät- und Metronom-Verbesserungen, Stift-Ausbau | C-01…C-03, D-01, E-01…E-03 |
 | M4 | **Notenmanagement I** | Metadaten, Flags, Drag & Drop (Sammlungen F-13, Lesezeichen/virtuelle Stücke F-03 und Kontext-Blatt F-08 erledigt) | F-01, F-04, F-09 |
 | M5 | **Üben & Setlisten** | Setlisten (Stellen-Mix F-11, Tonprofil C-04, Sprünge F-05, Halbseiten-Blättern F-06, Blättern je Seite F-16 und Favoriten im Mix F-17 schon erledigt) — *zurückgestellt 2026-10-23: Marlon ordnet bisher über Dateinamen, Setlisten sind Zukunftsthema* | F-02 |
@@ -112,6 +113,7 @@ ist auf `main` und damit auf cheat-sheet.ma-und-ma.de.
 Alles hier hat Code und Tests; was fehlt, ist der Praxisbeweis auf iPhone
 oder iPad. Vorher auf jedem Gerät eine Sicherung erstellen.
 
+- B-18 · Ort „Lernen“ und vier Knöpfe unten (Lernen · Noten | Stimmgerät · Metronom) · `ortUmschalten` und `mixQuelle` getestet, im Browser (iPhone-Ansicht) durchgespielt. Prüfen: Checkliste in B-18.
 - B-17 · Bibliothek öffnet beim offenen Stück · `zumOffenen` getestet. Prüfen: in A–Z ein Stück weit unten öffnen, „Noten“ tippen — offenes und nächstes Stück sichtbar, ohne Ruckeln; danach Sortieren oder Filtern springt nicht.
 - B-16 · Doppeltipp auf eine Stelle: heran und Schreibmodus, noch einer zurück in den Spielmodus · `aufStelle` in `zoom.ts` getestet; vom iPad bestätigt („funktioniert gut“). Beim Lesen zoomt der Doppeltipp auf 300 % um den Tipp (`umPunkt`, Faktor vom iPad bestätigt) und schaltet ebenfalls den Schreibmodus ein; der zweite Doppeltipp schaltet beides aus.
 - G-02/G-03 · Einsingen oder Audio laden (`Einspielen.tsx`, `notation.ts` mit synthetischer Messlatte „Alle meine Entchen“) · einmal auf dem iPhone probiert (Mund dicht am Mikrofon), seitdem Lesart, Tonart, Anschläge, Latenz und Pegel umgebaut — echte Stimme noch nie gegen den neuen Stand.
@@ -232,6 +234,60 @@ bleibt damit bestehen.
 
 *(komplett umgesetzt am 2026-10-10 — alle Punkte unter „Erledigt“;
 Branch `feature/ui-noten-im-zentrum`, PR #1)*
+
+### B-18 · Ort „Lernen“, vier Knöpfe unten — umgesetzt 2026-11-16, zu prüfen
+
+Wunsch Marlon (2026-11-16): Stellen-Mix, Skills und Ohr-Trainer standen als
+drei Zeilen in der Bibliothek; mit I-02…I-10 kommt mehr dazu. All das
+gehört unter einen eigenen Ort **„Lernen“**. Drei Entwürfe (antippbar in
+`docs/design/entwurf-lernen.html`): (A) vier Knöpfe in zwei Gruppen,
+(B) Reiter „Noten | Lernen“ oben in der Bibliothek, (C) eine Zeile
+„Lernen“ in der Bibliothek. Verworfen: Halten auf „Noten“, Wischen vom
+Rand, schwebender Knopf über den Noten, Lernen als Startseite, Knopf in der
+Kopfleiste des Stücks.
+
+**Entscheidung Marlon (2026-11-16): A — vier Knöpfe.** Die untere Leiste
+ist jetzt **Lernen · Noten | Stimmgerät · Metronom**: links die Orte (ein
+Tipp legt ihre Seite über die Noten, noch einer schließt sie, der andere
+Ort weicht — ganzer Seitenwechsel, kein Stapel), rechts die Werkzeuge
+(Widgets wie bisher), eine Haarlinie dazwischen. Beim Lernen leuchtet
+„Lernen“. Damit ändert sich „drei Knöpfe unten“ aus M2; das Stimmgerät
+steht nicht mehr ganz links.
+
+**Umgesetzt** (`UntereLeiste.tsx`, `Lernen.tsx`, Regel `ortUmschalten` in
+`src/domain/leiste.ts`, getestet):
+- **Symbol** Treppe mit Fahne (Stufen, Lernpfad). **Punkt** am Lernen-Knopf
+  nur, solange ein Stellen-Mix läuft — wie „läuft“ am Metronom, keine
+  Erinnerung an offene Einheiten.
+- **Lernen-Seite** (wie die Bibliothek über den Noten, öffnet immer oben):
+  „Heute · 30 Min.“ (I-09, aus der Skill-Kartei hierher gezogen) · „Üben“
+  mit Stellen-Mix, Ohr-Trainer und Hör-Übungen (neu direkt: Auswahl-Blatt
+  Intervalle/Dreiklänge/Septakkorde mit Stufe, jede Runde zählt auf ihren
+  Skill) · „Mein Stand“ mit Skills und den Balken je Bereich. Was aus
+  I-02…I-10 kommt, erscheint dort, sobald es gebaut ist — vorher nichts
+  Ausgegrautes.
+- **Bibliothek** ohne die drei Zeilen: nur noch Sammlungen, Tags, Liste.
+- **Stellen-Mix „Woraus“**: Das Mix-Blatt wählt selbst — alle Noten oder
+  eine Sammlung (Reihenfolge wie in der Leiste), dazu alle Tags.
+  Gemerkt am Gerät in `ueben:mix-woraus` (ein Filter, reist nicht mit);
+  noch nichts gemerkt → die zuletzt in der Bibliothek gewählte Sammlung und
+  der Tag; was es nicht mehr gibt, wird „alle“ (`mixQuelle` in
+  `src/domain/stellen.ts`, getestet). Die Chips bleiben beim Wählen stehen,
+  nur Zahl und Knopf ändern sich; hat die Sammlung keine Stellen, steht das
+  in der Zahl-Zeile (die Anleitung kommt nur ganz ohne Stellen).
+- Escape schließt erst ein offenes Blatt, dann die Seite. Auf 320 px Breite
+  (iPhone SE) passen alle vier Beschriftungen (dort weniger gesperrt).
+
+**Auf dem Gerät prüfen:**
+- iPhone hochkant: vier Knöpfe gut zu treffen, nichts abgeschnitten; Lernen
+  → Lernen leuchtet; noch ein Tipp → zurück zu den Noten; Noten bei offenem
+  Lernen → Bibliothek ersetzt Lernen.
+- Metronom und Stimmgerät bei offenem Lernen: Widget schwebt darüber, der
+  Ohr-Trainer hört trotzdem richtig.
+- Stellen-Mix aus Lernen starten: Seite schließt, Stelle auf dem Pult, Punkt
+  am Lernen-Knopf; Mix beenden → Punkt weg. „Woraus“ wechseln: Zahl und
+  Knopf stimmen, Bibliotheks-Filter bleibt unberührt.
+- „Heute“ → Üben → Runde: Block erledigt, Ohr-Trainer-Zeile zeigt den neuen Stand.
 
 ---
 
@@ -1041,8 +1097,8 @@ dem Versuch zu sehen — es ist Gehörbildung, kein Vom-Blatt-Spielen.
 - Einstellungen (`ueben:ohr`: Stufe, Grundton, Tempo, Wechseln) reisen mit
   der Sicherung; der Verlauf (`ueben:ohr-verlauf`, letzte 200 Runden) bleibt
   vorerst auf dem Gerät.
-- Einstieg: Zeile „Ohr-Trainer“ in der Bibliothek unter dem Stellen-Mix,
-  auch bei leerer Bibliothek.
+- Einstieg: Zeile „Ohr-Trainer“ auf der Lernen-Seite unter dem Stellen-Mix
+  (seit B-18; vorher in der Bibliothek).
 - **Geprüft im Browser** (Chrome, künstliches Mikrofon mit einer
   synthetischen Klarinette, 2026-11-16): Einzählen, Vorspiel, Aufnahme,
   Bewertung laufen durch; ein falsch gespielter Ton (Es statt D) wird als
@@ -1136,7 +1192,8 @@ sonst Hinweis „extern üben“ (iReal Pro, Moises) mit „Heute geübt“-Knop
   Phrygisch, Äolisch, Lokrisch — optional), Leadsheet lesen.
 - **Klarinette:** Dur-Tonleitern in 12 Tonarten, Dreiklang-Arpeggien,
   Septakkord-Arpeggien, Guide Tones (3 und 7 durch die ii–V–I), Swing-
-  Achtel und Artikulation, sauberes Clarion/Altissimo.
+  Achtel und Artikulation, sauberes Clarion/Altissimo, Doppelzunge,
+  Triolenzunge (baut auf der Doppelzunge auf; Wunsch Marlon 2026-11-16).
 - **Improvisation:** Frage–Antwort, mit 3 Tönen improvisieren, Motiv
   entwickeln, Akkordtöne auf Zählzeiten, chromatische Annäherung,
   Umspielung (Enclosure), Blues-Phrasen, Licks lernen und transponieren,
@@ -1146,7 +1203,7 @@ sonst Hinweis „extern üben“ (iReal Pro, Moises) mit „Heute geübt“-Knop
 - **Repertoire:** Blues in B, Blue Bossa, Autumn Leaves, Summertime, eigener
   Lieblingssong (z. B. Ashe „Stop The Wedding!“).
 
-**Übersicht (eigene Seite oder Blatt aus der Bibliothek, Zeile „Skills“)**
+**Übersicht (Blatt von der Lernen-Seite, Zeile „Skills“ unter „Mein Stand“ — seit B-18)**
 - Kopf: „9 von 48 sicher“ (wirksame Stufe ≥ 3 oder Markierung `kann`), je
   Bereich ein Balken.
 - Filter-Chips: Alle · ☆ Will ich · Lerne ich · Kann ich · Verblasst ·
@@ -1162,7 +1219,8 @@ ist persönlich und reist mit der Sicherung (`einstellungen.ts`). Prüfung
 beim Lesen, unbekannte Skill-ids bleiben erhalten (künftige Kartei).
 
 **Umgesetzt 2026-11-16** (Regeln `src/domain/skills.ts`, Katalog
-`src/domain/skillkatalog.ts` mit 47 Skills, Ansicht `Skills.tsx`). Festgelegt
+`src/domain/skillkatalog.ts` mit 47 Skills, seit 2026-11-16 abends 49 mit
+Doppel- und Triolenzunge, Ansicht `Skills.tsx`). Festgelegt
 beim Bau: Stufe 1 schon ab einer Runde (≥ 0,6), Stufe 2 und 3 brauchen 5
 Runden. Verblassen = je abgelaufene Halbwertszeit der gemessenen Stufe eine
 Stufe weniger (Stufe 3 → nach 21 Tagen 2, nach 42 Tagen 1). Nach dem
@@ -1187,14 +1245,16 @@ und getestet in `src/domain/`.
 
 **Umgesetzt 2026-11-16:** `src/domain/hoerquiz.ts` (Stufen: Intervalle 3,
 Dreiklänge 2, Septakkorde 2; Richtung bei Intervallen), Blatt
-`HoerUebung.tsx`. Start aus der Skill-Kartei („Üben“ und „Heute“), jede
+`HoerUebung.tsx`. Start aus der Skill-Kartei („Üben“), aus „Heute“ und seit
+B-18 direkt über die Zeile „Hör-Übungen“ auf der Lernen-Seite, jede
 Runde zählt auf den Skill (Dreiklänge → „Dur und Moll hören“). Nach dem
 Antworten spielt ein Tipp auf jede Antwort deren Klang (Vergleich). Letzte
 Stufe je Übung in `ueben:hoerquiz` (reist mit der Sicherung).
 
 ### I-09 · „Heute“: geführte Einheit — Bau 2026-11-16
 
-Oben in der Skill-Übersicht: „Heute · 30 Min.“ — drei Blöcke à 10 Minuten
+Oben auf der Lernen-Seite (seit B-18; vorher oben in der Skill-Übersicht):
+„Heute · 30 Min.“ — drei Blöcke à 10 Minuten
 (Leitlinie aus I): **Ohr** (ein Skill mit Übung in der App, bevorzugt
 `lerne`/`will`, sonst der am stärksten verblasste), **Stück/Mitspielen**
 (ein Repertoire- oder Mitspiel-Skill, extern), **Impro** (ein
@@ -1220,7 +1280,7 @@ spielen (braucht I-04).
 ### I-11…I-20 · Werkzeuge fürs freie Spielen — Bau ab 2026-11-16
 
 Marlon 2026-11-16: „Bau alles“ — zehn Ideen aus der Recherche. Alle
-Werkzeuge erreicht man aus der Bibliothek über einen Block **Werkzeuge**
+Werkzeuge erreicht man auf der Seite **Lernen** (B-18) im Abschnitt **Werkzeuge**
 (Kacheln, je ein Blatt). Tonhöhen immer **notiert für die gewählte Stimmung**
 (Stimmgerät), daneben klingend, wo es hilft.
 

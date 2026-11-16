@@ -10,7 +10,7 @@ import { LicksBlatt } from './Licks';
 import { SpickzettelBlatt } from './Spickzettel';
 import { TransponierBlatt } from './Transponieren';
 
-// Werkzeuge fürs freie Spielen (I-11…I-20): Kacheln in der Bibliothek, jede
+// Werkzeuge fürs freie Spielen (I-11…I-20): Kacheln auf der Lernen-Seite, jede
 // öffnet ihr Blatt über der Liste. Neue Werkzeuge: Eintrag in WERKZEUGE.
 
 interface Werkzeug {
@@ -38,7 +38,6 @@ export function Werkzeuge({ offenMelden }: { offenMelden?: (offen: boolean) => v
   const aktiv = WERKZEUGE.find((w) => w.id === offen);
   return (
     <section className="werkzeuge" aria-label="Werkzeuge">
-      <span className="kennzahl-label">Werkzeuge</span>
       <div className="werkzeuge-raster">
         {WERKZEUGE.map((w) => (
           <button key={w.id} type="button" className="werkzeug-kachel" aria-haspopup="dialog" aria-expanded={offen === w.id} onClick={() => setOffen(w.id)}>
