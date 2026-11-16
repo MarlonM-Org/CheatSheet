@@ -248,7 +248,7 @@ Der Stellen-Mix verliert damit die Bibliotheks-Auswahl als Quelle: Sein Blatt
 bekommt eine eigene Wahl „Woraus: alle Noten · Sammlung · Tag“, vorbelegt mit
 der zuletzt in der Bibliothek gewählten.
 
-**Entwürfe (2026-11-16):** (A) vier Knöpfe in zwei Gruppen — Orte (Lernen,
+**Entwürfe (2026-11-16, antippbar in `docs/design/entwurf-lernen.html`):** (A) vier Knöpfe in zwei Gruppen — Orte (Lernen,
 Noten) links, Werkzeuge (Stimmgerät, Metronom) rechts; (B) drei Knöpfe,
 Reiter „Noten | Lernen“ oben in der Bibliothek; (C) drei Knöpfe, eine
 Zeile „Lernen“ in der Bibliothek statt drei. Verworfen: Halten auf „Noten“,
