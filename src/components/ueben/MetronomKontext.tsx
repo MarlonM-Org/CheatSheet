@@ -2,11 +2,13 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { EINSTELLUNG_STANDARD as STANDARD, type Akzent, type Trainer } from '@/domain/einstellungen';
-import { akzenteFuer, klickDauer, nennerPruefen, unterPruefen, type Nenner } from '@/domain/takt';
+import { abstandZumNaechsten, taktKlicks, type Swing } from '@/domain/swing';
+import { akzenteFuer, nennerPruefen, unterPruefen, type Nenner } from '@/domain/takt';
 import { trainerTempo } from '@/domain/ueben';
 import {
   audioSitzung, gespeichert, klangPuffer, speichern, useBeimVerlassen, useEinstellungenGeladen, verwerfen, wachHalten, type Art, type Klang,
 } from './klang';
+import { skillGeuebt } from './skillspeicher';
 
 export type { Akzent, Trainer };
 
@@ -18,6 +20,8 @@ interface MetronomWert {
   akzente: Akzent[]; akzentWechseln: (i: number) => void;
   unter: number; setUnter: (n: number) => void; klang: Klang; setKlang: (k: Klang) => void;
   laut: number; setLaut: (n: number) => void; trainer: Trainer; setTrainer: (t: Trainer) => void;
+  // Swing-Metronom (I-17): nur 2 und 4, hörbare Achtel mit Swing-Anteil (@/domain/swing).
+  swing: Swing; setSwing: (s: Swing) => void;
 }
 
 const Kontext = createContext<MetronomWert | null>(null);
@@ -41,6 +45,7 @@ export function MetronomAnbieter({ children }: { children: React.ReactNode }) {
   const [klang, setKlang] = useState<Klang>(() => gespeichert('metro:klang', STANDARD['metro:klang']));
   const [laut, setLaut] = useState(() => gespeichert('metro:laut', STANDARD['metro:laut']));
   const [trainer, setTrainer] = useState<Trainer>(() => gespeichert('metro:trainer', STANDARD['metro:trainer']));
+  const [swing, setSwing] = useState<Swing>(() => gespeichert('metro:swing', STANDARD['metro:swing']));
   const [aktiv, setAktiv] = useState<{ schlag: number; sub: number } | null>(null);
   // Eine Sicherung hat Einstellungen übernommen: neu lesen, sonst schriebe
   // der Effekt unten die alten Werte zurück. Das Tempo bleibt am Gerät.
@@ -54,19 +59,20 @@ export function MetronomAnbieter({ children }: { children: React.ReactNode }) {
     setKlang(gespeichert('metro:klang', STANDARD['metro:klang']));
     setLaut(gespeichert('metro:laut', STANDARD['metro:laut']));
     setTrainer(gespeichert('metro:trainer', STANDARD['metro:trainer']));
+    setSwing(gespeichert('metro:swing', STANDARD['metro:swing']));
   }, []);
   useEinstellungenGeladen(neuLesen);
 
   // Alles, was der Taktgeber liest, als Referenz (er läuft außerhalb von React).
-  const r = useRef({ bpm, takt, nenner, akzente, unter, klang, laut, trainer, startBpm: bpm });
+  const r = useRef({ bpm, takt, nenner, akzente, unter, klang, laut, trainer, swing, startBpm: bpm });
   useEffect(() => {
-    r.current = { ...r.current, bpm, takt, nenner, akzente, unter, klang, laut, trainer };
-  }, [bpm, takt, nenner, akzente, unter, klang, laut, trainer]);
-  useEffect(() => { speichern('metro:takt', takt); speichern('metro:nenner', nenner); speichern('metro:akzente', akzente); speichern('metro:unter', unter); speichern('metro:klang', klang); speichern('metro:laut', laut); speichern('metro:trainer', trainer); },
-    [takt, nenner, akzente, unter, klang, laut, trainer]);
+    r.current = { ...r.current, bpm, takt, nenner, akzente, unter, klang, laut, trainer, swing };
+  }, [bpm, takt, nenner, akzente, unter, klang, laut, trainer, swing]);
+  useEffect(() => { speichern('metro:takt', takt); speichern('metro:nenner', nenner); speichern('metro:akzente', akzente); speichern('metro:unter', unter); speichern('metro:klang', klang); speichern('metro:laut', laut); speichern('metro:trainer', trainer); speichern('metro:swing', swing); },
+    [takt, nenner, akzente, unter, klang, laut, trainer, swing]);
 
   const audio = useRef<{ ctx: AudioContext; gain: GainNode; puffer: Map<string, AudioBuffer> } | null>(null);
-  const lauf = useRef<{ timer: number; raf: number; naechster: number; schritt: number; taktNr: number; schlange: { zeit: number; schlag: number; sub: number }[]; freigeben: (() => void) | null } | null>(null);
+  const lauf = useRef<{ timer: number; raf: number; naechster: number; pos: number; taktNr: number; erster: boolean; schlange: { zeit: number; schlag: number; sub: number }[]; freigeben: (() => void) | null } | null>(null);
 
   function puffer(k: Klang, art: Art) {
     const a = audio.current!;
@@ -79,28 +85,28 @@ export function MetronomAnbieter({ children }: { children: React.ReactNode }) {
     const a = audio.current!, l = lauf.current!, c = r.current;
     a.gain.gain.setTargetAtTime(c.laut, a.ctx.currentTime, 0.02);
     while (l.naechster < a.ctx.currentTime + 0.12) {
-      const proSchlag = c.unter;
-      const schlag = Math.floor(l.schritt / proSchlag) % c.takt;
-      const sub = l.schritt % proSchlag;
-      if (schlag === 0 && sub === 0) {
-        if (l.schritt > 0) l.taktNr++;
+      // Die Klicks des Takts (Reihenfolge, Versatz, Stärke) kommen aus @/domain/swing;
+      // je Klick neu berechnet, damit Akzente und Optionen sofort gelten.
+      const klicks = taktKlicks(c.takt, c.nenner, c.unter, c.akzente, c.swing);
+      if (l.pos >= klicks.length) l.pos = 0;
+      const k = klicks[l.pos];
+      if (l.pos === 0) {
+        if (l.erster) l.erster = false; else l.taktNr++;
         if (c.trainer.an) {
           const neu = trainerTempo(c.startBpm, c.trainer.schritt, c.trainer.takte, c.trainer.ziel, l.taktNr);
           if (neu !== c.bpm) { c.bpm = neu; const z = l.naechster; window.setTimeout(() => setBpm(neu), Math.max(0, (z - a.ctx.currentTime) * 1000)); }
         }
       }
-      const akzent = c.akzente[schlag] ?? 'normal';
-      if (akzent !== 'stumm') {
-        const art: Art = sub > 0 ? 'unter' : akzent === 'betont' ? 'betont' : 'normal';
+      if (k.art) {
         const q = a.ctx.createBufferSource();
-        q.buffer = puffer(c.klang, art);
+        q.buffer = puffer(c.klang, k.art);
         q.connect(a.gain);
         q.start(l.naechster);
       }
-      l.schlange.push({ zeit: l.naechster, schlag, sub });
+      l.schlange.push({ zeit: l.naechster, schlag: k.schlag, sub: k.sub });
       // Das Tempo gilt je Schlag (D-07): in 6/8 drei Einheiten je Schlag.
-      l.naechster += klickDauer(c.bpm, c.takt, c.nenner, proSchlag);
-      l.schritt++;
+      l.naechster += abstandZumNaechsten(klicks, l.pos, c.takt, c.nenner) * 60 / c.bpm;
+      l.pos = (l.pos + 1) % klicks.length;
     }
   }
 
@@ -133,7 +139,8 @@ export function MetronomAnbieter({ children }: { children: React.ReactNode }) {
     // wird auf der Audio-Uhr; die steht, bis der Kontext läuft.
     audio.current.ctx.resume().catch(() => { /* egal */ });
     r.current.startBpm = r.current.bpm;
-    lauf.current = { timer: 0, raf: 0, naechster: audio.current.ctx.currentTime + 0.08, schritt: 0, taktNr: 0, schlange: [], freigeben: null };
+    if (r.current.swing.achtel) skillGeuebt('swing-artikulation');
+    lauf.current = { timer: 0, raf: 0, naechster: audio.current.ctx.currentTime + 0.08, pos: 0, erster: true, taktNr: 0, schlange: [], freigeben: null };
     const l = lauf.current;
     l.timer = window.setInterval(planen, 25);
     l.raf = requestAnimationFrame(zeigen);
@@ -182,7 +189,7 @@ export function MetronomAnbieter({ children }: { children: React.ReactNode }) {
   return (
     <Kontext.Provider value={{
       bpm, setBpm, laeuft, start, stopp, aktiv, takt, nenner, taktartSetzen, akzente, akzentWechseln,
-      unter, setUnter, klang, setKlang, laut, setLaut, trainer, setTrainer,
+      unter, setUnter, klang, setKlang, laut, setLaut, trainer, setTrainer, swing, setSwing,
     }}>
       {children}
     </Kontext.Provider>

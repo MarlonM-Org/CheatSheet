@@ -1691,3 +1691,18 @@ ol.stichpunkte { list-style: decimal; }
 .hoer-gruppe { display: flex; flex-wrap: wrap; gap: 6px; }
 .hoer-gruppe button { flex: 1 1 auto; min-height: 2.75rem; padding: 0 12px; border: 1px solid var(--linie-stark); border-radius: 6px; background: var(--karte); font-weight: 600; }
 .hoer-gruppe button[aria-pressed="true"] { border-color: var(--messing); background: var(--messing-hell); }
+/* Swing-Metronom (I-17): feste Höhe, nichts rutscht; Nicht-Mögliches ist abgeblendet. */
+.swing-block { display: flex; flex-direction: column; gap: 10px; }
+.swing-chip { min-height: 2.75rem; padding: 0 12px; border: 1px solid var(--linie-stark); border-radius: 6px; background: var(--karte); font-weight: 700; }
+.swing-chip[aria-pressed="true"] { border-color: var(--messing); background: var(--messing-hell); }
+.swing-chip:disabled, .swing-block .segment button:disabled { opacity: 0.45; }
+.swing-block > p { min-height: 2.2em; }
+/* Drone (I-18): Tasten fest in einem Raster, Hinweis in reserviertem Feld. */
+.dr-tasten { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+.dr-farben { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.dr-tasten button, .dr-farben button { min-height: 2.75rem; padding: 0 4px; border: 1px solid var(--linie-stark); border-radius: 6px; background: var(--karte); font-weight: 700; font-size: 0.95rem; }
+.dr-tasten button[aria-pressed="true"], .dr-farben button[aria-pressed="true"] { border-color: var(--messing); border-width: 2px; background: var(--messing-hell); }
+.dr-hinweis { min-height: 2.6em; }
+.dr-status { min-height: 1.5em; }
+.swing-block .segment { display: flex; width: 100%; }
+.swing-block .segment button { flex: 1 1 0; min-width: 0; padding-left: 4px; padding-right: 4px; }
