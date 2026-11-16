@@ -7,7 +7,11 @@ import { useEffect, useRef, useState } from 'react';
 // Größenänderung neu, Farbe aus dem Thema. Die Höhe ist reserviert
 // (`hoehe`), damit nichts springt, während abcjs lädt.
 
-export function AbcZeile({ abc, hoehe = 96, label }: { abc: string; hoehe?: number; label?: string }) {
+export function AbcZeile({ abc, hoehe = 96, label, umbrechen = true }: {
+  abc: string; hoehe?: number; label?: string;
+  /** false: die Zeilen des ABC-Texts bleiben, wie sie sind (Etüden: eine Tonart je Zeile). */
+  umbrechen?: boolean;
+}) {
   const bild = useRef<HTMLDivElement>(null);
   const [breite, setBreite] = useState(0);
   const [fehler, setFehler] = useState(false);
@@ -27,17 +31,18 @@ export function AbcZeile({ abc, hoehe = 96, label }: { abc: string; hoehe?: numb
     const tinte = getComputedStyle(el).getPropertyValue('--tinte').trim() || '#222';
     void import('abcjs').then((m) => {
       if (!aktuell || !bild.current) return;
-      const skala = breite >= 560 ? 1.1 : 0.95;
-      m.renderAbc(bild.current, abc, {
+      const zeichnen = (skala: number) => m.renderAbc(bild.current!, abc, {
         add_classes: true, paddingtop: 0, paddingbottom: 0, paddingleft: 0, paddingright: 0,
         scale: skala, staffwidth: (breite - 8) / skala, foregroundColor: tinte,
         // Schmal (Handy): umbrechen statt abschneiden.
-        wrap: { minSpacing: 1.4, maxSpacing: 2.6, preferredMeasuresPerLine: breite < 560 ? 2 : 4 },
+        // Feste Zeilen: auf die Breite verkleinern, falls eine nicht passt.
+        ...(umbrechen ? { wrap: { minSpacing: 1.4, maxSpacing: 2.6, preferredMeasuresPerLine: breite < 560 ? 2 : 4 } } : { responsive: 'resize' as const }),
       });
+      zeichnen(breite >= 560 ? 1.1 : 0.95);
       setFehler(false);
     }).catch(() => { if (aktuell) setFehler(true); });
     return () => { aktuell = false; };
-  }, [abc, breite]);
+  }, [abc, breite, umbrechen]);
 
   return (
     <div className="abc-zeile" style={{ minHeight: hoehe }} role="img" aria-label={label}>

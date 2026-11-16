@@ -1932,3 +1932,35 @@ button.ohr-note { background: none; color: inherit; font: inherit; cursor: point
 }
 .tb-aufnehmen.laeuft { background: var(--warnung); color: #fff; }
 .tb-stopp { width: 14px; height: 14px; border-radius: 2px; background: currentColor; }
+/* Etüden (I-14) und Licks (I-16): Wahl oben, Noten unten — die Notenzeile wächst, nichts darüber rutscht. */
+.et-blatt, .lk-blatt { gap: 10px; }
+.et-muster { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+@media (min-width: 640px) { .et-muster { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+.et-was { min-height: 2.7em; margin: 0; line-height: 1.35; }
+.et-feld { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.et-segment { flex-wrap: nowrap; gap: 4px; }
+.et-segment button { flex: 1 1 0; min-width: 0; padding: 0 4px; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.et-zwei { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 8px; }
+.et-tempo { display: flex; align-items: center; gap: 10px; }
+.et-tempo input[type="range"] { flex: 1; min-width: 0; accent-color: var(--messing); }
+.et-tempo-zahl { flex: none; width: 3.4rem; display: flex; flex-direction: column; align-items: center; line-height: 1.05; }
+.et-tempo-zahl strong { font-size: 1.3rem; font-variant-numeric: tabular-nums; }
+.et-tempo-zahl span { font-size: 0.65rem; color: var(--gedaempft); letter-spacing: 0.08em; }
+.et-hinweis { min-height: 2.6em; margin: 0; }
+.et-noten { width: 100%; padding: 6px 0 4px; border-top: 1px solid var(--linie); }
+.lk-zeile-stand { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+.lk-zeile-stand small { font-size: 0.7rem; color: var(--gedaempft); white-space: nowrap; }
+.lk-staerke { display: inline-flex; gap: 3px; vertical-align: middle; }
+.lk-staerke span { width: 7px; height: 7px; border-radius: 50%; border: 1px solid var(--messing); }
+.lk-staerke span.an { background: var(--messing); }
+.lk-bewerten { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--linie); border-radius: 6px; }
+.lk-bewerten-kopf { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.lk-hinweis { min-height: 1.4em; margin: 0; }
+.lk-text { min-height: 4.5rem; font-weight: 600; font-size: 1rem; }
+.lk-tasten { display: flex; flex-direction: column; gap: 4px; }
+.lk-reihe { display: grid; gap: 4px; }
+.lk-reihe-7 { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.lk-reihe button { min-height: 2.6rem; padding: 0 2px; border: 1px solid var(--linie-stark); border-radius: 6px; background: var(--karte); font-weight: 700; font-size: 0.95rem; white-space: nowrap; }
+.lk-reihe button:active { background: var(--messing-hell); }
+.lk-vorschau { min-height: 6.5rem; display: flex; flex-direction: column; gap: 4px; }
+.et-muster button { white-space: normal; line-height: 1.1; font-size: 0.82rem; hyphens: manual; }
