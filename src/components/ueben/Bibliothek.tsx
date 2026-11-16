@@ -28,6 +28,7 @@ import { useSicherungLaden } from './Sicherung';
 import { MixZeile } from './StellenMix';
 import { OhrTrainerZeile } from './OhrTrainer';
 import { SkillsZeile } from './Skills';
+import { Werkzeuge } from './Werkzeuge';
 import { TagEtikett, TagFilter, TagWahl } from './Tags';
 import { fehlerGrund } from './speicherfehler';
 import { ohneCancelAbbrechen } from './dateiwahl';
@@ -455,6 +456,8 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
       <SkillsZeile offenMelden={blattMelden} />
 
       <OhrTrainerZeile offenMelden={blattMelden} />
+
+      <Werkzeuge offenMelden={blattMelden} />
 
       {/* Leere Liste: Hinzufügen und Laden stehen in der Hinweis-Karte, Sortieren gibt es noch nichts. */}
       {!!noten?.length && (auswaehlen ? (
