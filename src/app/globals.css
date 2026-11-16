@@ -191,6 +191,10 @@ a { color: inherit; text-decoration: underline; text-decoration-color: var(--mes
   position: absolute; top: 9px; left: calc(50% + 14px); width: 5px; height: 5px;
   border-radius: 50%; background: var(--messing);
 }
+/* B-18: Haarlinie zwischen den Orten (Lernen, Noten) und den Werkzeugen. */
+.leiste-trenner { flex: none; align-self: center; width: 1px; height: 28px; background: var(--linie-stark); }
+/* Vier Knöpfe auf sehr schmalen Geräten: „STIMMGERÄT“ passt mit weniger Sperrung. */
+@media (max-width: 360px) { .leiste-knopf .leiste-label { letter-spacing: 0.05em; } }
 
 /* Dock: flache Panels über der Leiste (Metronom, Stimmgerät) */
 .dock {
@@ -864,6 +868,18 @@ details[open] > summary::before { transform: rotate(90deg); }
 .mix-einstieg.ohne .mix-symbol { background: var(--flaeche2); color: var(--gedaempft); }
 .mix-symbol.gross { width: 56px; height: 56px; border-radius: 14px; }
 .mix-symbol.gross svg { width: 28px; height: 28px; }
+
+/* Lernen (B-18): Seite wie die Bibliothek; Abschnitte mit Mikro-Titel. */
+.lernen-inhalt { display: flex; flex-direction: column; gap: 0.75rem; }
+.lernen-inhalt > * { flex-shrink: 0; }
+.lernen-titel { font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--leise); margin: 0.6rem 2px -0.2rem; }
+/* „Woraus“ im Mix-Blatt: Chips je Zeile seitlich schiebbar, nichts bricht um. */
+.mix-woraus { display: flex; flex-direction: column; gap: 6px; }
+.mix-woraus-chips { display: flex; gap: 6px; overflow-x: auto; margin: 0 -1.25rem; padding: 0 1.25rem 2px; scrollbar-width: none; }
+.mix-woraus-chips::-webkit-scrollbar { display: none; }
+.hoer-wahl { display: flex; flex-direction: column; gap: 8px; }
+.hoer-wahl .mix-einstieg { min-height: 58px; padding-block: 8px; }
+.hoer-wahl .bib-unterzeile { white-space: normal; }
 
 /* Optionen des Mix: Blatt von unten (iPad: mittig, schmaler). */
 .mix-blatt { display: flex; flex-direction: column; gap: 14px; padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px)); }

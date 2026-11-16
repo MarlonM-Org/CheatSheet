@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Reiter Lernen</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: Entscheidungsseite — Empfehlung und Vergleich oben, dann je Entwurf
+   ein antippbares iPhone-Mockup neben dem Text. Farben = Studio-Tokens der App
+   (hell) und Farbwelt „Nacht“ (dunkel), Schrift = Systemschrift wie in der App. */
+:root {
+  --grund: #f5f4f0;
+  --papier: #fcfcfb;
+  --flaeche: #f5f4f0;
+  --flaeche2: #edebe4;
+  --tinte: #1d1b17;
+  --gedaempft: #57534a;
+  --leise: #8d887c;
+  --linie: #e4e2db;
+  --linie-stark: #cbc8bf;
+  --messing: #a8781f;
+  --messing-hell: #f3ead6;
+  --messing-text: #ffffff;
+  --gut: #1f7a43;
+  --gut-hell: #e6f4ec;
+  --warnung: #b42318;
+  --geraet: #1d1b17;
+  --noten-strich: rgb(29 27 23 / 55%);
+  --widget-schatten: 0 6px 18px rgb(29 27 23 / 10%);
+  --schrift: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --grund: #0b121b; --papier: #0f1722; --flaeche: #16202c; --flaeche2: #1d2936;
+    --tinte: #e9edf2; --gedaempft: #9aa7b5; --leise: #7a8a9c; --linie: #1f2a37; --linie-stark: #344456;
+    --messing: #d9ad55; --messing-hell: #39301b; --messing-text: #16202c;
+    --gut: #6fd39a; --gut-hell: #16301f; --warnung: #ff8a7a;
+    --geraet: #2a3644; --noten-strich: rgb(233 237 242 / 50%); --widget-schatten: 0 6px 18px rgb(0 0 0 / 45%);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --grund: #0b121b; --papier: #0f1722; --flaeche: #16202c; --flaeche2: #1d2936;
+  --tinte: #e9edf2; --gedaempft: #9aa7b5; --leise: #7a8a9c; --linie: #1f2a37; --linie-stark: #344456;
+  --messing: #d9ad55; --messing-hell: #39301b; --messing-text: #16202c;
+  --gut: #6fd39a; --gut-hell: #16301f; --warnung: #ff8a7a;
+  --geraet: #2a3644; --noten-strich: rgb(233 237 242 / 50%); --widget-schatten: 0 6px 18px rgb(0 0 0 / 45%);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--grund); color: var(--tinte); font-family: var(--schrift);
+  font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased;
+}
+.seite {
+  max-width: 1080px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 72px;
+  display: flex; flex-direction: column; gap: 56px;
+}
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+p { margin: 0; }
+.mikro {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--leise);
+}
+a { color: var(--messing); }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--messing); outline-offset: 2px; }
+
+/* ── Kopf ── */
+.kopf { display: flex; flex-direction: column; gap: 14px; max-width: 70ch; }
+.kopf h1 { font-size: clamp(2rem, 5vw, 2.9rem); font-weight: 780; letter-spacing: -0.02em; line-height: 1.1; }
+.kopf .lede { font-size: 1.08rem; color: var(--gedaempft); }
+.inhalt-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.ichip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
+  border: 1px solid var(--linie-stark); background: var(--papier); font-size: 0.84rem; font-weight: 600; color: var(--gedaempft);
+}
+.ichip.spaeter { border-style: dashed; background: transparent; color: var(--leise); }
+.ichip .p { width: 7px; height: 7px; border-radius: 50%; background: var(--messing); }
+.ichip.spaeter .p { background: var(--linie-stark); }
+
+/* ── Empfehlung + Vergleich ── */
+.empfehlung {
+  background: var(--papier); border: 1px solid var(--linie); border-radius: 10px;
+  padding: 24px clamp(16px, 3vw, 28px); display: flex; flex-direction: column; gap: 18px;
+}
+.empfehlung h2 { font-size: 1.35rem; font-weight: 720; }
+.empfehlung h2 em { font-style: normal; color: var(--messing); }
+.gruende { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px 24px; margin: 0; padding: 0; list-style: none; }
+.gruende li { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.gruende b { font-size: 0.95rem; }
+.gruende span { color: var(--gedaempft); font-size: 0.92rem; }
+.tabelle-huelle { overflow-x: auto; border-top: 1px solid var(--linie); padding-top: 14px; }
+table { border-collapse: collapse; width: 100%; min-width: 600px; font-size: 0.9rem; }
+th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--linie); }
+thead th { font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--leise); border-bottom-color: var(--linie-stark); }
+tbody th { font-weight: 600; color: var(--gedaempft); width: 24%; }
+td.gut { color: var(--gut); font-weight: 600; }
+td.mau { color: var(--gedaempft); }
+.empf-spalte { background: var(--messing-hell); }
+thead .empf-spalte { color: var(--messing); }
+.marke { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: var(--messing); color: var(--messing-text); font-size: 10px; letter-spacing: 0.08em; vertical-align: 1px; }
+
+/* ── Entwürfe ── */
+.entwurf { display: grid; grid-template-columns: 296px minmax(0, 1fr); gap: 20px 44px; align-items: start; }
+@media (max-width: 760px) { .entwurf { grid-template-columns: minmax(0, 1fr); } .mock-spalte { justify-self: center; } }
+.mock-spalte { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 296px; max-width: 100%; }
+.text-spalte { display: flex; flex-direction: column; gap: 16px; min-width: 0; max-width: 64ch; }
+.titelzeile { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.buchstabe {
+  flex: none; width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center;
+  border: 1px solid var(--linie-stark); background: var(--papier); font-weight: 760; font-size: 1.05rem; align-self: center;
+}
+.entwurf.empfohlen .buchstabe { background: var(--messing); border-color: var(--messing); color: var(--messing-text); }
+.text-spalte h2 { font-size: 1.5rem; font-weight: 740; letter-spacing: -0.01em; }
+.text-spalte .ein { color: var(--gedaempft); font-size: 1rem; }
+.tipps { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; border-top: 1px solid var(--linie); }
+.tipps li { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 2px 14px; padding: 9px 0; border-bottom: 1px solid var(--linie); font-size: 0.93rem; }
+.tipps li b { font-weight: 650; }
+.tipps li span { color: var(--gedaempft); }
+@media (max-width: 520px) { .tipps li { grid-template-columns: minmax(0, 1fr); } }
+.abwaegung { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px 24px; }
+.abwaegung div { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.abwaegung ul { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap: 4px; font-size: 0.93rem; }
+.abwaegung .mikro.plus { color: var(--gut); }
+.abwaegung .mikro.minus { color: var(--warnung); }
+.notiz { font-size: 0.9rem; color: var(--gedaempft); border-left: 2px solid var(--linie-stark); padding-left: 12px; }
+
+.ph-cap { font-size: 0.82rem; color: var(--gedaempft); text-align: center; min-height: 2.6em; max-width: 280px; }
+.ph-hinweis { font-size: 0.75rem; color: var(--leise); text-align: center; }
+
+/* ── iPhone-Mockup ── */
+.phone {
+  position: relative; width: 280px; height: 580px; flex: none; max-width: 100%;
+  border: 8px solid var(--geraet); border-radius: 40px; background: var(--papier); overflow: hidden;
+  font-family: var(--schrift); font-size: 11px; line-height: 1.3; color: var(--tinte);
+  box-shadow: 0 18px 40px rgb(0 0 0 / 8%);
+}
+.ph-status { position: absolute; top: 0; left: 0; right: 0; height: 26px; display: flex; justify-content: space-between; align-items: center; padding: 2px 22px 0; font-size: 10px; font-weight: 650; z-index: 6; background: var(--papier); }
+.ph-status .insel { position: absolute; left: 50%; top: 6px; transform: translateX(-50%); width: 64px; height: 16px; border-radius: 10px; background: var(--geraet); }
+.ph-noten { position: absolute; top: 26px; left: 0; right: 0; bottom: 64px; padding: 12px 12px 0; display: flex; flex-direction: column; align-items: center; gap: 2px; overflow: hidden; }
+.ph-noten .st-titel { font-weight: 750; font-size: 12px; }
+.ph-noten .st-komp { font-size: 9px; color: var(--gedaempft); margin-bottom: 6px; }
+.ph-noten svg { width: 100%; height: auto; }
+.ph-sheet { position: absolute; top: 26px; left: 0; right: 0; bottom: 64px; background: var(--papier); display: flex; flex-direction: column; z-index: 2; }
+.ph-dock { position: absolute; left: 0; right: 0; bottom: 64px; z-index: 3; display: flex; flex-direction: column; gap: 6px; padding: 0 8px 8px; }
+.ph-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 64px; padding-bottom: 14px; border-top: 1px solid var(--linie); background: var(--papier); display: flex; z-index: 4; }
+.ph-bar::after { content: ""; position: absolute; left: 50%; bottom: 5px; transform: translateX(-50%); width: 92px; height: 4px; border-radius: 2px; background: var(--tinte); opacity: 0.85; }
+.ph-knopf { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: var(--gedaempft); position: relative; background: none; border: 0; padding: 0; cursor: pointer; }
+.ph-knopf:active { background: var(--flaeche); }
+.ph-knopf svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.ph-knopf span { font-size: 7.4px; font-weight: 650; letter-spacing: 0.12em; text-transform: uppercase; white-space: nowrap; }
+.ph-knopf[aria-pressed="true"] { color: var(--messing); }
+.ph-knopf[aria-pressed="true"]::after { content: ""; position: absolute; top: -1px; left: 50%; transform: translateX(-50%); width: 28px; height: 2px; background: var(--messing); }
+.ph-trenner { flex: none; width: 1px; height: 26px; align-self: center; background: var(--linie-stark); }
+
+.ph-kopf { display: flex; align-items: center; gap: 6px; padding: 7px 8px 7px 10px; border-bottom: 1px solid var(--linie); min-height: 38px; flex: none; }
+.ph-kopf h4 { margin: 0; font-size: 8.4px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--leise); white-space: nowrap; }
+.ph-kopf .anz { font-size: 9.5px; color: var(--leise); white-space: nowrap; }
+.ph-kopf .luft { flex: 1; }
+.ph-ic { width: 24px; height: 24px; display: grid; place-items: center; color: var(--leise); background: none; border: 0; padding: 0; cursor: pointer; border-radius: 4px; flex: none; }
+.ph-ic svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.ph-zurueck { background: none; border: 0; padding: 2px 4px 2px 0; color: var(--messing); font-size: 10.5px; font-weight: 650; cursor: pointer; white-space: nowrap; }
+.ph-seg { display: flex; border: 1px solid var(--linie-stark); border-radius: 5px; overflow: hidden; flex: none; }
+.ph-seg button { border: 0; background: var(--papier); padding: 4px 11px; font-size: 10px; font-weight: 650; color: var(--gedaempft); cursor: pointer; }
+.ph-seg button + button { border-left: 1px solid var(--linie-stark); }
+.ph-seg button[aria-pressed="true"] { background: var(--flaeche2); color: var(--tinte); }
+
+.ph-body { flex: 1; min-height: 0; overflow: hidden; padding: 9px 10px; display: flex; flex-direction: column; gap: 7px; }
+.ph-chips { display: flex; gap: 5px; overflow: hidden; flex: none; }
+.ph-chip { flex: none; display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--linie-stark); border-radius: 999px; padding: 3px 8px; font-size: 9.4px; font-weight: 600; color: var(--gedaempft); white-space: nowrap; background: var(--papier); }
+.ph-chip.an { background: var(--messing); border-color: var(--messing); color: var(--messing-text); }
+.ph-chip small { font-size: 8px; opacity: 0.75; font-weight: 700; }
+.ph-zeile { display: flex; align-items: center; gap: 7px; min-height: 32px; padding: 0 8px; border: 1px solid var(--linie-stark); border-radius: 6px; background: var(--papier); width: 100%; text-align: left; cursor: pointer; flex: none; }
+.ph-zeile:active { background: var(--flaeche); }
+.ph-zeile.betont { border-color: var(--messing); box-shadow: 0 0 0 2px var(--messing-hell); }
+.ph-sym { flex: none; width: 20px; height: 20px; border-radius: 5px; background: var(--messing); color: var(--messing-text); display: grid; place-items: center; }
+.ph-sym svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ph-zeile .t { flex: none; font-size: 10.4px; font-weight: 650; }
+.ph-zeile .s { flex: 1; min-width: 0; text-align: right; font-size: 9.2px; color: var(--gedaempft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ph-zeile .pf { color: var(--leise); font-size: 11px; }
+.ph-zeile.geist { border-style: dashed; background: transparent; cursor: default; }
+.ph-zeile.geist .ph-sym { background: var(--flaeche2); color: var(--leise); }
+.ph-zeile.geist .t { color: var(--leise); font-weight: 600; }
+.ph-werkzeuge { display: flex; align-items: center; gap: 6px; flex: none; }
+.ph-plus { background: var(--tinte); color: var(--papier); border-radius: 5px; padding: 4px 8px; font-size: 9.4px; font-weight: 650; }
+.ph-mini-seg { display: flex; border: 1px solid var(--linie-stark); border-radius: 4px; overflow: hidden; font-size: 8.6px; font-weight: 650; color: var(--gedaempft); }
+.ph-mini-seg span { padding: 3px 6px; }
+.ph-mini-seg span + span { border-left: 1px solid var(--linie-stark); }
+.ph-mini-seg .an { background: var(--flaeche2); color: var(--tinte); }
+.ph-liste { display: flex; flex-direction: column; flex: none; }
+.ph-st { padding: 6px 0; border-bottom: 1px solid var(--linie); display: flex; align-items: center; gap: 6px; }
+.ph-st div { flex: 1; min-width: 0; }
+.ph-st b { display: block; font-size: 10.4px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ph-st i { display: block; font-style: normal; font-size: 8.8px; color: var(--gedaempft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ph-st.offen b { color: var(--messing); }
+.ph-label { font-size: 7.8px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--leise); margin-top: 3px; flex: none; }
+
+.ph-heute { border: 1px solid var(--messing); background: var(--messing-hell); border-radius: 8px; padding: 8px 8px 7px; display: flex; flex-direction: column; gap: 5px; flex: none; }
+.ph-heute .hk { display: flex; align-items: baseline; gap: 6px; }
+.ph-heute .hk b { font-size: 11px; font-weight: 750; }
+.ph-heute .hk span { margin-left: auto; font-size: 9px; color: var(--gedaempft); }
+.ph-blk { display: flex; align-items: center; gap: 6px; min-height: 22px; }
+.ph-blk .art { flex: none; width: 32px; font-size: 7.4px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gedaempft); }
+.ph-blk .nm { flex: 1; min-width: 0; font-size: 10px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ph-blk .los { flex: none; border-radius: 5px; padding: 3px 8px; font-size: 9px; font-weight: 650; background: var(--tinte); color: var(--papier); }
+.ph-blk .los.rand { background: var(--papier); color: var(--tinte); border: 1px solid var(--linie-stark); }
+.ph-blk .los.fertig { background: var(--gut-hell); color: var(--gut); }
+.ph-heute .anders { font-size: 8.8px; color: var(--messing); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.ph-stand { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 8px; padding: 2px 2px 0; flex: none; }
+.ph-stand div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ph-stand span { font-size: 8px; color: var(--gedaempft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ph-stand i { display: block; height: 4px; border-radius: 2px; background: var(--flaeche2); overflow: hidden; }
+.ph-stand i::before { content: ""; display: block; height: 100%; width: var(--w); background: var(--messing); }
+
+.ph-widget { border: 1px solid var(--linie); background: var(--papier); border-radius: 10px; padding: 7px 9px; display: flex; align-items: center; gap: 7px; box-shadow: var(--widget-schatten); }
+.ph-widget .wl { font-size: 7.4px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--leise); }
+.ph-widget .gross { font-size: 19px; font-weight: 760; font-variant-numeric: tabular-nums; line-height: 1; }
+.ph-widget .klein { font-size: 9px; color: var(--gedaempft); }
+.ph-widget .rund { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--linie-stark); display: grid; place-items: center; font-size: 12px; font-weight: 600; color: var(--gedaempft); }
+.ph-widget .start { width: 26px; height: 26px; border-radius: 50%; background: var(--messing); color: var(--messing-text); display: grid; place-items: center; font-size: 10px; }
+.ph-widget .skala { position: relative; flex: 1; height: 16px; }
+.ph-widget .skala::before { content: ""; position: absolute; left: 0; right: 0; top: 7px; height: 2px; background: var(--flaeche2); border-radius: 1px; }
+.ph-widget .skala::after { content: ""; position: absolute; left: 50%; top: 2px; width: 1px; height: 12px; background: var(--linie-stark); }
+.ph-widget .nadel { position: absolute; top: 1px; left: 55%; width: 2px; height: 14px; border-radius: 1px; background: var(--gut); }
+.ph-widget .luft { flex: 1; }
+
+.ph-skill { display: flex; align-items: center; gap: 6px; padding: 5px 0; border-bottom: 1px solid var(--linie); }
+.ph-skill .nm { flex: 1; min-width: 0; font-size: 10px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ph-skill .neu { flex: none; font-size: 7px; font-weight: 750; letter-spacing: 0.1em; text-transform: uppercase; color: var(--messing); border: 1px solid var(--messing); border-radius: 3px; padding: 0 3px; }
+.ph-punkte { flex: none; display: inline-flex; gap: 2px; }
+.ph-punkte b { width: 5px; height: 5px; border-radius: 50%; background: var(--flaeche2); }
+.ph-punkte b.v { background: var(--messing); }
+.ph-mchip { flex: none; border: 1px solid var(--linie-stark); border-radius: 999px; padding: 1px 6px; font-size: 8px; font-weight: 650; color: var(--gedaempft); white-space: nowrap; }
+.ph-mchip.kann { background: var(--gut-hell); color: var(--gut); border-color: transparent; }
+.ph-mchip.lerne { background: var(--messing-hell); color: var(--messing); border-color: transparent; }
+.ph-mchip.will { color: var(--messing); border-color: var(--messing); }
+
+/* ── Lernen-Seite erklärt ── */
+.zwei-mocks { display: flex; flex-wrap: wrap; gap: 28px; justify-content: center; }
+.zwei-mocks figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.zwei-mocks figcaption { font-size: 0.82rem; color: var(--gedaempft); text-align: center; max-width: 280px; }
+.lernen-erkl { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px 44px; align-items: start; }
+@media (max-width: 900px) { .lernen-erkl { grid-template-columns: minmax(0, 1fr); } }
+.punkte-liste { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 14px; }
+.punkte-liste li { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 10px; }
+.punkte-liste .nr { width: 22px; height: 22px; border-radius: 50%; background: var(--tinte); color: var(--papier); display: grid; place-items: center; font-size: 11px; font-weight: 700; margin-top: 2px; }
+.punkte-liste b { display: block; }
+.punkte-liste span { color: var(--gedaempft); font-size: 0.93rem; }
+
+.abschnitt { display: flex; flex-direction: column; gap: 20px; }
+.abschnitt > h2 { font-size: 1.5rem; font-weight: 740; letter-spacing: -0.01em; }
+.abschnitt > .ein { color: var(--gedaempft); max-width: 66ch; }
+.raster { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.karte { background: var(--papier); border: 1px solid var(--linie); border-radius: 8px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.karte b { font-size: 0.97rem; }
+.karte span { color: var(--gedaempft); font-size: 0.92rem; }
+.symbole { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
+.symbol-wahl { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 10px; border: 1px solid var(--linie); border-radius: 8px; min-width: 76px; color: var(--gedaempft); }
+.symbol-wahl.vorschlag { border-color: var(--messing); color: var(--messing); }
+.symbol-wahl svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.symbol-wahl small { font-size: 0.72rem; font-weight: 600; }
+.erledigt { display: flex; gap: 12px; align-items: flex-start; background: var(--gut-hell); border-radius: 8px; padding: 12px 16px; color: var(--tinte); }
+.erledigt .h { flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--gut); color: var(--papier); display: grid; place-items: center; font-weight: 800; font-size: 12px; margin-top: 1px; }
+.fuss { color: var(--leise); font-size: 0.85rem; border-top: 1px solid var(--linie); padding-top: 16px; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="seite">
+
+  <header class="kopf">
+    <p class="mikro">CheatSheet · B-18 · Entwurf vom 16.11.2026</p>
+    <h1>Wohin mit „Lernen“?</h1>
+    <p class="lede">Stellen-Mix, Skills und Ohr-Trainer stehen heute als drei Zeilen in der Bibliothek. Sie sollen an einen eigenen Ort, der mitwachsen kann. Drei Entwürfe, wie man dorthin kommt. Jedes Mockup lässt sich antippen.</p>
+    <div class="inhalt-chips" aria-label="Was unter Lernen kommt">
+      <span class="ichip"><span class="p"></span>Heute · 30 Min.</span>
+      <span class="ichip"><span class="p"></span>Stellen-Mix</span>
+      <span class="ichip"><span class="p"></span>Ohr-Trainer</span>
+      <span class="ichip"><span class="p"></span>Hör-Übungen</span>
+      <span class="ichip"><span class="p"></span>Skill-Kartei</span>
+      <span class="ichip spaeter"><span class="p"></span>Lernpfad (I-02)</span>
+      <span class="ichip spaeter"><span class="p"></span>Song-Liste (I-03)</span>
+      <span class="ichip spaeter"><span class="p"></span>Akkordblatt (I-04)</span>
+      <span class="ichip spaeter"><span class="p"></span>Impro (I-05)</span>
+      <span class="ichip spaeter"><span class="p"></span>Mitspielen (I-06)</span>
+    </div>
+  </header>
+
+  <section class="empfehlung" aria-labelledby="empf">
+    <p class="mikro">Empfehlung</p>
+    <h2 id="empf">Entwurf <em>A</em>: vier Knöpfe, links die Orte, rechts die Werkzeuge.</h2>
+    <ul class="gruende">
+      <li><b>Lernen ist ein Ort neben den Noten</b><span>Kein Unterpunkt der Notenverwaltung. Darum gehört es auf dieselbe Ebene wie „Noten“.</span></li>
+      <li><b>Der Knopf sagt, wo man ist</b><span>Beim Lernen leuchtet „Lernen“. In B und C leuchtet dort „Noten“.</span></li>
+      <li><b>Die Leiste erklärt sich selbst</b><span>Lernen und Noten öffnen eine Seite, Stimmgerät und Metronom schalten ein Widget. Eine feine Linie trennt die Paare.</span></li>
+    </ul>
+    <div class="tabelle-huelle">
+      <table>
+        <thead>
+          <tr><th scope="col">Kriterium</th><th scope="col" class="empf-spalte">A · Vier Knöpfe <span class="marke">Empfohlen</span></th><th scope="col">B · Reiter in der Bibliothek</th><th scope="col">C · Eine Zeile</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">Weg zu Lernen</th><td class="empf-spalte gut">1 Tipp</td><td class="mau">2 Tipps: Noten, dann Reiter</td><td class="mau">2 Tipps: Noten, dann Zeile</td></tr>
+          <tr><th scope="row">Untere Leiste</th><td class="empf-spalte mau">vier Knöpfe</td><td class="gut">drei, wie heute</td><td class="gut">drei, wie heute</td></tr>
+          <tr><th scope="row">Beim Lernen leuchtet</th><td class="empf-spalte gut">Lernen</td><td class="mau">Noten</td><td class="mau">Noten</td></tr>
+          <tr><th scope="row">Sichtbar ohne Vorwissen</th><td class="empf-spalte gut">immer, in der Leiste</td><td>oben in der Bibliothek</td><td class="mau">als Zeile über der Liste</td></tr>
+          <tr><th scope="row">Gewohnheit</th><td class="empf-spalte mau">Stimmgerät wandert von links auf Platz drei</td><td class="gut">bleibt</td><td class="gut">bleibt</td></tr>
+          <tr><th scope="row">Umbau</th><td class="empf-spalte">Leiste und Lernen-Seite</td><td>Bibliothek-Kopf und Lernen-Seite</td><td class="gut">eine Zeile und Lernen-Seite</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="entwurf empfohlen" aria-labelledby="t-a">
+    <div class="mock-spalte">
+      <div class="phone" data-variante="A" data-start="lernen"></div>
+      <p class="ph-cap" aria-live="polite"></p>
+      <p class="ph-hinweis">Antippen: Knöpfe unten, Zeilen, ×</p>
+    </div>
+    <div class="text-spalte">
+      <div class="titelzeile"><span class="buchstabe">A</span><h2 id="t-a">Vier Knöpfe, zwei Gruppen</h2></div>
+      <p class="ein">Deine Ausweich-Reihenfolge, mit einem Grund dahinter: <b>Lernen · Noten</b> sind Orte, ein Tipp legt eine Seite über die Noten. <b>Stimmgerät · Metronom</b> sind Werkzeuge, ein Tipp schaltet ein schwebendes Widget. Eine Haarlinie zwischen den Paaren macht das sichtbar.</p>
+      <ul class="tipps">
+        <li><b>Lernen</b><span>Die Lernen-Seite legt sich über die Noten, „Lernen“ leuchtet. Noch ein Tipp: zurück zu den Noten.</span></li>
+        <li><b>Noten, während Lernen offen ist</b><span>Die Bibliothek ersetzt die Lernen-Seite. Das ist ein ganzer Seitenwechsel, wie beim Öffnen eines Stücks.</span></li>
+        <li><b>Metronom oder Stimmgerät</b><span>Das Widget schwebt über der Seite, Lernen bleibt offen. Der Ohr-Trainer braucht beides.</span></li>
+        <li><b>Ein Stück aus dem Mix</b><span>Die Seite schließt, die Stelle steht auf dem Pult. Ein Tipp auf Lernen bringt dich zurück.</span></li>
+      </ul>
+      <div class="abwaegung">
+        <div><p class="mikro plus">Dafür</p><ul><li>Ein Tipp, überall.</li><li>Der leuchtende Knopf zeigt immer den Ort.</li><li>Platz für alles aus I-02 bis I-10.</li></ul></div>
+        <div><p class="mikro minus">Dagegen</p><ul><li>Vier statt drei Knöpfe.</li><li>Noten steht nicht mehr in der Mitte.</li><li>Stimmgerät wandert von ganz links auf Platz drei. Das braucht ein paar Tage Gewöhnung.</li></ul></div>
+      </div>
+      <p class="notiz">Platz: Auf dem iPhone ist jeder Knopf rund 95 pt breit, „STIMMGERÄT“ passt ohne Kürzen. Auf dem iPad bleibt die Leiste wie heute auf 560 px begrenzt.</p>
+    </div>
+  </section>
+
+  <section class="entwurf" aria-labelledby="t-b">
+    <div class="mock-spalte">
+      <div class="phone" data-variante="B" data-start="lernen"></div>
+      <p class="ph-cap" aria-live="polite"></p>
+      <p class="ph-hinweis">Antippen: Knöpfe unten, Reiter oben, ×</p>
+    </div>
+    <div class="text-spalte">
+      <div class="titelzeile"><span class="buchstabe">B</span><h2 id="t-b">Reiter oben in der Bibliothek</h2></div>
+      <p class="ein">Die Leiste bleibt bei drei. „Noten“ öffnet die Bibliothek wie heute. In ihrem Kopf steht statt „Bibliothek“ ein Umschalter <b>Noten | Lernen</b>. Das ist am nächsten an „Reiter“.</p>
+      <ul class="tipps">
+        <li><b>Noten</b><span>Öffnet die Bibliothek, immer auf dem Reiter Noten. Sonst würde derselbe Knopf mal Noten, mal Lernen zeigen.</span></li>
+        <li><b>Reiter Lernen</b><span>Der Inhalt wechselt, Kopf und Leiste bleiben stehen.</span></li>
+        <li><b>Noten, während Reiter Lernen offen ist</b><span>Zurück zum Reiter Noten. Schließen wäre hier die falsche Überraschung.</span></li>
+      </ul>
+      <div class="abwaegung">
+        <div><p class="mikro plus">Dafür</p><ul><li>Die drei Knöpfe bleiben.</li><li>Lernen wirkt als Reiter, wie gewünscht.</li><li>Überschaubarer Umbau.</li></ul></div>
+        <div><p class="mikro minus">Dagegen</p><ul><li>Immer zwei Tipps.</li><li>Beim Lernen leuchtet unten „Noten“.</li><li>Lernen sieht aus wie ein Teil der Notenverwaltung.</li></ul></div>
+      </div>
+      <p class="notiz">Wenn die drei Knöpfe bleiben sollen, ist B die beste Wahl.</p>
+    </div>
+  </section>
+
+  <section class="entwurf" aria-labelledby="t-c">
+    <div class="mock-spalte">
+      <div class="phone" data-variante="C" data-start="noten"></div>
+      <p class="ph-cap" aria-live="polite"></p>
+      <p class="ph-hinweis">Antippen: die Zeile „Lernen“, ‹ Bibliothek, Knöpfe unten</p>
+    </div>
+    <div class="text-spalte">
+      <div class="titelzeile"><span class="buchstabe">C</span><h2 id="t-c">Eine Zeile in der Bibliothek</h2></div>
+      <p class="ein">Aus den drei Zeilen Stellen-Mix, Skills und Ohr-Trainer wird eine: <b>Lernen</b>, mit dem Stand von heute. Ein Tipp schiebt die Lernen-Seite herein, „‹ Bibliothek“ führt zurück.</p>
+      <ul class="tipps">
+        <li><b>Zeile Lernen</b><span>Die Lernen-Seite schiebt sich über die Bibliothek.</span></li>
+        <li><b>‹ Bibliothek</b><span>Zurück zur Liste, an derselben Stelle.</span></li>
+        <li><b>Noten</b><span>Schließt alles, wie heute.</span></li>
+      </ul>
+      <div class="abwaegung">
+        <div><p class="mikro plus">Dafür</p><ul><li>Kleinster Umbau, sofort machbar.</li><li>Die Bibliothek wird ruhiger.</li></ul></div>
+        <div><p class="mikro minus">Dagegen</p><ul><li>Lernen bleibt eine Unterseite der Noten.</li><li>Zwei Tipps, und leicht zu übersehen.</li></ul></div>
+      </div>
+      <p class="notiz">Guter Zwischenschritt: Die Lernen-Seite ist in allen drei Entwürfen dieselbe. C geht jetzt, A später nur noch die Leiste.</p>
+    </div>
+  </section>
+
+  <section class="abschnitt" aria-labelledby="t-seite">
+    <h2 id="t-seite">Die Lernen-Seite, in allen Entwürfen gleich</h2>
+    <div class="lernen-erkl">
+      <div class="zwei-mocks">
+        <figure>
+          <div class="phone" data-variante="S"></div>
+          <figcaption>Gestrichelt: kommt erst, wenn es gebaut ist. Die App zeigt vorher nichts Ausgegrautes.</figcaption>
+        </figure>
+      </div>
+      <ol class="punkte-liste">
+        <li><span class="nr">1</span><div><b>Heute · 30 Min. steht oben</b><span>Drei Blöcke à 10 Minuten (Ohr, Stück, Impro) und „Woche 2 von 4“. Wer nicht weiß, was er üben soll, tippt hier und fängt an.</span></div></li>
+        <li><span class="nr">2</span><div><b>Üben: frei wählen</b><span>Stellen-Mix, Ohr-Trainer und Hör-Übungen. Die Hör-Übungen sind heute nur über die Kartei erreichbar und bekommen eine eigene Zeile.</span></div></li>
+        <li><span class="nr">3</span><div><b>Mein Stand</b><span>Die Skill-Kartei mit „9 von 49 sicher“ und einem Balken je Bereich. Ein Tipp öffnet die Kartei als Blatt.</span></div></li>
+        <li><span class="nr">4</span><div><b>Der Stellen-Mix bekommt „Woraus“</b><span>In der Bibliothek nahm der Mix die gewählte Sammlung oder den Tag. Auf der Lernen-Seite wählt sein Blatt selbst: alle Noten, eine Sammlung oder ein Tag, vorbelegt mit der zuletzt gewählten.</span></div></li>
+        <li><span class="nr">5</span><div><b>Bedienregel bleibt</b><span>Die Seite öffnet immer oben. Mix, Ohr-Trainer und Kartei legen sich als Blatt darüber, nichts verschiebt sich.</span></div></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="abschnitt" aria-labelledby="t-zunge">
+    <h2 id="t-zunge">Schon drin: Doppelzunge und Triolenzunge</h2>
+    <div class="erledigt">
+      <span class="h">✓</span>
+      <p>Beide stehen in der Skill-Kartei unter <b>Klarinette</b>. Die Triolenzunge setzt die Doppelzunge voraus. Der Übe-Hinweis: erst ohne Instrument sprechen („ta-ka“, „ta-ka-ta“), dann auf einem Ton mit dem Metronom, Tempo in kleinen Schritten steigern. Die Kartei hat damit 49 Skills.</p>
+    </div>
+    <div class="zwei-mocks">
+      <figure>
+        <div class="phone" data-variante="K"></div>
+        <figcaption>Skill-Kartei, Bereich Klarinette. Punkte und Markierungen sind Beispielwerte.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="abschnitt" aria-labelledby="t-weg">
+    <h2 id="t-weg">Geprüft und verworfen</h2>
+    <div class="raster">
+      <div class="karte"><b>Halten auf „Noten“</b><span>Findet niemand. Und ein Tipp, der etwas zu lang gerät, öffnet plötzlich etwas anderes.</span></div>
+      <div class="karte"><b>Wischen vom Rand</b><span>Stößt sich mit „Zurück“ in Safari und mit dem Blättern auf den Noten.</span></div>
+      <div class="karte"><b>Schwebender Knopf über den Noten</b><span>Verdeckt Takte. Leitbild: Die Noten sind die App.</span></div>
+      <div class="karte"><b>Lernen als Startseite</b><span>Die App öffnet beim offenen Stück. Lernen ist ein Ort, den man bewusst aufsucht.</span></div>
+      <div class="karte"><b>Knopf in der Kopfleiste des Stücks</b><span>Die gehört dem offenen Stück (Stellen, Aufnehmen, Ansicht) und verschwindet beim Spielen.</span></div>
+    </div>
+  </section>
+
+  <section class="abschnitt" aria-labelledby="t-fragen">
+    <h2 id="t-fragen">Offen zu entscheiden</h2>
+    <div class="raster">
+      <div class="karte">
+        <b>Welches Symbol?</b>
+        <span>Vorschlag Treppe: Sie passt zu Stufen, Lernpfad und „Heute“. Der Stern steht schon für Skills.</span>
+        <div class="symbole" id="symbole"></div>
+      </div>
+      <div class="karte"><b>Ein Punkt am Lernen-Knopf?</b><span>Vorschlag: nur solange ein Stellen-Mix läuft, so wie der Punkt am Metronom „läuft“ heißt. Keine Erinnerung an offene Einheiten, die drängelt.</span></div>
+      <div class="karte"><b>Stellen-Mix nur noch unter Lernen?</b><span>Vorschlag: ja, ein Ort. Das Blatt bekommt „Woraus“ (siehe oben). Im Stück bleibt der Stellen-Modus oben in der Kopfleiste.</span></div>
+    </div>
+  </section>
+
+  <p class="fuss">Steht als B-18 in der ROADMAP. Entscheidung Marlon offen; danach wird die gewählte Variante gebaut.</p>
+</div>
+
+<script>
+(() => {
+  const IC = {
+    stimm: '<path d="M8 3.5v5.7a4 4 0 0 0 8 0V3.5"/><path d="M12 13.2v5.3"/><path d="M9.3 20.5h5.4"/>',
+    noten: '<rect x="4.5" y="3.5" width="15" height="17" rx="1.5"/><path d="M8 8h8M8 11h8M8 14h8M8 17h8"/>',
+    metro: '<path d="M9.3 3.5h5.4l3.5 16H5.8l3.5-16z"/><path d="M6.9 15.5h10.2"/><path d="M12 15.5l4-8.2"/><circle cx="16.4" cy="6.5" r="1.4"/>',
+    lernen: '<path d="M3.5 20h4.5v-4.5h4.5V11h4.5V6.5h3"/><path d="M20 6.5V2.8"/><path d="M20 3l-3.2 1.3L20 5.6"/>',
+    hut: '<path d="M2.5 9.5L12 5l9.5 4.5L12 14z"/><path d="M6.5 11.6v4.4c0 1.5 2.5 2.8 5.5 2.8s5.5-1.3 5.5-2.8v-4.4"/><path d="M21.5 9.5v5"/>',
+    stern: '<path d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4l-5.2 2.7 1-5.8L3.5 9.2l5.9-.9z"/>',
+    mix: '<path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/>',
+    ohr: '<path d="M6 8.5a6 6 0 1 1 12 0c0 3.5-3 4.5-3 7.5a3.5 3.5 0 0 1-6.5 1.8"/><path d="M9.5 8.5a2.5 2.5 0 0 1 5 0c0 1.5-1.5 2-1.5 3.5"/>',
+    hoer: '<path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z"/><path d="M15.5 9a4 4 0 0 1 0 6"/><path d="M18 6.5a7.5 7.5 0 0 1 0 11"/>',
+    pfad: '<circle cx="5" cy="18" r="2"/><circle cx="19" cy="6" r="2"/><path d="M7 18h6a3 3 0 0 0 0-6h-2a3 3 0 0 1 0-6h6"/>',
+    liste: '<path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/>',
+    akkord: '<rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="M3.5 9.5h17M9 9.5v10M15 9.5v10"/>',
+    rad: '<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/>',
+    zu: '<path d="M6 6l12 12M18 6L6 18"/>',
+  };
+  const svg = (n) => `<svg viewBox="0 0 24 24" aria-hidden="true">${IC[n]}</svg>`;
+
+  // Notenblatt im Hintergrund: Systeme mit Taktstrichen und Notenköpfen (fester Zufall).
+  function notenSvg() {
+    let s = 7; const r = () => (s = (s * 9301 + 49297) % 233280) / 233280;
+    const B = 240, Z = 9, H = 38; let o = '';
+    for (let z = 0; z < Z; z++) {
+      const y0 = 4 + z * H;
+      for (let l = 0; l < 5; l++) o += `<line x1="0" x2="${B}" y1="${y0 + l * 5}" y2="${y0 + l * 5}" stroke="var(--noten-strich)" stroke-width=".6"/>`;
+      for (const x of [0, 60, 120, 180, B - 0.5]) o += `<line x1="${x}" x2="${x}" y1="${y0}" y2="${y0 + 20}" stroke="var(--noten-strich)" stroke-width=".8"/>`;
+      for (let t = 0; t < 4; t++) for (let n = 0; n < 4; n++) {
+        if (r() < 0.12) continue;
+        const x = t * 60 + 10 + n * 13 + r() * 2, st = Math.floor(r() * 9) - 1, y = y0 + 20 - st * 2.5;
+        o += `<ellipse cx="${x}" cy="${y}" rx="2.6" ry="1.9" transform="rotate(-20 ${x} ${y})" fill="var(--tinte)" opacity=".75"/>`;
+        o += st < 4 ? `<line x1="${x + 2.3}" x2="${x + 2.3}" y1="${y}" y2="${y - 13}" stroke="var(--tinte)" stroke-width=".7" opacity=".75"/>`
+                    : `<line x1="${x - 2.3}" x2="${x - 2.3}" y1="${y}" y2="${y + 13}" stroke="var(--tinte)" stroke-width=".7" opacity=".75"/>`;
+      }
+    }
+    return `<svg viewBox="0 0 ${B} ${Z * H}" aria-hidden="true">${o}</svg>`;
+  }
+  const NOTEN_BG = `<div class="ph-noten" aria-hidden="true"><div class="st-titel">Blue Bossa</div><div class="st-komp">Kenny Dorham · B-Stimme</div>${notenSvg()}</div>`;
+
+  const STUECKE = [
+    ['Autumn Leaves', 'Jazz · Leadsheet'],
+    ['Bizet · Carmen-Suite Nr. 1', 'Orchester · 6 Stellen'],
+    ['Blue Bossa', 'Jazz · 2 Stellen', true],
+    ['Brahms · Sonate f-Moll op. 120', 'Kammermusik · 11 Stellen'],
+    ['Mozart · Klarinettenkonzert A-Dur', 'Solo · 14 Stellen'],
+    ['Summertime', 'Jazz · eingesungen'],
+    ['Weber · Concertino', 'Solo · 4 Stellen'],
+  ];
+
+  const zeile = (sym, t, s, attr = '', cls = '') =>
+    `<button type="button" class="ph-zeile ${cls}" ${attr}><span class="ph-sym">${svg(sym)}</span><span class="t">${t}</span><span class="s">${s}</span><span class="pf" aria-hidden="true">›</span></button>`;
+
+  function bibBody(mitLernenZeile) {
+    return `<div class="ph-body">
+      <div class="ph-chips"><span class="ph-chip an">Alle <small>34</small></span><span class="ph-chip">Orchester <small>12</small></span><span class="ph-chip">Jazz <small>8</small></span><span class="ph-chip">Kammer <small>9</small></span></div>
+      ${mitLernenZeile ? zeile('lernen', 'Lernen', 'Heute: 1 von 3 erledigt', 'data-tat="lernen-zeile"', 'betont') : ''}
+      <div class="ph-werkzeuge"><span class="ph-plus">+ Noten</span><span style="flex:1"></span><span class="ph-mini-seg"><span class="an">A–Z</span><span>Zuletzt</span></span></div>
+      <div class="ph-liste">${STUECKE.map(([t, u, o]) => `<div class="ph-st ${o ? 'offen' : ''}"><div><b>${t}</b><i>${u}</i></div><span class="pf" style="color:var(--leise)">›</span></div>`).join('')}</div>
+    </div>`;
+  }
+
+  function lernenBody(geister) {
+    const g = geister ? `
+      <p class="ph-label">Spielen · später</p>
+      ${zeile('pfad', 'Lernpfad', 'I-02', '', 'geist')}
+      ${zeile('akkord', 'Akkordblatt', 'I-04', '', 'geist')}` : '';
+    return `<div class="ph-body">
+      <div class="ph-heute">
+        <div class="hk"><b>Heute · 30 Min.</b><span>Woche 2 von 4</span></div>
+        <div class="ph-blk"><span class="art">Ohr</span><span class="nm">Intervalle hören</span><span class="los">Üben</span></div>
+        <div class="ph-blk"><span class="art">Stück</span><span class="nm">Blue Bossa</span><span class="los fertig">✓ Erledigt</span></div>
+        <div class="ph-blk"><span class="art">Impro</span><span class="nm">Frage und Antwort</span><span class="los rand">Erledigt</span></div>
+        <span class="anders">Anderer Vorschlag</span>
+      </div>
+      <p class="ph-label">Üben</p>
+      ${zeile('mix', 'Stellen-Mix', 'Weiter bei 4 von 12')}
+      ${zeile('ohr', 'Ohr-Trainer', 'Fünf Töne · zuletzt 78 %')}
+      ${zeile('hoer', 'Hör-Übungen', 'Intervalle, Akkorde')}
+      ${g}
+      <p class="ph-label">Mein Stand</p>
+      ${zeile('stern', 'Skills', '9 von 49 sicher')}
+      ${geister ? '' : `<div class="ph-stand">
+        <div><span>Gehör</span><i style="--w:40%"></i></div><div><span>Harmonie</span><i style="--w:25%"></i></div><div><span>Klarinette</span><i style="--w:38%"></i></div>
+        <div><span>Impro</span><i style="--w:10%"></i></div><div><span>Mitspielen</span><i style="--w:0%"></i></div><div><span>Repertoire</span><i style="--w:20%"></i></div>
+      </div>`}
+    </div>`;
+  }
+
+  function skillsBody() {
+    const reihen = [
+      ['Dur-Tonleitern in 12 Tonarten', 3, 'kann', 'Kann ich'],
+      ['Dreiklang-Arpeggien', 2, 'lerne', 'Lerne ich'],
+      ['Septakkord-Arpeggien', 0, '', '+ markieren'],
+      ['Guide Tones durch die ii–V–I', 0, 'will', '☆ Will ich'],
+      ['Swing-Achtel und Artikulation', 1, 'lerne', 'Lerne ich'],
+      ['Sauberes Clarion und Altissimo', 3, 'kann', 'Kann ich'],
+      ['Doppelzunge', 0, 'will', '☆ Will ich', true],
+      ['Triolenzunge', 0, '', '+ markieren', true],
+    ];
+    return `<div class="ph-body">
+      <div class="ph-chips"><span class="ph-chip an">Alle</span><span class="ph-chip">☆ Will ich</span><span class="ph-chip">Lerne ich</span><span class="ph-chip">Kann ich</span></div>
+      <p class="ph-label">Klarinette · 2 von 8 sicher</p>
+      <div>${reihen.map(([n, p, c, l, neu]) => `<div class="ph-skill"><span class="nm">${n}</span>${neu ? '<span class="neu">neu</span>' : ''}<span class="ph-punkte">${[0, 1, 2, 3].map((i) => `<b class="${i < p ? 'v' : ''}"></b>`).join('')}</span><span class="ph-mchip ${c}">${l}</span></div>`).join('')}</div>
+      <p class="ph-label">Improvisation · 0 von 10 sicher</p>
+    </div>`;
+  }
+
+  const WIDGET = {
+    metro: `<div class="ph-widget"><div><div class="wl">Metronom</div><div><span class="klein">♩ =</span> <span class="gross">96</span> <span class="klein">4/4</span></div></div><span class="luft"></span><span class="rund">−</span><span class="rund">+</span><span class="start">▶</span></div>`,
+    stimm: `<div class="ph-widget"><div><div class="wl">Stimmgerät · B</div><div><span class="gross">C</span> <span class="klein" style="color:var(--gut)">+3 ct</span></div></div><span class="skala"><span class="nadel"></span></span><span class="klein">442 Hz</span></div>`,
+  };
+
+  const KNOEPFE = {
+    lernen: ['lernen', 'Lernen'], noten: ['noten', 'Noten'], stimm: ['stimm', 'Stimmgerät'], metro: ['metro', 'Metronom'],
+  };
+
+  function render(el, z) {
+    const v = el.dataset.variante;
+    let sheet = '';
+    const zu = `<button type="button" class="ph-ic" data-tat="zu" aria-label="Schließen">${svg('zu')}</button>`;
+    const rad = `<span class="ph-ic" aria-hidden="true">${svg('rad')}</span>`;
+    if (v === 'S') {
+      sheet = `<div class="ph-sheet"><div class="ph-kopf"><h4>Lernen</h4><span class="luft"></span><span class="ph-ic">${svg('zu')}</span></div>${lernenBody(true)}</div>`;
+    } else if (v === 'K') {
+      sheet = `<div class="ph-sheet"><div class="ph-kopf"><h4>Skills</h4><span class="anz">· 9 von 49 sicher</span><span class="luft"></span><span class="ph-ic">${svg('zu')}</span></div>${skillsBody()}</div>`;
+    } else if (z.ort === 'lernen' && v === 'A') {
+      sheet = `<div class="ph-sheet"><div class="ph-kopf"><h4>Lernen</h4><span class="luft"></span>${zu}</div>${lernenBody(false)}</div>`;
+    } else if (z.ort === 'noten' && v === 'A') {
+      sheet = `<div class="ph-sheet"><div class="ph-kopf"><h4>Bibliothek</h4><span class="anz">· 34 Stücke</span><span class="luft"></span>${rad}${zu}</div>${bibBody(false)}</div>`;
+    } else if (z.ort === 'noten' && v === 'B') {
+      const seg = `<div class="ph-seg" role="group" aria-label="Reiter"><button type="button" data-tat="reiter-noten" aria-pressed="${z.reiter === 'noten'}">Noten</button><button type="button" data-tat="reiter-lernen" aria-pressed="${z.reiter === 'lernen'}">Lernen</button></div>`;
+      sheet = `<div class="ph-sheet"><div class="ph-kopf">${seg}<span class="luft"></span>${rad}${zu}</div>${z.reiter === 'lernen' ? lernenBody(false) : bibBody(false)}</div>`;
+    } else if (z.ort === 'noten' && v === 'C') {
+      sheet = z.unter === 'lernen'
+        ? `<div class="ph-sheet"><div class="ph-kopf"><button type="button" class="ph-zurueck" data-tat="zurueck">‹ Bibliothek</button><span class="luft"></span><h4>Lernen</h4><span class="luft"></span>${zu}</div>${lernenBody(false)}</div>`
+        : `<div class="ph-sheet"><div class="ph-kopf"><h4>Bibliothek</h4><span class="anz">· 34 Stücke</span><span class="luft"></span>${rad}${zu}</div>${bibBody(true)}</div>`;
+    }
+    const reihe = v === 'A' ? ['lernen', 'noten', '|', 'stimm', 'metro'] : ['stimm', 'noten', 'metro'];
+    const gedrueckt = (k) => k === 'lernen' ? (v === 'A' && z.ort === 'lernen') || v === 'S' || v === 'K'
+      : k === 'noten' ? (v === 'A' ? z.ort === 'noten' : v === 'B' || v === 'C' ? z.ort === 'noten' : false)
+      : k === 'metro' ? z.metro : k === 'stimm' ? z.stimm : false;
+    const bar = (v === 'S' || v === 'K' ? ['lernen', 'noten', '|', 'stimm', 'metro'] : reihe).map((k) => k === '|'
+      ? '<span class="ph-trenner" aria-hidden="true"></span>'
+      : `<button type="button" class="ph-knopf" data-tat="${k}" aria-pressed="${gedrueckt(k)}">${svg(KNOEPFE[k][0])}<span>${KNOEPFE[k][1]}</span></button>`).join('');
+    const dock = [z.stimm && WIDGET.stimm, z.metro && WIDGET.metro].filter(Boolean).join('');
+    el.innerHTML = `<div class="ph-status"><span>9:41</span><span class="insel"></span><span>100 %</span></div>${NOTEN_BG}${sheet}${dock ? `<div class="ph-dock">${dock}</div>` : ''}<nav class="ph-bar" aria-label="Untere Leiste, Entwurf ${v}">${bar}</nav>`;
+    const cap = el.parentElement.querySelector('.ph-cap');
+    if (cap) cap.textContent = beschreiben(v, z);
+  }
+
+  function beschreiben(v, z) {
+    const w = [z.stimm && 'Stimmgerät', z.metro && 'Metronom'].filter(Boolean);
+    const dazu = w.length ? ` ${w.join(' und ')} schwebt darüber.` : '';
+    if (z.ort === 'keins') return 'Noten auf dem Pult, keine Seite offen.' + dazu;
+    if (v === 'A') return (z.ort === 'lernen' ? 'Lernen-Seite über den Noten, „Lernen“ leuchtet.' : 'Bibliothek über den Noten, „Noten“ leuchtet.') + dazu;
+    if (v === 'B') return (z.reiter === 'lernen' ? 'Bibliothek, Reiter Lernen. Unten leuchtet „Noten“.' : 'Bibliothek, Reiter Noten, „Noten“ leuchtet.') + dazu;
+    return (z.unter === 'lernen' ? 'Lernen-Seite, aus der Bibliothek geöffnet. Unten leuchtet „Noten“.' : 'Bibliothek mit einer Zeile „Lernen“ statt dreien.') + dazu;
+  }
+
+  function tippen(v, z, tat) {
+    if (tat === 'metro') z.metro = !z.metro;
+    else if (tat === 'stimm') z.stimm = !z.stimm;
+    else if (tat === 'zu') z.ort = 'keins';
+    else if (v === 'A') {
+      if (tat === 'lernen') z.ort = z.ort === 'lernen' ? 'keins' : 'lernen';
+      if (tat === 'noten') z.ort = z.ort === 'noten' ? 'keins' : 'noten';
+    } else if (v === 'B') {
+      if (tat === 'noten') {
+        if (z.ort !== 'noten') { z.ort = 'noten'; z.reiter = 'noten'; }
+        else if (z.reiter === 'lernen') z.reiter = 'noten';
+        else z.ort = 'keins';
+      }
+      if (tat === 'reiter-noten') z.reiter = 'noten';
+      if (tat === 'reiter-lernen') z.reiter = 'lernen';
+    } else if (v === 'C') {
+      if (tat === 'noten') { if (z.ort === 'noten') z.ort = 'keins'; else { z.ort = 'noten'; z.unter = 'liste'; } }
+      if (tat === 'lernen-zeile') z.unter = 'lernen';
+      if (tat === 'zurueck') z.unter = 'liste';
+    }
+  }
+
+  document.querySelectorAll('.phone').forEach((el) => {
+    const v = el.dataset.variante;
+    const start = el.dataset.start;
+    const z = {
+      ort: v === 'A' ? (start === 'lernen' ? 'lernen' : 'noten') : 'noten',
+      reiter: v === 'B' && start === 'lernen' ? 'lernen' : 'noten',
+      unter: 'liste', metro: false, stimm: false,
+    };
+    render(el, z);
+    if (v === 'S' || v === 'K') { el.setAttribute('inert', ''); return; }
+    el.addEventListener('click', (e) => {
+      const t = e.target.closest('[data-tat]');
+      if (!t) return;
+      tippen(v, z, t.dataset.tat);
+      render(el, z);
+      const neu = el.querySelector(`[data-tat="${t.dataset.tat}"]`);
+      if (neu) neu.focus({ preventScroll: true });
+    });
+  });
+
+  const sym = document.getElementById('symbole');
+  if (sym) sym.innerHTML = [['lernen', 'Treppe', true], ['hut', 'Doktorhut'], ['stern', 'Stern']]
+    .map(([n, l, v]) => `<span class="symbol-wahl ${v ? 'vorschlag' : ''}">${svg(n)}<small>${l}${v ? ' · Vorschlag' : ''}</small></span>`).join('');
+})();
+</script>
+</body>
+</html>

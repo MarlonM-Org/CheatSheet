@@ -1,12 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  antwortKlaenge, antwortName, bewerten, frageKlaenge, HOER_STANDARD, hoerEinstellungLesen, optionen, RICHTUNGEN, rundeErzeugen,
+  antwortKlaenge, antwortName, bewerten, frageKlaenge, HOER_STANDARD, HOER_UEBUNGEN, hoerEinstellungLesen, optionen, RICHTUNGEN, rundeErzeugen,
   STUFEN_HINWEIS, stufenAnzahl, UEBUNG_NAMEN, wiedergabeText, type Frage, type HoerEinstellung, type HoerUebungId, type Richtung,
 } from '@/domain/hoerquiz';
 import { gespeichert, speichern } from './klang';
+import { skillErgebnis, skillFuerHoerUebung } from './skillspeicher';
 import { vorspielen, type Vorspiel } from './klavier';
 import { useMetronom } from './MetronomKontext';
 import { useStimmgeraetApi } from './StimmgeraetKontext';
@@ -219,6 +220,78 @@ export function HoerUebungBlatt({ uebung, schliessen, beiErgebnis }: {
             </div>
           </div>
         )}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function HoerSymbol() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z" /><path d="M15.5 9a4 4 0 0 1 0 6" /><path d="M18 6.5a7.5 7.5 0 0 1 0 11" />
+    </svg>
+  );
+}
+
+// Einstieg auf der Lernen-Seite (B-18): bisher nur über die Skill-Kartei
+// erreichbar. Tippen öffnet die Auswahl (Intervalle, Dreiklänge,
+// Septakkorde), die Wahl die Übung — jede Runde zählt auf ihren Skill.
+// `offenMelden`: die Seite lässt Escape dem offenen Blatt.
+export function HoerUebungenZeile({ offenMelden }: { offenMelden?: (offen: boolean) => void }) {
+  const [wahl, setWahl] = useState(false);
+  const [uebung, setUebung] = useState<HoerUebungId | null>(null);
+  const offen = wahl || uebung !== null;
+  useEffect(() => { offenMelden?.(offen); }, [offen, offenMelden]);
+  return (
+    <>
+      <button type="button" className="mix-einstieg" aria-haspopup="dialog" aria-expanded={offen} onClick={() => setWahl(true)}>
+        <span className="mix-symbol klein"><HoerSymbol /></span>
+        <span className="mix-einstieg-titel">Hör-Übungen</span>
+        <span className="mix-einstieg-stand">Intervalle · Akkorde</span>
+        <span className="bib-pfeil" aria-hidden="true">›</span>
+      </button>
+      {wahl && <HoerWahlBlatt schliessen={() => setWahl(false)} waehlen={(id) => { setWahl(false); setUebung(id); }} />}
+      {uebung && (
+        <HoerUebungBlatt uebung={uebung} schliessen={() => setUebung(null)}
+          beiErgebnis={(r) => skillErgebnis(skillFuerHoerUebung(r.uebung), r.quote)} />
+      )}
+    </>
+  );
+}
+
+function HoerWahlBlatt({ schliessen, waehlen }: { schliessen: () => void; waehlen: (id: HoerUebungId) => void }) {
+  useEscape(schliessen);
+  const fokus = useDialogFokus<HTMLDivElement>();
+  const kopf = useId();
+  const einst = hoerEinstellungLesen(gespeichert<unknown>(SCHLUESSEL, HOER_STANDARD));
+  return createPortal(
+    <div className="blatt-hintergrund" onClick={schliessen}>
+      <div ref={fokus} tabIndex={-1} className="blatt mix-blatt" role="dialog" aria-modal="true" aria-labelledby={kopf} onClick={(e) => e.stopPropagation()}>
+        <div className="mix-blatt-kopf">
+          <span className="mix-symbol"><HoerSymbol /></span>
+          <div className="min-w-0 flex-1">
+            <h2 id={kopf} className="text-xl font-extrabold">Hör-Übungen</h2>
+            <p className="gedaempft text-sm">Die App spielt, du tippst die Antwort.</p>
+          </div>
+          <button type="button" className="panel-zu" onClick={schliessen} aria-label="Schließen">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" /></svg>
+          </button>
+        </div>
+        <ul className="hoer-wahl">
+          {HOER_UEBUNGEN.map((id) => (
+            <li key={id}>
+              <button type="button" className="mix-einstieg" onClick={() => waehlen(id)}>
+                <span className="min-w-0 flex-1">
+                  <span className="mix-einstieg-titel block">{UEBUNG_NAMEN[id]}</span>
+                  <span className="bib-unterzeile block">{UNTERTITEL[id]}</span>
+                </span>
+                <span className="mix-einstieg-stand !flex-none">Stufe {einst[id].stufe} von {stufenAnzahl(id)}</span>
+                <span className="bib-pfeil" aria-hidden="true">›</span>
+              </button>
+            </li>
+          ))}
+        </ul>
       </div>
     </div>,
     document.body,

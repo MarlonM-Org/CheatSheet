@@ -44,6 +44,16 @@ describe('Katalog', () => {
     };
     for (const s of SKILLS) tief(s.id);
   });
+  it('Doppel- und Triolenzunge stehen unter Klarinette, die Triolenzunge baut auf der Doppelzunge auf', () => {
+    const doppel = skillFinden('doppelzunge');
+    const triole = skillFinden('triolenzunge');
+    expect(doppel?.bereich).toBe('klarinette');
+    expect(triole?.bereich).toBe('klarinette');
+    expect(doppel?.name).toBe('Doppelzunge');
+    expect(triole?.name).toBe('Triolenzunge');
+    expect(triole?.voraussetzungen).toContain('doppelzunge');
+    expect(doppel?.extern).toMatch(/Metronom/);
+  });
   it('die sechs Ohr-Trainer-Stufen sind Gehör-Skills mit Übung', () => {
     for (const st of STUFEN) {
       const s = skillFinden(skillFuerOhrStufe(st.id));
