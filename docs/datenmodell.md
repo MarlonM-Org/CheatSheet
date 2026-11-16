@@ -48,7 +48,7 @@ Stimme und Metadaten, dazu genau eine PDF. Alles andere hängt über
 |---|---|---|---|
 | `stuecke` | `id` (UUID) | — | siehe unten |
 | `dateien` | `id` = `stueckId` | — | `daten: ArrayBuffer`, `typ`. Nie ein Blob. |
-| `stellen` | `id` (UUID) | `stueckId` | `seite`, `x`, `y`, `b`, `h` (relativ zur Seite), `titel`, `notiz`, `zielTempo: number \| null`, `tempi: { tempo, am }[]`, `favorit?: boolean` (★ für den Stellen-Mix; abgewählt bleibt `false` stehen, damit eine ältere Sicherung den Stern nicht zurückbringt) |
+| `stellen` | `id` (UUID) | `stueckId` | `seite`, `x`, `y`, `b`, `h` (relativ zur Seite), `titel`, `notiz`, `zielTempo: number \| null`, `tempi: { tempo, am }[]`, `favorit?: boolean` (★ für den Stellen-Mix; abgewählt bleibt `false` stehen, damit eine ältere Sicherung den Stern nicht zurückbringt), `akkorde?: { text, eingabe: 'klingend' \| 'notiert' }` (I-15 Spielhilfe: Akkordfolge je Takt in der Syntax von `folgeLesen`; entfernt bleibt `{ text: '' }` stehen, aus demselben Grund; geprüft beim Lesen mit `akkordeLesen`, Unbrauchbares wird übergangen, nicht gelöscht) |
 | `anmerkungen` | `id` = `<stueckId>:<seite>` | `stueckId` | `seite`, `objekte: Anmerkung[]` (Stift, Marker, Text, Radier-Spur; seit E-12 auch `schnitt` und `sticker`, dazu `luecke` an Stift/Marker/Text — Typen in `src/domain/notenpult.ts`, Regeln in `schnitte.ts`). Ein Datensatz **je Seite**: Speichern schreibt nur die eine Seite. |
 | `lesezeichen` | `id` (UUID) | `stueckId` | `seite`, `titel`, `erstellt` (F-03) |
 | `merker` | `id` = `<stueckId>:<seite>` | `stueckId` | `seite`, `gesetzt` (F-04, „Flags“). Pro Seite höchstens einer. |
@@ -91,7 +91,7 @@ interface Stueck {
 
 Dazu seit 2026-10-26 (G-09, Aufnahmen): `aufnahmen?: Aufnahme[]` am Stück —
 nur die Angaben (`id`, `am`, `dauer` in Sekunden, `typ` wie `audio/mp4`,
-optional `seite`, `stelleId`, `titel`); die Audio-Bytes liegen in
+optional `seite`, `stelleId`, `titel`, seit I-20 `skillId` = Skill der Kartei); die Audio-Bytes liegen in
 `dateien` unter der `id` der Aufnahme (`{ id, daten, typ }`, wie die PDF
 des Stücks unter dessen id). Kein neuer Speicher, keine neue Version.
 

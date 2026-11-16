@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
+import { AufnahmeTagebuchBlatt } from './AufnahmeTagebuch';
 import { DroneBlatt } from './Drone';
 import { GriffeBlatt } from './Griffe';
 import { JamKarteBlatt } from './JamKarte';
@@ -24,6 +25,7 @@ const WERKZEUGE: readonly Werkzeug[] = [
   { id: 'trans', name: 'Transponieren', info: 'klingend ↔ notiert', zeichen: '⇅', blatt: (z) => <TransponierBlatt schliessen={z} /> },
   { id: 'griffe', name: 'Griffweisen', info: 'Standard, Alternativen, Triller', zeichen: '◉', blatt: (z) => <GriffeBlatt schliessen={z} /> },
   { id: 'drone', name: 'Drone', info: 'Liegeton zum Improvisieren', zeichen: '∿', blatt: (z) => <DroneBlatt schliessen={z} /> },
+  { id: 'tagebuch', name: 'Aufnahme-Tagebuch', info: 'Aufnahmen, alt gegen neu', zeichen: '●', blatt: (z) => <AufnahmeTagebuchBlatt schliessen={z} /> },
 ];
 
 export function Werkzeuge({ offenMelden }: { offenMelden?: (offen: boolean) => void }) {

@@ -1252,6 +1252,12 @@ Werkzeuge erreicht man aus der Bibliothek über einen Block **Werkzeuge**
   aktuellen Takts groß, Akkordtöne, Guide Tones; Drone (I-18) auf dem
   Grundton zum Loopen. **Keine Begleitspur** (Leitbild) — I-04 bleibt offen.
   Speicherung als zusätzliches Feld an der Stelle (reist ohnehin mit).
+  **Umgesetzt 2026-11-16:** Feld `akkorde` an der Stelle (`src/domain/spielhilfe.ts`),
+  eingetragen im Stellen-Blatt („Akkorde (Spielhilfe)“, Blatt darüber), im
+  Stellen-Modus ein Streifen über der Stellen-Leiste (liegt über den Noten):
+  Akkord notiert groß, klingend daneben, Töne mit Guide Tones, ‹ › Akkord für
+  Akkord rundherum (welcher Takt gerade klingt, weiß die App nicht), Drone
+  passend zur Akkordart, Tipp öffnet den Spickzettel; „–“ verkleinert.
 - **I-16 · Lick-Sammlung.** Licks notieren (Tasten-Eingabe oder per
   Einspielen G-05), in 12 Tonarten anzeigen und vorspielen, Wiederholen nach
   dem Prinzip der Skill-Kartei (verblassen, „heute fällig“). Start-Licks
@@ -1276,6 +1282,15 @@ Werkzeuge erreicht man aus der Bibliothek über einen Block **Werkzeuge**
   IndexedDB (Regel aus `CLAUDE.md`), Schemaänderung nur per Versionssprung
   mit Migrationstest; Aufnahmen reisen nicht mit der Sicherung (zu groß),
   Hinweis darauf in der Oberfläche.
+  **Umgesetzt 2026-11-16** auf den Aufnahmen aus G-09 (ohne Schemaänderung,
+  `src/domain/aufnahmetagebuch.ts`, Kachel „Aufnahme-Tagebuch“): alle
+  Aufnahmen nach Tagen, Filter nach Stück, anhören, umbenennen, löschen;
+  Vergleichen zweier Aufnahmen desselben Stücks bzw. derselben Stelle (A,
+  dann B, oder A/B umschalten an derselben Stelle). Neue Aufnahme zu einem
+  Stück, optional mit Skill (`skillId` an der Aufnahme, zählt als heute
+  geübt). Eine Aufnahme **ohne Stück** gibt es nicht: Sie liegt im
+  Datensatz eines Stücks, ein verstecktes Übungs-Stück sähe das Datenmodell
+  nicht vor (bräuchte eine PDF, erschiene in der Bibliothek) — offen.
 
 ## Erledigt
 

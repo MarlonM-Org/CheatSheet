@@ -1855,3 +1855,80 @@ button.ohr-note { background: none; color: inherit; font: inherit; cursor: point
 .werkzeug-text { display: flex; flex-direction: column; min-width: 0; }
 .werkzeug-text strong { font-size: 0.9rem; line-height: 1.2; }
 .werkzeug-text span { font-size: 0.75rem; color: var(--gedaempft); line-height: 1.25; }
+
+/* Spielhilfe (I-15): Streifen über der Stellen-Leiste — absolut, liegt über
+   den Noten, verschiebt nichts; feste Maße, ‹ › ändern nur den Inhalt. */
+.sh-streifen, .sh-klein {
+  position: absolute; right: 0.6rem; bottom: calc(100% + 8px); z-index: 7;
+  background: var(--karte); color: var(--tinte); border: 1px solid var(--linie-stark); border-radius: 10px;
+  box-shadow: 0 6px 22px rgb(0 0 0 / 22%);
+}
+.sh-streifen { display: flex; align-items: stretch; width: min(24rem, calc(100% - 1.2rem)); height: 5.6rem; overflow: hidden; }
+.sh-pfeil { flex: none; width: 2.6rem; font-size: 1.6rem; font-weight: 600; color: var(--tinte); }
+.sh-pfeil:disabled { opacity: 0.3; }
+.sh-pfeil:active, .sh-akkord:active { background: var(--flaeche); }
+.sh-akkord { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 4px 6px; text-align: left; }
+.sh-kopf { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.sh-symbol { flex: none; font-size: 1.9rem; font-weight: 800; line-height: 1; }
+.sh-kopf { align-items: center; }
+.sh-takt { min-width: 0; display: flex; flex-direction: column; font-size: 0.72rem; line-height: 1.25; color: var(--gedaempft); }
+.sh-takt > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sh-toene { display: flex; gap: 4px; overflow: hidden; }
+.sh-toene span { flex: none; min-width: 1.9rem; padding: 1px 5px; border: 1px solid var(--linie-stark); border-radius: 5px; font-size: 0.82rem; font-weight: 700; text-align: center; }
+.sh-toene span.guide { background: var(--messing-hell); border-color: var(--messing); }
+.sh-rechts { flex: none; display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 4px 0; }
+.sh-drone { width: 2.5rem; height: 2.5rem; border-radius: 8px; border: 1px solid var(--linie-stark); font-size: 1.25rem; font-weight: 700; }
+.sh-drone[aria-pressed="true"] { background: var(--messing); border-color: var(--messing); color: var(--messing-text); }
+.sh-zu { width: 2.5rem; height: 1.9rem; border-radius: 8px; color: var(--gedaempft); font-size: 1.1rem; font-weight: 700; }
+.sh-klein { display: flex; align-items: center; gap: 6px; height: 2.6rem; padding: 0 12px; font-weight: 800; font-size: 1.05rem; }
+.sh-punkt { width: 8px; height: 8px; border-radius: 50%; background: var(--messing); }
+.sh-zeile {
+  width: 100%; display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 6px 12px; text-align: left; font-weight: 600;
+  border: 1px solid var(--linie); border-radius: 6px;
+}
+.sh-zeile small { display: block; font-size: 0.75rem; font-weight: 500; color: var(--gedaempft); }
+.sh-blatt { display: flex; flex-direction: column; gap: 12px; }
+.sh-eingabe { font-size: 1.05rem; font-weight: 650; resize: none; }
+.sh-vorschau { min-height: 4.4rem; display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 8px 12px; border-radius: 6px; background: var(--flaeche); }
+.sh-folge { font-weight: 750; font-size: 1.05rem; line-height: 1.4; overflow-wrap: anywhere; }
+.sh-fehler { color: var(--warnung); }
+
+/* Aufnahme-Tagebuch (I-20): feste Höhe, Liste scrollt; Hinweis in
+   reserviertem Feld; der Vergleich liegt unten über der Liste. */
+.tb-blatt { position: relative; }
+.tb-hinweis { min-height: 2.6em; margin: 0; padding: 6px 10px; border-radius: 6px; background: var(--flaeche); line-height: 1.3; display: flex; align-items: center; }
+.tb-hinweis.waehlen { background: var(--messing-hell); font-weight: 650; }
+.tb-werkzeuge { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.tb-filter { grid-column: 1 / -1; min-width: 0; }
+.tb-werkzeuge .knopf { justify-content: center; min-height: 2.75rem; }
+.tb-werkzeuge .knopf[aria-pressed="true"] { border-color: var(--messing); background: var(--messing-hell); color: var(--tinte); }
+.tb-neu { gap: 6px; }
+.tb-liste { flex: 1 1 0 !important; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding-bottom: 12rem; }
+.tb-tag ul { border-top: 1px solid var(--linie); }
+.tb-tag h3 { display: block; margin-bottom: 4px; }
+.tb-zeile { display: flex; align-items: center; gap: 6px; padding: 6px 0; border-bottom: 1px solid var(--linie); }
+.tb-zeile.gewaehlt { background: var(--messing-hell); box-shadow: inset 3px 0 0 var(--messing); }
+.tb-zeile.aus { opacity: 0.4; }
+.tb-text { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; text-align: left; padding: 2px 4px; }
+.tb-text > * { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tb-text > .tb-wo { white-space: normal; line-height: 1.3; }
+.tb-leer { display: flex; flex-direction: column; gap: 4px; padding: 12px; border: 1px dashed var(--linie-stark); border-radius: 6px; }
+.tb-vergleich {
+  position: absolute; left: 0.75rem; right: 0.75rem; bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px)); z-index: 2;
+  display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 10px;
+  background: var(--karte); border: 1px solid var(--linie-stark); box-shadow: 0 -6px 26px rgb(0 0 0 / 22%);
+}
+.tb-vergleich-zeile { display: flex; align-items: center; gap: 10px; padding: 4px 6px; border-radius: 6px; }
+.tb-vergleich-zeile.an { background: var(--messing-hell); }
+.tb-marke { flex: none; width: 1.8rem; height: 1.8rem; border-radius: 50%; display: grid; place-items: center; font-weight: 800; background: var(--flaeche2); }
+.tb-vergleich-zeile.an .tb-marke { background: var(--messing); color: var(--messing-text); }
+.tb-vergleich-knoepfe { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tb-vergleich-knoepfe .knopf { justify-content: center; min-width: 0; padding: 0 0.5rem; }
+.tb-vergleich-fehler { min-height: 1.2em; margin: 0; color: var(--warnung); }
+.tb-feld { display: flex; flex-direction: column; gap: 4px; }
+.tb-aufnehmen {
+  display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 3.5rem; border-radius: 10px;
+  border: 2px solid var(--warnung); font-weight: 750; font-size: 1.05rem;
+}
+.tb-aufnehmen.laeuft { background: var(--warnung); color: #fff; }
+.tb-stopp { width: 14px; height: 14px; border-radius: 2px; background: currentColor; }

@@ -19,7 +19,7 @@ import { fehlerGrund, speicherFehler } from './speicherfehler';
 export interface AufnahmeLauf {
   laeuft: boolean; sekunden: number; fehler: string;
   // Startet bzw. stoppt (und speichert) — mit dem Zusammenhang beim Start.
-  umschalten: (zusammenhang: { seite?: number; stelleId?: string }) => void;
+  umschalten: (zusammenhang: { seite?: number; stelleId?: string; skillId?: string }) => void;
 }
 
 const mimeWahl = () => {
@@ -32,7 +32,7 @@ export function useAufnahme(stueckId: string, fertig: () => void): AufnahmeLauf 
   const [laeuft, setLaeuft] = useState(false);
   const [sekunden, setSekunden] = useState(0);
   const [fehler, setFehler] = useState('');
-  const lauf = useRef<{ recorder: MediaRecorder; stream: MediaStream; stuecke: Blob[]; beginn: number; timer: number; freigeben: (() => void) | null; zusammenhang: { seite?: number; stelleId?: string } } | null>(null);
+  const lauf = useRef<{ recorder: MediaRecorder; stream: MediaStream; stuecke: Blob[]; beginn: number; timer: number; freigeben: (() => void) | null; zusammenhang: { seite?: number; stelleId?: string; skillId?: string } } | null>(null);
 
   const stoppen = useCallback(() => {
     const l = lauf.current;
@@ -54,7 +54,7 @@ export function useAufnahme(stueckId: string, fertig: () => void): AufnahmeLauf 
     else { l.recorder.onstop = speichern; try { l.recorder.stop(); } catch { speichern(); } }
   }, [stueckId, fertig]);
 
-  const starten = useCallback(async (zusammenhang: { seite?: number; stelleId?: string }) => {
+  const starten = useCallback(async (zusammenhang: { seite?: number; stelleId?: string; skillId?: string }) => {
     if (lauf.current) return;
     setFehler('');
     const mime = mimeWahl();
