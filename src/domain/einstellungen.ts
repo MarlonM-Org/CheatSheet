@@ -13,6 +13,7 @@
 // und zwar als Ganzes. Rein und getestet.
 
 import { GRUNDTOENE, istStufe, type StufenId } from './gehoer';
+import { HOER_STANDARD, istHoerEinstellung, type HoerEinstellung } from './hoerquiz';
 import { STIFT_STANDARD, type StiftEinstellung } from './stift';
 import { istNenner, NENNER_STANDARD, ZAEHLER_MAX, ZAEHLER_MIN, type Nenner } from './takt';
 import { STIMMUNGEN, type Stimmung } from './ueben';
@@ -45,6 +46,8 @@ export interface Einstellungswerte {
   'ueben:sammlungen-reihenfolge': string[];
   // Ohr-Trainer (I-01): Stufe, Grundton (notiert), Tempo, Grundton jede Runde wechseln.
   'ueben:ohr': OhrEinstellung;
+  // Hör-Übungen (I-08): zuletzt gewählte Stufe (und Richtung bei Intervallen) je Übung.
+  'ueben:hoerquiz': HoerEinstellung;
 }
 export type Mitreisend = keyof Einstellungswerte;
 export type Werte = Partial<Einstellungswerte>;
@@ -72,6 +75,7 @@ export const EINSTELLUNG_STANDARD: Einstellungswerte = {
   'ueben:tonprofil-umfang': { von: 55, bis: 79, stamm: false },
   'ueben:sammlungen-reihenfolge': [],
   'ueben:ohr': { stufe: 'drei', grundton: 60, bpm: 80, wechseln: false },
+  'ueben:hoerquiz': HOER_STANDARD,
 };
 
 // Zeitpunkt der letzten echten Änderung eines mitreisenden Werts (ms).
@@ -109,6 +113,7 @@ const PRUEFEN: Record<Mitreisend, (v: unknown) => boolean> = {
   'ueben:tonprofil-umfang': (v) => objekt(v) && ganz(v.von, 0, 127) && ganz(v.bis, 0, 127) && v.von <= v.bis && typeof v.stamm === 'boolean',
   'ueben:sammlungen-reihenfolge': (v) => Array.isArray(v) && v.length <= 1000 && v.every((x) => typeof x === 'string' && x.length > 0 && x.length <= 60),
   'ueben:ohr': (v) => objekt(v) && istStufe(v.stufe) && ganz(v.grundton, GRUNDTOENE.von, GRUNDTOENE.bis) && ganz(v.bpm, 40, 160) && typeof v.wechseln === 'boolean',
+  'ueben:hoerquiz': istHoerEinstellung,
 };
 
 export const MITREISEND = Object.keys(PRUEFEN) as Mitreisend[];

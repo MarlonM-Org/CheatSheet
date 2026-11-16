@@ -1575,3 +1575,31 @@ ol.stichpunkte { list-style: decimal; }
 .ohr-note.fehlt { background: var(--flaeche2); border-style: dashed; }
 .ohr-rat { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 6px; background: var(--messing-hell); }
 .ohr-rat span { flex: 1; }
+
+/* Hör-Übungen (I-08): Antworttasten fest, Rückmeldung in reserviertem Feld — nichts rutscht. */
+.hoer-fortschritt { display: flex; gap: 4px; }
+.hoer-fortschritt i { flex: 1; height: 6px; border-radius: 3px; background: var(--linie-stark); }
+.hoer-fortschritt i.richtig { background: var(--gut); }
+.hoer-fortschritt i.falsch { background: var(--warnung); }
+.hoer-fortschritt i.jetzt { background: var(--messing); }
+.hoer-antworten { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.hoer-antworten button {
+  min-height: 3.5rem; padding: 6px 8px; border: 1px solid var(--linie-stark); border-radius: 6px; background: var(--karte);
+  font-weight: 700; font-size: 1rem; line-height: 1.2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+}
+.hoer-antworten button small { font-size: 0.75rem; font-weight: 500; color: var(--gedaempft); }
+.hoer-antworten button:disabled { opacity: 1; }
+.hoer-antworten button.gewaehlt { border-color: var(--messing); border-width: 2px; }
+.hoer-antworten button.richtig { background: var(--gut-hell); border-color: var(--gut); color: var(--gut); }
+.hoer-antworten button.falsch { background: var(--warnung-hell); border-color: var(--warnung); color: var(--warnung); }
+.hoer-antworten button.hoert { box-shadow: 0 0 0 2px var(--messing); }
+.hoer-rueckmeldung { min-height: 4.2rem; display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 8px 12px; border-radius: 6px; background: var(--flaeche2); }
+.hoer-rueckmeldung.richtig { background: var(--gut-hell); }
+.hoer-rueckmeldung.falsch { background: var(--warnung-hell); }
+.hoer-rueckmeldung strong { font-size: 1.05rem; }
+.hoer-aktionen { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.hoer-aktionen .knopf { min-width: 0; padding: 0 0.5rem; font-size: 0.9rem; line-height: 1.15; text-align: center; white-space: normal; }
+.hoer-aktionen .breit { grid-column: 1 / -1; }
+.hoer-gruppe { display: flex; flex-wrap: wrap; gap: 6px; }
+.hoer-gruppe button { flex: 1 1 auto; min-height: 2.75rem; padding: 0 12px; border: 1px solid var(--linie-stark); border-radius: 6px; background: var(--karte); font-weight: 600; }
+.hoer-gruppe button[aria-pressed="true"] { border-color: var(--messing); background: var(--messing-hell); }
