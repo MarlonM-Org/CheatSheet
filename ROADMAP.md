@@ -6,7 +6,7 @@ Punkt ein; wer etwas fertigstellt, hakt ab und verschiebt den Punkt nach
 „Erledigt“ (unten). Größere Richtungsentscheidungen bitte als kurzen Absatz
 hier dokumentieren, nicht nur im Chat.
 
-Stand: 2026-10-27.
+Stand: 2026-11-16.
 
 ## Leitbild
 
@@ -62,6 +62,7 @@ Soundbearbeitung.
 | M6 | **Extras** | Stempel/Formen (Kamera-Scan F-07, Themes B-04 und Design B-05 erledigt) — *vorgezogen 2026-10-23, vor M4 und M5* | E-04 |
 | M7 | **Komponieren** (Vision) | Noteneingabe, Rhythmus-/Melodie-Transkription; Ausbau: Vorspielen, Einspielen Takt für Takt, Song-Transkription, Klänge; Ort offen: App oder separates Werkzeug (Wunsch 2026-10-26) | G-01…G-08 |
 | M8 | **Geräteübergreifend** (Vision, Entscheidung offen) | Noten und Übe-Daten über die eigene Cloud auf mehreren Geräten | H-01…H-05 |
+| M9 | **Freies Spielen** (Vision, begonnen 2026-11-16) | Nach Gehör mitspielen, improvisieren, begleiten: Ohr-Trainer zuerst, dann Lernpfad, Song-Liste, Begleitung aus Akkorden, Impro-Feedback | I-01…I-06 |
 
 **Quick Wins** (klein, unabhängig, jederzeit zwischenschieben — guter
 Einstieg): C-01, C-02, C-03, D-01 — *alle am 2026-10-10 erledigt.*
@@ -191,6 +192,8 @@ oder iPad. Vorher auf jedem Gerät eine Sicherung erstellen.
 - G-09 (Rest) · Aufnahmen je Stelle aus dem Stellen-Blatt starten, Aufnahme neben dem Vorspielen laufen lassen, Vergleich mit Zeitversatz, Speicherübersicht je Stück, Aufnahmen in der Sicherung (optional, groß).
 - G-06 · Ganze Songs · bleibt Vision; Experiment (G-08) sagt: nichts bauen.
 - G-07 · Klänge einstellen · erst nach G-04.
+- I-01 · Ohr-Trainer · erste Fassung im Browser gebaut (2026-11-16), nie auf dem Gerät.
+- I-02…I-06 · Lernpfad, Song-Liste, Akkordblatt mit Begleitung, Impro-Feedback, Mitspielen nach Gehör · Vision.
 - H-01 (Rest), H-02…H-05 · Sicherung ohne PDFs, Ordner am Rechner, OneDrive/Drive/iCloud · Entscheidung zum Leitbild („kein Login“) offen.
 
 ### Was Marlon jetzt tun sollte
@@ -965,6 +968,116 @@ Stand; Löschen braucht Grabsteine, sonst kehrt Gelöschtes zurück). Ein
 Datenformat für die Cloud: PDFs als Dateien plus eine JSON-Datei, kein
 Eigenformat. Keine Secrets im Repo — Client-IDs sind öffentlich, Anmeldung
 per PKCE im Browser. Vor dem Bau: Entscheidung zum Leitbild (oben).
+
+## I — Freies Spielen: nach Gehör mitspielen, improvisieren, begleiten (Vision)
+
+Wunsch Marlon (2026-11-16): Nach zwölf Jahren Klarinette nach Noten soll
+**spontanes Musizieren** dazukommen — Lieder, die er hört, mitspielen, weil
+er die Melodie kennt; improvisieren, Soli spielen, begleiten; Pop, City Pop,
+Jazz. Erste Situation: mit Freunden und bei Jam-Sessions (Düsseldorf:
+Jazz-Schmiede dienstags, „JamSession für Beginner“ in den Schwanenhöfen).
+Rahmen: 4 × 30 Minuten pro Woche, allein, kostenlose Angebote.
+
+**Warum in CheatSheet:** Was im Chat steht, geht verloren; die App wird
+täglich geöffnet. Der Plan und die Übungen leben deshalb hier.
+
+**Stand und größte Baustelle:** Noten lesen und Stücke erarbeiten: sicher.
+2-5-1 benennen: ja, mit Nachdenken. Eine gesummte Melodie ohne Ausprobieren
+greifen: noch nicht — die Richtung des nächsten Tons stimmt grob, die
+Abstände nicht. **Das Gehör ist der Engpass**, darum kommt I-01 zuerst.
+
+**Übe-Aufbau (Leitlinie für I-02):** Jede Einheit 3 × 10 Minuten —
+(1) Ohr ohne Playback: singen, dann *ohne Herumprobieren* spielen, Fehler im
+nächsten Durchgang korrigieren; (2) Stück: Blues in B/F, Blue Bossa, Autumn
+Leaves, Summertime, dazwischen ein Lieblingssong nach Gehör (z. B. Ashe
+„Stop The Wedding!“, City Pop wie „Plastic Love“) — echte Songs mit Moises
+(Stimmen stumm, langsamer, Tonart); (3) Impro über Backing-Track (iReal Pro
+oder YouTube) mit 3, dann 5 Tönen, Frage–Antwort. Ziel nach etwa drei
+Monaten: bei der Beginner-Session einen Blues und einen Standard mitspielen,
+einen Chorus improvisieren.
+
+**Abgrenzung:** Stimmen trennen, Songs transkribieren und Begleitspuren als
+Dateien bleiben bei fertigen Werkzeugen (Moises, iReal Pro) — passt zu G-06
+und G-08. In die App kommt, was mit vorhandenem Code im Browser geht:
+Vorspielen (G-04), Tonerkennung (Stimmgerät, G-03/G-05).
+
+**KI-Modell? Nein — bewusst.** Für eine einstimmige Klarinette reicht die
+vorhandene Tonerkennung (Autokorrelation wie im Stimmgerät, Segmentierung
+aus `notation.ts`). Das Experiment in G-08 hat gezeigt: pYIN-artiges Rechnen
+schlägt Basic Pitch bei einer Stimme, und es läuft offline auf dem iPhone,
+ohne 10–80 MB Modell. Falls die Erkennung im hohen Register (Clarion,
+Altissimo) oder leise schwächelt, ist der nächste Schritt ein kleines
+Tonhöhenmodell im Browser (CREPE tiny oder SPICE, ONNX/TF.js, ~2–5 MB) als
+zweite Meinung — erst messen, dann bauen.
+
+### I-01 · Ohr-Trainer: hören, nachspielen, Rückmeldung — erste Fassung 2026-11-16
+
+Frage–Antwort wie in der Session: Die App zählt einen Takt ein, spielt eine
+kurze Phrase (Klavierklang, `klavier.ts`), dann spielt man sie nach — der
+Klick läuft weiter, das Mikrofon hört zu (`mikrofonspur.ts`, dieselbe Uhr).
+Danach: jede Zielnote richtig / falsch / fehlt, im Takt oder nicht, Quote und
+ein Hinweis (Anfang, Richtung, Abstände, Anhalten). Die Noten sind erst nach
+dem Versuch zu sehen — es ist Gehörbildung, kein Vom-Blatt-Spielen.
+
+- **Stufen** (Fachlogik `src/domain/gehoer.ts`, getestet): drei Töne in
+  Schritten → fünf Töne → Dur-Tonleiter mit Sprüngen bis zur Quinte →
+  Dreiklänge und Oktave → Achtel-Rhythmus → chromatische Durchgänge. Jede
+  Phrase beginnt und endet auf Grundton, Terz oder Quinte (klingt fertig),
+  ohne Tonwiederholungen (die verschluckt die Erkennung), im bequemen
+  Klarinetten-Umfang (notiert E3–A5).
+- **Grundton** wählbar (notiert, Stimmung aus dem Stimmgerät) oder **wechselt
+  jede Runde** — Transponieren nach Gehör.
+- **Bewertung:** Ausrichtung Ziel ↔ gespielt (Editierdistanz), Oktave egal
+  (Registerfehler zählen als richtig, werden markiert); im Takt = Einsatz
+  höchstens ein Drittel Schlag daneben.
+- **Steigerung:** fünf Runden einer Stufe im Schnitt ≥ 80 % → „Nächste Stufe?“;
+  drei Runden < 40 % → „Eine Stufe zurück?“. Vorschlag, kein Zwang.
+- Einstellungen (`ueben:ohr`: Stufe, Grundton, Tempo, Wechseln) reisen mit
+  der Sicherung; der Verlauf (`ueben:ohr-verlauf`, letzte 200 Runden) bleibt
+  vorerst auf dem Gerät.
+- Einstieg: Zeile „Ohr-Trainer“ in der Bibliothek unter dem Stellen-Mix,
+  auch bei leerer Bibliothek.
+- **Geprüft im Browser** (Chrome, künstliches Mikrofon mit einer
+  synthetischen Klarinette, 2026-11-16): Einzählen, Vorspiel, Aufnahme,
+  Bewertung laufen durch; ein falsch gespielter Ton (Es statt D) wird als
+  falsch erkannt, die anderen als richtig und im Takt.
+- **Auf dem Gerät prüfen:** iPhone mit Lautsprecher — taucht das
+  Klavier-Vorspiel als gespielte Töne auf? Klarinette im Clarion (über B4)
+  richtig erkannt? Einsatz-Toleranz zu streng oder zu lasch?
+
+### I-02 · Lernpfad und Übe-Plan
+
+Der Plan oben als Ansicht: Phasen (Ohr → Harmonie → Repertoire → Jam), je
+Woche die Übungen der drei Blöcke, Abhaken je Einheit, Zähler „diese Woche
+2 von 4“. Ohr-Block startet I-01 auf passender Stufe. Daten lokal.
+
+### I-03 · Song-Liste „kann ich mitspielen“
+
+Je Song: Titel, Interpret, Tonart klingend und notiert (Rechnung aus der
+Stimmung), Stand (Melodie / Begleitung / Impro), Link (Moises, Streaming),
+Notiz. Getrennt von den Noten-Stücken oder als Metadaten (F-01)? Vor dem Bau
+entscheiden.
+
+### I-04 · Akkordblatt mit erzeugter Begleitung
+
+Akkorde je Takt eingeben (oder Standard-Formen: Blues, 2-5-1, Blue Bossa),
+die App spielt Bass, Akkorde und Klick aus Web Audio — wie iReal Pro, nur
+minimal. Darüber: welche Töne passen (Akkordtöne, Leiter). **Berührt das
+Leitbild** („keine Audio-Begleitspuren“): erzeugt wird nichts als Datei, es
+ist Vorspielen wie G-04 — Marlon entscheidet vor dem Bau.
+
+### I-05 · Impro-Feedback
+
+Über I-04 improvisieren, aufnehmen, transkribieren (G-03); jede Note
+eingefärbt: Akkordton, Leiterton, Spannung. Dazu Kennzahlen, die beim
+Improvisieren helfen: Pausen-Anteil, Tonumfang, wiederkehrende Motive.
+
+### I-06 · Mitspielen nach Gehör mit eigenen Songs
+
+Einen Song-Ausschnitt (eigene Audio-Datei, z. B. aus Moises ohne Gesang)
+loopen, langsamer stellen, darüber spielen; die App hört mit und zeigt die
+gespielten Töne als Noten (G-03) — als Gedächtnisstütze, nicht als Vorlage.
+Dateien nur abspielen, nicht bearbeiten (Leitbild).
 
 ## Erledigt
 

@@ -1549,3 +1549,29 @@ ol.stichpunkte { list-style: decimal; }
 .aufnahme-nochmal { font-size: 1.5rem; line-height: 1; }
 .notensatz-blase.oben { top: auto; bottom: calc(100% + 6px); right: auto; left: 0; }
 .notensatz-block > button.aufnahme-punkt { color: var(--warnung); font-size: 1.1rem; }
+
+/* Ohr-Trainer (I-01) */
+.ohr-stufen { display: grid; gap: 6px; }
+.ohr-stufen button {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 12px; text-align: left;
+  border: 1px solid var(--linie-stark); border-radius: 6px; background: var(--karte);
+}
+.ohr-stufen button strong { font-size: 0.9rem; }
+.ohr-stufen button span { font-size: 0.8rem; color: var(--gedaempft); }
+.ohr-stufen button[aria-pressed="true"] { border-color: var(--messing); background: var(--messing-hell); }
+.ohr-lauf { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 1.5rem 0; text-align: center; }
+.ohr-gross { display: block; font-size: 2.25rem; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.ohr-noten { display: flex; flex-wrap: wrap; gap: 6px; }
+.ohr-note {
+  min-width: 3.4rem; display: flex; flex-direction: column; align-items: center; padding: 6px 8px;
+  border: 1px solid var(--linie-stark); border-radius: 6px; font-variant-numeric: tabular-nums;
+}
+.ohr-note span { font-size: 0.8rem; color: var(--gedaempft); }
+.ohr-note em { font-size: 0.7rem; font-style: normal; color: var(--messing); }
+.ohr-note.richtig { background: var(--gut-hell); border-color: var(--gut); }
+.ohr-note.richtig span { color: var(--gut); }
+.ohr-note.falsch { background: var(--warnung-hell); border-color: var(--warnung); }
+.ohr-note.falsch span { color: var(--warnung); font-weight: 700; }
+.ohr-note.fehlt { background: var(--flaeche2); border-style: dashed; }
+.ohr-rat { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 6px; background: var(--messing-hell); }
+.ohr-rat span { flex: 1; }
