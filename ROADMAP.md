@@ -1013,8 +1013,9 @@ zweite Meinung — erst messen, dann bauen.
 ### I-01 · Ohr-Trainer: hören, nachspielen, Rückmeldung — erste Fassung 2026-11-16
 
 Frage–Antwort wie in der Session: Die App zählt einen Takt ein, spielt eine
-kurze Phrase (Klavierklang, `klavier.ts`), dann spielt man sie nach — der
-Klick läuft weiter, das Mikrofon hört zu (`mikrofonspur.ts`, dieselbe Uhr).
+kurze Phrase (Klavierklang, `klavier.ts`), **zählt noch einen Takt ein**
+(2026-11-16: direkt anschließen war zu knapp — man hört, sortiert kurz, und
+lag dann immer daneben), dann spielt man sie nach — der Klick läuft weiter, das Mikrofon hört zu (`mikrofonspur.ts`, dieselbe Uhr).
 Danach: jede Zielnote richtig / falsch / fehlt, im Takt oder nicht, Quote und
 ein Hinweis (Anfang, Richtung, Abstände, Anhalten). Die Noten sind erst nach
 dem Versuch zu sehen — es ist Gehörbildung, kein Vom-Blatt-Spielen.
