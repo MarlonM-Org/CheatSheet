@@ -1691,3 +1691,97 @@ ol.stichpunkte { list-style: decimal; }
 .hoer-gruppe { display: flex; flex-wrap: wrap; gap: 6px; }
 .hoer-gruppe button { flex: 1 1 auto; min-height: 2.75rem; padding: 0 12px; border: 1px solid var(--linie-stark); border-radius: 6px; background: var(--karte); font-weight: 600; }
 .hoer-gruppe button[aria-pressed="true"] { border-color: var(--messing); background: var(--messing-hell); }
+
+/* Harmonie-Werkzeuge (I-11 Spickzettel, I-12 Transponieren, I-19 Jam-Karte).
+   Feste Höhen und reservierte Felder: Tippen ändert Inhalte, nichts rutscht. */
+.harmonie-blatt { display: flex; flex-direction: column; gap: 12px; height: 92vh; padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px)); }
+.harmonie-blatt > * { flex-shrink: 0; }
+.harmonie-ueber { z-index: 85; }
+.abc-zeile { width: 100%; overflow: hidden; }
+.abc-zeile svg { display: block; }
+.harmonie-eingabe { display: flex; gap: 8px; align-items: stretch; }
+.harmonie-eingabe .hoer-gruppe { flex: none; flex-wrap: nowrap; }
+.harmonie-eingabe .hoer-gruppe button { padding: 0 10px; font-size: 0.85rem; }
+.harmonie-feld { flex: 1; font-size: 1.15rem; font-weight: 700; }
+.harmonie-grundtoene { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+.harmonie-arten { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+@media (min-width: 640px) { .harmonie-grundtoene { grid-template-columns: repeat(12, minmax(0, 1fr)); } .harmonie-arten { grid-template-columns: repeat(8, minmax(0, 1fr)); } }
+.harmonie-grundtoene button, .harmonie-arten button {
+  min-height: 2.5rem; padding: 0 2px; border: 1px solid var(--linie-stark); border-radius: 6px; background: var(--karte);
+  font-weight: 650; font-size: 0.88rem; white-space: nowrap;
+}
+.harmonie-grundtoene button[aria-pressed="true"], .harmonie-arten button[aria-pressed="true"] { border-color: var(--messing); background: var(--messing-hell); color: var(--tinte); }
+.harmonie-ergebnis { min-height: 12.5rem; display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--linie); border-radius: 6px; }
+.harmonie-kopfzeile { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.harmonie-kopfzeile > div { display: flex; flex-direction: column; gap: 0; }
+.harmonie-symbol { font-size: 2.1rem; font-weight: 800; line-height: 1.05; }
+.harmonie-klingend { align-items: flex-end; text-align: right; color: var(--gedaempft); }
+.harmonie-klingend > span:first-child { font-size: 1.15rem; font-weight: 700; }
+.harmonie-toene { display: flex; flex-wrap: wrap; gap: 6px; }
+.harmonie-toene li {
+  min-width: 3.1rem; display: flex; flex-direction: column; align-items: center; padding: 4px 8px; border-radius: 6px;
+  border: 1px solid var(--linie-stark); background: var(--karte);
+}
+.harmonie-toene li strong { font-size: 1.05rem; }
+.harmonie-toene li span { font-size: 0.72rem; color: var(--gedaempft); font-variant-numeric: tabular-nums; }
+.harmonie-toene li.guide { background: var(--messing-hell); border-color: var(--messing); }
+.harmonie-toene li.guide span { color: var(--tinte); font-weight: 650; }
+.harmonie-toene li.bass { border-style: dashed; }
+.harmonie-legende { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: var(--messing-hell); border: 1px solid var(--messing); vertical-align: -1px; }
+.harmonie-fehler { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+.harmonie-hinweis { margin-top: auto; padding: 6px 8px; border-radius: 6px; background: var(--flaeche2); }
+.harmonie-leitern { border: 1px solid var(--linie); border-radius: 6px; overflow: hidden; }
+.harmonie-leitern li + li { border-top: 1px solid var(--linie); }
+.harmonie-leitern button { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 12px; text-align: left; }
+.harmonie-leitern button[aria-checked="true"] { background: var(--messing-hell); box-shadow: inset 3px 0 0 var(--messing); }
+.harmonie-leiter-name { font-weight: 700; font-size: 0.95rem; }
+.harmonie-leiter-name small { font-weight: 500; color: var(--gedaempft); }
+.harmonie-leiter-toene { font-weight: 600; font-size: 0.9rem; letter-spacing: 0.02em; }
+.harmonie-leiter-warum { font-size: 0.82rem; color: var(--gedaempft); line-height: 1.35; }
+
+.harmonie-richtung { display: flex; align-items: center; justify-content: center; gap: 12px; text-transform: capitalize; }
+.harmonie-tonarten { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--linie); border-radius: 6px; min-height: 5rem; }
+.harmonie-tonarten > div { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.harmonie-tonarten strong { font-size: 1.3rem; font-weight: 800; line-height: 1.15; }
+.harmonie-tonarten .ziel strong { color: var(--messing); }
+.harmonie-pfeil { flex: none; font-size: 1.3rem; color: var(--leise); }
+.harmonie-schwer { min-height: 3.6rem; padding: 8px 12px; border-radius: 6px; background: var(--gut-hell); font-size: 0.88rem; line-height: 1.4; }
+.harmonie-schwer.unbequem { background: var(--messing-hell); }
+.harmonie-folge { font-size: 1rem; font-weight: 600; }
+.harmonie-ausgabe {
+  min-height: 4.6rem; margin: 0; padding: 10px 12px; border-radius: 6px; background: var(--flaeche); border: 1px solid var(--linie);
+  font-family: inherit; font-weight: 700; font-size: 1.05rem; line-height: 1.6; white-space: pre-wrap; overflow-x: auto;
+}
+.harmonie-fehlerzeile { min-height: 2.6rem; }
+
+.jam-liste { border: 1px solid var(--linie); border-radius: 6px; overflow: hidden; }
+.jam-liste li + li { border-top: 1px solid var(--linie); }
+.jam-liste button { width: 100%; display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 6px 10px 6px 12px; text-align: left; }
+.jam-liste button:active { background: var(--flaeche); }
+.jam-zeile-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.jam-titel { font-weight: 650; font-size: 0.95rem; line-height: 1.25; }
+.jam-eigen { margin-left: 6px; padding: 1px 6px; border-radius: 999px; background: var(--messing-hell); color: var(--messing); font-size: 0.68rem; font-weight: 700; vertical-align: 1px; }
+.jam-zeile-tonart { flex: none; display: flex; flex-direction: column; align-items: flex-end; }
+.jam-zeile-tonart strong { font-size: 1rem; }
+.jam-zeile-tonart small { font-size: 0.7rem; color: var(--gedaempft); white-space: nowrap; }
+.jam-info { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.jam-info > div:first-child { display: flex; flex-direction: column; min-width: 0; }
+.jam-info strong { font-size: 1.15rem; font-weight: 800; }
+.jam-info .hoer-gruppe { flex: none; flex-wrap: nowrap; }
+.jam-info .hoer-gruppe button { padding: 0 10px; font-size: 0.85rem; }
+.jam-teile { display: flex; flex-direction: column; gap: 10px; }
+.jam-teil { display: flex; gap: 6px; }
+.jam-teil-name { flex: none; width: 1.6rem; padding-top: 6px; font-weight: 800; color: var(--messing); text-align: center; }
+.jam-raster { flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-left: 2px solid var(--tinte); }
+.jam-takt { position: relative; min-height: 3.1rem; display: flex; align-items: stretch; border-right: 1px solid var(--linie-stark); border-bottom: 1px solid var(--linie); }
+.jam-takt button { flex: 1; min-width: 0; padding: 12px 2px 4px; font-weight: 750; font-size: 0.98rem; line-height: 1.1; overflow-wrap: anywhere; }
+.jam-takt button.klein { font-size: 0.78rem; padding-left: 1px; padding-right: 1px; }
+.jam-takt button + button { border-left: 1px dotted var(--linie-stark); }
+.jam-takt button:active { background: var(--messing-hell); }
+.jam-taktnr { position: absolute; top: 1px; left: 3px; font-size: 0.6rem; color: var(--leise); font-variant-numeric: tabular-nums; pointer-events: none; }
+@media (min-width: 640px) { .jam-takt button { font-size: 1.1rem; } .jam-takt button.klein { font-size: 0.92rem; } }
+.jam-notiz { padding: 8px 12px; border-radius: 6px; background: var(--flaeche); }
+.jam-feld { display: flex; flex-direction: column; gap: 4px; }
+.jam-zwei { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.jam-akkorde { font-weight: 600; }
+.jam-formular { height: auto; }
