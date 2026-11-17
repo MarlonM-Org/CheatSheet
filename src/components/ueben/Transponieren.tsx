@@ -8,6 +8,7 @@ import {
 } from '@/domain/akkorde';
 import { useStimmgeraetApi } from './StimmgeraetKontext';
 import { useDialogFokus, useEscape } from './tasten';
+import { useSeite } from './seite';
 
 // Transponier-Helfer (I-12): Tonart klingend → notiert (und zurück) mit
 // Vorzeichen und Hinweis, wie bequem sie auf der Klarinette liegt; eine
@@ -17,6 +18,7 @@ import { useDialogFokus, useEscape } from './tasten';
 const KLASSEN = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
 
 export function TransponierBlatt({ schliessen }: { schliessen: () => void }) {
+  const seite = useSeite();
   const fokus = useDialogFokus<HTMLDivElement>();
   const kopf = useId();
   const { stimmung } = useStimmgeraetApi();
@@ -52,7 +54,7 @@ export function TransponierBlatt({ schliessen }: { schliessen: () => void }) {
   };
 
   return createPortal(
-    <div className="blatt-hintergrund" onClick={schliessen}>
+    <div className={`blatt-hintergrund${seite.klasse}`} onClick={schliessen}>
       <div ref={fokus} tabIndex={-1} className="blatt harmonie-blatt" role="dialog" aria-modal="true" aria-labelledby={kopf} onClick={(e) => e.stopPropagation()}>
         <div className="mix-blatt-kopf">
           <div className="min-w-0 flex-1">
@@ -108,6 +110,6 @@ export function TransponierBlatt({ schliessen }: { schliessen: () => void }) {
         </section>
       </div>
     </div>,
-    document.body,
+    seite.ziel,
   );
 }

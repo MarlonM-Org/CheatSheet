@@ -13,6 +13,7 @@ import { gespeichert, speichern, useEinstellungenGeladen } from './klang';
 import { useKlickSpieler } from './klickspieler';
 import { skillGeuebt } from './skillspeicher';
 import { useDialogFokus, useEscape } from './tasten';
+import { useSeite } from './seite';
 
 // Generierte Etüden (I-14): ein Muster durch die Tonarten (Quinten-,
 // Quartenzirkel, chromatisch oder eine), Rhythmus, Tempo, obere Grenze des
@@ -48,6 +49,7 @@ export const takteFuer = (breite: number, ticksJeNote: number) => {
 };
 
 export function EtuedenBlatt({ schliessen }: { schliessen: () => void }) {
+  const seite = useSeite();
   const fokus = useDialogFokus<HTMLDivElement>();
   const kopf = useId();
   const { spielen, stopp, laeuft, stimmung } = useKlickSpieler();
@@ -69,7 +71,8 @@ export function EtuedenBlatt({ schliessen }: { schliessen: () => void }) {
   const muster = musterVon(w.muster);
   const etuede = useMemo(() => etuedeBauen(w), [w]);
   const takte = takteFuer(breite, RHYTHMUS_TICKS[w.rhythmus]);
-  const abc = useMemo(() => abschnitteAbc(etuede.abschnitte, { takteJeZeile: takte }), [etuede, takte]);
+  // Je Tonart ein Notenbild mit Vorzeichen vorne, darüber die klingende Tonart.
+  const abc = useMemo(() => abschnitteAbc(etuede.abschnitte, { takteJeZeile: takte, stimmung }), [etuede, takte, stimmung]);
   const vorspielen = () => spielen(abschnitteKlaenge(etuede.abschnitte, w.bpm, { klick, vorzaehlen: klick ? 4 : 0 }));
   const vorliebe = w.reihenfolge === 'quinten' ? 'kreuz' : 'be';
   const geuebtMelden = () => {
@@ -79,7 +82,7 @@ export function EtuedenBlatt({ schliessen }: { schliessen: () => void }) {
   const skillNamen = muster.skills.map((s) => skillFinden(s)?.name).filter(Boolean).join(', ');
 
   return createPortal(
-    <div className="blatt-hintergrund" onClick={zu}>
+    <div className={`blatt-hintergrund${seite.klasse}`} onClick={zu}>
       <div ref={fokus} tabIndex={-1} className="blatt harmonie-blatt et-blatt" role="dialog" aria-modal="true" aria-labelledby={kopf} onClick={(e) => e.stopPropagation()}>
         <div className="mix-blatt-kopf">
           <div className="min-w-0 flex-1">
@@ -89,78 +92,82 @@ export function EtuedenBlatt({ schliessen }: { schliessen: () => void }) {
           <button type="button" className="knopf knopf-leise knopf-klein" onClick={zu}>Fertig</button>
         </div>
 
-        <div className="harmonie-arten et-muster" role="group" aria-label="Muster">
-          {MUSTER.map((m) => (
-            <button key={m.id} type="button" aria-pressed={w.muster === m.id} onClick={() => setW({ muster: m.id })}>{m.kurz}</button>
-          ))}
-        </div>
-        <p className="et-was text-sm"><strong>{muster.name}.</strong> {muster.was}</p>
-
-        <div className="et-feld">
-          <span className="kennzahl-label">Tonarten</span>
-          <div className="hoer-gruppe et-segment" role="group" aria-label="Tonarten">
-            {REIHENFOLGEN.map((r) => (
-              <button key={r} type="button" aria-pressed={w.reihenfolge === r} aria-label={REIHENFOLGE_NAMEN[r]} onClick={() => setW({ reihenfolge: r })}>{REIHENFOLGE_KURZ[r]}</button>
+        {/* Einstellungen: sonst einfach untereinander; als ganze Seite quer eine
+            Spalte links neben den Noten (globals.css, .et-steuerung). */}
+        <div className="et-steuerung">
+          <div className="harmonie-arten et-muster" role="group" aria-label="Muster">
+            {MUSTER.map((m) => (
+              <button key={m.id} type="button" aria-pressed={w.muster === m.id} onClick={() => setW({ muster: m.id })}>{m.kurz}</button>
             ))}
           </div>
-        </div>
-        <div className="et-feld">
-          <span className="kennzahl-label">{w.reihenfolge === 'eine' ? 'Tonart' : 'Beginnen mit'}</span>
-          <div className="harmonie-grundtoene" role="group" aria-label={w.reihenfolge === 'eine' ? 'Tonart' : 'Erste Tonart'}>
-            {Array.from({ length: 12 }, (_, k) => {
-              const g = grundFuer(k, muster.moll, vorliebe);
-              return (
-                <button key={k} type="button" aria-pressed={w.start === k} onClick={() => setW({ start: k })}>
-                  {muster.moll ? tonDeutsch(g).toLowerCase() : tonDeutsch(g)}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+          <p className="et-was text-sm"><strong>{muster.name}.</strong> {muster.was}</p>
 
-        <div className="et-zwei">
           <div className="et-feld">
-            <span className="kennzahl-label">Rhythmus</span>
-            <div className="hoer-gruppe et-segment" role="group" aria-label="Rhythmus">
-              {RHYTHMEN.map((r) => (
-                <button key={r} type="button" aria-pressed={w.rhythmus === r} onClick={() => setW({ rhythmus: r })}>{RHYTHMUS_NAMEN[r]}</button>
+            <span className="kennzahl-label">Tonarten</span>
+            <div className="hoer-gruppe et-segment" role="group" aria-label="Tonarten">
+              {REIHENFOLGEN.map((r) => (
+                <button key={r} type="button" aria-pressed={w.reihenfolge === r} aria-label={REIHENFOLGE_NAMEN[r]} onClick={() => setW({ reihenfolge: r })}>{REIHENFOLGE_KURZ[r]}</button>
               ))}
             </div>
           </div>
           <div className="et-feld">
-            <span className="kennzahl-label">Höchster Ton</span>
-            <div className="hoer-gruppe et-segment" role="group" aria-label="Höchster Ton (notiert)">
-              {OBERE_GRENZEN.map((o) => (
-                <button key={o.midi} type="button" aria-pressed={w.ober === o.midi} onClick={() => setW({ ober: o.midi })}>{o.name}</button>
-              ))}
+            <span className="kennzahl-label">{w.reihenfolge === 'eine' ? 'Tonart' : 'Beginnen mit'}</span>
+            <div className="harmonie-grundtoene" role="group" aria-label={w.reihenfolge === 'eine' ? 'Tonart' : 'Erste Tonart'}>
+              {Array.from({ length: 12 }, (_, k) => {
+                const g = grundFuer(k, muster.moll, vorliebe);
+                return (
+                  <button key={k} type="button" aria-pressed={w.start === k} onClick={() => setW({ start: k })}>
+                    {muster.moll ? tonDeutsch(g).toLowerCase() : tonDeutsch(g)}
+                  </button>
+                );
+              })}
             </div>
           </div>
-        </div>
 
-        <div className="et-tempo">
-          <label className="et-tempo-zahl" htmlFor={`${kopf}-tempo`}><strong>{w.bpm}</strong><span>BPM</span></label>
-          <input id={`${kopf}-tempo`} type="range" min={ETUEDEN_TEMPO.von} max={ETUEDEN_TEMPO.bis} step={2} value={w.bpm}
-            onChange={(e) => setW({ bpm: Number(e.target.value) })} aria-label="Tempo" />
-          <button type="button" className="swing-chip" aria-pressed={klick} onClick={() => { stopp(); setKlick(!klick); }}>Klick</button>
-        </div>
+          <div className="et-zwei">
+            <div className="et-feld">
+              <span className="kennzahl-label">Rhythmus</span>
+              <div className="hoer-gruppe et-segment" role="group" aria-label="Rhythmus">
+                {RHYTHMEN.map((r) => (
+                  <button key={r} type="button" aria-pressed={w.rhythmus === r} onClick={() => setW({ rhythmus: r })}>{RHYTHMUS_NAMEN[r]}</button>
+                ))}
+              </div>
+            </div>
+            <div className="et-feld">
+              <span className="kennzahl-label">Höchster Ton</span>
+              <div className="hoer-gruppe et-segment" role="group" aria-label="Höchster Ton (notiert)">
+                {OBERE_GRENZEN.map((o) => (
+                  <button key={o.midi} type="button" aria-pressed={w.ober === o.midi} onClick={() => setW({ ober: o.midi })}>{o.name}</button>
+                ))}
+              </div>
+            </div>
+          </div>
 
-        <div className="hoer-aktionen">
-          {laeuft
-            ? <button type="button" className="knopf" onClick={stopp}>■ Stopp</button>
-            : <button type="button" className="knopf" onClick={vorspielen}>▶ Vorspielen</button>}
-          <button type="button" className="knopf knopf-leise" disabled={geuebt === muster.id} onClick={geuebtMelden}>
-            {geuebt === muster.id ? '✓ Geübt' : 'Geübt'}
-          </button>
+          <div className="et-tempo">
+            <label className="et-tempo-zahl" htmlFor={`${kopf}-tempo`}><strong>{w.bpm}</strong><span>BPM</span></label>
+            <input id={`${kopf}-tempo`} type="range" min={ETUEDEN_TEMPO.von} max={ETUEDEN_TEMPO.bis} step={2} value={w.bpm}
+              onChange={(e) => setW({ bpm: Number(e.target.value) })} aria-label="Tempo" />
+            <button type="button" className="swing-chip" aria-pressed={klick} onClick={() => { stopp(); setKlick(!klick); }}>Klick</button>
+          </div>
+
+          <div className="hoer-aktionen">
+            {laeuft
+              ? <button type="button" className="knopf" onClick={stopp}>■ Stopp</button>
+              : <button type="button" className="knopf" onClick={vorspielen}>▶ Vorspielen</button>}
+            <button type="button" className="knopf knopf-leise" disabled={geuebt === muster.id} onClick={geuebtMelden}>
+              {geuebt === muster.id ? '✓ Geübt' : 'Geübt'}
+            </button>
+          </div>
+          <p className="gedaempft text-xs et-hinweis">
+            {geuebt === muster.id ? `Zählt für: ${skillNamen}.` : `${klick ? 'Ein Takt Vorzählen, dann ' : ''}${etuede.abschnitte.length === 1 ? 'eine Tonart' : `${etuede.abschnitte.length} Tonarten`} am Stück. „Geübt“ zählt für: ${skillNamen}.`}
+          </p>
         </div>
-        <p className="gedaempft text-xs et-hinweis">
-          {geuebt === muster.id ? `Zählt für: ${skillNamen}.` : `${klick ? 'Ein Takt Vorzählen, dann ' : ''}${etuede.abschnitte.length === 1 ? 'eine Tonart' : `${etuede.abschnitte.length} Tonarten`} am Stück. „Geübt“ zählt für: ${skillNamen}.`}
-        </p>
 
         <div ref={flaeche} className="et-noten">
           {breite > 0 && <AbcZeile abc={abc} hoehe={etuede.abschnitte.length > 1 ? 600 : 120} umbrechen={false} label={`${muster.name}, ${REIHENFOLGE_NAMEN[w.reihenfolge]}`} />}
         </div>
       </div>
     </div>,
-    document.body,
+    seite.ziel,
   );
 }

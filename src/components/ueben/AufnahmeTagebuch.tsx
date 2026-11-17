@@ -14,6 +14,7 @@ import { alleStellen, alleStuecke, aufnahmeAendern, aufnahmeDatei, aufnahmeLoesc
 import { skillGeuebt } from './skillspeicher';
 import { fehlerGrund, speicherFehler } from './speicherfehler';
 import { useDialogFokus, useEscape } from './tasten';
+import { useSeite } from './seite';
 
 // Aufnahme-Tagebuch (I-20): alle eigenen Aufnahmen (G-09) über alle Stücke,
 // neueste zuerst und nach Tagen; filtern nach Stück, anhören, umbenennen,
@@ -61,6 +62,7 @@ function useAbspieler() {
 }
 
 export function AufnahmeTagebuchBlatt({ schliessen }: { schliessen: () => void }) {
+  const seite = useSeite();
   const fokus = useDialogFokus<HTMLDivElement>();
   const kopf = useId();
   const [daten, setDaten] = useState<{ stuecke: Stueck[]; stellen: Stelle[]; jetzt: number } | null>(null);
@@ -121,7 +123,7 @@ export function AufnahmeTagebuchBlatt({ schliessen }: { schliessen: () => void }
     : 'Aufnahmen bleiben auf diesem Gerät und reisen nicht mit der Sicherung.';
 
   return (<>{createPortal(
-    <div className="blatt-hintergrund" onClick={(e) => { e.stopPropagation(); zu(); }}>
+    <div className={`blatt-hintergrund${seite.klasse}`} onClick={(e) => { e.stopPropagation(); zu(); }}>
       <div ref={fokus} tabIndex={-1} className="blatt harmonie-blatt tb-blatt" role="dialog" aria-modal="true" aria-labelledby={kopf} onClick={(e) => e.stopPropagation()}>
         <div className="mix-blatt-kopf">
           <div className="min-w-0 flex-1">
@@ -189,7 +191,7 @@ export function AufnahmeTagebuchBlatt({ schliessen }: { schliessen: () => void }
         {paar && <Vergleich key={`${paar.a.aufnahme.id}-${paar.b.aufnahme.id}`} paar={paar} schliessen={() => setPaar(null)} />}
       </div>
     </div>,
-    document.body,
+    seite.ziel,
   )}
   {neu && daten && (
     <NeueAufnahme stuecke={daten.stuecke} vorwahl={filterGilt ?? alle[0]?.stueckId ?? null}

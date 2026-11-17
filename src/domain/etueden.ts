@@ -18,9 +18,10 @@
 
 import {
   akkordBauen, akkordPruefen, akkordText, istAkkord, leiterBauen, stufenTon, tonAusKlasse, tonKlasse, tonSchlicht, tonSymbol,
-  tonVersetzen, tonartName, vorzeichen, type Struktur, type Ton, type TonartAngabe,
+  tonVersetzen, tonartName, tonartTransponieren, vorzeichen, type Struktur, type Ton, type TonartAngabe,
 } from './akkorde';
 import type { Klang } from './notensatz';
+import type { Stimmung } from './ueben';
 
 const mod = (n: number, m: number) => ((n % m) + m) % m;
 
@@ -46,7 +47,12 @@ export interface Ereignis {
 }
 
 /** Eine Tonart einer Etüde (oder ein Lick in einer Tonart): beginnt mit einem neuen Takt. */
-export interface Abschnitt { titel: string; ereignisse: Ereignis[] }
+export interface Abschnitt {
+  titel: string; ereignisse: Ereignis[];
+  /** Etüden: die Tonart — Vorzeichen vorne hinter dem Schlüssel, ein eigenes
+   *  Notenbild je Abschnitt. Ohne (Licks): ein Notenbild in C, Vorzeichen nur vor den Noten. */
+  tonart?: TonartAngabe;
+}
 
 interface Gelegt { ton: Ton | null; midi: number; beginn: number; ticks: number; akkord?: string }
 interface Stueck { ton: Ton | null; midi: number; beginn: number; ticks: number; akkord?: string; titel?: string; gebunden: boolean; fortsetzung: boolean }
@@ -131,6 +137,22 @@ export interface AbcOptionen {
   /** Takte je Zeile (0 = ein Abschnitt je Zeile, ohne Umbruch darin). */
   takteJeZeile?: number;
   titel?: string;
+  /** Stimmung des Instruments: über jeder Tonart „· klingt D-Dur“ (nicht bei C). */
+  stimmung?: Stimmung;
+}
+
+// Tonart als ABC-Feld: „A“, „Bb“, „F#“, „Cm“, „Ebm“.
+const abcTonart = (t: TonartAngabe) => `${STAMM[t.grund.stamm]}${t.grund.vz > 0 ? '#'.repeat(t.grund.vz) : 'b'.repeat(-t.grund.vz)}${t.moll ? 'm' : ''}`;
+// Vorzeichen der Tonart je Stammbuchstabe (ABC): F-Dur → B: -1, A-Dur → F, C, G: +1.
+function tonartVorzeichen(t: TonartAngabe | undefined): Map<string, number> {
+  const n = t ? vorzeichen(t) : 0;
+  const folge = n > 0 ? 'FCGDAEB' : 'BEADGCF';
+  return new Map([...folge.slice(0, Math.abs(n))].map((b) => [b, Math.sign(n)]));
+}
+// „E-Dur · klingt D-Dur“ für transponierende Instrumente.
+function tonartTitel(a: Abschnitt, stimmung: Stimmung | undefined): string {
+  if (!a.tonart || !stimmung || stimmung === 'C') return a.titel;
+  return `${a.titel} · klingt ${tonartName(tonartTransponieren(a.tonart, stimmung, 'zuKlingend'))}`;
 }
 
 /**
@@ -138,10 +160,15 @@ export interface AbcOptionen {
  * Taktstrich) — so liest jede Tonart ohne Vorzeichenwechsel. Jeder Abschnitt beginnt eine neue Zeile,
  * sein Titel steht als Text darüber, Akkordsymbole über den Tönen.
  */
-export function abschnitteAbc(abschnitte: readonly Abschnitt[], { takteJeZeile = 0, titel }: AbcOptionen = {}): string {
-  const zeilen: string[] = [];
+export function abschnitteAbc(abschnitte: readonly Abschnitt[], { takteJeZeile = 0, titel, stimmung }: AbcOptionen = {}): string {
+  // Mit Tonarten (Etüden) ein Notenbild je Abschnitt, sonst eins für alle.
+  const jeTonart = abschnitte.some((a) => a.tonart);
+  const bilder: string[][] = [];
+  let zeilen: string[] = [];
   for (const a of abschnitte) {
-    const st = teilen(legen(a.ereignisse), a.titel);
+    if (jeTonart && zeilen.length) { bilder.push(zeilen); zeilen = []; }
+    const vorne = tonartVorzeichen(a.tonart);
+    const st = teilen(legen(a.ereignisse), tonartTitel(a, stimmung));
     let zeile = '';
     let stand = new Map<string, number>();
     let triole = -1; // Zählzeit der laufenden Triolengruppe
@@ -176,8 +203,12 @@ export function abschnitteAbc(abschnitte: readonly Abschnitt[], { takteJeZeile =
         const { schluessel, name } = abcNote(s.ton, s.midi);
         let zeichen = '';
         if (!s.fortsetzung) {
-          const alt = stand.get(schluessel) ?? 0;
-          if (alt !== s.ton.vz) zeichen = ABC_VZ[s.ton.vz];
+          // Erhöht oder erniedrigt: beim ersten Mal im Takt immer ausgeschrieben,
+          // auch wenn es schon vorne steht (Wunsch: Vorzeichen auch vor der Note).
+          // Stammton: Auflösungszeichen, wenn der Takt oder die Tonart ihn verändert.
+          const alt = stand.get(schluessel);
+          const gilt = alt ?? vorne.get(STAMM[s.ton.stamm]) ?? 0;
+          if (s.ton.vz !== 0 ? alt !== s.ton.vz : gilt !== 0) zeichen = ABC_VZ[s.ton.vz];
           stand.set(schluessel, s.ton.vz);
         }
         zeile += `${zeichen}${name}${abcLaenge(laenge)}${s.gebunden ? '-' : ''}`;
@@ -186,8 +217,13 @@ export function abschnitteAbc(abschnitte: readonly Abschnitt[], { takteJeZeile =
     }
     zeilen.push(`${zeile} |`);
   }
-  if (zeilen.length) zeilen[zeilen.length - 1] = zeilen[zeilen.length - 1].replace(/ \|$/, ' |]');
-  return ['X:1', ...(titel ? [`T:${zitat(titel)}`] : []), 'M:4/4', 'L:1/16', 'K:C clef=treble', ...zeilen].join('\n') + '\n';
+  bilder.push(zeilen);
+  const letztes = bilder[bilder.length - 1];
+  if (letztes.length) letztes[letztes.length - 1] = letztes[letztes.length - 1].replace(/ \|$/, ' |]');
+  return bilder.map((z, i) => [
+    `X:${i + 1}`, ...(i === 0 && titel ? [`T:${zitat(titel)}`] : []), i === 0 ? 'M:4/4' : 'M:none', 'L:1/16',
+    `K:${jeTonart && abschnitte[i].tonart ? abcTonart(abschnitte[i].tonart) : 'C'} clef=treble`, ...z,
+  ].join('\n')).join('\n\n') + '\n';
 }
 
 export interface Klick { zeit: number; betont: boolean }
@@ -455,7 +491,7 @@ export function etuedeBauen(wahl: EtuedenWahl): Etuede {
       const midi = lageWaehlen(roh, wahl.ober ?? UMFANG.bis);
       p.forEach((k2, i) => ereignisse.push({ ton: k2.ton, midi: midi[i], ticks: (k2.einheiten ?? 1) * basis, akkord: k2.akkord, lang: k2.lang }));
     }
-    abschnitte.push({ titel: bau.titel, ereignisse });
+    abschnitte.push({ titel: bau.titel, ereignisse, tonart: { grund: g, moll: m.moll } });
   }
   return { wahl, abschnitte, tonarten };
 }

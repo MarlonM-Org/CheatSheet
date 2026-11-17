@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import abcjs from 'abcjs';
 import {
-  alleGriffe, BEREICH, griffLesen, griffeFuer, lageVon, LAGE_NAMEN, standardGriff, TASTEN, tonAusName, trillerFuer, type Taste,
+  alleGriffe, BEREICH, griffLesen, griffeFuer, griffNotenbild, lageVon, LAGE_NAMEN, standardGriff, TASTEN, tonAbc, tonAusName, trillerFuer, type Taste,
 } from '@/domain/griffe';
+import { tonName } from '@/domain/tonprofil';
 
 const BEKANNT = new Set<string>(TASTEN.map((t) => t.id));
 
@@ -174,5 +176,29 @@ describe('Bekannte Griffe (Stichproben gegen WFG)', () => {
   });
   it('Seitenklappen-B als Alternative', () => {
     expect(griffeFuer(70).some((g) => g.art === 'alternative' && g.tasten.includes('s2') && g.tasten.includes('a'))).toBe(true);
+  });
+});
+
+// Wunsch Marlon (2026-11-17): den Ton nicht nur auf der Klaviatur, auch im
+// Notenbild — mit Hilfslinien, geschrieben wie der Name daneben.
+describe('Notenbild des Tons', () => {
+  it('geschrieben wie der Name: Cis, Es, Fis, As, B, H', () => {
+    expect([60, 61, 63, 66, 68, 70, 71].map((m) => `${tonName(m)}=${tonAbc(m)}`)).toEqual([
+      'C4=C', 'Cis4=^C', 'Es4=_E', 'Fis4=^F', 'As4=_A', 'B4=_B', 'H4=B',
+    ]);
+  });
+  it('Oktaven: tiefes E mit Hilfslinien unten, C7 oben', () => {
+    expect(tonAbc(BEREICH.von)).toBe('E,');
+    expect(tonAbc(72)).toBe('c');
+    expect(tonAbc(84)).toBe("c'");
+    expect(tonAbc(BEREICH.bis)).toBe("c''");
+  });
+  it('jeder Ton der Tabelle ergibt eine ganze Note ohne Warnung', () => {
+    for (let m = BEREICH.von; m <= BEREICH.bis; m++) {
+      const abc = griffNotenbild(m);
+      expect(abc).toContain('K:C clef=treble');
+      const [tune] = abcjs.parseOnly(abc);
+      expect(tune.warnings ?? [], abc).toEqual([]);
+    }
   });
 });

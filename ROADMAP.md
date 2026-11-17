@@ -277,8 +277,50 @@ steht nicht mehr ganz links.
   in der Zahl-Zeile (die Anleitung kommt nur ganz ohne Stellen).
 - Escape schließt erst ein offenes Blatt, dann die Seite. Auf 320 px Breite
   (iPhone SE) passen alle vier Beschriftungen (dort weniger gesperrt).
+- **Rückmeldung iPad (2026-11-17):** Als Leiste links (460 px wie die
+  Bibliothek) liefen die Texte der Werkzeug-Kacheln über — die Kacheln
+  nahmen ab 700 px *Bildschirm*breite drei Spalten. Wunsch Marlon: Lernen
+  über die ganze Seite. Seitdem ist Lernen auf dem iPad bildschirmfüllend
+  (die Bibliothek bleibt die Leiste links), der Inhalt steht in einer
+  mittigen Spalte bis 1040 px. Die Raster richten sich nach der Breite der
+  Spalte (Container-Queries): ab 640 px stehen die drei „Heute“-Blöcke
+  nebeneinander, ab 680 px Stellen-Mix · Ohr-Trainer · Hör-Übungen und vier
+  Werkzeug-Spalten; schmaler bleibt alles wie auf dem iPhone. Lange Namen
+  der Werkzeuge werden getrennt statt abgeschnitten. Geprüft im Browser bei
+  820 × 1180, 1180 × 820 und 390 × 844: nichts läuft über.
+- **Rückmeldung iPad, zweite Runde (2026-11-17):** „Die Noten können ruhig
+  auf dem großen Bildschirm wie meine normalen Stücke angezeigt werden —
+  ich hätte gerne mein ganzes iPad in Funktion.“ Seitdem werden die
+  Arbeits-Blätter aus Lernen auf dem iPad (ab 740 px) zur **ganzen Seite**
+  über der Leiste: alle Werkzeuge, Ohr-Trainer, Hör-Übung und Skill-Kartei;
+  der Inhalt in derselben mittigen Spalte wie Lernen, „Fertig“ führt zur
+  Übersicht zurück. Auswahl- und Rückfrage-Blätter (Mix-Optionen,
+  Hör-Auswahl, Markierung, Skill-Detail, Formulare) bleiben klein; über den
+  Noten (Spickzettel aus der Spielhilfe) und auf dem Handy bleibt alles
+  ein Blatt (`seite.tsx`: Kontext `GrosseSeiten` aus Lernen).
+  - **Leiste bleibt bedienbar:** Die Seiten liegen in der App-Schale unter
+    Widgets und Leiste. Metronom und Stimmgerät schweben darüber — auch
+    über der Lernen-Übersicht selbst; vorher lag das Widget *unter* Lernen,
+    obwohl der Knopf leuchtete (Fehler aus dem ersten Umbau, behoben).
+  - **Tipp auf „Lernen“** bei offenem Werkzeug führt zur Lernen-Übersicht
+    zurück wie ein Tab auf dem iPhone; erst der nächste Tipp schließt
+    Lernen (`ortTippen` in `src/domain/leiste.ts`, getestet).
+  - **Etüden quer** (ab 1000 px): Einstellungen links, bleiben beim Scrollen
+    stehen, die Noten rechts über die volle Höhe — sieben Tonarten auf
+    einen Blick statt einer. Hochkant untereinander, Noten in voller Breite
+    (Notensystem etwa so groß wie in einer Stimme, die die Breite füllt).
+  - **Griffweisen** als Seite: Griffbild und Klaviatur größer.
+  - Grenze: Wechselt die Breite über 740 px, während ein Werkzeug offen ist
+    (Split View), wechselt nur das Aussehen — der Inhalt bleibt.
 
 **Auf dem Gerät prüfen:**
+- iPad hoch und quer: Lernen füllt den Bildschirm, alle Kachel-Texte bleiben
+  in ihren Kacheln, „Heute“ in drei Spalten.
+- iPad: Etüden öffnen → ganze Seite, Leiste unten sichtbar; Metronom an →
+  Widget schwebt über den Etüden; Tipp auf „Lernen“ → Übersicht, noch einer →
+  Noten. Quer: Einstellungen links, Noten rechts, Scrollen lässt die
+  Einstellungen stehen. Ohr-Trainer als Seite: Mikrofon und Klick wie vorher.
+- iPhone: Werkzeuge bleiben Blätter von unten wie bisher.
 - iPhone hochkant: vier Knöpfe gut zu treffen, nichts abgeschnitten; Lernen
   → Lernen leuchtet; noch ein Tipp → zurück zu den Noten; Noten bei offenem
   Lernen → Bibliothek ersetzt Lernen.
@@ -1302,11 +1344,28 @@ Werkzeuge erreicht man auf der Seite **Lernen** (B-18) im Abschnitt **Werkzeuge*
   zeigt den Griff zum gespielten Ton). Im Ohr-Trainer-Ergebnis: Tipp auf
   eine Note zeigt den Griff. Daten sorgfältig gegen verlässliche Quellen
   (z. B. The Woodwind Fingering Guide) geprüft; Quelle im Code nennen.
+  **Rückmeldung 2026-11-17:** Auf der Klaviatur allein ist nicht zu
+  erkennen, welcher Ton gemeint ist — der gewählte Ton steht jetzt auch im
+  **Notenbild** (Violinschlüssel, ganze Note, Hilfslinien), geschrieben wie
+  der Name daneben (Cis, Es, Fis, As, B, H; `tonAbc`/`griffNotenbild` in
+  `src/domain/griffe.ts`, getestet E3…C7). Feste Box, damit beim Wechsel
+  nichts springt; auf dem iPad als Seite größer.
 - **I-14 · Generierte Etüden.** Muster durch alle 12 Tonarten (Quintenzirkel
   oder chromatisch): Dur-Tonleiter, Dreiklang- und Septakkord-Arpeggien,
   Guide-Tone-Linien durch ii–V–I, 1-2-3-5-Muster, Umspielungen. Notenzeile
   (abcjs), Tempo, Vorspielen mit Klick, Umfang auf den Klarinetten-Umfang
   geklemmt (Oktavlage je Tonart wählen). Zählt auf die Klarinetten-Skills.
+  **Rückmeldung 2026-11-17:** (1) Vorzeichen **vorne hinter dem Schlüssel**
+  („A-Dur hat 3 Kreuze“ auf einen Blick) — die Vorzeichen vor den Noten
+  bleiben zusätzlich stehen (beim ersten Mal im Takt); ein Stammton, den die
+  Tonart verändert, bekommt ein Auflösungszeichen (F-Dur: H als `=B`). Jede
+  Tonart ist ein eigenes Notenbild: In *einem* Notenbild setzte abcjs beim
+  Tonartwechsel Vorschau-Vorzeichen ans Zeilenende und Auflösungszeichen an
+  den Zeilenanfang (ausprobiert, zu unruhig). Takt 4/4 nur beim ersten.
+  (2) Über jeder Tonart die **klingende** nach der Stimmung aus dem
+  Stimmgerät: „E-Dur · klingt D-Dur“ (B), „E-Dur · klingt G-Dur“ (Es); bei C
+  nichts. Regeln in `abschnitteAbc` (`src/domain/etueden.ts`, getestet);
+  Licks ohne Tonart bleiben ein Notenbild in C wie bisher.
 - **I-15 · Spielhilfe in deinen Noten.** Zu einer Stelle Akkordsymbole je
   Takt eintragen (klingend oder notiert). In der Stelle: Akkord des
   aktuellen Takts groß, Akkordtöne, Guide Tones; Drone (I-18) auf dem

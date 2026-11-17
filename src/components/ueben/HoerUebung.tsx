@@ -13,6 +13,7 @@ import { useMetronom } from './MetronomKontext';
 import { useStimmgeraetApi } from './StimmgeraetKontext';
 import { useDialogFokus, useEscape } from './tasten';
 import type { Klang } from '@/domain/notensatz';
+import { useSeite } from './seite';
 
 // Hör-Übungen per Antippen (I-08): Intervalle, Dreiklänge, Septakkorde.
 // Stufe wählen → Runde mit 10 Fragen: die App spielt, man tippt die Antwort,
@@ -35,6 +36,7 @@ export function HoerUebungBlatt({ uebung, schliessen, beiErgebnis }: {
   schliessen: () => void;
   beiErgebnis?: (r: { uebung: HoerUebungId; stufe: number; quote: number }) => void;
 }) {
+  const seite = useSeite();
   const fokus = useDialogFokus<HTMLDivElement>();
   const stimm = useStimmgeraetApi();
   const metro = useMetronom();
@@ -106,7 +108,7 @@ export function HoerUebungBlatt({ uebung, schliessen, beiErgebnis }: {
   const wiederholt = (id: string) => { if (frage) { setHoert(id); spielen(antwortKlaenge(frage, id)); } };
 
   return createPortal(
-    <div className="blatt-hintergrund" onClick={zu}>
+    <div className={`blatt-hintergrund${seite.klasse}`} onClick={zu}>
       <div ref={fokus} tabIndex={-1} className="blatt space-y-4" role="dialog" aria-modal="true" aria-label={UEBUNG_NAMEN[uebung]} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
@@ -222,7 +224,7 @@ export function HoerUebungBlatt({ uebung, schliessen, beiErgebnis }: {
         )}
       </div>
     </div>,
-    document.body,
+    seite.ziel,
   );
 }
 

@@ -14,6 +14,7 @@ import { HoerUebungBlatt } from './HoerUebung';
 import { OhrTrainerBlatt } from './OhrTrainer';
 import { heuteLaden, heuteSpeichern, SKILLS_GEAENDERT, skillErgebnis, skillGeuebt, skillMarkieren, skillsLaden } from './skillspeicher';
 import { useDialogFokus, useEscape } from './tasten';
+import { useSeite } from './seite';
 
 // Skill-Kartei (I-07): Gesamtsicht, was ich kann, was ich lernen will, was
 // verblasst — und „Heute“ (I-09), das oben auf der Lernen-Seite steht (B-18).
@@ -113,6 +114,7 @@ function stufenZeile(s: SkillStand | undefined, jetzt: number): string {
 }
 
 export function SkillsBlatt({ schliessen, hoerUebungStarten }: { schliessen: () => void; hoerUebungStarten?: HoerUebungStarten }) {
+  const seite = useSeite();
   const fokus = useDialogFokus<HTMLDivElement>();
   const kopf = useId();
   const { sp, jetzt } = useSkillDaten();
@@ -142,7 +144,7 @@ export function SkillsBlatt({ schliessen, hoerUebungStarten }: { schliessen: () 
   // Detail, Auswahl und Übung liegen neben (nicht in) dem Hintergrund: React
   // reicht Klicks durch Portale an die Eltern weiter — ein Tipp dort schlösse sonst alles.
   return (<>{createPortal(
-    <div className="blatt-hintergrund" onClick={zu}>
+    <div className={`blatt-hintergrund${seite.klasse}`} onClick={zu}>
       <div ref={fokus} tabIndex={-1} className="blatt skill-blatt" role="dialog" aria-modal="true" aria-labelledby={kopf} onClick={(e) => e.stopPropagation()}>
         <div className="mix-blatt-kopf">
           <span className="mix-symbol"><KarteiSymbol /></span>
@@ -200,7 +202,7 @@ export function SkillsBlatt({ schliessen, hoerUebungStarten }: { schliessen: () 
         </div>
       </div>
     </div>,
-    document.body,
+    seite.ziel,
   )}
       {detail && (
         <SkillDetail id={detail} sp={sp} jetzt={jetzt} aktiv={!wahl && !ohr && !hoer} schliessen={() => setDetail(null)} wechseln={setDetail}

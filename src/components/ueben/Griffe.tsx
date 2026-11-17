@@ -2,14 +2,16 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { BEREICH, griffeFuer, LAGE_NAMEN, lageVon, tastenName, type Griff, type Taste } from '@/domain/griffe';
+import { BEREICH, griffeFuer, griffNotenbild, LAGE_NAMEN, lageVon, tastenName, type Griff, type Taste } from '@/domain/griffe';
 import { tonName } from '@/domain/tonprofil';
 import { STIMMUNGEN, type Ton } from '@/domain/ueben';
+import { AbcZeile } from './AbcZeile';
 import { vorspielen, type Vorspiel } from './klavier';
 import { useMetronom } from './MetronomKontext';
 import { skillGeuebt } from './skillspeicher';
 import { useStimmgeraetApi } from './StimmgeraetKontext';
 import { useDialogFokus, useEscape } from './tasten';
+import { useSeite } from './seite';
 
 // Griffweisen (I-13): Grifftabelle der B-Klarinette (Böhm 17/6) als
 // Zeichnung. Ton wählen (Schritt, Duodezime, kleine Klaviatur) oder per
@@ -100,6 +102,7 @@ function Klaviatur({ midi, waehlen }: { midi: number; waehlen: (m: number) => vo
 }
 
 export function GriffeBlatt({ schliessen, midi: anfang }: { schliessen: () => void; midi?: number }) {
+  const seite = useSeite();
   const fokus = useDialogFokus<HTMLDivElement>();
   const stimm = useStimmgeraetApi();
   const metro = useMetronom();
@@ -153,7 +156,7 @@ export function GriffeBlatt({ schliessen, midi: anfang }: { schliessen: () => vo
   );
 
   return createPortal(
-    <div className="blatt-hintergrund" onClick={zu}>
+    <div className={`blatt-hintergrund${seite.klasse}`} onClick={zu}>
       <div ref={fokus} tabIndex={-1} className="blatt space-y-4" role="dialog" aria-modal="true" aria-label="Griffweisen" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
@@ -168,6 +171,10 @@ export function GriffeBlatt({ schliessen, midi: anfang }: { schliessen: () => vo
             {knopf('⇊', midi - DUODEZIME, 'Duodezime tiefer (Register)')}
             {knopf('−', midi - 1, 'Halbton tiefer')}
             <div className="griff-ton" aria-live="polite">
+              {/* Der Ton im Notenbild, mit Hilfslinien (Wunsch 2026-11-17). Feste Höhe: nichts springt. */}
+              <div className="griff-noten">
+                <AbcZeile abc={griffNotenbild(midi)} hoehe={0} umbrechen={false} label={`${tonName(midi)} im Notenbild`} />
+              </div>
               <strong>{tonName(midi)}</strong>
               <span>{LAGE_NAMEN[lage]}{stimm.stimmung !== 'C' ? ` · klingt ${tonName(klingt)}` : ''}</span>
             </div>
@@ -241,6 +248,6 @@ export function GriffeBlatt({ schliessen, midi: anfang }: { schliessen: () => vo
         <p className="gedaempft text-xs">Quelle: The Woodwind Fingering Guide (wfg.woodwind.org), Böhm-Klarinette 17 Klappen / 6 Ringe.</p>
       </div>
     </div>,
-    document.body,
+    seite.ziel,
   );
 }

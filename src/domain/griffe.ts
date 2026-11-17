@@ -243,6 +243,18 @@ export const standardGriff = (midi: number): Griff | null => griffeFuer(midi).fi
 export const trillerFuer = (midi: number): Griff[] => griffeFuer(midi).filter((g) => g.art === 'triller');
 export const alleGriffe = (): Griff[] => TABELLE.flat();
 
+// ── Notenbild ── Der Ton im Violinschlüssel (notiert), geschrieben wie
+// tonName ihn nennt (Cis, Es, Fis, As, B, H), als ganze Note — die
+// Hilfslinien zeichnet abcjs. Wunsch Marlon 2026-11-17.
+const ABC_TON: readonly string[] = ['C', '^C', 'D', '_E', 'E', 'F', '^F', 'G', '_A', 'A', '_B', 'B'];
+export function tonAbc(midi: number): string {
+  const name = ABC_TON[((midi % 12) + 12) % 12];
+  const oktave = Math.floor(midi / 12) - 1;
+  const vz = name.length > 1 ? name[0] : '', b = name[name.length - 1];
+  return vz + (oktave >= 5 ? b.toLowerCase() + "'".repeat(oktave - 5) : b + ','.repeat(Math.max(0, 4 - oktave)));
+}
+export const griffNotenbild = (midi: number) => `X:1\nL:1/1\nK:C clef=treble\n${tonAbc(midi)}|]\n`;
+
 // ── Ton aus Namen ── deutsch (C, Cis, Des, D, Es/Dis, E, F, Fis/Ges, G,
 // Gis/As, A, B/Ais, H, His, Ces …) oder mit Vorzeichen (#/♯, b/♭; „B“ allein
 // ist deutsch = B♭). Oktave wie MIDI (C4 = 60).

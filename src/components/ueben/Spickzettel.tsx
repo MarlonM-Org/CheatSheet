@@ -9,6 +9,7 @@ import {
 import { AbcZeile } from './AbcZeile';
 import { useDialogFokus, useEscape } from './tasten';
 import { useVorspieler } from './vorspieler';
+import { useSeite } from './seite';
 
 // Akkord-Spickzettel (I-11): Akkordsymbol eingeben oder antippen, wahlweise
 // klingend („der Gitarrist sagt E7“) oder notiert. Gezeigt wird immer der
@@ -37,6 +38,7 @@ export function SpickzettelBlatt({ schliessen, akkord: anfang, eingabe: anfangsE
   /** Liegt über einem anderen Blatt (Jam-Karte): eine Ebene höher. */
   ueber?: boolean;
 }) {
+  const seite = useSeite();
   const fokus = useDialogFokus<HTMLDivElement>();
   const kopf = useId();
   const { spielen, stopp, stimmung } = useVorspieler();
@@ -72,7 +74,7 @@ export function SpickzettelBlatt({ schliessen, akkord: anfang, eingabe: anfangsE
   const zweiStimmungen = stimmung !== 'C';
 
   return createPortal(
-    <div className={`blatt-hintergrund${ueber ? ' harmonie-ueber' : ''}`} onClick={(e) => { e.stopPropagation(); zu(); }}>
+    <div className={`blatt-hintergrund${ueber ? ' harmonie-ueber' : seite.klasse}`} onClick={(e) => { e.stopPropagation(); zu(); }}>
       <div ref={fokus} tabIndex={-1} className="blatt harmonie-blatt" role="dialog" aria-modal="true" aria-labelledby={kopf} onClick={(e) => e.stopPropagation()}>
         <div className="mix-blatt-kopf">
           <div className="min-w-0 flex-1">
@@ -168,6 +170,6 @@ export function SpickzettelBlatt({ schliessen, akkord: anfang, eingabe: anfangsE
         )}
       </div>
     </div>,
-    document.body,
+    seite.ziel,
   );
 }
