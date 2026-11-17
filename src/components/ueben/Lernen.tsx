@@ -17,8 +17,9 @@ import { Werkzeuge } from './Werkzeuge';
 
 // Lernen (B-18): der Ort neben den Noten — oben „Heute“ (I-09), darunter
 // Üben (Stellen-Mix, Ohr-Trainer, Hör-Übungen), zuletzt „Mein Stand“ mit der
-// Skill-Kartei. Legt sich wie die Bibliothek über die Noten und öffnet immer
-// oben; Mix, Übungen und Kartei legen sich als Blatt darüber.
+// Skill-Kartei. Legt sich über die Noten — anders als die Bibliothek auch auf
+// dem iPad über die ganze Breite, der Inhalt in einer mittigen Spalte — und
+// öffnet immer oben; Mix, Übungen und Kartei legen sich als Blatt darüber.
 // Darunter die Werkzeuge (I-11…I-20). Was aus I-02…I-06 dazukommt, erscheint
 // hier erst, wenn es gebaut ist.
 
@@ -59,7 +60,7 @@ export function Lernen({ schliessen, escapeAktiv, stand, mixStarten, mixAktiv }:
   const tag = daten?.tags.find((t) => t.id === quelle.tag) ?? null;
 
   return (
-    <section className="bibliothek" role="region" aria-label="Lernen">
+    <section className="bibliothek lernen-seite" role="region" aria-label="Lernen">
       <div className="panel-kopf mit-linie">
         <h2>Lernen</h2>
         <span className="flex-1" />
@@ -67,26 +68,30 @@ export function Lernen({ schliessen, escapeAktiv, stand, mixStarten, mixAktiv }:
           <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" /></svg>
         </button>
       </div>
-      <div className="bib-inhalt lernen-inhalt">
-        <HeuteAbschnitt blattMelden={setBlattOffen} />
+      <div className="bib-inhalt">
+        <div className="lernen-spalte">
+          <HeuteAbschnitt blattMelden={setBlattOffen} />
 
-        <h3 className="lernen-titel">Üben</h3>
-        {daten ? (
-          <MixZeile sammlung={quelle.sammlung} tag={tag} noten={daten.noten} stellen={daten.stellen} starten={mixStarten} aktiv={mixAktiv}
-            woraus={{ sammlungen, tags: daten.tags, waehlen }} offenMelden={setBlattOffen} />
-        ) : (
-          // Platzhalter gleicher Höhe, bis die Stellen gelesen sind — nichts rückt nach.
-          <div className="mix-einstieg" aria-hidden="true"><span className="mix-symbol klein" /><span className="mix-einstieg-titel">Stellen-Mix</span><span className="mix-einstieg-stand">…</span></div>
-        )}
-        <OhrTrainerZeile offenMelden={setBlattOffen} />
-        <HoerUebungenZeile offenMelden={setBlattOffen} />
+          <h3 className="lernen-titel">Üben</h3>
+          <div className="lernen-ueben">
+            {daten ? (
+              <MixZeile sammlung={quelle.sammlung} tag={tag} noten={daten.noten} stellen={daten.stellen} starten={mixStarten} aktiv={mixAktiv}
+                woraus={{ sammlungen, tags: daten.tags, waehlen }} offenMelden={setBlattOffen} />
+            ) : (
+              // Platzhalter gleicher Höhe, bis die Stellen gelesen sind — nichts rückt nach.
+              <div className="mix-einstieg" aria-hidden="true"><span className="mix-symbol klein" /><span className="mix-einstieg-titel">Stellen-Mix</span><span className="mix-einstieg-stand">…</span></div>
+            )}
+            <OhrTrainerZeile offenMelden={setBlattOffen} />
+            <HoerUebungenZeile offenMelden={setBlattOffen} />
+          </div>
 
-        <h3 className="lernen-titel">Werkzeuge</h3>
-        <Werkzeuge offenMelden={setBlattOffen} />
+          <h3 className="lernen-titel">Werkzeuge</h3>
+          <Werkzeuge offenMelden={setBlattOffen} />
 
-        <h3 className="lernen-titel">Mein Stand</h3>
-        <SkillsZeile offenMelden={setBlattOffen} />
-        <SkillStand />
+          <h3 className="lernen-titel">Mein Stand</h3>
+          <SkillsZeile offenMelden={setBlattOffen} />
+          <SkillStand />
+        </div>
       </div>
     </section>
   );

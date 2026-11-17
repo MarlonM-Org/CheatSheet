@@ -277,8 +277,21 @@ steht nicht mehr ganz links.
   in der Zahl-Zeile (die Anleitung kommt nur ganz ohne Stellen).
 - Escape schließt erst ein offenes Blatt, dann die Seite. Auf 320 px Breite
   (iPhone SE) passen alle vier Beschriftungen (dort weniger gesperrt).
+- **Rückmeldung iPad (2026-11-17):** Als Leiste links (460 px wie die
+  Bibliothek) liefen die Texte der Werkzeug-Kacheln über — die Kacheln
+  nahmen ab 700 px *Bildschirm*breite drei Spalten. Wunsch Marlon: Lernen
+  über die ganze Seite. Seitdem ist Lernen auf dem iPad bildschirmfüllend
+  (die Bibliothek bleibt die Leiste links), der Inhalt steht in einer
+  mittigen Spalte bis 1040 px. Die Raster richten sich nach der Breite der
+  Spalte (Container-Queries): ab 640 px stehen die drei „Heute“-Blöcke
+  nebeneinander, ab 680 px Stellen-Mix · Ohr-Trainer · Hör-Übungen und vier
+  Werkzeug-Spalten; schmaler bleibt alles wie auf dem iPhone. Lange Namen
+  der Werkzeuge werden getrennt statt abgeschnitten. Geprüft im Browser bei
+  820 × 1180, 1180 × 820 und 390 × 844: nichts läuft über.
 
 **Auf dem Gerät prüfen:**
+- iPad hoch und quer: Lernen füllt den Bildschirm, alle Kachel-Texte bleiben
+  in ihren Kacheln, „Heute“ in drei Spalten.
 - iPhone hochkant: vier Knöpfe gut zu treffen, nichts abgeschnitten; Lernen
   → Lernen leuchtet; noch ein Tipp → zurück zu den Noten; Noten bei offenem
   Lernen → Bibliothek ersetzt Lernen.

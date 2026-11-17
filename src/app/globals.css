@@ -870,8 +870,27 @@ details[open] > summary::before { transform: rotate(90deg); }
 .mix-symbol.gross svg { width: 28px; height: 28px; }
 
 /* Lernen (B-18): Seite wie die Bibliothek; Abschnitte mit Mikro-Titel. */
-.lernen-inhalt { display: flex; flex-direction: column; gap: 0.75rem; }
-.lernen-inhalt > * { flex-shrink: 0; }
+/* Auf dem iPad bildschirmfüllend (die Bibliothek bleibt die Leiste links);
+   der Inhalt steht in einer mittigen Spalte bis 1040 px, der Kopf fluchtet
+   mit ihr. Die Raster darin richten sich nach der Breite der Spalte, nicht
+   nach der des Bildschirms (Container-Queries). */
+@media (min-width: 740px) { .bibliothek.lernen-seite { right: 0; width: auto; border-right: 0; } }
+.lernen-seite .panel-kopf { padding-left: max(14px, calc((100% - 1040px) / 2)); padding-right: max(14px, calc((100% - 1040px) / 2)); }
+.lernen-spalte { container: lernen / inline-size; width: 100%; max-width: 1040px; margin-inline: auto; display: flex; flex-direction: column; gap: 0.75rem; }
+.lernen-spalte > * { flex-shrink: 0; }
+.lernen-ueben { display: grid; gap: 0.75rem; }
+/* Breit: Stellen-Mix, Ohr-Trainer, Hör-Übungen nebeneinander, Stand unter dem Titel. */
+@container lernen (min-width: 680px) {
+  .lernen-ueben { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .lernen-ueben .mix-einstieg {
+    display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "s t p" "s st p";
+    column-gap: 10px; row-gap: 1px; align-items: center; min-height: 64px; padding-block: 10px;
+  }
+  .lernen-ueben .mix-symbol { grid-area: s; }
+  .lernen-ueben .mix-einstieg-titel { grid-area: t; }
+  .lernen-ueben .mix-einstieg-stand { grid-area: st; text-align: left; }
+  .lernen-ueben .bib-pfeil { grid-area: p; }
+}
 .lernen-titel { font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--leise); margin: 0.6rem 2px -0.2rem; }
 /* „Woraus“ im Mix-Blatt: Chips je Zeile seitlich schiebbar, nichts bricht um. */
 .mix-woraus { display: flex; flex-direction: column; gap: 6px; }
@@ -1605,7 +1624,7 @@ ol.stichpunkte { list-style: decimal; }
 .skill-balken { grid-column: 1 / -1; height: 4px; border-radius: 2px; background: var(--flaeche2); overflow: hidden; }
 .skill-balken span { display: block; height: 100%; background: var(--messing); border-radius: 2px; }
 
-.skill-heute { border: 1px solid var(--linie-stark); border-radius: 8px; background: var(--flaeche); padding: 10px 12px 4px; }
+.skill-heute { border: 1px solid var(--linie-stark); border-radius: 8px; background: var(--flaeche); padding: 10px 12px 4px; container-type: inline-size; }
 .skill-heute-kopf { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding-bottom: 4px; }
 .skill-heute-kopf strong { font-size: 1rem; }
 .skill-woche { font-size: 0.78rem; color: var(--gedaempft); font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -1621,6 +1640,15 @@ ol.stichpunkte { list-style: decimal; }
 .skill-anderer:active { background: var(--flaeche2); }
 .skill-heute-los { min-width: 5.6rem; justify-content: center; }
 .skill-heute-fertig { min-width: 5.6rem; min-height: 38px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 650; color: var(--gut); }
+/* Breit (Lernen auf dem iPad): die drei Blöcke nebeneinander, Knöpfe unten rechts. */
+@container (min-width: 640px) {
+  .skill-heute-bloecke { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .skill-heute-bloecke li { flex-direction: column; align-items: stretch; justify-content: space-between; gap: 10px; padding: 8px 14px 12px; }
+  .skill-heute-bloecke li:first-child { padding-left: 0; }
+  .skill-heute-bloecke li:last-child { padding-right: 0; }
+  .skill-heute-bloecke li + li { border-top: 0; border-left: 1px solid var(--linie); }
+  .skill-heute-knoepfe { justify-content: flex-end; }
+}
 
 .skill-filter { display: flex; gap: 6px; overflow-x: auto; margin: 0 -1.25rem; padding: 0 1.25rem 2px; scrollbar-width: none; }
 .skill-filter::-webkit-scrollbar { display: none; }
@@ -1856,9 +1884,11 @@ button.ohr-note { background: none; color: inherit; font: inherit; cursor: point
 .swing-block .segment button { flex: 1 1 0; min-width: 0; padding-left: 4px; padding-right: 4px; }
 
 /* Werkzeuge (I-11…I-20): Kacheln in der Bibliothek */
-.werkzeuge { display: grid; gap: 6px; }
+/* Spalten nach der Breite des Blocks, nicht des Bildschirms: in der schmalen
+   Leiste liefen sonst drei Spalten über (Rückmeldung iPad 2026-11-17). */
+.werkzeuge { display: grid; gap: 6px; container-type: inline-size; }
 .werkzeuge-raster { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-@media (min-width: 700px) { .werkzeuge-raster { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@container (min-width: 680px) { .werkzeuge-raster { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .werkzeug-kachel {
   display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 8px 10px; text-align: left;
   border: 1px solid var(--linie-stark); border-radius: 6px; background: var(--karte);
@@ -1868,8 +1898,9 @@ button.ohr-note { background: none; color: inherit; font: inherit; cursor: point
   flex: none; width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center;
   background: var(--messing-hell); color: var(--messing); font-size: 1.1rem; font-weight: 700;
 }
-.werkzeug-text { display: flex; flex-direction: column; min-width: 0; }
-.werkzeug-text strong { font-size: 0.9rem; line-height: 1.2; }
+.werkzeug-text { display: flex; flex-direction: column; min-width: 0; overflow-wrap: break-word; }
+/* Nur lange Namen trennen („Transpo-nieren“), Beschreibungen brechen an Leerzeichen. */
+.werkzeug-text strong { font-size: 0.9rem; line-height: 1.2; -webkit-hyphens: auto; hyphens: auto; }
 .werkzeug-text span { font-size: 0.75rem; color: var(--gedaempft); line-height: 1.25; }
 
 /* Spielhilfe (I-15): Streifen über der Stellen-Leiste — absolut, liegt über
