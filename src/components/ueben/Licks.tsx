@@ -15,6 +15,7 @@ import { gespeichert, speichern, useEinstellungenGeladen } from './klang';
 import { useKlickSpieler } from './klickspieler';
 import { skillGeuebt } from './skillspeicher';
 import { useDialogFokus, useEscape } from './tasten';
+import { useSeite } from './seite';
 
 // Lick-Sammlung (I-16): Licks relativ gespeichert, in jeder (notierten)
 // Tonart oder allen zwölf gezeigt und vorgespielt (mit Klick und Vorzählen),
@@ -34,6 +35,7 @@ function Staerke({ wert }: { wert: number }) {
 }
 
 export function LicksBlatt({ schliessen }: { schliessen: () => void }) {
+  const seite = useSeite();
   const fokus = useDialogFokus<HTMLDivElement>();
   const kopf = useId();
   const { spielen, stopp, laeuft, stimmung } = useKlickSpieler();
@@ -71,7 +73,7 @@ export function LicksBlatt({ schliessen }: { schliessen: () => void }) {
   };
 
   return (<>{createPortal(
-    <div className="blatt-hintergrund" onClick={zu}>
+    <div className={`blatt-hintergrund${seite.klasse}`} onClick={zu}>
       <div ref={fokus} tabIndex={-1} className="blatt harmonie-blatt lk-blatt" role="dialog" aria-modal="true" aria-labelledby={kopf} onClick={(e) => e.stopPropagation()}>
         <div className="mix-blatt-kopf">
           {lick && <button type="button" className="knopf knopf-leise knopf-klein" onClick={zurueck} aria-label="Zurück zur Liste">‹ Alle</button>}
@@ -116,7 +118,7 @@ export function LicksBlatt({ schliessen }: { schliessen: () => void }) {
         )}
       </div>
     </div>,
-    document.body,
+    seite.ziel,
   )}
   {formular && (
     <LickFormular lick={formular.lick} schliessen={() => setFormular(null)}

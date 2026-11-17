@@ -879,6 +879,23 @@ details[open] > summary::before { transform: rotate(90deg); }
 .lernen-spalte { container: lernen / inline-size; width: 100%; max-width: 1040px; margin-inline: auto; display: flex; flex-direction: column; gap: 0.75rem; }
 .lernen-spalte > * { flex-shrink: 0; }
 .lernen-ueben { display: grid; gap: 0.75rem; }
+/* Lernen offen: Metronom und Stimmgerät schweben über der Seite und ihren
+   Werkzeug-Seiten (sonst lägen sie darunter, obwohl der Knopf leuchtet). */
+.lernen-offen .dock { z-index: 47; }
+/* Arbeits-Blätter aus Lernen liegen in der App-Schale (./seite.tsx). Auf dem
+   iPad: ganze Seite über der Leiste, unter Widgets (47) und Leiste (50), der
+   Inhalt in derselben mittigen Spalte wie Lernen. Auf dem Handy ein Blatt wie
+   jedes andere (z 80 deckt auch dort Leiste und Widgets). */
+@media (min-width: 740px) {
+  .blatt-hintergrund.seite {
+    bottom: calc(var(--leiste-hoehe) + env(safe-area-inset-bottom, 0px)); z-index: 46;
+    background: var(--papier); align-items: stretch;
+  }
+  .blatt-hintergrund.seite > .blatt {
+    max-width: none; max-height: none; height: auto; border: 0; border-radius: 0; box-shadow: none;
+    padding: calc(1rem + env(safe-area-inset-top, 0px)) max(1.5rem, calc((100% - 1040px) / 2)) 1.5rem;
+  }
+}
 /* Breit: Stellen-Mix, Ohr-Trainer, Hör-Übungen nebeneinander, Stand unter dem Titel. */
 @container lernen (min-width: 680px) {
   .lernen-ueben { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -1865,6 +1882,14 @@ ol.stichpunkte { list-style: decimal; }
 .griff-karten { display: grid; grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr)); gap: 8px; }
 .griff-karte { display: flex; flex-direction: column; gap: 6px; align-items: center; text-align: center; padding: 8px; border: 1px solid var(--linie); border-radius: 6px; }
 .griff-karte p { margin: 0; font-size: 0.8rem; line-height: 1.3; }
+/* Als ganze Seite auf dem iPad (aus Lernen): Griffbilder und Klaviatur größer. */
+@media (min-width: 740px) {
+  .seite .griff-bild { width: 11rem; }
+  .seite .griff-bild.klein { width: 6.5rem; }
+  .seite .griff-karten { grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr)); }
+  .seite .griff-klavier { height: 4.2rem; }
+  .seite .griff-legende { font-size: 1rem; }
+}
 button.ohr-note { background: none; color: inherit; font: inherit; cursor: pointer; }
 .griff-skill { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin-top: 4px; }
 /* Swing-Metronom (I-17): feste Höhe, nichts rutscht; Nicht-Mögliches ist abgeblendet. */
@@ -1995,6 +2020,18 @@ button.ohr-note { background: none; color: inherit; font: inherit; cursor: point
 .et-tempo-zahl span { font-size: 0.65rem; color: var(--gedaempft); letter-spacing: 0.08em; }
 .et-hinweis { min-height: 2.6em; margin: 0; }
 .et-noten { width: 100%; padding: 6px 0 4px; border-top: 1px solid var(--linie); }
+/* Die Einstellungen sind nur eine Klammer — untereinander wie bisher. Als
+   ganze Seite auf breitem Schirm (iPad quer): Einstellungen links, bleiben
+   beim Scrollen stehen; die Noten rechts über die volle Höhe. */
+.et-steuerung { display: contents; }
+.et-steuerung > * { flex-shrink: 0; }
+@media (min-width: 1000px) {
+  .seite .et-blatt { display: grid; grid-template-columns: minmax(0, 400px) minmax(0, 1fr); grid-template-rows: auto 1fr; column-gap: 32px; row-gap: 12px; align-items: start; }
+  .seite .et-blatt > .mix-blatt-kopf { grid-column: 1 / -1; }
+  .seite .et-steuerung { display: flex; flex-direction: column; gap: 10px; min-width: 0; position: sticky; top: 0; }
+  .seite .et-steuerung .harmonie-grundtoene { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .seite .et-noten { border-top: 0; padding-top: 0; }
+}
 .lk-zeile-stand { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
 .lk-zeile-stand small { font-size: 0.7rem; color: var(--gedaempft); white-space: nowrap; }
 .lk-staerke { display: inline-flex; gap: 3px; vertical-align: middle; }

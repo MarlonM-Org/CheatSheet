@@ -10,7 +10,7 @@ import { MetronomWidget } from './MetronomWidget';
 import { speicherBehalten, tagsLaden } from './lokal';
 import { NotenPult } from './NotenPult';
 import { ladeFehler, SpeicherHinweis } from './speicherfehler';
-import { ortUmschalten } from '@/domain/leiste';
+import { ortTippen } from '@/domain/leiste';
 import { mixBereichLesen, type MixBereich } from '@/domain/stellen';
 import { MixFertig, mixLaden, mixTitel, rundeSpeichern, type MixStand, type MixSteuerung } from './StellenMix';
 import { StimmgeraetAnbieter, useStimmgeraetApi } from './StimmgeraetKontext';
@@ -39,6 +39,10 @@ function Zentrale() {
   const [bibliothek, setBibliothek] = useState(() => gespeichert<string | null>('ueben:offen', null) === null && !mixBereichLesen(gespeichert<unknown>('ueben:mix-an', false)));
   // Lernen (B-18): der zweite Ort neben der Bibliothek, nie mit ihr zugleich.
   const [lernen, setLernen] = useState(false);
+  // Liegt ein Werkzeug darauf (iPad: ganze Seite, Leiste bedienbar)? Dann
+  // führt ein Tipp auf „Lernen“ zur Übersicht: Lernen baut sich neu auf.
+  const [lernenTief, setLernenTief] = useState(false);
+  const [lernenFassung, setLernenFassung] = useState(0);
   const [einstellungen, setEinstellungen] = useState(false);
   // Zählt hoch, wenn in den Einstellungen eine Sicherung geladen wurde —
   // die Bibliothek liest ihre Liste dann neu.
@@ -108,8 +112,9 @@ function Zentrale() {
 
   const umschalten = (ziel: 'lernen' | 'bibliothek' | 'metronom' | 'stimmgeraet') => {
     if (ziel === 'lernen' || ziel === 'bibliothek') {
-      const ort = ortUmschalten(lernen ? 'lernen' : bibliothek ? 'bibliothek' : null, ziel);
-      setLernen(ort === 'lernen'); setBibliothek(ort === 'bibliothek');
+      const { ort, zurUebersicht } = ortTippen(lernen ? 'lernen' : bibliothek ? 'bibliothek' : null, ziel, lernen && lernenTief);
+      if (zurUebersicht) setLernenFassung((f) => f + 1);
+      else { setLernen(ort === 'lernen'); setBibliothek(ort === 'bibliothek'); }
     }
     if (ziel === 'metronom') metroUmschalten(!metroAn);
     if (ziel === 'stimmgeraet') stimmUmschalten(!stimmAn);
@@ -124,7 +129,7 @@ function Zentrale() {
   const leisten = { leisteWeg, setLeisteWeg, navDa: !navWeg };
 
   return (
-    <div className={`app-schale ${navWeg ? 'nav-weg' : ''}`}>
+    <div className={`app-schale ${navWeg ? 'nav-weg' : ''} ${lernen ? 'lernen-offen' : ''}`}>
       <SpeicherHinweis />
       <main className="buehne">
         {mixAn ? (
@@ -159,7 +164,8 @@ function Zentrale() {
           aktualisiert={aktualisiert} escapeAktiv={!dialogOffen} stand={bibStand} />
       )}
       {lernen && (
-        <Lernen schliessen={() => setLernen(false)} escapeAktiv={!dialogOffen} stand={bibStand} mixStarten={mixStarten} mixAktiv={mixBereich} />
+        <Lernen key={lernenFassung} schliessen={() => setLernen(false)} escapeAktiv={!dialogOffen} stand={bibStand}
+          mixStarten={mixStarten} mixAktiv={mixBereich} tiefMelden={setLernenTief} />
       )}
       {einstellungen && <Einstellungen schliessen={() => setEinstellungen(false)} geaendert={() => setBibStand((n) => n + 1)} />}
 

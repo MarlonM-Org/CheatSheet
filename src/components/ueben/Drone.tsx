@@ -12,6 +12,7 @@ import { audioSitzung, gespeichert, speichern, useBeimVerlassen, verwerfen, wach
 import { klingend } from './klavier';
 import { useStimmgeraetApi } from './StimmgeraetKontext';
 import { useDialogFokus, useEscape } from './tasten';
+import { useSeite } from './seite';
 
 // Drone (I-18): ein ruhiger Liegeklang (Grundton, Quinte, Akkord- oder
 // Modusfarbe) zum Improvisieren und Intonieren. Erzeugt, keine Datei.
@@ -194,6 +195,7 @@ const KLASSEN = Array.from({ length: 12 }, (_, i) => i);
 
 // Blatt „Drone“. `grundton`: damit öffnen (notierte MIDI-Zahl oder Tonklasse), sonst die zuletzt gewählte Tonart.
 export function DroneBlatt({ schliessen, grundton }: { schliessen: () => void; grundton?: number }) {
+  const seite = useSeite();
   const fokus = useDialogFokus<HTMLDivElement>();
   const stimm = useStimmgeraetApi();
   const drone = useDrone();
@@ -213,7 +215,7 @@ export function DroneBlatt({ schliessen, grundton }: { schliessen: () => void; g
   const optionen = () => ({ grundton: ein.grundton, farbe: ein.farbe, lautstaerke: ein.laut, stimmung: stimm.stimmung, kammerton: stimm.kammerton });
 
   return createPortal(
-    <div className="blatt-hintergrund" onClick={schliessen}>
+    <div className={`blatt-hintergrund${seite.klasse}`} onClick={schliessen}>
       <div ref={fokus} tabIndex={-1} className="blatt space-y-4" role="dialog" aria-modal="true" aria-label="Drone" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
@@ -258,6 +260,6 @@ export function DroneBlatt({ schliessen, grundton }: { schliessen: () => void; g
         </div>
       </div>
     </div>,
-    document.body,
+    seite.ziel,
   );
 }

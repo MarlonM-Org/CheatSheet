@@ -14,6 +14,7 @@ import { skillGeuebt } from './skillspeicher';
 import { SpickzettelBlatt, type Eingabe } from './Spickzettel';
 import { useStimmgeraetApi } from './StimmgeraetKontext';
 import { useDialogFokus, useEscape } from './tasten';
+import { useSeite } from './seite';
 
 // Jam-Karte (I-19): Session-Stücke mit Form, Tonart und Akkorden je Takt —
 // klingend gespeichert, für dich notiert gezeigt (Stimmung aus dem
@@ -26,6 +27,7 @@ const laden = () => jamStueckeLesen(gespeichert<unknown>(JAM_SCHLUESSEL, []));
 const neueId = () => `eigen-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;
 
 export function JamKarteBlatt({ schliessen }: { schliessen: () => void }) {
+  const seite = useSeite();
   const fokus = useDialogFokus<HTMLDivElement>();
   const kopf = useId();
   const { stimmung } = useStimmgeraetApi();
@@ -55,7 +57,7 @@ export function JamKarteBlatt({ schliessen }: { schliessen: () => void }) {
   };
 
   return (<>{createPortal(
-    <div className="blatt-hintergrund" onClick={schliessen}>
+    <div className={`blatt-hintergrund${seite.klasse}`} onClick={schliessen}>
       <div ref={fokus} tabIndex={-1} className="blatt harmonie-blatt jam-blatt" role="dialog" aria-modal="true" aria-labelledby={kopf} onClick={(e) => e.stopPropagation()}>
         <div className="mix-blatt-kopf">
           {stueck && <button type="button" className="knopf knopf-leise knopf-klein" onClick={zurueck} aria-label="Zurück zur Liste">‹ Alle</button>}
@@ -105,7 +107,7 @@ export function JamKarteBlatt({ schliessen }: { schliessen: () => void }) {
         )}
       </div>
     </div>,
-    document.body,
+    seite.ziel,
   )}
   {spick && <SpickzettelBlatt akkord={spick.akkord} eingabe={spick.eingabe} ueber schliessen={() => setSpick(null)} />}
   {formular && (

@@ -10,6 +10,7 @@ import { useMetronom } from './MetronomKontext';
 import { skillGeuebt } from './skillspeicher';
 import { useStimmgeraetApi } from './StimmgeraetKontext';
 import { useDialogFokus, useEscape } from './tasten';
+import { useSeite } from './seite';
 
 // Griffweisen (I-13): Grifftabelle der B-Klarinette (Böhm 17/6) als
 // Zeichnung. Ton wählen (Schritt, Duodezime, kleine Klaviatur) oder per
@@ -100,6 +101,7 @@ function Klaviatur({ midi, waehlen }: { midi: number; waehlen: (m: number) => vo
 }
 
 export function GriffeBlatt({ schliessen, midi: anfang }: { schliessen: () => void; midi?: number }) {
+  const seite = useSeite();
   const fokus = useDialogFokus<HTMLDivElement>();
   const stimm = useStimmgeraetApi();
   const metro = useMetronom();
@@ -153,7 +155,7 @@ export function GriffeBlatt({ schliessen, midi: anfang }: { schliessen: () => vo
   );
 
   return createPortal(
-    <div className="blatt-hintergrund" onClick={zu}>
+    <div className={`blatt-hintergrund${seite.klasse}`} onClick={zu}>
       <div ref={fokus} tabIndex={-1} className="blatt space-y-4" role="dialog" aria-modal="true" aria-label="Griffweisen" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
@@ -241,6 +243,6 @@ export function GriffeBlatt({ schliessen, midi: anfang }: { schliessen: () => vo
         <p className="gedaempft text-xs">Quelle: The Woodwind Fingering Guide (wfg.woodwind.org), Böhm-Klarinette 17 Klappen / 6 Ringe.</p>
       </div>
     </div>,
-    document.body,
+    seite.ziel,
   );
 }

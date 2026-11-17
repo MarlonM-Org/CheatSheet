@@ -288,10 +288,39 @@ steht nicht mehr ganz links.
   Werkzeug-Spalten; schmaler bleibt alles wie auf dem iPhone. Lange Namen
   der Werkzeuge werden getrennt statt abgeschnitten. Geprüft im Browser bei
   820 × 1180, 1180 × 820 und 390 × 844: nichts läuft über.
+- **Rückmeldung iPad, zweite Runde (2026-11-17):** „Die Noten können ruhig
+  auf dem großen Bildschirm wie meine normalen Stücke angezeigt werden —
+  ich hätte gerne mein ganzes iPad in Funktion.“ Seitdem werden die
+  Arbeits-Blätter aus Lernen auf dem iPad (ab 740 px) zur **ganzen Seite**
+  über der Leiste: alle Werkzeuge, Ohr-Trainer, Hör-Übung und Skill-Kartei;
+  der Inhalt in derselben mittigen Spalte wie Lernen, „Fertig“ führt zur
+  Übersicht zurück. Auswahl- und Rückfrage-Blätter (Mix-Optionen,
+  Hör-Auswahl, Markierung, Skill-Detail, Formulare) bleiben klein; über den
+  Noten (Spickzettel aus der Spielhilfe) und auf dem Handy bleibt alles
+  ein Blatt (`seite.tsx`: Kontext `GrosseSeiten` aus Lernen).
+  - **Leiste bleibt bedienbar:** Die Seiten liegen in der App-Schale unter
+    Widgets und Leiste. Metronom und Stimmgerät schweben darüber — auch
+    über der Lernen-Übersicht selbst; vorher lag das Widget *unter* Lernen,
+    obwohl der Knopf leuchtete (Fehler aus dem ersten Umbau, behoben).
+  - **Tipp auf „Lernen“** bei offenem Werkzeug führt zur Lernen-Übersicht
+    zurück wie ein Tab auf dem iPhone; erst der nächste Tipp schließt
+    Lernen (`ortTippen` in `src/domain/leiste.ts`, getestet).
+  - **Etüden quer** (ab 1000 px): Einstellungen links, bleiben beim Scrollen
+    stehen, die Noten rechts über die volle Höhe — sieben Tonarten auf
+    einen Blick statt einer. Hochkant untereinander, Noten in voller Breite
+    (Notensystem etwa so groß wie in einer Stimme, die die Breite füllt).
+  - **Griffweisen** als Seite: Griffbild und Klaviatur größer.
+  - Grenze: Wechselt die Breite über 740 px, während ein Werkzeug offen ist
+    (Split View), wechselt nur das Aussehen — der Inhalt bleibt.
 
 **Auf dem Gerät prüfen:**
 - iPad hoch und quer: Lernen füllt den Bildschirm, alle Kachel-Texte bleiben
   in ihren Kacheln, „Heute“ in drei Spalten.
+- iPad: Etüden öffnen → ganze Seite, Leiste unten sichtbar; Metronom an →
+  Widget schwebt über den Etüden; Tipp auf „Lernen“ → Übersicht, noch einer →
+  Noten. Quer: Einstellungen links, Noten rechts, Scrollen lässt die
+  Einstellungen stehen. Ohr-Trainer als Seite: Mikrofon und Klick wie vorher.
+- iPhone: Werkzeuge bleiben Blätter von unten wie bisher.
 - iPhone hochkant: vier Knöpfe gut zu treffen, nichts abgeschnitten; Lernen
   → Lernen leuchtet; noch ein Tipp → zurück zu den Noten; Noten bei offenem
   Lernen → Bibliothek ersetzt Lernen.

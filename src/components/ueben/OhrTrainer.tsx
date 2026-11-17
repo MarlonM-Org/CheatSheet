@@ -16,6 +16,7 @@ import { useMetronom } from './MetronomKontext';
 import { useMikrofonSpur } from './mikrofonspur';
 import { useStimmgeraetApi } from './StimmgeraetKontext';
 import { useDialogFokus, useEscape } from './tasten';
+import { useSeite } from './seite';
 
 // Ohr-Trainer (I-01): Die App zählt einen Takt ein und spielt eine kurze
 // Phrase vor, dann spielt man sie nach (der Klick läuft weiter), das Mikrofon
@@ -75,6 +76,7 @@ type Ansicht = 'bereit' | 'laeuft' | 'ergebnis';
 
 // `stufe`: mit dieser Stufe öffnen (aus der Skill-Kartei, I-07).
 export function OhrTrainerBlatt({ schliessen, stufe: anfangsStufe }: { schliessen: () => void; stufe?: StufenId }) {
+  const seite = useSeite();
   const fokus = useDialogFokus<HTMLDivElement>();
   const stimm = useStimmgeraetApi();
   const metro = useMetronom();
@@ -155,7 +157,7 @@ export function OhrTrainerBlatt({ schliessen, stufe: anfangsStufe }: { schliesse
   const letzte = verlauf.filter((r) => r.stufe === ein.stufe).slice(-8);
 
   return createPortal(
-    <div className="blatt-hintergrund" onClick={zu}>
+    <div className={`blatt-hintergrund${seite.klasse}`} onClick={zu}>
       <div ref={fokus} tabIndex={-1} className="blatt space-y-4" role="dialog" aria-modal="true" aria-label="Ohr-Trainer" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
@@ -269,7 +271,7 @@ export function OhrTrainerBlatt({ schliessen, stufe: anfangsStufe }: { schliesse
         {griff !== null && <GriffeBlatt midi={griff} schliessen={() => setGriff(null)} />}
       </div>
     </div>,
-    document.body,
+    seite.ziel,
   );
 }
 
