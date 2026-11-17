@@ -3,9 +3,11 @@
 import { useEffect, useRef, useState } from 'react';
 
 // Eine kleine, nur gezeigte Notenzeile aus ABC-Text (abcjs, erst bei Bedarf
-// geladen) — für Spickzettel, Etüden, Licks. Füllt die Breite, zeichnet bei
-// Größenänderung neu, Farbe aus dem Thema. Die Höhe ist reserviert
-// (`hoehe`), damit nichts springt, während abcjs lädt.
+// geladen) — für Spickzettel, Etüden, Licks, Griffweisen. Füllt die Breite,
+// zeichnet bei Größenänderung neu, Farbe aus dem Thema. Die Höhe ist
+// reserviert (`hoehe`), damit nichts springt, während abcjs lädt. Mehrere
+// Notenbilder im Text (X:1, X:2 … — die Etüden: eins je Tonart, damit jede
+// ihre Vorzeichen vorne hat) stehen untereinander.
 
 export function AbcZeile({ abc, hoehe = 96, label, umbrechen = true }: {
   abc: string; hoehe?: number; label?: string;
@@ -31,13 +33,16 @@ export function AbcZeile({ abc, hoehe = 96, label, umbrechen = true }: {
     const tinte = getComputedStyle(el).getPropertyValue('--tinte').trim() || '#222';
     void import('abcjs').then((m) => {
       if (!aktuell || !bild.current) return;
-      const zeichnen = (skala: number) => m.renderAbc(bild.current!, abc, {
+      const stuecke = abc.split(/\n(?=X:)/).filter((t) => t.trim());
+      const ziele = stuecke.map(() => document.createElement('div'));
+      bild.current.replaceChildren(...ziele);
+      const zeichnen = (skala: number) => stuecke.forEach((t, i) => m.renderAbc(ziele[i], t, {
         add_classes: true, paddingtop: 0, paddingbottom: 0, paddingleft: 0, paddingright: 0,
         scale: skala, staffwidth: (breite - 8) / skala, foregroundColor: tinte,
         // Schmal (Handy): umbrechen statt abschneiden.
         // Feste Zeilen: auf die Breite verkleinern, falls eine nicht passt.
         ...(umbrechen ? { wrap: { minSpacing: 1.4, maxSpacing: 2.6, preferredMeasuresPerLine: breite < 560 ? 2 : 4 } } : { responsive: 'resize' as const }),
-      });
+      }));
       zeichnen(breite >= 560 ? 1.1 : 0.95);
       setFehler(false);
     }).catch(() => { if (aktuell) setFehler(true); });

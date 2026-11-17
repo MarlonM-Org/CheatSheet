@@ -1344,11 +1344,28 @@ Werkzeuge erreicht man auf der Seite **Lernen** (B-18) im Abschnitt **Werkzeuge*
   zeigt den Griff zum gespielten Ton). Im Ohr-Trainer-Ergebnis: Tipp auf
   eine Note zeigt den Griff. Daten sorgfältig gegen verlässliche Quellen
   (z. B. The Woodwind Fingering Guide) geprüft; Quelle im Code nennen.
+  **Rückmeldung 2026-11-17:** Auf der Klaviatur allein ist nicht zu
+  erkennen, welcher Ton gemeint ist — der gewählte Ton steht jetzt auch im
+  **Notenbild** (Violinschlüssel, ganze Note, Hilfslinien), geschrieben wie
+  der Name daneben (Cis, Es, Fis, As, B, H; `tonAbc`/`griffNotenbild` in
+  `src/domain/griffe.ts`, getestet E3…C7). Feste Box, damit beim Wechsel
+  nichts springt; auf dem iPad als Seite größer.
 - **I-14 · Generierte Etüden.** Muster durch alle 12 Tonarten (Quintenzirkel
   oder chromatisch): Dur-Tonleiter, Dreiklang- und Septakkord-Arpeggien,
   Guide-Tone-Linien durch ii–V–I, 1-2-3-5-Muster, Umspielungen. Notenzeile
   (abcjs), Tempo, Vorspielen mit Klick, Umfang auf den Klarinetten-Umfang
   geklemmt (Oktavlage je Tonart wählen). Zählt auf die Klarinetten-Skills.
+  **Rückmeldung 2026-11-17:** (1) Vorzeichen **vorne hinter dem Schlüssel**
+  („A-Dur hat 3 Kreuze“ auf einen Blick) — die Vorzeichen vor den Noten
+  bleiben zusätzlich stehen (beim ersten Mal im Takt); ein Stammton, den die
+  Tonart verändert, bekommt ein Auflösungszeichen (F-Dur: H als `=B`). Jede
+  Tonart ist ein eigenes Notenbild: In *einem* Notenbild setzte abcjs beim
+  Tonartwechsel Vorschau-Vorzeichen ans Zeilenende und Auflösungszeichen an
+  den Zeilenanfang (ausprobiert, zu unruhig). Takt 4/4 nur beim ersten.
+  (2) Über jeder Tonart die **klingende** nach der Stimmung aus dem
+  Stimmgerät: „E-Dur · klingt D-Dur“ (B), „E-Dur · klingt G-Dur“ (Es); bei C
+  nichts. Regeln in `abschnitteAbc` (`src/domain/etueden.ts`, getestet);
+  Licks ohne Tonart bleiben ein Notenbild in C wie bisher.
 - **I-15 · Spielhilfe in deinen Noten.** Zu einer Stelle Akkordsymbole je
   Takt eintragen (klingend oder notiert). In der Stelle: Akkord des
   aktuellen Takts groß, Akkordtöne, Guide Tones; Drone (I-18) auf dem

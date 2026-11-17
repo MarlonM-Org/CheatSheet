@@ -145,9 +145,10 @@ describe('ABC', () => {
     for (const m of MUSTER) for (const rh of RHYTHMEN) {
       const e = etuedeBauen({ muster: m.id, reihenfolge: 'quinten', start: 0, rhythmus: rh });
       const abc = abschnitteAbc(e.abschnitte);
-      pruefen(abc);
-      expect(abc.trim().split('\n').length).toBe(4 + 12);
-      pruefen(abschnitteAbc(e.abschnitte, { takteJeZeile: 2 }));
+      for (const t of abcjs.parseOnly(abc)) expect(t.warnings ?? [], abc).toEqual([]);
+      // Je Tonart ein Notenbild mit genau einer Notenzeile.
+      expect(abc.trim().split('\n').filter((z) => z && !/^[A-Z]:/.test(z)).length).toBe(12);
+      for (const t of abcjs.parseOnly(abschnitteAbc(e.abschnitte, { takteJeZeile: 2 }))) expect(t.warnings ?? []).toEqual([]);
     }
   });
   it('Akkordsymbole über den Guide Tones', () => {
@@ -188,5 +189,59 @@ describe('Einstellung', () => {
     expect(istEtuedenEinstellung({ ...ETUEDEN_STANDARD, ober: 96 })).toBe(false);
     expect(istEtuedenEinstellung({ ...ETUEDEN_STANDARD, rhythmus: 'sechzehntel' })).toBe(false);
     expect(istEtuedenEinstellung(null)).toBe(false);
+  });
+});
+
+// Wunsch Marlon (2026-11-17): Vorzeichen vorne hinter dem Schlüssel — jede
+// Tonart ein eigenes Notenbild, damit abcjs keine Auflösungszeichen und keine
+// Vorschau-Tonart am Zeilenende setzt —, die Vorzeichen vor den Noten bleiben
+// zusätzlich stehen; darüber die klingende Tonart.
+describe('Vorzeichen vorne und klingende Tonart', () => {
+  const alle = (abc: string) => {
+    const tunes = abcjs.parseOnly(abc);
+    for (const t of tunes) expect(t.warnings ?? [], abc).toEqual([]);
+    return tunes;
+  };
+  it('jede Tonart ein eigenes Notenbild mit ihrer Tonart; Takt nur beim ersten', () => {
+    const abc = abschnitteAbc(etuedeBauen({ muster: 'tonleiter', reihenfolge: 'quinten', start: 0, rhythmus: 'achtel' }).abschnitte);
+    expect(alle(abc)).toHaveLength(12);
+    expect(abc).toContain('K:C clef=treble');
+    expect(abc).toContain('K:A clef=treble');
+    expect(abc).toContain('K:Db clef=treble');
+    expect(abc.match(/^M:4\/4$/gm)).toHaveLength(1);
+    expect(abc.match(/^M:none$/gm)).toHaveLength(11);
+    expect(abc.trim().endsWith('|]')).toBe(true);
+  });
+  it('die Vorzeichen vor den Noten bleiben zusätzlich stehen', () => {
+    const abc = abschnitteAbc(etuedeBauen({ muster: 'tonleiter', reihenfolge: 'eine', start: 9, rhythmus: 'achtel' }).abschnitte);
+    expect(abc).toContain('K:A clef=treble');
+    expect(abc).toMatch(/"\^A-Dur"A,2B,2\^C2D2 E2\^F2\^G2A2/);
+  });
+  it('ein Stammton, den die Tonart erhöht oder erniedrigt, bekommt ein Auflösungszeichen', () => {
+    // F-Dur, Umspielung von C: Halbton darunter ist H — gegen das B der Tonart.
+    const abc = abschnitteAbc(etuedeBauen({ muster: 'umspielung', reihenfolge: 'eine', start: 5, rhythmus: 'achtel' }).abschnitte);
+    expect(abc).toContain('K:F clef=treble');
+    expect(abc).toMatch(/=B|=b/);
+    alle(abc);
+    // In C-Dur gibt es nichts aufzulösen.
+    expect(abschnitteAbc(etuedeBauen({ muster: 'tonleiter', reihenfolge: 'eine', start: 0, rhythmus: 'achtel' }).abschnitte)).not.toMatch(/=[A-Ga-g]/);
+  });
+  it('Moll-Tonarten mit m', () => {
+    const abc = abschnitteAbc(etuedeBauen({ muster: 'dreiklangMoll', reihenfolge: 'eine', start: 0, rhythmus: 'achtel' }).abschnitte);
+    expect(abc).toContain('K:Cm clef=treble');
+  });
+  it('über jeder Tonart die klingende — B-Klarinette: notiert E-Dur klingt D-Dur', () => {
+    const e = etuedeBauen({ muster: 'tonleiter', reihenfolge: 'eine', start: 4, rhythmus: 'achtel' });
+    expect(abschnitteAbc(e.abschnitte, { stimmung: 'B' })).toContain('"^E-Dur · klingt D-Dur"');
+    expect(abschnitteAbc(e.abschnitte, { stimmung: 'Es' })).toContain('"^E-Dur · klingt G-Dur"');
+    expect(abschnitteAbc(e.abschnitte, { stimmung: 'C' })).toContain('"^E-Dur"E');
+    expect(abschnitteAbc(e.abschnitte)).toContain('"^E-Dur"E');
+  });
+  it('ohne Tonart (Licks) bleibt es ein Notenbild in C', () => {
+    const e = etuedeBauen({ muster: 'tonleiter', reihenfolge: 'quinten', start: 0, rhythmus: 'achtel' });
+    const abc = abschnitteAbc(e.abschnitte.map((a) => ({ titel: a.titel, ereignisse: a.ereignisse })));
+    expect(abcjs.parseOnly(abc)).toHaveLength(1);
+    expect(abc).toContain('K:C clef=treble');
+    expect(abc).not.toContain('M:none');
   });
 });

@@ -71,7 +71,8 @@ export function EtuedenBlatt({ schliessen }: { schliessen: () => void }) {
   const muster = musterVon(w.muster);
   const etuede = useMemo(() => etuedeBauen(w), [w]);
   const takte = takteFuer(breite, RHYTHMUS_TICKS[w.rhythmus]);
-  const abc = useMemo(() => abschnitteAbc(etuede.abschnitte, { takteJeZeile: takte }), [etuede, takte]);
+  // Je Tonart ein Notenbild mit Vorzeichen vorne, darüber die klingende Tonart.
+  const abc = useMemo(() => abschnitteAbc(etuede.abschnitte, { takteJeZeile: takte, stimmung }), [etuede, takte, stimmung]);
   const vorspielen = () => spielen(abschnitteKlaenge(etuede.abschnitte, w.bpm, { klick, vorzaehlen: klick ? 4 : 0 }));
   const vorliebe = w.reihenfolge === 'quinten' ? 'kreuz' : 'be';
   const geuebtMelden = () => {

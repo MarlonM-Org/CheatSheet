@@ -1862,6 +1862,9 @@ ol.stichpunkte { list-style: decimal; }
 .griff-schritte .rund-knopf:disabled { opacity: 0.35; }
 .griff-ton { flex: 1; display: flex; flex-direction: column; align-items: center; min-width: 0; }
 .griff-ton strong { font-size: 1.9rem; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+/* Notenbild des Tons: feste Box, die Note mit Hilfslinien darin (E3 … C7). */
+.griff-noten { width: 6.5rem; height: 7.5rem; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.griff-noten .abc-zeile { width: 100%; }
 .griff-ton span { font-size: 0.8rem; color: var(--gedaempft); white-space: nowrap; }
 .griff-klavier { position: relative; display: flex; height: 3.2rem; }
 .griff-klavier-taste { flex: 1; border: 1px solid var(--linie-stark); border-right-width: 0; background: var(--karte); }
@@ -1889,6 +1892,7 @@ ol.stichpunkte { list-style: decimal; }
   .seite .griff-karten { grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr)); }
   .seite .griff-klavier { height: 4.2rem; }
   .seite .griff-legende { font-size: 1rem; }
+  .seite .griff-noten { width: 9rem; height: 10rem; }
 }
 button.ohr-note { background: none; color: inherit; font: inherit; cursor: pointer; }
 .griff-skill { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin-top: 4px; }

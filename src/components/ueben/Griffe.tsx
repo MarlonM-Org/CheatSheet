@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { BEREICH, griffeFuer, LAGE_NAMEN, lageVon, tastenName, type Griff, type Taste } from '@/domain/griffe';
+import { BEREICH, griffeFuer, griffNotenbild, LAGE_NAMEN, lageVon, tastenName, type Griff, type Taste } from '@/domain/griffe';
 import { tonName } from '@/domain/tonprofil';
 import { STIMMUNGEN, type Ton } from '@/domain/ueben';
+import { AbcZeile } from './AbcZeile';
 import { vorspielen, type Vorspiel } from './klavier';
 import { useMetronom } from './MetronomKontext';
 import { skillGeuebt } from './skillspeicher';
@@ -170,6 +171,10 @@ export function GriffeBlatt({ schliessen, midi: anfang }: { schliessen: () => vo
             {knopf('⇊', midi - DUODEZIME, 'Duodezime tiefer (Register)')}
             {knopf('−', midi - 1, 'Halbton tiefer')}
             <div className="griff-ton" aria-live="polite">
+              {/* Der Ton im Notenbild, mit Hilfslinien (Wunsch 2026-11-17). Feste Höhe: nichts springt. */}
+              <div className="griff-noten">
+                <AbcZeile abc={griffNotenbild(midi)} hoehe={0} umbrechen={false} label={`${tonName(midi)} im Notenbild`} />
+              </div>
               <strong>{tonName(midi)}</strong>
               <span>{LAGE_NAMEN[lage]}{stimm.stimmung !== 'C' ? ` · klingt ${tonName(klingt)}` : ''}</span>
             </div>
