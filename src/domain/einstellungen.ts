@@ -10,6 +10,7 @@
 // der Tagesstand von „Heute“ (ueben:heute), woraus der Stellen-Mix auf der
 // Lernen-Seite mischt (ueben:mix-woraus).
 // Tags und Tonprofile haben eigene Felder.
+// Ebenfalls am Gerät: Ansicht und Eingrenzung der Stückauswahl (ueben:stueckwahl, F-23).
 //
 // Auf dem Gerät liegen die Werte im localStorage (JSON) unter ihrem
 // Schlüssel; dazu der Zeitpunkt der letzten echten Änderung

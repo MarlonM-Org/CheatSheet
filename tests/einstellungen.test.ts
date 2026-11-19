@@ -23,6 +23,7 @@ describe('Welche Einstellungen mitreisen', () => {
     for (const k of ['ueben:modus', 'ueben:thema-hell', 'ueben:thema-dunkel', 'ueben:lage-metronom', 'metro:bpm', 'ueben:metronom-an',
       'ueben:offen', 'ueben:zuletzt', 'ueben:sort', 'ueben:sammlung', 'ueben:tag', 'ueben:mix', 'ueben:mix-an', 'ueben:mix-offen',
       'ueben:letzte-sicherung', 'ueben:sicherung-erinnern', 'ueben:geloescht', 'ueben:tags', 'ueben:tonprofile', 'ueben:ohr-verlauf', 'ueben:heute', 'ueben:tonleiter-grundton', 'ueben:tonleiter-art',
+      'ueben:stueckwahl',
       EINSTELLUNGEN_STAND, 'toString', '__proto__', 'constructor']) {
       expect(istMitreisend(k), k).toBe(false);
     }

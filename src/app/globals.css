@@ -1126,6 +1126,36 @@ small .stern { display: inline-block; width: 0.95em; height: 0.95em; vertical-al
 .sammlung-wahl { border: 1px solid var(--linie); border-radius: 6px; overflow: hidden; }
 .sammlung-wahl li + li { border-top: 1px solid var(--linie); }
 .sammlung-wahl label { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 0 12px; cursor: pointer; font-weight: 600; }
+/* Stückauswahl nach Sammlungen (F-23, ./StueckWahl.tsx): ein Knopf wie ein
+   Auswahlfeld, das Blatt liegt über allem (auch über „Neue Aufnahme“, 85).
+   Feste Höhe: Ansicht und Sammlung wechseln nur die Liste, nichts rückt. */
+.sw-knopf { display: flex; align-items: center; gap: 8px; text-align: left; font-weight: 600; }
+.sw-knopf:disabled { opacity: 0.5; }
+.sw-knopf-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sw-knopf svg { flex: none; width: 16px; height: 16px; fill: none; stroke: var(--gedaempft); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.sw-hintergrund { z-index: 88; }
+.sw-blatt { display: flex; flex-direction: column; gap: 10px; height: 88vh; overflow: hidden; padding-bottom: 0; }
+.sw-blatt > * { flex-shrink: 0; }
+@media (min-width: 640px) { .sw-blatt { height: min(80vh, 46rem); max-width: 30rem; } }
+.sw-oben { display: flex; align-items: center; gap: 12px; min-height: 28px; margin-bottom: -6px; }
+.sw-titel { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+.sw-ansicht { margin: 0; }
+.sw-ansicht button { padding-inline: 0.6rem; }
+.sw-liste {
+  flex: 1 1 0 !important; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 12px;
+  margin: 0 -1.25rem; padding: 2px 1.25rem calc(1.5rem + env(safe-area-inset-bottom, 0px));
+}
+.sw-liste > * { flex-shrink: 0; }
+.sw-kopf { position: sticky; top: -2px; z-index: 1; display: flex; align-items: baseline; gap: 6px; padding: 6px 2px 5px; background: var(--karte); }
+.sw-gruppe { border: 1px solid var(--linie); border-radius: 6px; overflow: hidden; }
+.sw-gruppe li + li { border-top: 1px solid var(--linie); }
+.sw-zeile { width: 100%; display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 6px 12px; text-align: left; }
+.sw-zeile:active { background: var(--flaeche); }
+.sw-zeile[aria-checked="true"] { background: var(--messing-hell); }
+.sw-zeile-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+/* Lange Titel brechen um statt „…“ — beim Wählen zählt jedes Wort. */
+.sw-zeile-text > * { white-space: normal; overflow-wrap: anywhere; }
+.sw-haken { flex: none; width: 1rem; font-weight: 800; color: var(--messing); }
 @media (pointer: coarse) { .sammlung-chip { min-height: 2.5rem; } }
 
 /* „+ Noten“ mit Menü; die Zielsammlung steht unübersehbar oben. */
