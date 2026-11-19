@@ -34,13 +34,14 @@ function Staerke({ wert }: { wert: number }) {
   );
 }
 
-export function LicksBlatt({ schliessen }: { schliessen: () => void }) {
+// `lick`: gleich diesen Lick zeigen (aus „Heute“, I-09), sonst die Liste.
+export function LicksBlatt({ schliessen, lick: anfang }: { schliessen: () => void; lick?: string }) {
   const seite = useSeite();
   const fokus = useDialogFokus<HTMLDivElement>();
   const kopf = useId();
   const { spielen, stopp, laeuft, stimmung } = useKlickSpieler();
   const [sp, setSpRoh] = useState<LickSpeicher>(laden);
-  const [gewaehlt, setGewaehlt] = useState<string | null>(null);
+  const [gewaehlt, setGewaehlt] = useState<string | null>(anfang ?? null);
   const [formular, setFormular] = useState<{ lick: Lick | null } | null>(null);
   const [jetzt] = useState(() => Date.now());
   useEinstellungenGeladen(useCallback(() => setSpRoh(laden()), []));

@@ -246,94 +246,183 @@ export function imFilter(s: SkillStand | undefined, f: Filter, jetzt: number): b
   }
 }
 
-// ── „Heute“ (I-09): drei Blöcke à 10 Minuten ──
+// ── „Heute“ (I-09): Blöcke aus den „Lerne ich“-Skills ──
+//
+// Umbau 2026-11-19 (Wunsch Marlon: „in ‚Heute‘ stecken die Skills, die ich
+// als ‚Ich lerne‘ markiert habe“). Keine festen Fächer Ohr/Stück/Impro mehr.
+// • Rahmen (Leitlinie I): bis zu drei Blöcke à 10 Minuten, Wochenziel 4 Einheiten.
+// • Blöcke kommen aus „Lerne ich“, aus allen Bereichen — zuerst, was am
+//   längsten nicht geübt wurde. Bei mehr als drei rotiert es so über die Tage:
+//   Geübtes rückt nach hinten.
+// • Weniger als drei „Lerne ich“: aufgefüllt mit ☆ „Will ich“ (am längsten
+//   nicht geübt zuerst), dann mit Verblasstem (am stärksten zuerst, auch
+//   „kann“) — der Block sagt, dass er aufgefüllt ist. Reicht auch das nicht,
+//   gibt es weniger Blöcke. Nie: „Gerade nicht“, Sicheres, Unberührtes.
+// • Kein „Lerne ich“: keine Blöcke (die Ansicht zeigt den Weg zur Kartei).
+// • Ein Block ist erledigt, sobald sein Skill heute geübt wurde — gleich wo:
+//   Runde einer Übung, „Geübt“ in einem Werkzeug, „Erledigt“ im Block.
+//   Sind alle erledigt, zählt der Tag als Einheit.
+// • Der Tagesplan (Skill-ids je Block) wird festgehalten, sobald er gezeigt
+//   wurde: Üben verschiebt nichts. Er ändert sich nur, wenn ein Block nicht
+//   mehr passt (Markierung geändert → Ersatz an derselben Stelle), wenn ein
+//   neues „Lerne ich“ eine offene Auffüllung verdrängt (an ihrer Stelle) oder
+//   durch „Anderer Vorschlag“ (nur dieser Block).
 
-export const BLOECKE = ['ohr', 'stueck', 'impro'] as const;
-export type Block = (typeof BLOECKE)[number];
-export const BLOCK_NAMEN: Record<Block, string> = { ohr: 'Ohr', stueck: 'Stück / Mitspielen', impro: 'Impro' };
+export const BLOECKE_MAX = 3;
+export const BLOCK_MINUTEN = 10;
 export const WOCHENZIEL = 4;
 
-const imBlock = (b: Block, s: Skill) => (b === 'ohr' ? !!s.uebung
-  : b === 'stueck' ? !s.uebung && (s.bereich === 'repertoire' || s.bereich === 'mitspielen')
-    : !s.uebung && s.bereich === 'impro');
+/** Warum ein Skill in „Heute“ steht: gerade dran, oder Auffüllung (☆ oder verblasst). */
+export type HeuteArt = 'lerne' | 'will' | 'verblasst';
+export const istAuffuellung = (a: HeuteArt | null | undefined) => a === 'will' || a === 'verblasst';
 
-// Voraussetzungen erfüllt: jede sicher oder wenigstens vertraut (wirksam ≥ 2).
-export const voraussetzungenErfuellt = (s: Skill, sp: SkillSpeicher, jetzt: number) =>
-  s.voraussetzungen.every((v) => istSicher(sp[v], jetzt) || wirksameStufe(sp[v], jetzt) >= 2);
-
-// Kandidaten eines Blocks, beste zuerst. Reihenfolge:
-// 1. „lerne“, 2. „will“ (je zuerst, was am längsten nicht geübt wurde),
-// 3. Verblasstes (am stärksten verblasst zuerst; auch „kann“ — nur so kommt es vor),
-// 4. Offenes, noch nicht Sicheres (Voraussetzungen erfüllt zuerst, dann Katalog-Reihenfolge),
-// 5. Offenes, schon Sicheres (nur, wenn sonst nichts bleibt).
-// Nie: „pause“; „kann“, solange nicht verblasst.
-export function heuteKandidaten(b: Block, sp: SkillSpeicher, jetzt: number, verfuegbar: (s: Skill) => boolean = () => true,
-  katalog: readonly Skill[] = SKILLS): Skill[] {
-  const bewertet: { s: Skill; klasse: number; wert: number; i: number }[] = [];
-  katalog.forEach((s, i) => {
-    if (!imBlock(b, s) || !verfuegbar(s)) return;
-    const st = sp[s.id];
-    const m = markierungVon(st);
-    const welk = verblasst(st, jetzt);
-    if (m === 'pause' || (m === 'kann' && !welk)) return;
-    const zuletzt = st?.zuletzt ?? 0;
-    if (m === 'lerne') bewertet.push({ s, klasse: 0, wert: zuletzt, i });
-    else if (m === 'will') bewertet.push({ s, klasse: 1, wert: zuletzt, i });
-    else if (welk) bewertet.push({ s, klasse: 2, wert: staerke(st, jetzt), i });
-    else if (!istSicher(st, jetzt)) bewertet.push({ s, klasse: 3, wert: voraussetzungenErfuellt(s, sp, jetzt) ? 0 : 1, i });
-    else bewertet.push({ s, klasse: 4, wert: zuletzt, i });
-  });
-  return bewertet.sort((x, y) => x.klasse - y.klasse || x.wert - y.wert || x.i - y.i).map((x) => x.s);
+// Kommt der Skill in „Heute“ vor, und als was? null: nie (pausiert, sicher, unberührt).
+export function heuteArt(s: SkillStand | undefined, jetzt: number): HeuteArt | null {
+  const m = markierungVon(s);
+  if (m === 'pause') return null;
+  if (m === 'lerne' || m === 'will') return m;
+  return verblasst(s, jetzt) ? 'verblasst' : null;
 }
 
-// Tagesstand der Einheit (am Gerät): „Anderer Vorschlag“ je Block, Erledigtes
-// (Block → Skill-id) und die Tage, an denen eine ganze Einheit geschafft wurde.
-export interface HeuteStand { tag: string; wechsel: Partial<Record<Block, number>>; erledigt: Partial<Record<Block, string>>; einheiten: string[] }
+// Heute (Kalendertag) schon geübt — in „Heute“ oder anderswo.
+export const heuteGeuebt = (s: SkillStand | undefined, jetzt: number) => s?.zuletzt !== undefined && tageSeit(s.zuletzt, jetzt) <= 0;
+
+export interface HeuteKandidat { skill: Skill; art: HeuteArt }
+
+// Alle Kandidaten, beste zuerst: „Lerne ich“, dann ☆ (je am längsten nicht
+// geübt zuerst), dann Verblasstes (am stärksten zuerst); bei Gleichstand
+// die Reihenfolge des Katalogs.
+export function heuteKandidaten(sp: SkillSpeicher, jetzt: number, verfuegbar: (s: Skill) => boolean = () => true,
+  katalog: readonly Skill[] = SKILLS): HeuteKandidat[] {
+  const KLASSE: Record<HeuteArt, number> = { lerne: 0, will: 1, verblasst: 2 };
+  const bewertet: { k: HeuteKandidat; klasse: number; wert: number; i: number }[] = [];
+  katalog.forEach((skill, i) => {
+    if (!verfuegbar(skill)) return;
+    const st = sp[skill.id];
+    const art = heuteArt(st, jetzt);
+    if (!art) return;
+    bewertet.push({ k: { skill, art }, klasse: KLASSE[art], wert: art === 'verblasst' ? staerke(st, jetzt) : (st?.zuletzt ?? 0), i });
+  });
+  return bewertet.sort((x, y) => x.klasse - y.klasse || x.wert - y.wert || x.i - y.i).map((x) => x.k);
+}
+
+// Tagesstand (am Gerät, `ueben:heute`): der Plan des Tages (Skill-ids je
+// Block, höchstens drei) und die Tage, an denen eine ganze Einheit geschafft wurde.
+export interface HeuteStand { tag: string; plan: string[]; einheiten: string[] }
 const EINHEITEN_MAX = 60;
-const istBlock = (k: string): k is Block => (BLOECKE as readonly string[]).includes(k);
 const TAG_MUSTER = /^\d{4}-\d{2}-\d{2}$/;
+// Blöcke des Stands bis 2026-11-19, in ihrer Reihenfolge.
+const ALTE_BLOECKE = ['ohr', 'stueck', 'impro'] as const;
 
-export const heuteLeer = (jetzt: number): HeuteStand => ({ tag: tagSchluessel(jetzt), wechsel: {}, erledigt: {}, einheiten: [] });
+export const heuteLeer = (jetzt: number): HeuteStand => ({ tag: tagSchluessel(jetzt), plan: [], einheiten: [] });
 
-// Gespeicherten Stand lesen; an einem neuen Tag beginnt die Einheit frisch (die Einheiten bleiben).
+// Gespeicherten Stand lesen, nachsichtig. An einem neuen Tag beginnt der Plan
+// frisch (die Einheiten bleiben). Ein Stand der alten Form (Blöcke
+// ohr/stueck/impro mit `wechsel` und `erledigt`) vom selben Tag: Was dort
+// erledigt war, wird zu den ersten Blöcken des Plans — sein Skill ist heute
+// geübt, also gilt der Block als erledigt. Die Vorschlags-Wechsel entfallen.
 export function heuteLesen(roh: unknown, jetzt: number): HeuteStand {
   const leer = heuteLeer(jetzt);
   if (!objekt(roh)) return leer;
   const einheiten = Array.isArray(roh.einheiten)
     ? [...new Set(roh.einheiten.filter((t): t is string => typeof t === 'string' && TAG_MUSTER.test(t)))].sort().slice(-EINHEITEN_MAX) : [];
   if (roh.tag !== leer.tag) return { ...leer, einheiten };
-  const wechsel: HeuteStand['wechsel'] = {};
-  const erledigt: HeuteStand['erledigt'] = {};
-  if (objekt(roh.wechsel)) for (const [k, v] of Object.entries(roh.wechsel)) if (istBlock(k) && Number.isInteger(v) && (v as number) >= 0 && (v as number) < 1000) wechsel[k] = v as number;
-  if (objekt(roh.erledigt)) for (const [k, v] of Object.entries(roh.erledigt)) if (istBlock(k) && typeof v === 'string' && istSkillId(v)) erledigt[k] = v;
-  return { tag: leer.tag, wechsel, erledigt, einheiten };
+  const alt = objekt(roh.erledigt) ? roh.erledigt : null;
+  const roheIds: unknown[] = Array.isArray(roh.plan) ? roh.plan : alt ? ALTE_BLOECKE.map((b) => alt[b]) : [];
+  const plan = [...new Set(roheIds.filter((v): v is string => typeof v === 'string' && istSkillId(v)))].slice(0, BLOECKE_MAX);
+  return { tag: leer.tag, plan, einheiten };
 }
 
-export interface HeuteBlock { block: Block; skill: Skill | null; erledigt: boolean; anzahl: number }
+export interface HeuteBlock {
+  skill: Skill;
+  // null: weder „Lerne ich“ noch Auffüllung — nur ein heute schon erledigter Block.
+  art: HeuteArt | null;
+  erledigt: boolean;
+  // „Anderer Vorschlag“ möglich: „Lerne ich“ gegen „Lerne ich“, Auffüllung gegen Auffüllung.
+  tauschbar: boolean;
+}
+export interface HeuteVorschlag { bloecke: HeuteBlock[]; plan: string[]; lerne: number; fertig: boolean }
 
-// Der Vorschlag: je Block der Kandidat an der Stelle „wechsel“ (reihum);
-// ein erledigter Block zeigt den Skill, mit dem er erledigt wurde.
+// Wogegen sich der Block an Stelle i tauschen lässt, in Kandidaten-Reihenfolge
+// (er selbst eingeschlossen): gleiche Gruppe, nicht in einem anderen Block,
+// heute noch nicht geübt.
+function tauschKreis(plan: readonly string[], i: number, kandidaten: readonly HeuteKandidat[], sp: SkillSpeicher, jetzt: number): string[] {
+  const eigene = kandidaten.find((k) => k.skill.id === plan[i])?.art;
+  if (!eigene) return [];
+  return kandidaten
+    .filter((k) => istAuffuellung(k.art) === istAuffuellung(eigene)
+      && (k.skill.id === plan[i] || (!plan.includes(k.skill.id) && !heuteGeuebt(sp[k.skill.id], jetzt))))
+    .map((k) => k.skill.id);
+}
+
+// Der Vorschlag für heute — aus dem festgehaltenen Plan (`h.plan`, wenn er von
+// heute ist), ergänzt und geprüft nach den Regeln oben. Rein; festgehalten
+// wird er mit `heuteFestschreiben`.
 export function heuteVorschlag(h: HeuteStand, sp: SkillSpeicher, jetzt: number, verfuegbar?: (s: Skill) => boolean,
-  katalog: readonly Skill[] = SKILLS): HeuteBlock[] {
-  return BLOECKE.map((block) => {
-    const kandidaten = heuteKandidaten(block, sp, jetzt, verfuegbar, katalog);
-    const fertig = h.erledigt[block];
-    if (fertig) return { block, skill: katalog.find((s) => s.id === fertig) ?? null, erledigt: true, anzahl: kandidaten.length };
-    const skill = kandidaten.length ? kandidaten[(h.wechsel[block] ?? 0) % kandidaten.length] : null;
-    return { block, skill, erledigt: false, anzahl: kandidaten.length };
+  katalog: readonly Skill[] = SKILLS): HeuteVorschlag {
+  const kandidaten = heuteKandidaten(sp, jetzt, verfuegbar, katalog);
+  const art = new Map(kandidaten.map((k) => [k.skill.id, k.art]));
+  const lerne = kandidaten.filter((k) => k.art === 'lerne').length;
+  const finden = (id: string) => katalog.find((s) => s.id === id);
+  const geuebt = (id: string) => heuteGeuebt(sp[id], jetzt);
+  const alt = h.tag === tagSchluessel(jetzt) ? h.plan.slice(0, BLOECKE_MAX) : [];
+
+  // 1. Behalten: Erledigtes immer, sonst was noch Kandidat ist; der Rest wird eine Lücke.
+  const gerade: (string | null)[] = alt.map((id) => (finden(id) && (geuebt(id) || art.has(id)) ? id : null));
+  let plan: string[];
+  if (!lerne) {
+    // Kein „Lerne ich“: nur heute schon Erledigtes bleibt stehen, nichts wird aufgefüllt.
+    plan = gerade.filter((id): id is string => id !== null && geuebt(id));
+  } else {
+    const naechster = (passt: (k: HeuteKandidat) => boolean = () => true) =>
+      kandidaten.find((k) => !gerade.includes(k.skill.id) && passt(k))?.skill.id ?? null;
+    // 2. Lücken an derselben Stelle füllen.
+    gerade.forEach((id, i) => { if (id === null) gerade[i] = naechster(); });
+    // 3. Ein fehlendes „Lerne ich“ verdrängt eine offene Auffüllung, an ihrer Stelle.
+    gerade.forEach((id, i) => {
+      if (id === null || geuebt(id) || !istAuffuellung(art.get(id))) return;
+      const l = naechster((k) => k.art === 'lerne');
+      if (l) gerade[i] = l;
+    });
+    // 4. Bis zu drei Blöcke auffüllen.
+    while (gerade.length < BLOECKE_MAX) {
+      const n = naechster();
+      if (!n) break;
+      gerade.push(n);
+    }
+    plan = gerade.filter((id): id is string => id !== null);
+  }
+
+  const bloecke: HeuteBlock[] = plan.map((id, i) => {
+    const erledigt = geuebt(id);
+    return { skill: finden(id)!, art: art.get(id) ?? null, erledigt, tauschbar: !erledigt && tauschKreis(plan, i, kandidaten, sp, jetzt).length > 1 };
   });
+  return { bloecke, plan, lerne, fertig: lerne > 0 && bloecke.length > 0 && bloecke.every((b) => b.erledigt) };
 }
 
-export const andererVorschlag = (h: HeuteStand, b: Block): HeuteStand => ({ ...h, wechsel: { ...h.wechsel, [b]: ((h.wechsel[b] ?? 0) + 1) % 1000 } });
+const gleicheListe = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((x, i) => x === b[i]);
 
-// Block erledigt. Sind alle Blöcke mit Vorschlag erledigt (`noetig`), zählt der Tag als Einheit.
-export function heuteErledigen(h: HeuteStand, b: Block, skillId: string, jetzt: number, noetig: readonly Block[] = BLOECKE): HeuteStand {
+// Den gezeigten Vorschlag festhalten: Plan des Tages, und ist alles erledigt,
+// der Tag als Einheit. Unverändert → derselbe Stand (nichts zu speichern).
+export function heuteFestschreiben(h: HeuteStand, v: HeuteVorschlag, jetzt: number): HeuteStand {
   const tag = tagSchluessel(jetzt);
-  const basis = h.tag === tag ? h : { ...heuteLeer(jetzt), einheiten: h.einheiten };
-  const erledigt = { ...basis.erledigt, [b]: skillId };
-  const fertig = noetig.every((x) => erledigt[x]);
-  const einheiten = fertig && !basis.einheiten.includes(tag) ? [...basis.einheiten, tag].slice(-EINHEITEN_MAX) : basis.einheiten;
-  return { ...basis, erledigt, einheiten };
+  const einheiten = v.fertig && !h.einheiten.includes(tag) ? [...h.einheiten, tag].sort().slice(-EINHEITEN_MAX) : h.einheiten;
+  if (h.tag === tag && gleicheListe(h.plan, v.plan) && einheiten === h.einheiten) return h;
+  return { tag, plan: [...v.plan], einheiten };
+}
+
+// „Anderer Vorschlag“ für den Block an Stelle i: der nächste Kandidat seiner
+// Gruppe („Lerne ich“ bzw. Auffüllung), der in keinem anderen Block steht und
+// heute noch nicht geübt ist — reihum. Die anderen Blöcke bleiben, wie sie sind.
+export function andererVorschlag(h: HeuteStand, i: number, sp: SkillSpeicher, jetzt: number, verfuegbar?: (s: Skill) => boolean,
+  katalog: readonly Skill[] = SKILLS): HeuteStand {
+  const v = heuteVorschlag(h, sp, jetzt, verfuegbar, katalog);
+  const basis = heuteFestschreiben(h, v, jetzt);
+  if (!v.bloecke[i]?.tauschbar) return basis;
+  const kreis = tauschKreis(v.plan, i, heuteKandidaten(sp, jetzt, verfuegbar, katalog), sp, jetzt);
+  const plan = [...v.plan];
+  plan[i] = kreis[(kreis.indexOf(plan[i]) + 1) % kreis.length];
+  return { ...basis, plan };
 }
 
 // Montag (lokal) der Woche von `jetzt`.
