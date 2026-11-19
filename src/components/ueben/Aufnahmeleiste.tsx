@@ -17,6 +17,7 @@ import { abschnittKuerzen, bereichSetzen, bereichTakte, nachlaufKuerzen, takteEi
 import { schlaegeJeTakt, taktartText } from '@/domain/takt';
 import type { Stimmung } from '@/domain/ueben';
 import { gespeichert, speichern, type Klang as MetronomKlang } from './klang';
+import { useLautsprecher } from './lautsprecher';
 import { useMikrofonSpur } from './mikrofonspur';
 import { useSchiebbar } from './schiebbar';
 
@@ -29,12 +30,11 @@ const LAGE_SCHLUESSEL = 'ueben:lage-aufnahme';
 export type LeistenZustand = 'scharf' | 'zaehlt' | 'nimmt' | 'pruefen';
 export interface Vorschau { stimmen: Stimme[]; von: number; bis: number }
 
-export function Aufnahmeleiste({ stimmen, aktiv, stumm, auswahlTakt, raster, blattRaster, tonart, lesart, setLesart, lautsprecher, setLautsprecher,
+export function Aufnahmeleiste({ stimmen, aktiv, stumm, auswahlTakt, raster, blattRaster, tonart, lesart, setLesart,
   metro, stimmung, kammerton, vorschauAendern, zustandAendern, uebernehmen, schliessen }: {
   stimmen: Stimme[]; aktiv: number; stumm: number[]; auswahlTakt: number | null;
   raster: Raster; blattRaster: Raster; tonart: Tonart | null;
   lesart: Lesart; setLesart: (l: Lesart) => void;
-  lautsprecher: boolean; setLautsprecher: (an: boolean) => void;
   metro: { klang: MetronomKlang; laut: number }; stimmung: Stimmung; kammerton: number;
   // Die Vorschau fürs Blatt (null: keine) und der Zustand (zum Sperren der Palette).
   vorschauAendern: (v: Vorschau | null) => void;
@@ -68,6 +68,8 @@ export function Aufnahmeleiste({ stimmen, aktiv, stumm, auswahlTakt, raster, bla
   const [letzterVersatz, setLetzterVersatz] = useState(0);
 
   const mikrofon = useMikrofonSpur();
+  // Lautsprecher (B-20): dieselbe Geräte-Einstellung wie überall.
+  const [lautsprecher, setLautsprecher] = useLautsprecher();
   const mikrofonStarten = mikrofon.starten, mikrofonStoppen = mikrofon.stoppen;
   useEffect(() => { zustandAendern(zustand); }, [zustand, zustandAendern]);
 
@@ -94,7 +96,7 @@ export function Aufnahmeleiste({ stimmen, aktiv, stumm, auswahlTakt, raster, bla
     const vorlaufTakte = Math.min(vorlauf, zielTakt);
     const klaenge = vorlaufKlaenge(stimmen, blattRaster, new Set(stumm), aktiv, zielTakt, vorlaufTakte, begleitung);
     void mikrofonStarten({
-      raster, lautsprecher, klickWeiter: true, metro, stimmung, kammerton,
+      raster, klickWeiter: true, metro, stimmung, kammerton,
       einzaehlTakte: vorlaufTakte ? 0 : 1,
       vorlauf: vorlaufTakte ? { klaenge, takte: vorlaufTakte } : null,
       maxTakte: bereichTakte({ von: zielTakt, bis }, MAX_TAKTE),
@@ -112,7 +114,7 @@ export function Aufnahmeleiste({ stimmen, aktiv, stumm, auswahlTakt, raster, bla
       },
       beiFehler: (t) => { setFehler(t); setZustand('scharf'); },
     });
-  }, [vorlauf, zielTakt, bis, stimmen, blattRaster, stumm, aktiv, begleitung, mikrofonStarten, raster, lautsprecher, metro, stimmung, kammerton, letzterVersatz]);
+  }, [vorlauf, zielTakt, bis, stimmen, blattRaster, stumm, aktiv, begleitung, mikrofonStarten, raster, metro, stimmung, kammerton, letzterVersatz]);
   const stoppen = () => mikrofonStoppen(zustand === 'nimmt');
   const verwerfen = () => { setSpur([]); setZustand('scharf'); };
   const nochmal = () => { setSpur([]); setZustand('scharf'); starten(); };
@@ -209,7 +211,7 @@ export function Aufnahmeleiste({ stimmen, aktiv, stumm, auswahlTakt, raster, bla
                     )}
                     <label className="notensatz-gruppe">
                       <span>Lautsprecher</span>
-                      <span className="notensatz-reihe"><input type="checkbox" role="switch" className="ios-schalter" checked={lautsprecher} onChange={(e) => setLautsprecher(e.target.checked)} /><span className="gedaempft text-xs">{lautsprecher ? 'wie Freisprechen, Klick bleibt draußen' : 'rohes Mikrofon, nah am Mund'}</span></span>
+                      <span className="notensatz-reihe"><input type="checkbox" role="switch" className="ios-schalter" checked={lautsprecher} onChange={(e) => setLautsprecher(e.target.checked)} /><span className="gedaempft text-xs">an: Freisprechen, Klick bleibt draußen · aus: Kopfhörer, rohes Mikrofon</span></span>
                     </label>
                   </div>
                 </>

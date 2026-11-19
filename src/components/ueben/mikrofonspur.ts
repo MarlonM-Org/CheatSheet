@@ -5,10 +5,10 @@
 // Genutzt vom Einsing-Dialog (ganzes Stück) und von der Aufnahmeleiste (ab
 // einem Takt). Die Aufnahme selbst wird nicht behalten.
 //
-// Lautsprecher: mit „verarbeitet“ läuft die Sprachverarbeitung des Browsers
-// (Verstärkung, Echo-Unterdrückung; iPhone: Freisprechen) — der Klick kommt
-// aus dem Lautsprecher und bleibt aus der Spur draußen. Ohne: das rohe
-// Mikrofon, nah am Mund.
+// Lautsprecher (Geräte-Einstellung, B-20): an läuft die Sprachverarbeitung
+// des Browsers (Verstärkung, Echo-Unterdrückung; iPhone: Freisprechen) — der
+// Klick kommt aus dem Lautsprecher und bleibt aus der Spur draußen. Aus: das
+// rohe Mikrofon, nah am Mund oder mit Kopfhörer.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { bandpegel, effektivwert, taktDauer, type Raster, type Tonrahmen } from '@/domain/notation';
@@ -16,9 +16,11 @@ import type { Klang } from '@/domain/notensatz';
 import { schlaegeJeTakt } from '@/domain/takt';
 import { frequenzZuTon, grundfrequenz, type Stimmung } from '@/domain/ueben';
 import { EINSTELLUNG_STANDARD } from '@/domain/einstellungen';
+import { mikrofonWunsch } from '@/domain/lautsprecher';
 import { schlagKlingt, type Swing } from '@/domain/swing';
-import { audioSitzung, gespeichert, klangPuffer, mikrofonOffen, mikrofonWunsch, useBeimVerlassen, wachHalten, type Klang as MetronomKlang } from './klang';
+import { gespeichert, klangPuffer, mikrofonOffen, useBeimVerlassen, wachHalten, type Klang as MetronomKlang } from './klang';
 import { klavierTon, klingend } from './klavier';
+import { lautsprecherAn } from './lautsprecher';
 
 // Pegel, ab dem ein Fenster als Ton gilt (−50 dBFS): das rohe Mikrofon ohne
 // Verstärkung liefert aus einem Meter Abstand deutlich weniger als das
@@ -33,7 +35,6 @@ export interface SpurAnzeige { zaehlt?: number; vor?: number; takt?: number; sch
 
 export interface SpurStart {
   raster: Raster;
-  lautsprecher: boolean;
   klickWeiter: boolean;
   metro: { klang: MetronomKlang; laut: number };
   stimmung: Stimmung; kammerton: number;
@@ -80,10 +81,9 @@ export function useMikrofonSpur() {
 
   const starten = useCallback(async (o: SpurStart) => {
     if (mikro.current) return;
+    const abmelden = mikrofonOffen();
     try {
-      audioSitzung('play-and-record');
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: mikrofonWunsch(o.lautsprecher) });
-      const abmelden = mikrofonOffen();
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: mikrofonWunsch(lautsprecherAn(), 'erkennen') });
       const ctx = new AudioContext();
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 4096;
@@ -157,6 +157,7 @@ export function useMikrofonSpur() {
       const freigeben = await wachHalten();
       if (mikro.current) mikro.current.freigeben = freigeben; else freigeben?.();
     } catch (e) {
+      abmelden();
       o.beiFehler?.((e as Error).name === 'NotAllowedError'
         ? 'Das Mikrofon ist nicht erlaubt. In den Einstellungen des Browsers für diese Seite erlauben.'
         : `Mikrofon nicht verfügbar (${(e as Error).name}).`);

@@ -5,6 +5,7 @@ import { NENNER, nennerSchritt, schlaegeJeTakt, schlagName, TAKTARTEN, taktartTe
 import { ANTEIL_MAX, ANTEIL_MIN, ANTEILE, swingMoeglich, zweiVierMoeglich } from '@/domain/swing';
 import { tempoBezeichnung } from '@/domain/ueben';
 import type { Klang } from './klang';
+import { LautsprecherSchalter } from './lautsprecher';
 import { useMetronom } from './MetronomKontext';
 
 const KLAENGE: { k: Klang; name: string }[] = [{ k: 'holz', name: 'Holzblock' }, { k: 'klick', name: 'Klick' }, { k: 'glocke', name: 'Glocke' }];
@@ -143,13 +144,14 @@ export function Metronom() {
       </div>
 
       <details className="space-y-3">
-        <summary className="cursor-pointer text-sm font-semibold">Klang, Lautstärke, Tempo-Trainer</summary>
+        <summary className="cursor-pointer text-sm font-semibold">Klang, Lautstärke, Lautsprecher, Tempo-Trainer</summary>
         <div className="segment mt-3" role="group" aria-label="Klang">
           {KLAENGE.map((k) => <button key={k.k} type="button" aria-pressed={klang === k.k} onClick={() => setKlang(k.k)}>{k.name}</button>)}
         </div>
         <label className="flex items-center gap-3 text-sm">Lautstärke
           <input className="regler flex-1" type="range" min={0} max={1} step={0.05} value={laut} onChange={(e) => setLaut(Number(e.target.value))} />
         </label>
+        <LautsprecherSchalter hinweis="An: Klick aus dem Lautsprecher, auch wenn Stimmgerät oder Aufnahme mithören. Aus: für Kopfhörer — rohes Mikrofon." />
         <div className="karte space-y-2">
           <label className="flex items-center gap-2 font-semibold">
             <input type="checkbox" checked={trainer.an} onChange={(e) => setTrainer({ ...trainer, an: e.target.checked })} /> Tempo-Trainer

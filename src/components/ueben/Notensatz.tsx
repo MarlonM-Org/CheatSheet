@@ -11,7 +11,7 @@ import {
 } from '@/domain/notensatz';
 import { pruefen } from '@/domain/notenregeln';
 import { EINSTELLUNG_STANDARD } from '@/domain/einstellungen';
-import { audioSitzung, gespeichert, speichern } from './klang';
+import { gespeichert, speichern } from './klang';
 import { vorspielen, type Vorspiel } from './klavier';
 import { useMetronom } from './MetronomKontext';
 import { useStimmgeraetApi } from './StimmgeraetKontext';
@@ -243,7 +243,6 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern, tonartAend
     const liste = klaengeAlle(stimmen, raster, stumm).filter((k) => k.beginn + k.dauer > ab + 1e-6)
       .map((k) => (k.beginn < ab ? { ...k, dauer: k.dauer - (ab - k.beginn), beginn: 0 } : { ...k, beginn: k.beginn - ab }));
     if (!liste.length) return;
-    audioSitzung('playback');
     const v = { ...vorspielen(liste, stimm.stimmung, stimm.kammerton, metro.laut), raf: 0, zeiger: stimmen.map(() => -1) };
     vorspiel.current = v;
     setSpielt(true);

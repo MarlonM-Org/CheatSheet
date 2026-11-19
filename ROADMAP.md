@@ -128,6 +128,7 @@ oder iPad. Vorher auf jedem Gerät eine Sicherung erstellen.
   - An: Klick kommt aus dem Lautsprecher, Singen aus 30–50 cm Abstand wird erkannt, der Klick taucht nicht als Noten in der Spur auf.
   - Aus: Klick aus dem Hörer, nah am Mund singen — erkennt die Spur dasselbe?
   - Schalter bleibt nach Neustart (`ueben:einspiel-lautsprecher`); Pegelschwelle −50 dBFS: leises Singen kommt an, Raumgeräusche werden nicht zu Noten.
+- B-20 · Lautsprecher für alle Klänge: eine Geräte-Einstellung (`ueben:lautsprecher`) statt drei Schaltern, Audio-Sitzung nach dem Mikrofon zurück auf Wiedergabe · `lautsprecher.ts` getestet, im Browser (iPhone- und iPad-Größe) an neun Orten umgeschaltet, nichts verschiebt sich; iOS-Verhalten nur aus WebKit-Quelltext und Fehlerberichten. Prüfen: Checkliste in B-20 (sie ersetzt die Punkte zum Lautsprecher-Schalter direkt darüber).
 - G-01 · Notenblatt (`Notensatz.tsx`, `notensatz.ts` getestet) — Schreiben, Noten setzen und verschieben, Palette, Bogen, Takt +/−; seit `08f426e` auch 32tel, Triolen, Löschen/Einfügen · brandneu, nur im Browser gesehen.
   - iPad: Noten mit dem Finger treffen (Skala 1,4 ab 700 px); Ziehen scrollt, ▲▼ und ▲8 ▼8 verschieben; iPhone hochkant: zwei Takte je Zeile lesbar?
   - Notenwert: kürzer (Pause füllt auf), länger (frisst bis zum Taktstrich), punktiert, Achtel-/Sechzehntel-/Vierteltriole, 32tel — zeichnet abcjs alles sauber?
@@ -234,6 +235,154 @@ bleibt damit bestehen.
 
 *(komplett umgesetzt am 2026-10-10 — alle Punkte unter „Erledigt“;
 Branch `feature/ui-noten-im-zentrum`, PR #1)*
+
+### B-20 · Lautsprecher für alle Klänge — umgesetzt 2026-11-19, zu prüfen
+
+Wunsch Marlon (2026-11-19): „Es sollte für alle Feature mit Sound Ausgabe
+die Möglichkeit geben, das mit dem Lautsprecher zu machen. Also nicht nur
+normaler Gerät Sound.“ Gelesen als: der Schalter „Lautsprecher“ aus G-03
+(Einsingen) für jede Funktion, die Ton ausgibt. Eine externe Box ist damit
+vermutlich nicht gemeint (offene Frage unten).
+
+**Bestand — wo klingt etwas, wo hört zugleich das Mikrofon:**
+
+| Klang | Mikrofon zugleich |
+|---|---|
+| Metronom samt Swing (I-17) | wenn Stimmgerät oder Aufnahme (G-09, I-20) laufen |
+| Drone (I-18), auch in der Spielhilfe (I-15) | beim Intonieren mit dem Stimmgerät |
+| Einsingen, Aufnahmeleiste (G-03, G-05), Ohr-Trainer (I-01): Klick und Klavier-Vorlauf | immer (eigener Mikrofon-Lauf) |
+| Vorspielen mit Klavierklang: Notenblatt (G-04), Etüden, Licks, Spickzettel (auch aus der Jam-Karte), Hör-Übungen, Griffe, „Anhören“ im Ohr-Trainer | nur, wenn nebenbei das Stimmgerät läuft (Griffe schaltet sein Mikrofon vorher ab) |
+| Referenzton des Stimmgeräts | nie (schaltet das Mikrofon ab) |
+| Aufnahmen abspielen (G-09, Tagebuch I-20), Audio-Datei anhören beim Einsingen | nie |
+
+**Was iOS macht (Recherche 2026-11-19):**
+- Ohne Mikrofon kommt Web Audio aus dem Lautsprecher bzw. dem im
+  Kontrollzentrum gewählten Ausgang (Kopfhörer, Bluetooth, AirPlay). Ohne
+  Vorgabe behandelt WebKit reines Web Audio als „ambient“ (stumm beim
+  Stummschalter); `navigator.audioSession.type = 'playback'` (ab iOS 16.4,
+  laut WebKit-Entwickler zuverlässig ab iOS 17) klingt trotzdem.
+- Mit Mikrofon gilt „play-and-record“. WebKit setzt dafür „DefaultToSpeaker“,
+  solange die Seite nicht den Hörer als Ausgang gewählt hat. Mit
+  Sprachverarbeitung (Echo-Unterdrückung) läuft es wie Freisprechen: laut
+  aus dem Lautsprecher. Ohne kommt der Ton aus dem Hörer, viel leiser — so
+  am 26.10. beobachtet und so in WebKit-Fehler 326286 (iOS 26/27)
+  beschrieben. Rohes Mikrofon und Lautsprecher zugleich gibt es im Browser
+  nicht. Ob man den Ausgang wählen darf, ist in der Audio-Session-
+  Spezifikation noch offen (Issue #6).
+- Nach dem Mikrofon kann der Ton leiser bleiben (Telefon-Lautstärke) oder im
+  Hörer hängen (WebKit 236219, 271305, 295889). Abhilfe laut den Berichten:
+  die Sitzung wieder auf „playback“ setzen.
+- iOS 26.2 bis 27: Solange das Mikrofon mit Echo-Unterdrückung offen ist,
+  knackt die Wiedergabe (WebKit 326286, offen).
+- Externe Ausgänge: `AudioContext.setSinkId` und `selectAudioOutput` kann
+  Safari auf iOS nicht, `HTMLMediaElement.setSinkId` erst ab iOS 26. Die
+  AirPlay-Auswahl (`webkitShowPlaybackTargetPicker`) gibt es nur für
+  Medien-Elemente, nicht für Web Audio. Box oder AirPods wählt man im
+  Kontrollzentrum, und die App spielt dorthin.
+
+**Entscheidung (2026-11-19): eine Geräte-Einstellung „Lautsprecher“, keine
+Schalter je Funktion.** (1) Ob der Ton aus dem Lautsprecher soll, hängt an
+der Lage (Kopfhörer auf oder nicht), nicht am Werkzeug. Stimmgerät, Drone
+und Metronom laufen zugleich, und das offene Mikrofon bestimmt den Weg für
+alle Klänge. (2) Der Browser kennt nur einen Hebel: die Sprachverarbeitung
+des Mikrofons. Ohne Mikrofon kommt jeder Klang ohnehin aus dem
+Lautsprecher. Der Schalter wirkt also genau dann, wenn irgendwo das
+Mikrofon hört. (3) Die bisherigen Schalter waren dieselbe Wahl unter drei
+Namen: „Lautsprecher“ beim Einsingen, „Mikrofon verstärken“ im Stimmgerät
+und „Mit Kopfhörer“ im Ohr-Trainer (nicht gemerkt). Dass „verstärken aus“
+beim Stimmgerät auch die Drone in den Hörer legt, sah man nirgends.
+**Schnelle Schalter** liegen dort, wo Mikrofon und Ton zusammenkommen. Alle
+zeigen und ändern dieselbe Wahl:
+- Stimmgerät (statt „Mikrofon verstärken“) und Metronom (unter „Klang,
+  Lautstärke, Lautsprecher …“)
+- Drone
+- Einsingen und Aufnahmeleiste (wie bisher)
+- Ohr-Trainer (statt „Mit Kopfhörer“)
+- „Neue Aufnahme“ im Tagebuch und das Stück-Blatt unter „Aufnahmen“. Der
+  rote Knopf in der Leiste hat ohne Verschieben keinen Platz dafür.
+
+Zentral: Einstellungen → „Ton und Mikrofon“ mit Erklärung. Werkzeuge ohne
+eigenes Mikrofon (Etüden, Licks, Spickzettel, Hör-Übungen, Griffe,
+Notenblatt) bekommen keinen Schalter. Bedienregel: Der Hinweis neben jedem
+Schalter hängt nicht vom Zustand ab, darum verschiebt Umschalten nichts.
+Beim Einsingen war der Text vorher je nach Zustand verschieden lang.
+
+**Umgesetzt** (Regeln in `src/domain/lautsprecher.ts`, getestet in
+`tests/lautsprecher.test.ts`; Schalter und Speicher in
+`src/components/ueben/lautsprecher.tsx`):
+- `mikrofonWunsch(lautsprecher, zweck)`: Bei „an“ läuft die
+  Echo-Unterdrückung; die Verstärkung nur zum Erkennen (Stimmgerät,
+  Einsingen, Ohr-Trainer), beim Aufnehmen nie, sonst pumpen Instrumente.
+  Bei „aus“ das rohe Mikrofon. Rauschunterdrückung nie.
+  `sitzungFuer(offeneMikrofone)`: „play-and-record“, solange ein Mikrofon
+  offen ist, sonst „playback“.
+- Gemerkt am Gerät unter `ueben:lautsprecher` (reist nicht mit,
+  `einstellungen.ts`). Ist dort noch nichts, gilt `ueben:einspiel-lautsprecher`
+  (der Schalter, der schon „Lautsprecher“ hieß), dann
+  `ueben:stimm-verstaerken`, sonst „an“. Weichen die beiden alten
+  voneinander ab, gewinnt der Einsing-Schalter. Die alten Schlüssel bleiben
+  stehen, geschrieben wird nur der neue.
+- Audio-Sitzung an einer Stelle (`klang.ts`): Jedes Mikrofon meldet sich
+  vor `getUserMedia` an (`mikrofonOffen`) und danach ab. Jeder Klang setzt
+  vorher die Sitzung (`wiedergabeSitzung`, für alles Vorspielen in
+  `vorspielen`). **Behoben:** Nach Stimmgerät, Einsingen oder Ohr-Trainer
+  blieb „play-and-record“ stehen, bis zufällig Metronom oder Drone
+  starteten. So lange spielten Hör-Übungen, Spickzettel, Griffe und
+  „Anhören“ im Ohr-Trainer in dieser Sitzung, womöglich leiser. Außerdem
+  meldete die Aufnahme (G-09) ihr Mikrofon nicht an: Startete währenddessen
+  das Metronom, stellte es die Sitzung auf „playback“, und das Mikrofon
+  konnte verstummen.
+- Aufnahmen (G-09, I-20) folgen der Einstellung. „Aus“ heißt rohes Mikrofon:
+  mit Kopfhörer der beste Klang, und der Klick kommt nicht in die Aufnahme.
+  Bisher lief die Aufnahme immer mit Echo-Unterdrückung.
+- Läuft das Stimmgerät, öffnet Umschalten das Mikrofon sofort neu, noch in
+  der Tipp-Geste. Einsingen, Ohr-Trainer und Aufnahme übernehmen die Wahl
+  beim nächsten Start; während einer Aufnahme ist der Schalter dort gesperrt.
+
+**Auf dem Gerät prüfen** (iPhone, in Safari und als Home-Bildschirm-App;
+vorher eine Sicherung):
+- Übernahme: War beim Einsingen „Lautsprecher“ aus, steht der Schalter in
+  den Einstellungen auf aus. Alle Schalter zeigen dieselbe Stellung, auch
+  nach einem Neustart.
+- Ohne Kopfhörer, Lautsprecher an: Stimmgerät und Drone zugleich → die Drone
+  kommt laut aus dem Lautsprecher, und das Stimmgerät zeigt die Klarinette,
+  nicht die Drone. Mit dem Metronom ebenso. Roter Knopf und Metronom: Der
+  Klick ist laut zu hören und in der Aufnahme kaum.
+- Ohne Kopfhörer, Lautsprecher aus: derselbe Ablauf → Drone und Klick leise
+  aus dem Hörer (so erwartet). Umschalten bei laufendem Stimmgerät macht sie
+  sofort wieder laut.
+- Mit Kopfhörer, Lautsprecher aus (Kabel und AirPods): Der Ton kommt im
+  Kopfhörer. Hört das Stimmgerät über das iPhone-Mikrofon, oder schaltet iOS
+  bei AirPods auf deren Mikrofon (Freisprech-Profil, dumpfer Ton)? Bei einer
+  Aufnahme mit Klick im Kopfhörer ist der Klick nicht in der Aufnahme.
+- Nach dem Mikrofon: Stimmgerät stoppen, dann Hör-Übung, Spickzettel und
+  Griffe-„Anhören“ → volle Lautstärke aus dem Lautsprecher.
+- Erst die Aufnahme, dann das Metronom starten: Die Aufnahme enthält das
+  Spiel.
+- Stummschalter an: Metronom, Drone, Vorspielen und Aufnahmen klingen
+  trotzdem, ob mit oder ohne Mikrofon.
+- iOS 26.2 und neuer: Knackt der Klick, solange das Mikrofon mit
+  Lautsprecher an läuft (WebKit 326286)? Wenn ja, ist der Ausweg Kopfhörer
+  und Lautsprecher aus.
+- Bluetooth-Box über das Kontrollzentrum: Spielt das Metronom ohne Mikrofon
+  dort? Bleibt es dort, wenn das Stimmgerät angeht, oder springt iOS um?
+
+**Offen, Fragen an Marlon:**
+- War mit „Lautsprecher“ doch eine externe Box gemeint (Bluetooth,
+  AirPlay)? Wählen lässt sie sich nur im Kontrollzentrum. Die App könnte
+  einen Ausgang höchstens fürs Abspielen von Aufnahmen anbieten
+  (`HTMLMediaElement.setSinkId`, ab iOS 26). Das ist nicht gebaut.
+- Soll der Schalter auch bei Etüden, Licks und Hör-Übungen stehen? Dort
+  wirkt er nur, wenn nebenbei das Stimmgerät läuft.
+- Mit Musik aus anderen Apps mischen (Sitzung „ambient“, etwa Metronom zu
+  Spotify) ginge auch. Dann wäre der Ton beim Stummschalter aber stumm.
+  Gewünscht?
+
+Quellen: WebKit-Quelltext `AudioSessionIOS.mm` und
+`MediaSessionManagerCocoa.mm`; WebKit-Fehler 326286, 282939, 295889,
+236219, 271305, 264473; W3C Audio Session (w3.org/TR/audio-session);
+MDN `AudioSession.type`; caniuse `AudioContext.setSinkId`; LiveKit
+client-sdk-js PR 1635 (`HTMLMediaElement.setSinkId` ab iOS 26).
 
 ### B-18 · Ort „Lernen“, vier Knöpfe unten — umgesetzt 2026-11-16, zu prüfen
 
