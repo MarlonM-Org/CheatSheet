@@ -10,6 +10,10 @@
 // der Tagesstand von „Heute“ (ueben:heute).
 // Tags und Tonprofile haben eigene Felder.
 // Ebenfalls am Gerät: Ansicht und Eingrenzung der Stückauswahl (ueben:stueckwahl, F-23).
+// Ebenfalls am Gerät: ob der Ton bei offenem Mikrofon aus dem Lautsprecher
+// kommt (ueben:lautsprecher, B-20 — Kopfhörer hat man am Gerät, nicht als
+// Person), samt den früheren Schaltern ueben:einspiel-lautsprecher und
+// ueben:stimm-verstaerken (@/domain/lautsprecher).
 //
 // Auf dem Gerät liegen die Werte im localStorage (JSON) unter ihrem
 // Schlüssel; dazu der Zeitpunkt der letzten echten Änderung

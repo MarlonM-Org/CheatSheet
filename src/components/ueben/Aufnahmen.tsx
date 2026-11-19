@@ -4,7 +4,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Aufnahme, Stelle, Stueck } from '@/domain/bestand';
 import { zeitpunkt } from '@/domain/notenpult';
 import { aufnahmeAendern, aufnahmeAnlegen, aufnahmeDatei, aufnahmeLoeschen } from './lokal';
-import { audioSitzung, useBeimVerlassen, wachHalten } from './klang';
+import { mikrofonWunsch } from '@/domain/lautsprecher';
+import { mikrofonOffen, useBeimVerlassen, wachHalten, wiedergabeSitzung } from './klang';
+import { lautsprecherAn, LautsprecherSchalter } from './lautsprecher';
 import { fehlerGrund, speicherFehler } from './speicherfehler';
 
 // Eigene Aufnahmen beim Üben (G-09, erste Stufe): Aus der Notenansicht
@@ -32,7 +34,7 @@ export function useAufnahme(stueckId: string, fertig: () => void): AufnahmeLauf 
   const [laeuft, setLaeuft] = useState(false);
   const [sekunden, setSekunden] = useState(0);
   const [fehler, setFehler] = useState('');
-  const lauf = useRef<{ recorder: MediaRecorder; stream: MediaStream; stuecke: Blob[]; beginn: number; timer: number; freigeben: (() => void) | null; zusammenhang: { seite?: number; stelleId?: string; skillId?: string } } | null>(null);
+  const lauf = useRef<{ recorder: MediaRecorder; stream: MediaStream; stuecke: Blob[]; beginn: number; timer: number; freigeben: (() => void) | null; abmelden: () => void; zusammenhang: { seite?: number; stelleId?: string; skillId?: string } } | null>(null);
 
   const stoppen = useCallback(() => {
     const l = lauf.current;
@@ -44,7 +46,7 @@ export function useAufnahme(stueckId: string, fertig: () => void): AufnahmeLauf 
     const typ = l.recorder.mimeType || mimeWahl() || 'audio/mp4';
     const speichern = () => {
       l.stream.getTracks().forEach((t) => t.stop());
-      audioSitzung('playback');
+      l.abmelden();
       setLaeuft(false);
       const datei = new Blob(l.stuecke, { type: typ.split(';')[0] });
       if (!datei.size || dauer < 0.5) return;
@@ -59,13 +61,17 @@ export function useAufnahme(stueckId: string, fertig: () => void): AufnahmeLauf 
     setFehler('');
     const mime = mimeWahl();
     if (!mime) { setFehler('Dieser Browser kann nicht aufnehmen.'); return; }
+    // Angemeldet, solange die Aufnahme läuft: Startet währenddessen das
+    // Metronom, bleibt die Sitzung bei „play-and-record“ (mit „playback“
+    // stellte iOS das Mikrofon stumm).
+    const abmelden = mikrofonOffen();
     try {
-      audioSitzung('play-and-record');
-      // Verstärkung aus (Instrumente pumpen sonst), Echo-Unterdrückung an —
-      // so bleibt der Metronom-Klick draußen; iOS nimmt dann über Freisprechen auf.
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false } });
+      // Verstärkung nie (Instrumente pumpen sonst). Lautsprecher an (B-20):
+      // Echo-Unterdrückung — der Metronom-Klick bleibt draußen, iOS nimmt
+      // über Freisprechen auf. Aus: rohes Mikrofon, für Kopfhörer.
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: mikrofonWunsch(lautsprecherAn(), 'aufnehmen') });
       const recorder = new MediaRecorder(stream, { mimeType: mime, audioBitsPerSecond: 96000 });
-      const l = { recorder, stream, stuecke: [] as Blob[], beginn: performance.now(), timer: 0, freigeben: null as (() => void) | null, zusammenhang };
+      const l = { recorder, stream, stuecke: [] as Blob[], beginn: performance.now(), timer: 0, freigeben: null as (() => void) | null, abmelden, zusammenhang };
       recorder.ondataavailable = (e) => { if (e.data.size) l.stuecke.push(e.data); };
       recorder.start(1000);
       l.timer = window.setInterval(() => setSekunden(Math.floor((performance.now() - l.beginn) / 1000)), 250);
@@ -75,6 +81,7 @@ export function useAufnahme(stueckId: string, fertig: () => void): AufnahmeLauf 
       const freigeben = await wachHalten();
       if (lauf.current === l) l.freigeben = freigeben; else freigeben?.();
     } catch (e) {
+      abmelden();
       setFehler((e as Error).name === 'NotAllowedError'
         ? 'Das Mikrofon ist nicht erlaubt. In den Einstellungen des Browsers für diese Seite erlauben.'
         : `Aufnehmen geht nicht: ${fehlerGrund(e)}`);
@@ -109,7 +116,7 @@ export function AufnahmenListe({ stueck, stellen, geaendert }: { stueck: Stueck;
 
   const abspielen = async (ids: string[]) => {
     setFehler('');
-    audioSitzung('playback');
+    wiedergabeSitzung();
     try {
       const geladen = await Promise.all(ids.map(async (id) => {
         const a = liste.find((x) => x.id === id)!;
@@ -142,7 +149,9 @@ export function AufnahmenListe({ stueck, stellen, geaendert }: { stueck: Stueck;
   };
   const gewaehlt = liste.filter((a) => zusammen.has(a.id));
 
-  if (!liste.length) return <p className="gedaempft text-sm">Noch keine Aufnahme. Der rote Knopf in der Notenansicht nimmt auf, während du spielst.</p>;
+  // B-20: Der rote Knopf hat keinen Platz für einen Schalter — hier, eine Zeile unter den Aufnahmen.
+  const schalter = <LautsprecherSchalter className="mt-3" hinweis="Beim Aufnehmen — an: Metronom aus dem Lautsprecher, bleibt draußen. Aus: für Kopfhörer, rohes Mikrofon." />;
+  if (!liste.length) return <><p className="gedaempft text-sm">Noch keine Aufnahme. Der rote Knopf in der Notenansicht nimmt auf, während du spielst.</p>{schalter}</>;
   return (
     <div className="aufnahmen">
       {fehler && <p className="karte warnung" role="alert">{fehler}</p>}
@@ -171,6 +180,7 @@ export function AufnahmenListe({ stueck, stellen, geaendert }: { stueck: Stueck;
         </button>
         <span className="gedaempft text-xs">„zusammen“ ankreuzen und übereinander abspielen — Versionen vergleichen oder Stimmen schichten.</span>
       </div>
+      {schalter}
     </div>
   );
 }

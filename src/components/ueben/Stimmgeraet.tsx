@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { STIMMUNGEN, type Stimmung } from '@/domain/ueben';
+import { LautsprecherSchalter } from './lautsprecher';
 import { useStimmgeraet } from './StimmgeraetKontext';
 import { TonprofilBlatt } from './Tonprofil';
 
@@ -24,7 +25,7 @@ function bogen(von: number, bis: number, radius: number) {
 export function Stimmgeraet() {
   const {
     an, start, stopp, fehler, ton, frisch,
-    kammerton, setKammerton, stimmung, setStimmung, verstaerken, setVerstaerken,
+    kammerton, setKammerton, stimmung, setStimmung,
     refTon, refOktave, refOktaveWechseln, referenzSpielen,
   } = useStimmgeraet();
   const [profil, setProfil] = useState(false);
@@ -73,13 +74,8 @@ export function Stimmgeraet() {
       </div>
       {fehler && <p className="warnung text-center text-sm">{fehler}</p>}
 
-      <label className="einspiel-feld justify-center">
-        <span>Mikrofon verstärken</span>
-        <input type="checkbox" role="switch" className="ios-schalter" checked={verstaerken} onChange={(e) => setVerstaerken(e.target.checked)} />
-      </label>
-      <p className="gedaempft -mt-3 text-center text-xs">{verstaerken
-        ? 'An: Verstärkung des Browsers — hört Singen und Instrument auch aus Abstand.'
-        : 'Aus: das rohe Mikrofon ohne Verstärkung, unverfälscht — nah ans Instrument.'}</p>
+      {/* B-20: früher „Mikrofon verstärken“ — dieselbe Wahl, jetzt fürs ganze Gerät. */}
+      <LautsprecherSchalter className="mx-auto max-w-sm" hinweis="An: Mikrofon hört aus Abstand, Drone und Klick kommen aus dem Lautsprecher. Aus: rohes Mikrofon, nah ans Instrument — Ton in den Kopfhörer." />
 
       <button type="button" className="tonprofil-einstieg" onClick={() => setProfil(true)}>
         <span className="min-w-0 flex-1">

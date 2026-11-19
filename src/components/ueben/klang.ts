@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { EINSTELLUNGEN_GELADEN, EINSTELLUNGEN_STAND, istAenderung, neuerStand, standLesen, type MetronomKlang } from '@/domain/einstellungen';
+import { sitzungFuer } from '@/domain/lautsprecher';
 
 // Klänge für das Metronom, einmal synthetisiert und als Puffer abgelegt —
 // kurz, trocken und mit klarem Anschlag, damit man sie im Ensemble-Lärm hört.
@@ -43,37 +44,32 @@ export function klangPuffer(ctx: BaseAudioContext, klang: Klang, art: Art): Audi
 }
 
 type AudioSessionNavigator = Navigator & { audioSession?: { type: string } };
-type Sitzung = 'playback' | 'play-and-record';
-// iPhone/iPad: Wiedergabe auch bei Stummschalter (wo der Browser es kann).
-// Solange ein Mikrofon offen ist (mikrofonOffen), gilt immer
-// „play-and-record" — mit „playback" (Metronom startet, während das
-// Stimmgerät hört) stellte iOS das Mikrofon stumm.
-let gewuenscht: Sitzung = 'playback';
+// Audio-Sitzung (iPhone/iPad ab iOS 16.4, wo der Browser sie kennt) nach der
+// Regel in @/domain/lautsprecher: Solange ein Mikrofon offen ist,
+// „play-and-record“, sonst „playback“ (Ton auch bei Stummschalter). Früher
+// blieb nach Stimmgerät, Einsingen oder Ohr-Trainer „play-and-record“ stehen,
+// bis zufällig das Metronom startete — Hör-Übungen, Spickzettel, Griffe
+// spielten dann womöglich in Telefon-Lautstärke (so berichten es WebKit-
+// Fehlermeldungen; auf dem Gerät nicht beobachtet).
 let mikrofone = 0;
 function sitzungSetzen() {
   const nav = navigator as AudioSessionNavigator;
-  try { if (nav.audioSession) nav.audioSession.type = mikrofone > 0 ? 'play-and-record' : gewuenscht; } catch { /* egal */ }
+  try { if (nav.audioSession) nav.audioSession.type = sitzungFuer(mikrofone); } catch { /* egal */ }
 }
-export function audioSitzung(typ: Sitzung) {
-  gewuenscht = typ;
+// Vor jedem Ton aufrufen, in der Tipp-Geste (Metronom, Vorspielen, Drone,
+// Referenzton, Aufnahmen abspielen).
+export function wiedergabeSitzung() {
   sitzungSetzen();
 }
-// Ein offenes Mikrofon anmelden; die Rückgabe meldet es wieder ab.
+// Ein Mikrofon anmelden — vor getUserMedia, damit iOS die Sitzung schon
+// umgestellt hat, wenn es aufgeht (sonst klingt der Ton danach leiser). Die
+// Rückgabe meldet es wieder ab, auch wenn getUserMedia scheitert.
 export function mikrofonOffen(): () => void {
   mikrofone++;
   sitzungSetzen();
   let offen = true;
   return () => { if (!offen) return; offen = false; mikrofone--; sitzungSetzen(); };
 }
-
-// Was das Mikrofon liefern soll. `verarbeitet`: Echo-Unterdrückung und
-// Verstärkung des Browsers — auf iPhone/iPad dasselbe wie Freisprechen:
-// hört auch aus Abstand, Ton kommt aus dem Lautsprecher. Sonst das rohe
-// Mikrofon, unverfälscht, nah dran (iPhone: Hörer statt Lautsprecher).
-// Rauschunterdrückung nie — sie nimmt gehaltene Töne als Dauergeräusch.
-export const mikrofonWunsch = (verarbeitet: boolean): MediaTrackConstraints => (verarbeitet
-  ? { echoCancellation: true, noiseSuppression: false, autoGainControl: true }
-  : { echoCancellation: false, noiseSuppression: false, autoGainControl: false });
 
 // iPhone/iPad, vor allem als Home-Bildschirm-App: Geht die App in den
 // Hintergrund, unterbricht iOS jeden AudioContext. Zurück im Vordergrund

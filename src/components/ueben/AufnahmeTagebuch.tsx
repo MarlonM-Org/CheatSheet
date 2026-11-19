@@ -9,7 +9,8 @@ import {
 import { nachTitel } from '@/domain/notenpult';
 import { BEREICHE, SKILLS, skillFinden } from '@/domain/skillkatalog';
 import { useAufnahme } from './Aufnahmen';
-import { audioSitzung } from './klang';
+import { wiedergabeSitzung } from './klang';
+import { LautsprecherSchalter } from './lautsprecher';
 import { alleStellen, alleStuecke, aufnahmeAendern, aufnahmeDatei, aufnahmeLoeschen, type Stelle, type Stueck } from './lokal';
 import { skillGeuebt } from './skillspeicher';
 import { fehlerGrund, speicherFehler } from './speicherfehler';
@@ -50,7 +51,7 @@ function useAbspieler() {
     aus();
     if (war === e.aufnahme.id) return;
     setFehler('');
-    audioSitzung('playback');
+    wiedergabeSitzung();
     try {
       const url = URL.createObjectURL(await aufnahmeDatei(e.aufnahme));
       const audio = new Audio(url);
@@ -232,7 +233,7 @@ function Vergleich({ paar, schliessen }: { paar: { a: TagebuchEintrag; b: Tagebu
   };
   const spielen = async (welche: 'a' | 'b', ab: number, nachher: boolean) => {
     setFehler('');
-    audioSitzung('playback');
+    wiedergabeSitzung();
     try {
       const s = await bereit();
       const an = s[welche], andere = s[welche === 'a' ? 'b' : 'a'];
@@ -335,6 +336,7 @@ function NeueAufnahme({ stuecke, vorwahl, schliessen, gespeichert }: {
               </select>
             </label>
             <p className="gedaempft min-h-[2.5em] text-xs">{skillId ? 'Mit Skill zählt die Aufnahme dort als heute geübt.' : 'Mit Skill findest du sie später beim Skill wieder und er zählt als heute geübt.'}</p>
+            <LautsprecherSchalter gesperrt={aufnahme.laeuft} className="mb-3" hinweis="An: Metronom aus dem Lautsprecher, es bleibt aus der Aufnahme draußen. Aus: für Kopfhörer — rohes Mikrofon, unverfälscht." />
             <button type="button" className={`tb-aufnehmen${aufnahme.laeuft ? ' laeuft' : ''}`} aria-pressed={aufnahme.laeuft}
               onClick={() => aufnahme.umschalten(skillId ? { skillId } : {})}>
               {aufnahme.laeuft

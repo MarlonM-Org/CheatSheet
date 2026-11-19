@@ -6,7 +6,7 @@ import { abstandZumNaechsten, taktKlicks, type Swing } from '@/domain/swing';
 import { akzenteFuer, nennerPruefen, unterPruefen, type Nenner } from '@/domain/takt';
 import { trainerTempo } from '@/domain/ueben';
 import {
-  audioSitzung, gespeichert, klangPuffer, speichern, useBeimVerlassen, useEinstellungenGeladen, verwerfen, wachHalten, type Art, type Klang,
+  gespeichert, klangPuffer, speichern, useBeimVerlassen, useEinstellungenGeladen, verwerfen, wachHalten, wiedergabeSitzung, type Art, type Klang,
 } from './klang';
 import { skillGeuebt } from './skillspeicher';
 
@@ -122,7 +122,7 @@ export function MetronomAnbieter({ children }: { children: React.ReactNode }) {
 
   async function start() {
     if (lauf.current) return;
-    audioSitzung('playback');
+    wiedergabeSitzung();
     // Läuft der Kontext nicht, war er unterbrochen (App-Wechsel, Anruf) und
     // bliebe auf iOS stumm: verwerfen, solange die Tipp-Geste noch gilt.
     if (audio.current && audio.current.ctx.state !== 'running') {

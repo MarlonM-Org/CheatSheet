@@ -9,6 +9,7 @@ import {
 } from '@/domain/gehoer';
 import { segmentieren, segmentOptionen, type Raster } from '@/domain/notation';
 import { GriffeBlatt } from './Griffe';
+import { LautsprecherSchalter } from './lautsprecher';
 import { gespeichert, speichern } from './klang';
 import { SKILLS_GEAENDERT, skillErgebnis, skillFuerOhrStufe } from './skillspeicher';
 import { vorspielen, type Vorspiel } from './klavier';
@@ -40,7 +41,7 @@ function OhrSymbol() {
   );
 }
 
-// Einstieg auf der Lernen-Seite (B-18), unter dem Stellen-Mix.
+// Einstieg auf der Lernen-Seite (B-18) unter „Üben“, neben den Hör-Übungen (seit B-19 ohne Stellen-Mix).
 function standText(): string {
   const ein = gespeichert<OhrEinstellung>(EINSTELLUNG, EINSTELLUNG_STANDARD[EINSTELLUNG]);
   const letzte = verlaufLaden().filter((r) => r.stufe === ein.stufe).slice(-5);
@@ -89,7 +90,6 @@ export function OhrTrainerBlatt({ schliessen, stufe: anfangsStufe }: { schliesse
   const [ansicht, setAnsicht] = useState<Ansicht>('bereit');
   const [phrase, setPhrase] = useState<Phrase | null>(null);
   const [ergebnis, setErgebnis] = useState<Ergebnis | null>(null);
-  const [kopfhoerer, setKopfhoerer] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
   // Griff zu einer Note im Ergebnis (I-13), als Blatt über dem Blatt.
   const [griff, setGriff] = useState<number | null>(null);
@@ -114,7 +114,7 @@ export function OhrTrainerBlatt({ schliessen, stufe: anfangsStufe }: { schliesse
     const bpm = ein.bpm;
     const raster: Raster = { bpm, zaehler: 4, nenner: 4, feinheit: 16 };
     void spur.starten({
-      raster, lautsprecher: !kopfhoerer, klickWeiter: true,
+      raster, klickWeiter: true,
       metro: { klang: metro.klang, laut: metro.laut },
       stimmung: stimm.stimmung, kammerton: stimm.kammerton,
       einzaehlTakte: 1,
@@ -191,10 +191,8 @@ export function OhrTrainerBlatt({ schliessen, stufe: anfangsStufe }: { schliesse
               <input type="checkbox" checked={ein.wechseln} onChange={(e) => setEin({ wechseln: e.target.checked })} />
               Grundton jede Runde wechseln (transponieren nach Gehör)
             </label>
-            <label className="flex items-center gap-3 text-sm font-semibold">
-              <input type="checkbox" checked={kopfhoerer} onChange={(e) => setKopfhoerer(e.target.checked)} />
-              Mit Kopfhörer (rohes Mikrofon)
-            </label>
+            {/* B-20: früher „Mit Kopfhörer (rohes Mikrofon)“, nicht gemerkt — jetzt die Geräte-Einstellung. */}
+            <LautsprecherSchalter hinweis="An: Phrase und Klick aus dem Lautsprecher, wie Freisprechen. Aus: für Kopfhörer — rohes Mikrofon, ohne Kopfhörer leise aus dem Hörer." />
             {fehler && <p className="text-sm" style={{ color: 'var(--warnung)' }}>{fehler}</p>}
             {letzte.length > 0 && <p className="gedaempft text-sm">Zuletzt auf dieser Stufe: {letzte.map((r) => prozent(r.quote)).join(' · ')}</p>}
             <button type="button" className="knopf w-full" onClick={neuePhrase}>▶ Los</button>
