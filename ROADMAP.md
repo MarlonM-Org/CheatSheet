@@ -116,6 +116,7 @@ ist auf `main` und damit auf cheat-sheet.ma-und-ma.de.
 Alles hier hat Code und Tests; was fehlt, ist der Praxisbeweis auf iPhone
 oder iPad. Vorher auf jedem Gerät eine Sicherung erstellen.
 
+- I-09 · „Heute“ aus den „Lerne ich“-Skills aller Bereiche (Umbau 2026-11-19): bis drei Blöcke à 10 Minuten, aufgefüllt mit ☆/Verblasstem, Aufgabe je Skill, Etüden/Licks/Jam-Karte/Spickzettel/Drone/Griffweisen/Transponieren/Metronom voreingestellt, Plan des Tages fest · Regeln und alter Tagesstand in `tests/skills.test.ts`, im Browser (iPhone 390 × 844, iPad 820 × 1180) mit 0, 1, 3 und 5 markierten Skills durchgespielt. Prüfen: Checkliste in I-09.
 - B-19 · Stellen-Mix zurück in der Bibliothek (Zeile unter den Sammlungen, Punkt an „Noten“), Lernen nur für Grundlagen; „Woraus“, `ueben:mix-woraus` und `mixQuelle` entfernt · Laden alter Sicherungen getestet, im Browser (iPhone und iPad hoch/quer) durchgespielt. Prüfen: Checkliste in B-19.
 - B-18 · Ort „Lernen“ und vier Knöpfe unten (Lernen · Noten | Stimmgerät · Metronom) · `ortUmschalten` getestet (`mixQuelle` mit B-19 entfernt), im Browser (iPhone-Ansicht) durchgespielt. Prüfen: Checkliste in B-18.
 - B-17 · Bibliothek öffnet beim offenen Stück · `zumOffenen` getestet. Prüfen: in A–Z ein Stück weit unten öffnen, „Noten“ tippen — offenes und nächstes Stück sichtbar, ohne Ruckeln; danach Sortieren oder Filtern springt nicht.
@@ -380,9 +381,12 @@ gehört in die **Bibliothek**.
   (`ueben:mix-an`): Ein Mix, der beim Update läuft, läuft weiter, und eine
   Runde aus „Woraus“ geht weiter, sobald die Bibliothek dieselbe Sammlung
   und denselben Tag zeigt.
-- **Bleibt vorerst in Lernen — Frage an Marlon:** der Block
-  „Stück/Mitspielen“ in „Heute“ (I-09) und die Repertoire-Skills (I-07):
-  Mitspielen und Repertoire nach Gehör, keine PDF-Stückarbeit. Ebenso die
+- **Frage an Marlon, erledigt (2026-11-19):** Den Block
+  „Stück/Mitspielen“ in „Heute“ gibt es nicht mehr — erledigt durch den
+  Umbau von I-09 („Heute“ aus den „Lerne ich“-Skills aller Bereiche). Die
+  Repertoire-Skills (I-07) bleiben in der Kartei (Marlon, 2026-11-19: „ja“):
+  Mitspielen und Repertoire nach Gehör, keine PDF-Stückarbeit.
+- **Bleibt vorerst in Lernen — Frage an Marlon:** die
   Jam-Karte (I-19, Akkordfolgen, keine PDFs) und das Aufnahme-Tagebuch
   (I-20): Es dient dem Üben mit Aufnahmen (auch zu einem Skill), legt die
   Aufnahmen aber an einem Stück der Bibliothek ab.
@@ -1402,7 +1406,10 @@ Leaves, Summertime, dazwischen ein Lieblingssong nach Gehör (z. B. Ashe
 (Stimmen stumm, langsamer, Tonart); (3) Impro über Backing-Track (iReal Pro
 oder YouTube) mit 3, dann 5 Tönen, Frage–Antwort. Ziel nach etwa drei
 Monaten: bei der Beginner-Session einen Blues und einen Standard mitspielen,
-einen Chorus improvisieren.
+einen Chorus improvisieren. „Heute“ (I-09) übernimmt davon seit 2026-11-19
+nur den Rahmen — 3 × 10 Minuten, 4 Einheiten pro Woche —; welche Blöcke es
+sind, bestimmen die Skills, die Marlon als „Lerne ich“ markiert. Die drei
+Felder oben sind eine Empfehlung, was man markiert, keine festen Fächer.
 
 **Abgrenzung:** Stimmen trennen, Songs transkribieren und Begleitspuren als
 Dateien bleiben bei fertigen Werkzeugen (Moises, iReal Pro) — passt zu G-06
@@ -1598,25 +1605,162 @@ Runde zählt auf den Skill (Dreiklänge → „Dur und Moll hören“). Nach dem
 Antworten spielt ein Tipp auf jede Antwort deren Klang (Vergleich). Letzte
 Stufe je Übung in `ueben:hoerquiz` (reist mit der Sicherung).
 
-### I-09 · „Heute“: geführte Einheit — Bau 2026-11-16
+### I-09 · „Heute“: geführte Einheit — Bau 2026-11-16, Umbau 2026-11-19, zu prüfen
 
-Oben auf der Lernen-Seite (seit B-18; vorher oben in der Skill-Übersicht):
-„Heute · 30 Min.“ — drei Blöcke à 10 Minuten
-(Leitlinie aus I): **Ohr** (ein Skill mit Übung in der App, bevorzugt
-`lerne`/`will`, sonst der am stärksten verblasste), **Stück/Mitspielen**
-(ein Repertoire- oder Mitspiel-Skill, extern), **Impro** (ein
-Improvisations-Skill, extern). Auswahl deterministisch aus Markierungen,
-Stufen und Frische (pausierte nie; `kann` nur zum Auffrischen, wenn
-verblasst); „Anderer Vorschlag“ tauscht einen Block. Jeder Block: Start der
-App-Übung oder „Erledigt“ (zählt als geübt heute). Fortschritt der Woche:
-„2 von 4 Einheiten“.
+**Wunsch Marlon (2026-11-19):** „Ich dachte, in ‚Heute‘ stecken irgendwie
+alle Skills, die ich mir als ‚Ich lerne‘ markiert habe. … Dann gerne ändern
+zu Übungen von Skills, die ich dafür markiert hab.“ Bis dahin hatte „Heute“
+drei feste Fächer — Ohr (nur Skills mit App-Übung), Stück/Mitspielen, Impro
+—; ein „Lerne ich“ aus Klarinette, Technik oder Theorie kam nie vor.
 
-**Umgesetzt 2026-11-16:** Eine Einheit = ein Tag, an dem alle Blöcke mit
-Vorschlag erledigt sind; Woche ab Montag. Der Tagesstand (`ueben:heute`:
-Vorschlags-Wechsel, Erledigtes, Einheiten) bleibt am Gerät. Ein aus „Heute“
-gestarteter Ohr-Block ist erledigt, sobald die Übung eine Runde meldet.
-Reihenfolge der Kandidaten: lerne → will (je am längsten nicht geübt zuerst)
-→ verblasst (am stärksten zuerst) → offen (Voraussetzungen erfüllt zuerst).
+**Regel (seit 2026-11-19):**
+- **Rahmen** nach der Leitlinie (I): bis zu drei Blöcke à 10 Minuten,
+  Wochenziel 4 Einheiten. Eine Einheit = ein Tag, an dem alle Blöcke
+  erledigt sind; Woche ab Montag.
+- **Blöcke aus „Lerne ich“**, aus allen Bereichen, keine festen Fächer.
+  Zuerst, was am längsten nicht geübt wurde (bei Gleichstand die
+  Reihenfolge der Kartei). Bei mehr als drei rotiert es so über die Tage:
+  Was geübt ist, rückt nach hinten.
+- **Weniger als drei „Lerne ich“ (Entscheidung beim Bau):** bis drei
+  auffüllen, erst mit ☆ „Will ich“ (am längsten nicht geübt zuerst), dann
+  mit Verblasstem (am stärksten zuerst, auch „Kann ich“); der Block heißt
+  dann „Aufgefüllt · ☆ Will ich“ bzw. „Aufgefüllt · verblasst“ (grau statt
+  messingfarben). Reicht auch das nicht, gibt es weniger Blöcke („Heute ·
+  10 Min.“ bzw. „20 Min.“) und darunter einen Satz mit „Skills ›“. Warum so:
+  Die Leitlinie rechnet in Einheiten von 30 Minuten; ☆ ist Marlons eigene
+  Liste fürs Nächste, Verblasstes braucht Auffrischen (Prinzip der Kartei)
+  — beides hat er selbst gewählt oder schon geübt, Unberührtes wird nie
+  untergeschoben. Nie in „Heute“: „Gerade nicht“; ohne „Lerne ich“ oder ☆
+  nur, was verblasst ist.
+- **Nichts als „Lerne ich“ markiert:** keine Blöcke, nur der Satz
+  „Markiere in der Skill-Kartei, was du gerade lernst …“ mit „Skills ›“
+  (öffnet die Kartei darüber). Nichts Ausgegrautes.
+- **Erledigt** ist ein Block, sobald sein Skill heute geübt wurde — gleich
+  wo: eine Runde in Ohr-Trainer oder Hör-Übung, „Geübt“ in den Etüden,
+  Einschätzen eines Licks, „Heute gespielt“ in der Jam-Karte, „Heute geübt“
+  in Griffweisen oder Kartei, ein Metronom mit Swing-Achteln, „Erledigt“ im
+  Block. Erledigtes bleibt stehen, auch wenn sich die Markierung danach
+  ändert.
+- **Nichts verschiebt sich:** Der Plan des Tages wird festgehalten, sobald
+  er gezeigt wird; Üben (auch anderswo) ändert ihn nicht. Er ändert sich
+  nur, wenn ein Block nicht mehr passt (Markierung geändert → Ersatz an
+  derselben Stelle), wenn ein neues „Lerne ich“ eine offene Auffüllung
+  verdrängt (an ihrer Stelle) — oder durch „Anderer Vorschlag“. Jeder Block
+  hat eine feste Höhe (Name eine Zeile, Aufgabe drei; auf dem iPad zwei und
+  fünf, der volle Text steht im Detail).
+- **„Anderer Vorschlag“** (↻ oben rechts im Block) tauscht nur diesen Block
+  gegen den nächsten „Lerne ich“, der in keinem Block steht und heute noch
+  nicht geübt ist — reihum, nach dem letzten wieder der erste.
+  Auffüllungen tauschen untereinander. Stehen alle „Lerne ich“ schon da,
+  gibt es nichts zu tauschen: ↻ ist unsichtbar, sein Platz bleibt.
+
+**Übungen von Skills:** Jeder Block nennt, warum er da ist („Lerne ich ·
+Klarinette“), den Skill und eine **Aufgabe** für 10 Minuten — neu im
+Katalog für alle 49 Skills (`aufgabe`, höchstens 150 Zeichen, Tonhöhen
+notiert für B-Klarinette, z. B. „Blues in B♭ liegt für dich in C“). Darunter,
+womit:
+- **App-Übung** (Ohr-Trainer-Stufen, Hör-Übungen): „▶ Ohr-Trainer“ bzw.
+  „▶ Hör-Übung“ wie bisher; erledigt nach einer Runde.
+- **Werkzeug**, voreingestellt (`werkzeug` im Katalog):
+
+  | Werkzeug | Skills | geöffnet mit | meldet selbst |
+  |---|---|---|---|
+  | Etüden (I-14) | Dur-Tonleitern in 12 Tonarten · Dur-Tonleitern und Vorzeichen · Dreiklang- · Septakkord-Arpeggien · Guide Tones · Umspielung | Muster Tonleiter · Tonleiter · Dur-Dreiklang · maj7 · Guide Tones · Umspielung | „Geübt“ (nicht für Vorzeichen) |
+  | Licks (I-16) | Licks lernen und transponieren · Blues-Phrasen | Liste · „Blues-Wendung abwärts“ | Einschätzen |
+  | Jam-Karte (I-19) | Blues in B · Blue Bossa · Autumn Leaves · Summertime · Akkordtöne auf Zählzeiten | dem Stück · Blues in B♭ (einfach) | „Heute gespielt“ (nicht für Akkordtöne) |
+  | Spickzettel (I-11) | Akkordaufbau · Optionstöne · Modi der ii–V–I | C7 · C9 · Dm7 (notiert) | — |
+  | Drone (I-18) | Mit 3 Tönen improvisieren · Frage und Antwort · Weitere Modi | Grundton C (notiert) | — |
+  | Griffweisen (I-13) | Sauberes Clarion und Altissimo | H (erster Clarion-Ton) | „Heute geübt“ |
+  | Transponieren (I-12) | Tonart eines Songs finden | — | — |
+  | Metronom (I-17) | Swing-Achtel und Artikulation · Doppelzunge · Triolenzunge | volles Metronom über Lernen | Swing: sobald Swing-Achtel klingen |
+
+  Ohne Selbstmeldung bleibt „Erledigt“ im Block. Je eine Vorbelegung als
+  Prop: `muster` (Etüden), `lick` (Licks), `stueck` (Jam-Karte); Spickzettel,
+  Drone und Griffweisen hatten sie schon. Das Metronom gehört der Zentrale:
+  Der Block schickt `ueben:metronom-zeigen`, die Zentrale blendet das Widget
+  ein und öffnet „alles“. Bewusst **nicht** voreingestellt: Swing
+  einzuschalten änderte die gespeicherte Metronom-Einstellung auch für die
+  Noten (Nebenwirkung, Bedienregel).
+- **Sonst** (extern: iReal Pro, Moises, eigene Noten): die Aufgabe und
+  „Erledigt“.
+- Das **Detail** eines Skills (in Kartei und „Heute“) zeigt die Aufgabe
+  („So übst du · 10 Min.“) und denselben Knopf. Üben und Werkzeug schließen
+  erst das Detail — auf dem iPad läge die Übung nach der Stapelordnung
+  (Seite z 46, Blatt z 80) sonst *unter* dem Detail-Blatt.
+- **Fachlich nachgeschlagen** (auch im Kopf von `skillkatalog.ts`):
+  Swing-Artikulation (Off-Beat anstoßen, in die Zählzeit binden) —
+  jazzadvice.com, „The Beginner's Guide to Jazz Articulation“; über den Bruch
+  (A–H binden, rechte Hand liegen lassen) — DANSR, „Mind the Gap: Crossing
+  the Clarinet Break Demystified“ und „Right Hand Down (or not) on
+  Clarinet“; Doppelzunge (erst ohne Mundstück sprechen, mit Metronom langsam
+  steigern) — Robert Spring, „Multiple Articulation for Clarinet“
+  (bandworld.org); Guide Tones (Septime fällt zur Terz) —
+  learnjazzstandards.com; chromatische Annäherung und Umspielung (Ziel auf
+  der Zählzeit) — fundamental-changes.com, „Chromatic Approach Notes“,
+  jazz-guitar-licks.com, „Target Tones and Enclosures“; Stufen und Modi —
+  Mark Levine, „The Jazz Theory Book“.
+
+**Tagesstand `ueben:heute` (Gerät, reist nicht mit):** jetzt `{ tag, plan,
+einheiten }`, `plan` = Skill-ids der Blöcke. Ein Stand der alten Form
+(`wechsel`, `erledigt` je ohr/stueck/impro) vom selben Tag: Das dort
+Erledigte wird zu den ersten Blöcken (Reihenfolge ohr, stueck, impro) und
+gilt als erledigt — die alte Fassung hatte beim Erledigen „heute geübt“
+eingetragen —, der Rest kommt nach der neuen Regel dazu; die
+Vorschlags-Wechsel entfallen. Stimmt das nicht (Skill heute nicht geübt),
+wird der Block an derselben Stelle ersetzt. Alter Stand von gestern oder
+kaputte Werte: sauber neu. Die Einheiten bleiben immer. Gespeichert wird
+danach nur noch die neue Form. Kein Eingriff in IndexedDB oder Sicherung.
+
+**Umgesetzt 2026-11-19:** Regeln `heuteArt`, `heuteKandidaten`,
+`heuteVorschlag`, `heuteFestschreiben`, `andererVorschlag`, `heuteLesen`
+in `src/domain/skills.ts` (zuerst als Test, `tests/skills.test.ts`, samt
+altem Tagesstand); `aufgabe`/`werkzeug` in `src/domain/skillkatalog.ts`
+(getestet: jede Verknüpfung zeigt auf ein Muster, einen Lick, ein Stück,
+einen lesbaren Akkord, einen greifbaren Ton); Ansicht `HeuteAbschnitt` in
+`Skills.tsx`. **Geprüft im Browser** (Chromium, iPhone 390 × 844 und iPad
+820 × 1180): 0 markiert → nur der Satz, „Skills ›“ öffnet die Kartei; 1 →
+ein Block, „10 Min.“; 1 + ☆ → „Aufgefüllt · ☆ Will ich“, „20 Min.“; 3
+(Klarinette, Technik, Harmonie) → genau diese, kein ↻; 5 → drei Blöcke, ↻
+dreimal: nur dieser Block wechselt, alle Blöcke und die Überschrift „Üben“
+bleiben auf dem Pixel, nach dem dritten wieder der erste. „▶ Etüden“ öffnet
+mit Muster Tonleiter, „Geübt“ → Block ✓; „Erledigt“ verschiebt nichts;
+„▶ Hör-Übung“ (Intervalle), „▶ Metronom“ (volles Metronom über Lernen),
+„▶ Jam-Karte“ (Blues in B♭); alter Tagesstand übernommen und in neuer Form
+gespeichert; nichts läuft über.
+
+**Auf dem Gerät prüfen:**
+- iPhone und iPad: in der Kartei nacheinander 0, 1, 3 und 5 Skills aus
+  verschiedenen Bereichen als „Lerne ich“ markieren — stimmen Blöcke,
+  Minuten und „Aufgefüllt“? Bei 0: nur der Satz, „Skills ›“ öffnet die
+  Kartei.
+- ↻ bei fünf „Lerne ich“: nur dieser Block wechselt, nichts darunter rückt;
+  nach dem Durchlauf wieder der erste. Auf dem iPhone ↻ gut zu treffen?
+- Jeden Knopf einmal: Etüden (richtiges Muster), Licks (Blues-Wendung),
+  Jam-Karte (das Stück), Spickzettel (Akkord notiert), Drone (C),
+  Griffweisen (H), Transponieren, Metronom (Widget und „alles“ über Lernen;
+  Swing-Achtel an und starten → Block ✓). Fertig/Schließen führt zurück zu
+  „Heute“.
+- Ohr-Trainer und Hör-Übung aus dem Block: nach einer Runde ✓; Mikrofon und
+  Klang wie vorher.
+- Blöcke über den Tag verteilt erledigen, App dazwischen schließen: Der Plan
+  bleibt derselbe; alle erledigt → „✓ geschafft“, Wochenzähler +1.
+- Am nächsten Tag (mehr als drei „Lerne ich“): die gestern geübten stehen
+  hinten, andere vorn.
+- Gleich nach dem Update, wenn die alte Einheit von heute halb erledigt
+  war: das Erledigte steht als ✓ vorn, nichts ist kaputt.
+
+**Offene Fragen an Marlon:**
+- Ein Block gilt als erledigt, sobald der Skill heute irgendwo geübt wurde
+  (auch über die Ohr-Trainer-Zeile oder ein Werkzeug ohne „Heute“). Passt
+  das, oder soll nur zählen, was aus „Heute“ gestartet wurde?
+- Zählt eine kürzere Einheit (ein oder zwei Blöcke, weil nichts zum
+  Auffüllen da ist) für das Wochenziel? Derzeit ja.
+- Soll der Swing-Block das Metronom gleich auf Swing stellen? Das änderte
+  die gespeicherte Einstellung auch für die Noten — derzeit nein, er öffnet
+  nur das Metronom.
+- Passen die Aufgaben-Texte (Tempo-Angaben, „Blues in B♭ = C notiert“) zu
+  deinem Stand, und fehlt eine Verknüpfung, die du erwartest (z. B.
+  Pentatonik → Licks, Akkordfolgen → Jam-Karte)?
 
 ### I-10 · Später: Klarinetten-Checks, Akkordfolgen, Modi-Klang
 

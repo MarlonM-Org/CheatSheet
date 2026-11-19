@@ -26,13 +26,14 @@ import { useSeite } from './seite';
 const laden = () => jamStueckeLesen(gespeichert<unknown>(JAM_SCHLUESSEL, []));
 const neueId = () => `eigen-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;
 
-export function JamKarteBlatt({ schliessen }: { schliessen: () => void }) {
+// `stueck`: gleich dieses Stück zeigen (aus „Heute“, I-09), sonst die Liste.
+export function JamKarteBlatt({ schliessen, stueck: anfang }: { schliessen: () => void; stueck?: string }) {
   const seite = useSeite();
   const fokus = useDialogFokus<HTMLDivElement>();
   const kopf = useId();
   const { stimmung } = useStimmgeraetApi();
   const [eigene, setEigeneRoh] = useState<JamStueck[]>(laden);
-  const [gewaehlt, setGewaehlt] = useState<string | null>(null);
+  const [gewaehlt, setGewaehlt] = useState<string | null>(anfang ?? null);
   const [klingendZeigen, setKlingendZeigen] = useState(false);
   const [spick, setSpick] = useState<{ akkord: string; eingabe: Eingabe } | null>(null);
   const [formular, setFormular] = useState<{ stueck: JamStueck | null } | null>(null);

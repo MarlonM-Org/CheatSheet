@@ -1674,25 +1674,45 @@ ol.stichpunkte { list-style: decimal; }
 .skill-heute-kopf strong { font-size: 1rem; }
 .skill-woche { font-size: 0.78rem; color: var(--gedaempft); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .skill-woche.fertig { color: var(--gut); font-weight: 650; }
-.skill-heute-bloecke li { display: flex; align-items: center; gap: 6px; padding: 8px 0; min-height: 58px; }
+/* Ein Block (I-09): Art · Skill · Aufgabe · Knöpfe. Feste Höhe — Name eine
+   Zeile, Aufgabe drei, Knopfzeile —, damit „Anderer Vorschlag“ nur den Inhalt
+   tauscht und nichts darunter rückt; der volle Text steht im Detail. */
+.skill-heute-bloecke li { display: flex; flex-direction: column; align-items: stretch; gap: 2px; padding: 10px 0 8px; min-width: 0; }
 .skill-heute-bloecke li + li { border-top: 1px solid var(--linie); }
-.skill-heute-text { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; }
-.skill-heute-name { font-weight: 650; font-size: 0.92rem; line-height: 1.25; text-align: left; }
+.skill-heute-oben { position: relative; display: flex; flex-direction: column; gap: 2px; min-width: 0; padding-right: 36px; }
+.skill-heute-art { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--messing); }
+.skill-heute-art.aufgefuellt { color: var(--leise); }
+.skill-heute-name { display: flex; align-items: flex-start; min-width: 0; max-width: 100%; font-weight: 650; font-size: 0.95rem; line-height: 1.3; text-align: left; }
+.skill-heute-name > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.skill-heute-aufgabe {
+  font-size: 0.82rem; line-height: 1.35; color: var(--gedaempft); min-height: calc(3 * 1.35em);
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden;
+}
 .skill-heute-bloecke li.erledigt .skill-heute-name { color: var(--gedaempft); }
-.skill-heute-knoepfe { flex: none; display: flex; align-items: center; gap: 2px; }
-.skill-anderer { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 6px; color: var(--messing); }
+.skill-heute-knoepfe { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 6px; min-height: 2.75rem; }
+.skill-heute-werkzeug { min-width: 0; flex: 0 1 auto; justify-content: center; }
+/* „Anderer Vorschlag“ oben rechts im Block, über Art und Name. */
+.skill-anderer { position: absolute; top: -8px; right: 0; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 6px; color: var(--messing); }
 .skill-anderer svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .skill-anderer:active { background: var(--flaeche2); }
+.skill-heute-los, .skill-heute-fertig { margin-left: auto; }
 .skill-heute-los { min-width: 5.6rem; justify-content: center; }
 .skill-heute-fertig { min-width: 5.6rem; min-height: 38px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 650; color: var(--gut); }
-/* Breit (Lernen auf dem iPad): die drei Blöcke nebeneinander, Knöpfe unten rechts. */
+/* Kein „Lerne ich“ (oder zu wenig für 30 Minuten): ein Satz und der Weg zur Kartei. */
+.skill-heute-hinweis { display: flex; align-items: center; gap: 12px; padding: 6px 0 8px; font-size: 0.85rem; line-height: 1.4; color: var(--gedaempft); }
+.skill-heute-bloecke + .skill-heute-hinweis { border-top: 1px solid var(--linie); }
+.skill-heute-hinweis p { flex: 1; min-width: 0; }
+.skill-heute-hinweis .knopf { flex: none; }
+/* Breit (Lernen auf dem iPad): die Blöcke nebeneinander; Name bis zwei, Aufgabe bis fünf Zeilen. */
 @container (min-width: 640px) {
-  .skill-heute-bloecke { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .skill-heute-bloecke li { flex-direction: column; align-items: stretch; justify-content: space-between; gap: 10px; padding: 8px 14px 12px; }
+  .skill-heute-bloecke { display: grid; grid-template-columns: repeat(var(--bloecke, 3), minmax(0, 1fr)); }
+  .skill-heute-bloecke li { padding: 8px 14px 10px; }
   .skill-heute-bloecke li:first-child { padding-left: 0; }
   .skill-heute-bloecke li:last-child { padding-right: 0; }
   .skill-heute-bloecke li + li { border-top: 0; border-left: 1px solid var(--linie); }
-  .skill-heute-knoepfe { justify-content: flex-end; }
+  .skill-heute-name { min-height: calc(2 * 1.3em); }
+  .skill-heute-name > span { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+  .skill-heute-aufgabe { min-height: calc(5 * 1.35em); -webkit-line-clamp: 5; line-clamp: 5; }
 }
 
 .skill-filter { display: flex; gap: 6px; overflow-x: auto; margin: 0 -1.25rem; padding: 0 1.25rem 2px; scrollbar-width: none; }

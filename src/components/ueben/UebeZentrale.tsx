@@ -9,6 +9,7 @@ import { MetronomAnbieter } from './MetronomKontext';
 import { MetronomWidget } from './MetronomWidget';
 import { speicherBehalten, tagsLaden } from './lokal';
 import { NotenPult } from './NotenPult';
+import { METRONOM_ZEIGEN } from './Skills';
 import { ladeFehler, SpeicherHinweis } from './speicherfehler';
 import { ortTippen } from '@/domain/leiste';
 import { mixBereichLesen, type MixBereich } from '@/domain/stellen';
@@ -107,6 +108,12 @@ function Zentrale() {
   // Nach „aktualisieren" in der Bibliothek: offenes Stück neu aufbauen.
   const aktualisiert = (ids: string[]) => { if (angezeigt && ids.includes(angezeigt)) setFassung((f) => f + 1); };
   const metroUmschalten = (an: boolean) => { setMetroAn(an); speichern('ueben:metronom-an', an); if (!an) setMetroVoll(false); };
+  // „Heute“ (I-09): Ein Block (Swing, Zunge) öffnet das volle Metronom über Lernen.
+  useEffect(() => {
+    const zeigen = () => { setMetroAn(true); speichern('ueben:metronom-an', true); setMetroVoll(true); };
+    window.addEventListener(METRONOM_ZEIGEN, zeigen);
+    return () => window.removeEventListener(METRONOM_ZEIGEN, zeigen);
+  }, []);
   // Einblenden startet das Mikrofon gleich mit — der Tipp auf „Stimmgerät" ist
   // die Geste dafür, ein zweiter Tipp im Widget entfällt (C-05).
   const stimmUmschalten = (an: boolean) => { setStimmAn(an); if (an) void stimmStart(); else { stimmStopp(); setStimmVoll(false); } };

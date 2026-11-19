@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { STIMMUNG_NAMEN, tonDeutsch } from '@/domain/akkorde';
 import {
   abschnitteAbc, abschnitteKlaenge, ETUEDEN_STANDARD, ETUEDEN_TEMPO, etuedeBauen, grundFuer, istEtuedenEinstellung, MUSTER, musterVon,
-  OBERE_GRENZEN, REIHENFOLGE_NAMEN, REIHENFOLGEN, RHYTHMEN, RHYTHMUS_NAMEN, RHYTHMUS_TICKS, TAKT, type EtuedenEinstellung,
+  OBERE_GRENZEN, REIHENFOLGE_NAMEN, REIHENFOLGEN, RHYTHMEN, RHYTHMUS_NAMEN, RHYTHMUS_TICKS, TAKT, type EtuedenEinstellung, type MusterId,
 } from '@/domain/etueden';
 import { skillFinden } from '@/domain/skillkatalog';
 import { AbcZeile } from './AbcZeile';
@@ -48,12 +48,13 @@ export const takteFuer = (breite: number, ticksJeNote: number) => {
   return 2 ** Math.floor(Math.log2(n));
 };
 
-export function EtuedenBlatt({ schliessen }: { schliessen: () => void }) {
+// `muster`: damit öffnen (aus „Heute“, I-09), sonst die zuletzt gewählte Etüde.
+export function EtuedenBlatt({ schliessen, muster: anfang }: { schliessen: () => void; muster?: MusterId }) {
   const seite = useSeite();
   const fokus = useDialogFokus<HTMLDivElement>();
   const kopf = useId();
   const { spielen, stopp, laeuft, stimmung } = useKlickSpieler();
-  const [w, setWRoh] = useState<EtuedenEinstellung>(laden);
+  const [w, setWRoh] = useState<EtuedenEinstellung>(() => (anfang ? { ...laden(), muster: anfang } : laden()));
   const [klick, setKlick] = useState(true);
   const [geuebt, setGeuebt] = useState<string | null>(null);
   const { ref: flaeche, breite } = useBreite<HTMLDivElement>();
