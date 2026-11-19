@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  FRUEHERE_SCHALTER, LAUTSPRECHER_SCHLUESSEL, LAUTSPRECHER_STANDARD, lautsprecherAnfang, mikrofonWunsch, sitzungFuer,
+  FRUEHERE_SCHALTER, LAUTSPRECHER_SCHLUESSEL, LAUTSPRECHER_STANDARD, lautsprecherAnfang, mikrofonWunsch, MISCHEN_SCHLUESSEL, MISCHEN_STANDARD,
+  schalterAnfang, sitzungFuer,
 } from '@/domain/lautsprecher';
 import { istMitreisend } from '@/domain/einstellungen';
 
@@ -39,6 +40,34 @@ describe('Audio-Sitzung (navigator.audioSession.type)', () => {
   it('ein verzählter Zähler fällt auf Wiedergabe zurück', () => {
     expect(sitzungFuer(-1)).toBe('playback');
     expect(sitzungFuer(Number.NaN)).toBe('playback');
+  });
+  it('ohne Angabe wird nicht gemischt (wie bisher)', () => {
+    expect(sitzungFuer(0, false)).toBe('playback');
+    expect(sitzungFuer(1, false)).toBe('play-and-record');
+  });
+});
+
+describe('Mit anderen Apps mischen (D-08)', () => {
+  it('ohne Mikrofon: „ambient“ — der einzige Typ, mit dem WebKit fremde Musik weiterlaufen lässt', () => {
+    expect(sitzungFuer(0, true)).toBe('ambient');
+    expect(sitzungFuer(-1, true)).toBe('ambient');
+  });
+  it('mit offenem Mikrofon geht Mischen nicht: „play-and-record“ (WebKit setzt dafür kein Mischen; die andere Musik hält an)', () => {
+    expect(sitzungFuer(1, true)).toBe('play-and-record');
+    expect(sitzungFuer(2, true)).toBe('play-and-record');
+  });
+  it('Vorgabe aus — gemischt gilt der Stummschalter, und im Hintergrund läuft nichts weiter', () => {
+    expect(MISCHEN_SCHLUESSEL).toBe('ueben:mischen');
+    expect(MISCHEN_STANDARD).toBe(false);
+  });
+  it('liegt am Gerät: reist nicht mit der Sicherung', () => {
+    expect(istMitreisend(MISCHEN_SCHLUESSEL)).toBe(false);
+  });
+  it('gemerkte Wahl: nur echte Wahrheitswerte zählen, sonst die Vorgabe', () => {
+    expect(schalterAnfang(speicher({}), MISCHEN_SCHLUESSEL, MISCHEN_STANDARD)).toBe(false);
+    expect(schalterAnfang(speicher({ [MISCHEN_SCHLUESSEL]: true }), MISCHEN_SCHLUESSEL, MISCHEN_STANDARD)).toBe(true);
+    expect(schalterAnfang(speicher({ [MISCHEN_SCHLUESSEL]: 'roh:{kaputt' }), MISCHEN_SCHLUESSEL, true)).toBe(true);
+    expect(schalterAnfang(speicher({ [MISCHEN_SCHLUESSEL]: 1 }), MISCHEN_SCHLUESSEL, false)).toBe(false);
   });
 });
 

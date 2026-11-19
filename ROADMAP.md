@@ -132,7 +132,8 @@ oder iPad. Vorher auf jedem Gerät eine Sicherung erstellen.
   - An: Klick kommt aus dem Lautsprecher, Singen aus 30–50 cm Abstand wird erkannt, der Klick taucht nicht als Noten in der Spur auf.
   - Aus: Klick aus dem Hörer, nah am Mund singen — erkennt die Spur dasselbe?
   - Schalter bleibt nach Neustart (`ueben:einspiel-lautsprecher`); Pegelschwelle −50 dBFS: leises Singen kommt an, Raumgeräusche werden nicht zu Noten.
-- B-20 · Lautsprecher für alle Klänge: eine Geräte-Einstellung (`ueben:lautsprecher`) statt drei Schaltern, Audio-Sitzung nach dem Mikrofon zurück auf Wiedergabe · `lautsprecher.ts` getestet, im Browser (iPhone- und iPad-Größe) an neun Orten umgeschaltet, nichts verschiebt sich; iOS-Verhalten nur aus WebKit-Quelltext und Fehlerberichten. Prüfen: Checkliste in B-20 (sie ersetzt die Punkte zum Lautsprecher-Schalter direkt darüber).
+- B-20 · Lautsprecher für alle Klänge: eine Geräte-Einstellung (`ueben:lautsprecher`) statt drei Schaltern, Audio-Sitzung nach dem Mikrofon zurück auf Wiedergabe; seit Marlons Rückmeldung (2026-11-19) auch in Etüden, Licks, Hör-Übungen, Spickzettel und Griffe, Vorgabe „an“, Kopfhörer-Erkennung geprüft und verworfen (iOS verrät Webseiten den Audio-Weg nicht) · `lautsprecher.ts` getestet, im Browser (iPhone- und iPad-Größe) an allen Orten umgeschaltet, nichts verschiebt sich; iOS-Verhalten nur aus WebKit-Quelltext und Fehlerberichten. Prüfen: Checkliste in B-20 (sie ersetzt die Punkte zum Lautsprecher-Schalter direkt darüber).
+- D-08 · Metronom im Hintergrund (Vorgabe an) und „Mit anderen Apps mischen“ (Vorgabe aus, Sitzung „ambient“), Sperrbildschirm-Steuerung · `taktgeber.ts` getestet (Vorlauf 5 s im Hintergrund, Zurückholen, Trainer), im Browser mit nachgestelltem App-Wechsel geprüft; ob iOS den Ton im Hintergrund durchlässt (laut Berichten ab iOS 17.5), zeigt nur das Gerät. Prüfen: Checkliste in D-08.
 - G-01 · Notenblatt (`Notensatz.tsx`, `notensatz.ts` getestet) — Schreiben, Noten setzen und verschieben, Palette, Bogen, Takt +/−; seit `08f426e` auch 32tel, Triolen, Löschen/Einfügen · brandneu, nur im Browser gesehen.
   - iPad: Noten mit dem Finger treffen (Skala 1,4 ab 700 px); Ziehen scrollt, ▲▼ und ▲8 ▼8 verschieben; iPhone hochkant: zwei Takte je Zeile lesbar?
   - Notenwert: kürzer (Pause füllt auf), länger (frisst bis zum Taktstrich), punktiert, Achtel-/Sechzehntel-/Vierteltriole, 32tel — zeichnet abcjs alles sauber?
@@ -475,7 +476,8 @@ zeigen und ändern dieselbe Wahl:
 
 Zentral: Einstellungen → „Ton und Mikrofon“ mit Erklärung. Werkzeuge ohne
 eigenes Mikrofon (Etüden, Licks, Spickzettel, Hör-Übungen, Griffe,
-Notenblatt) bekommen keinen Schalter. Bedienregel: Der Hinweis neben jedem
+Notenblatt) bekommen keinen Schalter — *überholt durch die Rückmeldung
+unten: seit 2026-11-19 steht er auch dort.* Bedienregel: Der Hinweis neben jedem
 Schalter hängt nicht vom Zustand ab, darum verschiebt Umschalten nichts.
 Beim Einsingen war der Text vorher je nach Zustand verschieden lang.
 
@@ -538,23 +540,90 @@ vorher eine Sicherung):
   und Lautsprecher aus.
 - Bluetooth-Box über das Kontrollzentrum: Spielt das Metronom ohne Mikrofon
   dort? Bleibt es dort, wenn das Stimmgerät angeht, oder springt iOS um?
+- Neue Orte (seit der Rückmeldung unten): Etüden, Licks (in einem Lick),
+  Hör-Übungen, Spickzettel (auch aus der Jam-Karte und der Spielhilfe),
+  Griffe — der Schalter zeigt dieselbe Stellung wie in den Einstellungen,
+  Umschalten verschiebt nichts.
+- Stimmgerät läuft, dann eine Etüde oder einen Lick vorspielen:
+  Lautsprecher an → laut aus dem Lautsprecher; aus → leise aus dem Hörer.
+- Kabel-Kopfhörer dran, Lautsprecher **an**, Stimmgerät und Drone: Die Drone
+  kommt im Kopfhörer, nicht im Lautsprecher. (Das bestätigt die Lesart „der
+  Ton geht so oder so zum angeschlossenen Gerät; ‚aus‘ ändert nur das
+  Mikrofon“.) Dasselbe mit AirPods: Ton in den AirPods? Welches Mikrofon
+  hört — iPhone oder AirPods?
+
+**Rückmeldung Marlon (2026-11-19)** auf die drei Fragen:
+1. Externe Box gemeint? „Ich meine einfach die integrierte laute Ausgabe vom
+   Gerät. Bei Anrufen kann ich ja z. B. auch auf Lautsprecher stellen.“ —
+   Die Lesart oben stimmt. Eine Ausgabe-Wahl (`setSinkId`) wird nicht gebaut.
+2. Schalter auch bei Etüden, Licks, Hör-Übungen? „Ja, eigentlich auch bei
+   denen. Wobei, eigentlich kann immer der Geräte-Lautsprecher genutzt
+   werden, außer es ist halt ein externes Gerät noch dran.“
+3. Mit Musik anderer Apps mischen (Stummschalter-Nachteil)? „Sehe nichts,
+   was dagegen spricht, gerne auch Metronom im Hintergrund spielbar.“ →
+   **D-08**.
+
+**Daraus gebaut:**
+- **Lautsprecher bleibt der Normalfall, Vorgabe „an“, ein Schalter von
+  Hand — keine Automatik.** Geprüft wurde, ob die App Kopfhörer oder ein
+  externes Gerät selbst erkennt: auf iOS nicht verlässlich. Den Audio-Weg
+  (AVAudioSession `currentRoute`) gibt WebKit Webseiten nicht heraus, auch
+  die Audio-Session-Spezifikation kennt ihn nicht. `enumerateDevices` zeigt
+  in WebKit vor der Mikrofon-Erlaubnis höchstens ein Gerät je Art ohne
+  Namen, danach die Mikrofone aus `availableInputs` („iPhone-Mikrofon“,
+  „AirPods“, „Headset-Mikrofon“). Kabel-Kopfhörer ohne Mikrofon,
+  Bluetooth-Boxen, Kopfhörer nur mit A2DP und AirPlay sind keine Eingänge und
+  tauchen dort nie auf. Ausgänge (`audiooutput`) listet der offene Teil von
+  WebKit auf iOS nicht; ob Apples nicht-öffentlicher Teil es seit iOS 26
+  (`setSinkId`) tut, ist offen — vermutlich auch dann erst nach der
+  Mikrofon-Erlaubnis. `devicechange` meldet nur Änderungen dieser Liste. Die
+  Erlaubnis gilt in der Home-Bildschirm-App oft nur bis zum nächsten Start.
+  Eine Automatik müsste also das Mikrofon öffnen, nur um nachzusehen
+  (Nebenwirkung, Leitbild), und sähe die häufigsten Fälle trotzdem nicht. Marlons Satz trifft dabei
+  ohnehin, was „an“ tut: WebKit setzt „DefaultToSpeaker“, und das gilt nur,
+  solange kein anderer Ausgang dran ist. Mit Kopfhörer oder Box kommt der Ton
+  dort an, auch bei „an“. „Aus“ ändert nur das Mikrofon (roh statt
+  Freisprechen) und lohnt sich mit Kopfhörern. Die Erklärung steht in den
+  Einstellungen; die Regel als Kommentar in `src/domain/lautsprecher.ts`.
+- **Schalter bei allen übrigen Funktionen mit Ton**, dieselbe Komponente
+  (`LautsprecherSchalter`) mit demselben Hinweis, fester Platz unter den
+  Abspiel-Knöpfen. Der Platz ist immer da, Umschalten verschiebt nichts
+  (im Browser gemessen: 0 Abweichungen):
+  - Etüden: unter „Vorspielen/Geübt“ und dem Hinweis (auf dem iPad als
+    ganze Seite in der linken Spalte).
+  - Licks: in der Lick-Ansicht direkt unter „▶ Vorspielen“. Die Liste hat
+    keinen Ton.
+  - Hör-Übungen: am Ende des Blatts, in Start, Frage und Ergebnis gleich.
+  - Spickzettel: unter „▶ Akkord · ▶ Leiter · ▶ Akkord, dann Leiter“; so
+    auch, wenn er aus der Jam-Karte oder der Spielhilfe kommt.
+  - Griffe: unter „▶ Anhören · Mikrofon“ (Griffe hat ein eigenes Mikrofon).
+  - Die Jam-Karte hat selbst keinen Ton; ihre Akkorde öffnen den
+    Spickzettel, dort steht der Schalter. Das Swing-Metronom ist Teil der
+    Metronom-Ansicht (Schalter seit B-20). Das Notenblatt spielt nur im
+    Einsing-/Komponieren-Dialog, der den Schalter hat. Im
+    Spielhilfe-Streifen über den Noten ist kein Platz ohne Wachsen; seine
+    Drone folgt derselben Wahl.
+- In den Einstellungen → „Ton und Mikrofon“ dazu „Mit anderen Apps mischen“
+  und „Metronom im Hintergrund“ (D-08).
 
 **Offen, Fragen an Marlon:**
-- War mit „Lautsprecher“ doch eine externe Box gemeint (Bluetooth,
-  AirPlay)? Wählen lässt sie sich nur im Kontrollzentrum. Die App könnte
-  einen Ausgang höchstens fürs Abspielen von Aufnahmen anbieten
-  (`HTMLMediaElement.setSinkId`, ab iOS 26). Das ist nicht gebaut.
-- Soll der Schalter auch bei Etüden, Licks und Hör-Übungen stehen? Dort
-  wirkt er nur, wenn nebenbei das Stimmgerät läuft.
-- Mit Musik aus anderen Apps mischen (Sitzung „ambient“, etwa Metronom zu
-  Spotify) ginge auch. Dann wäre der Ton beim Stummschalter aber stumm.
-  Gewünscht?
+- Jam-Karte: Reicht der Schalter im Spickzettel, der sich beim Tipp auf
+  einen Akkord öffnet, oder soll er auch direkt auf der Karte stehen?
+- Spielhilfe-Streifen über den Noten: dort ohne Schalter (er würde den
+  Streifen größer machen). In Ordnung?
+- Vorgaben in D-08 (Hintergrund an, Mischen aus) — passt das?
 
 Quellen: WebKit-Quelltext `AudioSessionIOS.mm` und
 `MediaSessionManagerCocoa.mm`; WebKit-Fehler 326286, 282939, 295889,
 236219, 271305, 264473; W3C Audio Session (w3.org/TR/audio-session);
 MDN `AudioSession.type`; caniuse `AudioContext.setSinkId`; LiveKit
-client-sdk-js PR 1635 (`HTMLMediaElement.setSinkId` ab iOS 26).
+client-sdk-js PR 1635 (`HTMLMediaElement.setSinkId` ab iOS 26). Zur
+Geräte-Erkennung (2026-11-19): WebKit `MediaDevices.cpp`
+(`exposeDevices`), `AVAudioSessionCaptureDeviceManager.mm` (nur
+`availableInputs`, Lautsprecher über WebKitAdditions),
+`UnifiedWebPreferences.yaml` (`ExposeSpeakersEnabled`,
+`ExposeCaptureDevicesAfterCaptureEnabled`), Apple-Doku
+`AVAudioSessionCategoryOptionDefaultToSpeaker`.
 
 ---
 
@@ -566,7 +635,195 @@ client-sdk-js PR 1635 (`HTMLMediaElement.setSinkId` ab iOS 26).
 
 ## D — Metronom
 
-*(derzeit keine offenen Punkte — D-01…D-04 erledigt, siehe unten)*
+*(D-01…D-07 erledigt, siehe unten.)*
+
+### D-08 · Metronom im Hintergrund und mit anderen Apps — umgesetzt 2026-11-19, zu prüfen
+
+Wunsch Marlon (2026-11-19, Rückmeldung zu B-20): Mit Musik anderer Apps
+mischen — „Sehe nichts, was dagegen spricht, gerne auch Metronom im
+Hintergrund spielbar.“ Bis jetzt hielt das Metronom beim Verlassen der App
+an (D-02), und jeder Klang hielt Musik aus anderen Apps an (Sitzung
+„playback“, B-20). Anwendungsfall: Spotify, Moises oder iReal Pro spielen,
+das Metronom klickt dazu; oder CheatSheet liegt im Hintergrund, der
+Bildschirm ist gesperrt, das Metronom läuft weiter.
+
+**Recherche (2026-11-19; WebKit-Quelltext, Stand main, und Fehlerberichte):**
+- *Web Audio im Hintergrund.* Geht eine App in den Hintergrund, unterbricht
+  WebKit auf iOS jeden AudioContext (`MediaSessionManageriOS::
+  resetRestrictions`: Web Audio ist „BackgroundProcessPlaybackRestricted“).
+  Ausnahmen (`AudioContext::shouldOverrideBackgroundPlaybackRestriction`):
+  `navigator.audioSession.type` ist „playback“ oder „play-and-record“, oder an
+  `ctx.destination` hängt nichts (der Ton geht über einen
+  `MediaStreamAudioDestinationNode` hinaus). WebKit-Fehler 261554 (Kontext
+  trotz „playback“ angehalten) ist behoben, in WebKit seit 2024-03-01;
+  Entwickler berichten Hintergrund-Ton ab iOS 17.5 (iPadOS 17.5). In 17.0
+  bis 17.4 gab es Rückfälle; vor 16.4 gibt es `audioSession` gar nicht. Mit
+  „playback“ wird der Kontext außerdem „Now Playing“: Sperrbildschirm und
+  Kontrollzentrum zeigen ihn mit den Angaben aus `navigator.mediaSession`
+  (`AudioContext::nowPlayingInfo`).
+- *Timer im Hintergrund.* Verborgene Seiten bekommen ihre Timer in WebKit
+  gebündelt, im Sekundentakt (`DOMTimer::hiddenPageAlignmentInterval` = 1 s),
+  und `requestAnimationFrame` steht. Der
+  Taktgeber plante bisher nur 0,12 s voraus — im Hintergrund wären Lücken
+  von fast einer Sekunde entstanden.
+- *Home-Bildschirm-App.* Hintergrund-Ton geht dort laut Berichten seit
+  iOS 15.4. Berichtet ist aber auch, dass Web Audio nach der Rückkehr stumm
+  bleiben kann (iOS 18 bis 26, vielleicht in 26.2 behoben) — darum prüft
+  die App bei der Rückkehr, ob der Kontext noch läuft.
+- *Mischen.* WebKit lässt Seiten genau eine mischbare Sitzung: „ambient“
+  („transient“ ist dasselbe, `DOMAudioSession.cpp`). Sie wird zu
+  `AVAudioSessionCategoryAmbient`: Musik anderer Apps läuft weiter, der
+  Stummschalter gilt, und im Hintergrund unterbricht WebKit den Kontext (die
+  Ausnahme oben gilt nur für „playback“ und „play-and-record“). „playback“
+  und „play-and-record“ setzen kein „mit anderen mischen“ (`AudioSessionIOS.mm`;
+  `RemoteAudioSessionProxyManager::categoryCanMixWithOthers` kennt nur
+  Ambient): andere Musik hält an. Mit offenem Mikrofon muss es
+  „play-and-record“ sein (B-20), also hält die andere Musik dann immer an
+  (so auch WebKit 264473 für iOS 17.4). Andere Apps leiser stellen („ducken“)
+  können Seiten nicht.
+- *Folge:* Mischen und Hintergrund schließen sich aus. Metronom im
+  Hintergrund *zu* Musik einer anderen App geht nur, wenn jene App selbst
+  mischt (ihre Einstellung); sonst hält iOS das Metronom an, sobald dort
+  Musik startet.
+- *Andere Wege, geprüft und nicht gebaut:*
+  - Web Audio über `MediaStreamAudioDestinationNode` in ein `<audio>`: liefe
+    wohl auch vor iOS 17.5 im Hintergrund (nichts an `destination`, und
+    `<audio>` darf im Hintergrund spielen). Aber ein zweiter Tonweg mit mehr
+    Latenz, Taktpunkte und Klick laufen auseinander, und die Sitzung wird
+    „MediaPlayback“ wie bei „playback“ — beim Mischen kein Gewinn. Bleibt
+    der Ausweg, falls „playback“ auf Marlons Gerät nicht trägt.
+  - Vorgerenderte Schleife im `<audio loop>`: Safari springt am Ende zurück,
+    das gibt eine Lücke an der Schleifenstelle. Jede Änderung an Tempo,
+    Taktart, Akzenten oder Swing heißt neu rendern, der Trainer bräuchte eine
+    lange Datei. Ungenau und aufwendig.
+  - Media Session (Sperrbildschirm): gebaut, siehe unten.
+
+**Entscheidung (2026-11-19):**
+- Zwei Gerät-Einstellungen, in Einstellungen → „Ton und Mikrofon“ und im
+  Metronom unter „Klang, Lautstärke, Lautsprecher, Hintergrund,
+  Tempo-Trainer“ (dieselben Schalter):
+  - **„Metronom im Hintergrund“** (`ueben:metronom-hintergrund`), Vorgabe
+    **an**. Marlon wünscht es; Metronom-Apps arbeiten so; Anhalten geht auf
+    dem Sperrbildschirm. Lässt iOS den Ton doch nicht durch, steht das
+    Metronom bei der Rückkehr still wie bisher — schlechter als vorher wird
+    es nicht.
+  - **„Mit anderen Apps mischen“** (`ueben:mischen`), Vorgabe **aus**.
+    Gemischt gilt der Stummschalter: Ein stummes iPhone hieße ein stummes
+    Metronom, und das sieht aus wie kaputt (B-20 hat gerade „klingt trotz
+    Stummschalter“ gebaut). Gemischt läuft nichts im Hintergrund, und mit
+    Mikrofon geht es ohnehin nicht. Wer zu Spotify übt, schaltet es ein; der
+    Hinweis nennt den Haken.
+  - Mischen hat Vorrang: Ist es an, steht „Hintergrund“ auf aus und ist
+    gesperrt; die eigene Wahl bleibt gemerkt.
+- Nur das Metronom läuft im Hintergrund. Drone, Vorspielen, Stimmgerät,
+  Aufnahme und Einsingen halten beim Verlassen weiter an (ein Mikrofon im
+  Hintergrund gibt iOS Webseiten nicht).
+
+**Umgesetzt** (Regeln in `src/domain/taktgeber.ts`, getestet in
+`tests/taktgeber.test.ts`; Sitzung in `src/domain/lautsprecher.ts`, getestet
+in `tests/lautsprecher.test.ts`; Schalter in
+`src/components/ueben/lautsprecher.tsx`, Speicher in `klang.ts`):
+- `sitzungFuer(mikrofone, mischen)`: Mikrofon offen → „play-and-record“;
+  sonst gemischt → „ambient“, sonst „playback“. Umschalten setzt die Sitzung
+  sofort.
+- `imHintergrundWeiter({ hintergrund, mischen })`: nur mit Einstellung und
+  ohne Mischen.
+- Der Taktgeber ist jetzt eine reine Funktion (`taktgeberPlanen`, aus
+  `MetronomKontext` herausgelöst). Vorlauf vorn 0,12 s, im Hintergrund 5 s
+  (`vorlauf`). Jeder geplante Klick merkt sich den Stand davor. Zurück in der
+  App werden alle Klicks jenseits von 0,12 s gestoppt und ab dort mit den
+  Werten von jetzt neu geplant (`zurueckAb`). Getestet: in kleinen und großen
+  Schritten geplant ergibt dieselben Klicks (auch Swing, 6/8); Zurückholen
+  ohne Änderung ändert nichts; Tempo-, Taktart- und Akzentwechsel gelten ab
+  der Grenze im selben Raster; Trainer-Stufen sitzen auf der Eins, auch über
+  Vorlauf und Zurückholen. Verpasste Klicks (das Planen stand still, mehr als
+  50 ms zu spät) schweigen, statt im Schwall nachzukommen — das gilt auch
+  vorn bei einem Hänger.
+- Tempo von Hand (Tippen, ±1, Regler, Stelle D-04) geht direkt an den
+  laufenden Taktgeber. Die Trainer-Anzeige läuft über Timer und wirkt nicht
+  mehr zurück. Vorher konnte eine verspätete Anzeige das Tempo
+  zurückdrehen; mit 5 s Vorlauf wäre das ein Takt im falschen Tempo gewesen.
+  Zurückgeholte Klicks nehmen ihre Anzeige-Timer mit.
+- Verlassen: mit Hintergrund läuft das Metronom weiter und plant sofort 5 s
+  voraus, solange die Seite noch läuft; sonst wie D-02 (anhalten, Kontext
+  verwerfen). Zurück: Läuft der Kontext nicht mehr („interrupted“,
+  „suspended“), hält das Metronom ehrlich an — der nächste Tipp startet
+  mit frischem Ton. Sonst wird zurückgeholt und die Bildschirmsperre
+  (Wake Lock) neu angefordert.
+- Stopp nimmt auch schon geplante Klicks zurück (bis zu 5 s).
+- Sperrbildschirm (Media Session): „Metronom“, darunter „96 BPM · 4/4“
+  (`jetztLaeuft`), ▶ / ❚❚ / Stopp. Der Eintrag verschwindet mit dem
+  Audio-Kontext.
+- Im Browser (Chromium; iPhone 390 × 844, iPad 820 × 1180) mit
+  nachgestelltem `visibilitychange`: läuft weiter und ist 5 s voraus
+  geplant; zurück werden 7 von 12 geplanten Klicks zurückgeholt; −10 % gilt
+  sofort (Abstand 0,822 s bei 73 BPM). Mit Mischen oder ohne Hintergrund
+  hält Verlassen an. Schalter gespeichert, nach Neuladen da, Mischen sperrt
+  Hintergrund, nichts verschiebt sich. Ob iOS den Ton wirklich durchlässt,
+  zeigt nur das Gerät.
+
+**Grenzen:**
+- Vor iOS 17.5 (laut Berichten) hält iOS den Ton im Hintergrund trotzdem an;
+  bei der Rückkehr steht das Metronom still.
+- Startet eine andere App Musik (Spotify; Moises und iReal Pro vermutlich
+  auch), unterbricht iOS das Metronom, außer jene App mischt. Ob es danach
+  von selbst weiterläuft, entscheidet iOS. Anruf, Siri, Wecker unterbrechen
+  ebenso.
+- Gemischt: Stummschalter gilt, nichts im Hintergrund, und sobald ein
+  Mikrofon hört, hält die andere Musik an.
+- Im Hintergrund lässt sich nur anhalten und weiterlaufen lassen (Sperrbild-
+  schirm). Der Trainer zählt weiter; seine Anzeige kann bis zu einer Sekunde
+  nachhinken, die Taktpunkte stehen.
+- Es läuft, bis man es anhält — auch mit gesperrtem Bildschirm (Akku).
+- Am Rechner läuft das Metronom jetzt auch im Hintergrund-Tab weiter (die
+  Folge aus D-02 ist aufgehoben), außer „Hintergrund“ ist aus.
+
+**Auf dem Gerät prüfen** (iPhone und iPad, Safari und Home-Bildschirm-App;
+iOS-Version notieren):
+- Metronom an, Bildschirm sperren: klickt gleichmäßig weiter, mindestens zwei
+  Minuten, ohne Aussetzer. Der Sperrbildschirm zeigt „Metronom · … BPM ·
+  4/4“; ❚❚ hält an, ▶ startet wieder.
+- Metronom an, in eine andere App wechseln (Notizen, Moises ohne Wiedergabe):
+  klickt weiter. Zurück: Die Taktpunkte laufen mit, −1/+1, Taktart und
+  Akzente wirken sofort, nicht erst nach Sekunden.
+- Tempo-Trainer (alle 2 Takte +4), dann sperren: Das Tempo steigt hörbar
+  weiter; zurück zeigt die Anzeige das erreichte Tempo. 6/8, Swing und
+  „nur 2 und 4“ bleiben im Hintergrund, wie sie sind.
+- Während es im Hintergrund läuft, in Spotify (dann Moises, iReal Pro) Musik
+  starten: Hält das Metronom an? Läuft es nach dem Anhalten der Musik weiter?
+  Zurück in CheatSheet: kein Schwall von Klicks, und der Knopf zeigt ehrlich
+  „läuft“ oder „steht“.
+- „Mit anderen Apps mischen“ an: Spotify spielt, in CheatSheet das Metronom
+  starten → beide klingen. Stummschalter an → das Metronom schweigt
+  (erwartet), Spotify nicht. Stimmgerät an → Spotify hält an (erwartet). App
+  wechseln → das Metronom hält an (erwartet); „Hintergrund“ ist gesperrt.
+- „Metronom im Hintergrund“ aus: Verlassen hält an wie bisher; zurück
+  startet ein Tipp mit Ton.
+- Anruf, während es im Hintergrund läuft: danach still oder weiter? Bei der
+  Rückkehr hängt nichts.
+- Home-Bildschirm-App 10 min im Hintergrund (Metronom gestoppt), zurück:
+  Der nächste Start klingt sicher.
+- Akku: 15 min gesperrt mit laufendem Metronom — wie viel Prozent?
+
+**Offen, Fragen an Marlon:**
+- Vorgabe „Hintergrund an“ in Ordnung, oder lieber aus (Akku, läuft
+  versehentlich weiter)?
+- Brauchst du das Metronom zu Musik, während CheatSheet *nicht* vorn ist?
+  Das geht nur, wenn die andere App selbst mischt; sonst nur mit CheatSheet
+  vorn und „Mischen“ an.
+- Sollen Drone oder Vorspielen auch im Hintergrund weiterlaufen dürfen
+  (gleiche Technik)?
+
+Quellen: WebKit-Quelltext (main, 2026-11): `AudioContext.cpp`
+(`shouldOverrideBackgroundPlaybackRestriction`, `hasPlayBackAudioSession`,
+`nowPlayingInfo`), `MediaSessionManagerIOS.mm` (`resetRestrictions`),
+`MediaSessionManagerInterface.cpp` (`applicationDidEnterBackground`),
+`MediaSessionManagerCocoa.mm`, `AudioSessionIOS.mm`, `DOMAudioSession.cpp`,
+`RemoteAudioSessionProxyManager.cpp`, `DOMTimer.h`; WebKit-Fehler 261554, 237878, 251532,
+220879, 264473, 281955; W3C Audio Session; MDN `AudioSession.type`,
+Media Session API; Entwicklerberichte (GitHub: sadiss-org/sadiss #134 zu
+iOS 17.5, Larront/grimoire #244 zu iPadOS 17.5, DuarteSantos8/openGym
+PR 1128 zu „ambient“ zum Mischen).
 
 ---
 
