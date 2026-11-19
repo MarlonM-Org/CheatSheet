@@ -15,6 +15,7 @@ import { skillGeuebt } from './skillspeicher';
 import { fehlerGrund, speicherFehler } from './speicherfehler';
 import { useDialogFokus, useEscape } from './tasten';
 import { useSeite } from './seite';
+import { StueckWahl } from './StueckWahl';
 
 // Aufnahme-Tagebuch (I-20): alle eigenen Aufnahmen (G-09) über alle Stücke,
 // neueste zuerst und nach Tagen; filtern nach Stück, anhören, umbenennen,
@@ -30,6 +31,7 @@ import { useSeite } from './seite';
 const uhrzeit = (t: number) => new Date(t).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 const anzeigeName = (e: TagebuchEintrag) => e.aufnahme.titel || `Aufnahme ${uhrzeit(e.aufnahme.am)}`;
 const datumKurz = (t: number) => new Date(t).toLocaleDateString('de-DE', { day: 'numeric', month: 'short' });
+const aufnahmenText = (n: number) => `${n} ${n === 1 ? 'Aufnahme' : 'Aufnahmen'}`;
 
 // Ein Abspieler für das ganze Blatt: immer nur eine Aufnahme zugleich.
 function useAbspieler() {
@@ -82,6 +84,8 @@ export function AufnahmeTagebuchBlatt({ schliessen }: { schliessen: () => void }
 
   const alle = useMemo(() => (daten ? tagebuch(daten.stuecke, daten.stellen) : []), [daten]);
   const stuecke = useMemo(() => stueckeMitAufnahmen(alle), [alle]);
+  // Für die Stückauswahl (F-23): die Stücke mit Aufnahmen, samt Sammlungen.
+  const mitAufnahmen = useMemo(() => (daten?.stuecke ?? []).filter((s) => stuecke.some((x) => x.id === s.id)), [daten, stuecke]);
   const filterGilt = filter !== null && stuecke.some((s) => s.id === filter) ? filter : null;
   const gezeigt = tagebuchFiltern(alle, filterGilt);
   const tage = nachTagen(gezeigt, daten?.jetzt ?? 0);
@@ -136,10 +140,8 @@ export function AufnahmeTagebuchBlatt({ schliessen }: { schliessen: () => void }
         <p className={`tb-hinweis text-sm ${waehlen ? 'waehlen' : ''}`} role="status">{hinweis}</p>
 
         <div className="tb-werkzeuge">
-          <select className="feld tb-filter" value={filterGilt ?? ''} onChange={(e) => setFilter(e.target.value || null)} aria-label="Nach Stück filtern">
-            <option value="">Alle Stücke</option>
-            {stuecke.map((s) => <option key={s.id} value={s.id}>{s.titel} ({s.anzahl})</option>)}
-          </select>
+          <StueckWahl className="tb-filter" titel="Aufnahmen filtern" stuecke={mitAufnahmen} wert={filterGilt} waehlen={setFilter} disabled={!daten}
+            alle={{ text: 'Alle Stücke', info: aufnahmenText(alle.length) }} info={(s) => aufnahmenText(stuecke.find((x) => x.id === s.id)?.anzahl ?? 0)} />
           <button type="button" className="knopf knopf-leise knopf-klein" aria-pressed={!!waehlen} disabled={alle.length < 2}
             onClick={() => { spieler.aus(); setPaar(null); setWaehlen(waehlen ? null : { erste: null }); }}>{waehlen ? 'Abbrechen' : 'Vergleichen'}</button>
           <button type="button" className="knopf knopf-klein tb-neu" onClick={() => { spieler.aus(); setNeu(true); }} disabled={!daten}>
@@ -318,9 +320,8 @@ function NeueAufnahme({ stuecke, vorwahl, schliessen, gespeichert }: {
           <>
             <label className="tb-feld">
               <span className="kennzahl-label">Stück</span>
-              <select className="feld" value={stueckId} onChange={(e) => setStueckId(e.target.value)} disabled={aufnahme.laeuft}>
-                {sortiert.map((s) => <option key={s.id} value={s.id}>{s.titel}{s.stimme ? ` (${s.stimme})` : ''}</option>)}
-              </select>
+              <StueckWahl titel="Neue Aufnahme" stuecke={stuecke} wert={stueckId} waehlen={(id) => { if (id) setStueckId(id); }} disabled={aufnahme.laeuft}
+                info={(s) => (s.aufnahmen?.length ? aufnahmenText(s.aufnahmen.length) : '')} />
             </label>
             <label className="tb-feld">
               <span className="kennzahl-label">Skill (optional)</span>

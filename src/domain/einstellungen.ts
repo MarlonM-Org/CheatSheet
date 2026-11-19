@@ -9,6 +9,7 @@
 // das Tempo (folgt den Stellen), der Verlauf des Ohr-Trainers (ueben:ohr-verlauf),
 // der Tagesstand von „Heute“ (ueben:heute).
 // Tags und Tonprofile haben eigene Felder.
+// Ebenfalls am Gerät: Ansicht und Eingrenzung der Stückauswahl (ueben:stueckwahl, F-23).
 //
 // Auf dem Gerät liegen die Werte im localStorage (JSON) unter ihrem
 // Schlüssel; dazu der Zeitpunkt der letzten echten Änderung

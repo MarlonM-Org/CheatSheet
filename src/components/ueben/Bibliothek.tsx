@@ -82,7 +82,7 @@ export function Bibliothek({ offen, oeffnen, schliessen, einstellungen, offenEnt
   );
 }
 
-const REIHENFOLGE = 'ueben:sammlungen-reihenfolge';
+export const REIHENFOLGE = 'ueben:sammlungen-reihenfolge';
 
 // ── Dateien wählen ──
 type HandleFenster = Window & {

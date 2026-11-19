@@ -181,6 +181,7 @@ oder iPad. Vorher auf jedem Gerät eine Sicherung erstellen.
   - Sicherung mit virtuellen Stücken auf das zweite Gerät laden.
 - F-13 (Teil) · „Ordner wählen“ auf dem iPhone · ROADMAP selbst: „auf dem Gerät noch zu prüfen“ (iOS ≥ 18.4).
   - iCloud-Ordner mit Unterordnern wählen → Unterordner werden Sammlungen, nicht geladene iCloud-Dateien werden genannt, nichts doppelt.
+- F-23 · Stückauswahl nach Sammlungen (Aufnahme-Tagebuch: Filter und „Neu“ → Stück) · `stueckAuswahl` und `wahlStart` getestet, im Browser durchgespielt (iPhone 390 × 844, iPhone SE dunkel, iPad 820 × 1180). Prüfen: Checkliste in F-23.
 - B-08 · Scroll-Ring/Pedal · `geste.ts` getestet, keine Rückmeldung mit echtem Ring notiert.
   - Ring über AssistiveTouch: Probefeld in den Einstellungen zeigt Richtung und Weg; blättert auf den Noten, im Mix Stelle für Stelle; „Hoch und runter tauschen“.
 - C-04 · Tonprofil · `tonprofil.ts` getestet, Mikrofon-Pipeline des Stimmgeräts; keine Rückmeldung notiert.
@@ -491,6 +492,86 @@ in der Leiste und am Abschnitt in der großen Ansicht. **Kein Icon** je
 Sammlung (bewusst weggelassen: nervt mehr, als es hilft). Speicher: Farben
 je Name, persönlich (reisen mit der Sicherung wie die Reihenfolge,
 `ueben:sammlungen-reihenfolge`), beim Umbenennen mitnehmen.
+
+### F-23 · Stückauswahl nach Sammlungen — umgesetzt 2026-11-19, zu prüfen
+
+Wunsch Marlon (2026-11-19): „Bei Aufnahme-Tagebuch sollte die Stückauswahl
+nach den Sammlungen strukturierbar sein. Das gilt für jede Stelle in der
+App, bei der die Stücke zur Auswahl stehen.“
+
+**Regel: Wo Stücke zur Auswahl stehen, sind sie nach Sammlungen geordnet.**
+Jede Stückauswahl — auch jede künftige — nimmt `StueckWahl.tsx` (gleiches
+Aussehen, gleiches Verhalten), kein eigenes `<select>`.
+
+**Entscheidung:**
+- **Eigenes Auswahl-Blatt statt `<select>` mit `<optgroup>`.** Im Feld steht
+  ein Knopf wie ein Auswahlfeld (gewähltes Stück, ▾); ein Tipp legt ein
+  Blatt darüber (iPhone von unten, iPad mittig), darunter rückt nichts.
+  Gegen das native Auswahlrad sprach: Dort lässt sich weder auf eine
+  Sammlung eingrenzen noch die Ansicht wechseln; ein Stück in zwei
+  Sammlungen stünde zweimal ohne Hinweis da; es gibt keine Unterzeile
+  (Stimme, Aufnahmen, „auch in …“); auf dem iPhone heißt es drehen und
+  „Fertig“ statt zweier Tipps; iPhone und iPad sähen verschieden aus. Das
+  Blatt spricht die Sprache der Bibliothek (Chips, Zeilen, Haken).
+- **Aufbau:** oben „Sammlungen | A–Z“, darunter die Chips „Alle · die
+  Sammlungen in der Reihenfolge der Bibliothek · Ohne Sammlung“ mit Zahl
+  (seitlich schiebbar), darunter die Liste. *Sammlungen:* je Sammlung eine
+  Gruppe mit Überschrift (bleibt beim Scrollen oben stehen), darin A–Z wie
+  in der Bibliothek (Zahlen als Zahlen, gleicher Titel nach Stimme), zuletzt
+  „Ohne Sammlung“. *A–Z:* eine Liste, jedes Stück einmal, seine Sammlungen in
+  der Unterzeile. Ein Chip grenzt in beiden Ansichten auf eine Sammlung bzw.
+  auf „Ohne Sammlung“ ein. Gezählt und gezeigt wird nur, was zur Wahl steht
+  (im Tagebuch-Filter: Stücke mit Aufnahmen); hat davon keines eine
+  Sammlung, fehlen Umschalter und Chips — eine Liste A–Z.
+- **Stücke in mehreren Sammlungen stehen in jeder davon**, mit „auch in …“ —
+  wie in der großen Ansicht (F-21). Man sucht ein Stück dort, wo man es
+  einsortiert hat; stünde es nur in der ersten Sammlung, fände man es in der
+  zweiten nicht. Das gewählte Stück trägt an jeder Stelle den Haken.
+- **Bedienregel:** Das Blatt hat eine feste Höhe; Umschalter und Chips
+  wechseln nur die Liste (sie beginnt dann oben). Tipp auf ein Stück wählt
+  und schließt; ✕, Tipp daneben oder Escape schließt nur das Blatt. Die
+  Wahl ändert den Bibliotheks-Filter nicht.
+- **Vorwahl:** Ansicht und Eingrenzung sind am Gerät gemerkt, für alle
+  Auswahlen gemeinsam (`ueben:stueckwahl`, ein Filter — reist nicht mit).
+  Noch keine Sammlung getippt → die zuletzt in der Bibliothek gewählte
+  (`ueben:sammlung`), wie beim Stellen-Mix (B-18). Was es nicht mehr gibt,
+  wird „Alle“; liegt das gewählte Stück nicht in der Eingrenzung, ebenfalls
+  „Alle“ — die Wahl bleibt sichtbar und rückt beim Öffnen ins Bild.
+
+**Umsetzung** (`stueckAuswahl`, `wahlStart` in `src/domain/sammlungen.ts`,
+getestet; `src/components/ueben/StueckWahl.tsx`). Bestand vom 2026-11-19 —
+umgestellt:
+- Aufnahme-Tagebuch, Filter (bisher „Alle Stücke“ als `<select>`): Stücke
+  mit Aufnahmen und ihre Zahl, „Alle Stücke“ als erste Zeile.
+- Aufnahme-Tagebuch, „Neu“ → Stück (bisher `<select>` A–Z): alle Stücke,
+  in der Unterzeile die Zahl ihrer Aufnahmen.
+
+Durchgesehen, ohne Auswahl aus den eigenen Stücken (nichts umzustellen):
+Spielhilfe (hängt an der Stelle), Jam-Karte (eigene Session-Stücke, nicht
+die Bibliothek), Licks, Etüden, Skill-Kartei und „Heute“ (ohne Stückbezug),
+Sprünge (innerhalb eines Stücks), Kontext-Blatt (wirkt auf ein Stück;
+„Eigene Stücke daraus“ wählt Seiten), Sicherung und Übernehmen (alles auf
+einmal), Stellen-Mix „Woraus“ (wählt Sammlung und Tag, nicht Stücke —
+schon in der Reihenfolge der Bibliothek), Notenblatt/Einsingen und Scan
+(„Als Stück speichern“ legt ein neues an), Aufnehmen in den Noten (das
+offene Stück). Die Bibliothek selbst hat ihre Sammlungen schon.
+
+**Auf dem Gerät prüfen:**
+- iPhone: Tagebuch → Filter tippen: Blatt von unten, darunter rückt nichts;
+  der Chip der Bibliotheks-Sammlung ist vorgewählt; Chips seitlich schieben;
+  ein Stück tippen → Filter gesetzt, Blatt zu.
+- Ein Stück in zwei Sammlungen steht in beiden Gruppen mit „auch in …“,
+  gewählt mit Haken an beiden Stellen.
+- „A–Z“ ↔ „Sammlungen“ und Chips: nur die Liste wechselt, Kopf und Chips
+  bleiben stehen; nach dem Neustart der App dieselbe Ansicht und Sammlung.
+- „Neu“ → Stück: Blatt liegt über „Neue Aufnahme“; während der Aufnahme
+  lässt sich das Stück nicht wechseln.
+- iPad hoch und quer: Blatt mittig über dem Tagebuch (ganze Seite); nach dem
+  Schließen sind Leiste und Widgets bedienbar wie vorher.
+- 30+ Stücke: Liste scrollt flüssig, Überschrift der Gruppe bleibt oben;
+  lange Titel brechen um.
+- VoiceOver: Der Knopf nennt „Stück wählen (…): Titel“, die Zeilen sind
+  Auswahlpunkte mit „ausgewählt“.
 
 ---
 
