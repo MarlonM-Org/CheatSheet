@@ -12,7 +12,10 @@ Stand: 2026-11-16.
 
 **Die Noten sind die App.** Alles andere (Metronom, Stimmgerät, Einstellungen)
 sind Werkzeuge, die über den Noten schweben. Lernen (B-18) ist neben der
-Bibliothek der zweite Ort, der sich als Seite über die Noten legt. Eine lokal laufende, statische
+Bibliothek der zweite Ort, der sich als Seite über die Noten legt — für
+grundlegende musikalische Fähigkeiten (Gehör, Harmonie, Technik,
+Improvisation), nicht für die Arbeit an den eigenen Stücken: Die bleibt in
+der Bibliothek, samt Stellen-Mix (B-19). Eine lokal laufende, statische
 Web-App: alle Daten bleiben auf dem Gerät, kein Login, kein Server. Vorbild
 für Notenmanagement und Übe-Komfort ist **forScore** (https://forscore.co) —
 nicht in der Breite, aber in der Sorgfalt.
@@ -113,7 +116,8 @@ ist auf `main` und damit auf cheat-sheet.ma-und-ma.de.
 Alles hier hat Code und Tests; was fehlt, ist der Praxisbeweis auf iPhone
 oder iPad. Vorher auf jedem Gerät eine Sicherung erstellen.
 
-- B-18 · Ort „Lernen“ und vier Knöpfe unten (Lernen · Noten | Stimmgerät · Metronom) · `ortUmschalten` und `mixQuelle` getestet, im Browser (iPhone-Ansicht) durchgespielt. Prüfen: Checkliste in B-18.
+- B-19 · Stellen-Mix zurück in der Bibliothek (Zeile unter den Sammlungen, Punkt an „Noten“), Lernen nur für Grundlagen; „Woraus“, `ueben:mix-woraus` und `mixQuelle` entfernt · Laden alter Sicherungen getestet, im Browser (iPhone und iPad hoch/quer) durchgespielt. Prüfen: Checkliste in B-19.
+- B-18 · Ort „Lernen“ und vier Knöpfe unten (Lernen · Noten | Stimmgerät · Metronom) · `ortUmschalten` getestet (`mixQuelle` mit B-19 entfernt), im Browser (iPhone-Ansicht) durchgespielt. Prüfen: Checkliste in B-18.
 - B-17 · Bibliothek öffnet beim offenen Stück · `zumOffenen` getestet. Prüfen: in A–Z ein Stück weit unten öffnen, „Noten“ tippen — offenes und nächstes Stück sichtbar, ohne Ruckeln; danach Sortieren oder Filtern springt nicht.
 - B-16 · Doppeltipp auf eine Stelle: heran und Schreibmodus, noch einer zurück in den Spielmodus · `aufStelle` in `zoom.ts` getestet; vom iPad bestätigt („funktioniert gut“). Beim Lesen zoomt der Doppeltipp auf 300 % um den Tipp (`umPunkt`, Faktor vom iPad bestätigt) und schaltet ebenfalls den Schreibmodus ein; der zweite Doppeltipp schaltet beides aus.
 - G-02/G-03 · Einsingen oder Audio laden (`Einspielen.tsx`, `notation.ts` mit synthetischer Messlatte „Alle meine Entchen“) · einmal auf dem iPhone probiert (Mund dicht am Mikrofon), seitdem Lesart, Tonart, Anschläge, Latenz und Pegel umgebaut — echte Stimme noch nie gegen den neuen Stand.
@@ -258,23 +262,22 @@ steht nicht mehr ganz links.
 `src/domain/leiste.ts`, getestet):
 - **Symbol** Treppe mit Fahne (Stufen, Lernpfad). **Punkt** am Lernen-Knopf
   nur, solange ein Stellen-Mix läuft — wie „läuft“ am Metronom, keine
-  Erinnerung an offene Einheiten.
+  Erinnerung an offene Einheiten. *(Seit B-19 sitzt der Punkt am
+  Noten-Knopf: Der Mix wird wieder in der Bibliothek gestartet.)*
 - **Lernen-Seite** (wie die Bibliothek über den Noten, öffnet immer oben):
   „Heute · 30 Min.“ (I-09, aus der Skill-Kartei hierher gezogen) · „Üben“
-  mit Stellen-Mix, Ohr-Trainer und Hör-Übungen (neu direkt: Auswahl-Blatt
+  mit Ohr-Trainer und Hör-Übungen (bis B-19 auch Stellen-Mix; neu direkt: Auswahl-Blatt
   Intervalle/Dreiklänge/Septakkorde mit Stufe, jede Runde zählt auf ihren
   Skill) · „Mein Stand“ mit Skills und den Balken je Bereich. Was aus
   I-02…I-10 kommt, erscheint dort, sobald es gebaut ist — vorher nichts
   Ausgegrautes.
 - **Bibliothek** ohne die drei Zeilen: nur noch Sammlungen, Tags, Liste.
-- **Stellen-Mix „Woraus“**: Das Mix-Blatt wählt selbst — alle Noten oder
-  eine Sammlung (Reihenfolge wie in der Leiste), dazu alle Tags.
-  Gemerkt am Gerät in `ueben:mix-woraus` (ein Filter, reist nicht mit);
-  noch nichts gemerkt → die zuletzt in der Bibliothek gewählte Sammlung und
-  der Tag; was es nicht mehr gibt, wird „alle“ (`mixQuelle` in
-  `src/domain/stellen.ts`, getestet). Die Chips bleiben beim Wählen stehen,
-  nur Zahl und Knopf ändern sich; hat die Sammlung keine Stellen, steht das
-  in der Zahl-Zeile (die Anleitung kommt nur ganz ohne Stellen).
+  *(Seit B-19 ist die Zeile „Stellen-Mix“ zurück; Skills und Ohr-Trainer
+  bleiben in Lernen.)*
+- ~~**Stellen-Mix „Woraus“**~~ — *mit B-19 entfernt:* Das Mix-Blatt wählte
+  selbst — alle Noten oder eine Sammlung, dazu alle Tags —, gemerkt am Gerät
+  in `ueben:mix-woraus` (Regel `mixQuelle`). Seit B-19 mischt der Mix
+  wieder, was die Bibliothek zeigt.
 - Escape schließt erst ein offenes Blatt, dann die Seite. Auf 320 px Breite
   (iPhone SE) passen alle vier Beschriftungen (dort weniger gesperrt).
 - **Rückmeldung iPad (2026-11-17):** Als Leiste links (460 px wie die
@@ -284,7 +287,8 @@ steht nicht mehr ganz links.
   (die Bibliothek bleibt die Leiste links), der Inhalt steht in einer
   mittigen Spalte bis 1040 px. Die Raster richten sich nach der Breite der
   Spalte (Container-Queries): ab 640 px stehen die drei „Heute“-Blöcke
-  nebeneinander, ab 680 px Stellen-Mix · Ohr-Trainer · Hör-Übungen und vier
+  nebeneinander, ab 680 px Stellen-Mix · Ohr-Trainer · Hör-Übungen (seit
+  B-19 ohne Mix: Ohr-Trainer · Hör-Übungen in zwei Spalten) und vier
   Werkzeug-Spalten; schmaler bleibt alles wie auf dem iPhone. Lange Namen
   der Werkzeuge werden getrennt statt abgeschnitten. Geprüft im Browser bei
   820 × 1180, 1180 × 820 und 390 × 844: nichts läuft über.
@@ -294,8 +298,8 @@ steht nicht mehr ganz links.
   Arbeits-Blätter aus Lernen auf dem iPad (ab 740 px) zur **ganzen Seite**
   über der Leiste: alle Werkzeuge, Ohr-Trainer, Hör-Übung und Skill-Kartei;
   der Inhalt in derselben mittigen Spalte wie Lernen, „Fertig“ führt zur
-  Übersicht zurück. Auswahl- und Rückfrage-Blätter (Mix-Optionen,
-  Hör-Auswahl, Markierung, Skill-Detail, Formulare) bleiben klein; über den
+  Übersicht zurück. Auswahl- und Rückfrage-Blätter (Hör-Auswahl,
+  Markierung, Skill-Detail, Formulare; bis B-19 die Mix-Optionen) bleiben klein; über den
   Noten (Spickzettel aus der Spielhilfe) und auf dem Handy bleibt alles
   ein Blatt (`seite.tsx`: Kontext `GrosseSeiten` aus Lernen).
   - **Leiste bleibt bedienbar:** Die Seiten liegen in der App-Schale unter
@@ -326,10 +330,81 @@ steht nicht mehr ganz links.
   Lernen → Bibliothek ersetzt Lernen.
 - Metronom und Stimmgerät bei offenem Lernen: Widget schwebt darüber, der
   Ohr-Trainer hört trotzdem richtig.
-- Stellen-Mix aus Lernen starten: Seite schließt, Stelle auf dem Pult, Punkt
-  am Lernen-Knopf; Mix beenden → Punkt weg. „Woraus“ wechseln: Zahl und
-  Knopf stimmen, Bibliotheks-Filter bleibt unberührt.
+- ~~Stellen-Mix aus Lernen starten, Punkt am Lernen-Knopf, „Woraus“
+  wechseln~~ — entfällt mit B-19 (Mix in der Bibliothek, Checkliste dort).
 - „Heute“ → Üben → Runde: Block erledigt, Ohr-Trainer-Zeile zeigt den neuen Stand.
+
+### B-19 · Stellen-Mix zurück in die Bibliothek, Lernen nur für Grundlagen — umgesetzt 2026-11-19, zu prüfen
+
+**Entscheidung Marlon (2026-11-19):** „Der Stellen-Mix soll wieder zurück
+über die PDFs einer Sammlung. Dort ist er sinnvoll aufgehoben. Bei Lernen
+soll es nicht um Stückarbeit, sondern um grundlegende musikalische Skills
+gehen.“ Damit gilt: **Lernen** ist der Ort für grundlegende musikalische
+Fähigkeiten (Gehör, Harmonie, Klarinetten-Technik, Improvisation,
+Mitspielen nach Gehör); was an den eigenen Noten arbeitet (PDFs, Stellen),
+gehört in die **Bibliothek**.
+
+**Umgesetzt** (`Bibliothek.tsx`, `StellenMix.tsx`, `Lernen.tsx`,
+`UntereLeiste.tsx`, `UebeZentrale.tsx`):
+- **Bibliothek:** Zeile „Stellen-Mix“ direkt unter den Sammlungen, über
+  Tags, Werkzeugzeile und Liste. Sie mischt, was die Bibliothek gerade
+  zeigt — gewählte Sammlung und Tag (ein gemerkter Tag, den es in der
+  Sammlung nicht gibt, ruht wie in F-20). Tippen öffnet die Mix-Optionen wie
+  vor B-18: woraus (nur Anzeige: „aus „Märsche“ · Tag“), nur offene, nur
+  Favoriten, Zahl, „Mix starten“ / „Weiter bei n von m“ / „Neu mischen“.
+  Ein laufender Mix heißt in seiner Zeile „Weiter bei …“.
+- **Bedienregel:** Die Zeile steht *über* den Tags, weil deren Zeile je
+  Sammlung kommt und geht (F-20). Beim Wechsel der Sammlung oder des Tags
+  ändern sich nur Zahl und Text, die Zeile bleibt gleich hoch an ihrem
+  Platz. Beim Öffnen kommt sie im selben Lesevorgang wie Sammlungen und
+  Liste — vorher ist die Bibliothek leer, nichts rückt nach. (Ein eigener
+  Platzhalter wäre selbst gerutscht, sobald die Sicherungs-Erinnerung
+  darüber erscheint; darum keiner.) Escape schließt erst die Mix-Optionen,
+  dann die Bibliothek.
+- **Punkt** in der unteren Leiste, solange ein Mix läuft: jetzt am
+  **Noten**-Knopf — dort startet man den Mix und findet „Weiter bei …“ —,
+  nicht mehr an „Lernen“.
+- **Lernen** ohne Stellen-Mix: „Heute“, Üben (Ohr-Trainer, Hör-Übungen; ab
+  680 px Spaltenbreite zwei nebeneinander statt drei, keine leere Spalte),
+  Werkzeuge, Mein Stand. Lernen liest keine Stücke und Stellen mehr.
+- **Entfernt:** die Wahl „Woraus“ im Mix-Blatt, der Geräte-Schlüssel
+  `ueben:mix-woraus` und die Regel `mixQuelle` (`src/domain/stellen.ts`,
+  samt Tests). Der Schlüssel war ein Filter am Gerät und reiste nie mit;
+  ältere Sicherungen laden unverändert, und steht er doch in einer Datei,
+  wird er überlesen (`einstellungen.test.ts`, `sicherung.test.ts`). Ein
+  Rest im Speicher eines Geräts wird nicht mehr gelesen und stört nicht.
+  Unverändert bleiben die Runden je Bereich (`ueben:mix…`), die Schalter
+  `ueben:mix-offen`/`ueben:mix-favoriten` und der laufende Mix
+  (`ueben:mix-an`): Ein Mix, der beim Update läuft, läuft weiter, und eine
+  Runde aus „Woraus“ geht weiter, sobald die Bibliothek dieselbe Sammlung
+  und denselben Tag zeigt.
+- **Bleibt vorerst in Lernen — Frage an Marlon:** der Block
+  „Stück/Mitspielen“ in „Heute“ (I-09) und die Repertoire-Skills (I-07):
+  Mitspielen und Repertoire nach Gehör, keine PDF-Stückarbeit. Ebenso die
+  Jam-Karte (I-19, Akkordfolgen, keine PDFs) und das Aufnahme-Tagebuch
+  (I-20): Es dient dem Üben mit Aufnahmen (auch zu einem Skill), legt die
+  Aufnahmen aber an einem Stück der Bibliothek ab.
+- **Geprüft im Browser** (Chromium, iPhone 390 × 844, iPad 820 × 1180 und
+  1180 × 820, acht Stücke in drei Sammlungen, zwei Tags, sieben Stellen):
+  Zeile über der Liste; Sammlung mit und ohne Tags gewechselt und Tag
+  gewählt — Zeile bleibt auf demselben Pixel, 48 px hoch; Optionen ohne
+  „Woraus“, Escape schließt nur sie; Mix starten → Punkt an „Noten“,
+  „Weiter bei 2 von 4“; Schalter „Stellen“ aus → Punkt weg; Lernen auf
+  allen drei Größen ohne Lücke, nichts läuft über.
+
+**Auf dem Gerät prüfen:**
+- iPhone und iPad: „Noten“ → Zeile „Stellen-Mix“ unter den Sammlungen.
+  Sammlung wechseln (eine mit Tags, eine ohne) und einen Tag antippen: nur
+  Zahl und Text ändern sich, die Zeile springt nicht.
+- Mix starten: Bibliothek schließt, Stelle auf dem Pult, Punkt an „Noten“.
+  Eine Stelle weiter, „Noten“ → „Weiter bei 2 von …“. Schalter „Stellen“ aus
+  oder „Fertig“ nach der Runde → Punkt weg.
+- Mix-Optionen: „nur offene“ und „nur Favoriten“ wie gewohnt; die Anzeige
+  „aus „…“ · Tag“ stimmt mit der Bibliothek überein.
+- Lief beim Update ein Mix (aus Lernen gestartet), läuft er weiter; der
+  Punkt sitzt jetzt an „Noten“.
+- Lernen auf iPhone und iPad hoch/quer: kein Stellen-Mix mehr, Ohr-Trainer
+  und Hör-Übungen auf dem iPad nebeneinander, keine Lücke.
 
 ---
 

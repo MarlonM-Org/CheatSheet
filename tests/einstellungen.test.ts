@@ -140,6 +140,16 @@ describe('Lesen aus der Sicherung', () => {
     const e = einstellungenLesen({ stand: 7, werte: { 'stimm:st': 'Es', 'stimm:a': 'hoch', 'ueben:thema-dunkel': 'schwarz', 'metro:bpm': 200, __proto__: { x: 1 } } });
     expect(e).toEqual({ stand: 7, werte: { 'stimm:st': 'Es' } });
   });
+  // B-19: „Woraus“ des Stellen-Mix auf der Lernen-Seite ist abgeschafft. Der
+  // Schlüssel war ein Filter am Gerät; ein Rest im Speicher reist nicht mit,
+  // und in einer Sicherung wird er überlesen.
+  it('abgeschafft: ueben:mix-woraus reist nicht und stört nicht', () => {
+    expect(istMitreisend('ueben:mix-woraus')).toBe(false);
+    const woraus = { sammlung: 'Märsche', tag: null };
+    expect(einstellungenSammeln(speicher({ 'ueben:mix-woraus': woraus, 'stimm:st': 'Es' }))).toEqual({ 'stimm:st': 'Es' });
+    expect(einstellungenLesen({ stand: 7, werte: { 'ueben:mix-woraus': woraus, 'stimm:st': 'Es' } })).toEqual({ stand: 7, werte: { 'stimm:st': 'Es' } });
+    expect(einstellungenLesen({ stand: 7, werte: { 'ueben:mix-woraus': woraus } })).toBeNull();
+  });
 });
 
 describe('Zeitstempel', () => {

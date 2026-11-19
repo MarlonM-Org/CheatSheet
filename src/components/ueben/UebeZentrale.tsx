@@ -33,6 +33,7 @@ function Zentrale() {
   const [fassung, setFassung] = useState(0);
   // Stellen-Mix (F-11): an, bis man ihn verlässt — auch über einen Neustart
   // der App. Gemerkt wird der Bereich (alle oder eine Sammlung, nur offene).
+  // Gestartet wird er in der Bibliothek (B-19).
   const [mixBereich, setMixBereich] = useState<MixBereich | null>(() => mixBereichLesen(gespeichert<unknown>('ueben:mix-an', false)));
   const mixAn = mixBereich !== null;
   const [mix, setMix] = useState<MixStand | null>(null);
@@ -161,11 +162,10 @@ function Zentrale() {
       {bibliothek && (
         <Bibliothek offen={angezeigt} oeffnen={oeffnen} schliessen={() => setBibliothek(false)}
           einstellungen={() => setEinstellungen(true)} offenEntfernt={angezeigtWeg}
-          aktualisiert={aktualisiert} escapeAktiv={!dialogOffen} stand={bibStand} />
+          aktualisiert={aktualisiert} escapeAktiv={!dialogOffen} stand={bibStand} mixStarten={mixStarten} mixAktiv={mixBereich} />
       )}
       {lernen && (
-        <Lernen key={lernenFassung} schliessen={() => setLernen(false)} escapeAktiv={!dialogOffen} stand={bibStand}
-          mixStarten={mixStarten} mixAktiv={mixBereich} tiefMelden={setLernenTief} />
+        <Lernen key={lernenFassung} schliessen={() => setLernen(false)} escapeAktiv={!dialogOffen} tiefMelden={setLernenTief} />
       )}
       {einstellungen && <Einstellungen schliessen={() => setEinstellungen(false)} geaendert={() => setBibStand((n) => n + 1)} />}
 

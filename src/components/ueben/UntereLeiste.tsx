@@ -9,7 +9,8 @@ import { useMetronom } from './MetronomKontext';
 // die Paare. Sie liegt über den Noten; `weg` schiebt sie nach unten hinaus.
 export function UntereLeiste({ weg, lernenOffen, bibliothekOffen, mixLaeuft, metroAn, stimmAn, umschalten }: {
   weg: boolean; lernenOffen: boolean; bibliothekOffen: boolean;
-  // Ein Stellen-Mix läuft: Punkt am Lernen-Knopf, wie „läuft“ am Metronom.
+  // Ein Stellen-Mix läuft: Punkt am Noten-Knopf — dort, in der Bibliothek,
+  // wird er gestartet (B-19) —, wie „läuft“ am Metronom.
   mixLaeuft: boolean;
   metroAn: boolean; stimmAn: boolean;
   umschalten: (ziel: 'lernen' | 'bibliothek' | 'metronom' | 'stimmgeraet') => void;
@@ -21,11 +22,11 @@ export function UntereLeiste({ weg, lernenOffen, bibliothekOffen, mixLaeuft, met
         <button type="button" className="leiste-knopf" aria-pressed={lernenOffen} onClick={() => umschalten('lernen')}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 20h4.5v-4.5h4.5V11h4.5V6.5h3" /><path d="M20 6.5V2.8" /><path d="M20 3l-3.2 1.3L20 5.6" /></svg>
           <span className="leiste-label">Lernen</span>
-          {mixLaeuft && <span className="leiste-punkt" aria-hidden="true" />}
         </button>
         <button type="button" className="leiste-knopf" aria-pressed={bibliothekOffen} onClick={() => umschalten('bibliothek')}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="3.5" width="15" height="17" rx="1.5" /><path d="M8 8h8M8 11h8M8 14h8M8 17h8" /></svg>
           <span className="leiste-label">Noten</span>
+          {mixLaeuft && <span className="leiste-punkt" aria-hidden="true" />}
         </button>
         <span className="leiste-trenner" aria-hidden="true" />
         <button type="button" className="leiste-knopf" aria-pressed={stimmAn} onClick={() => umschalten('stimmgeraet')}>

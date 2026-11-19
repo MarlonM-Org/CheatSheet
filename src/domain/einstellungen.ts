@@ -7,8 +7,7 @@
 // (eigene, Wiederholungsstand). Was zum Gerät gehört, bleibt:
 // Hell/Dunkel und Farbwelten, Lage der Fenster, zuletzt Geöffnetes, Filter,
 // das Tempo (folgt den Stellen), der Verlauf des Ohr-Trainers (ueben:ohr-verlauf),
-// der Tagesstand von „Heute“ (ueben:heute), woraus der Stellen-Mix auf der
-// Lernen-Seite mischt (ueben:mix-woraus).
+// der Tagesstand von „Heute“ (ueben:heute).
 // Tags und Tonprofile haben eigene Felder.
 //
 // Auf dem Gerät liegen die Werte im localStorage (JSON) unter ihrem
