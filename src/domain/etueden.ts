@@ -500,7 +500,7 @@ export function etuedeBauen(wahl: EtuedenWahl): Etuede {
 export const etuedenToene = (e: Etuede) => e.abschnitte.flatMap((a) => a.ereignisse.filter((x) => x.ton));
 
 // ════════════════════════════════════════════════════════════════════
-// Einstellung (reist mit der Sicherung: `ueben:etueden`)
+// Einstellung (gilt für die Sitzung, nicht gespeichert — A-08)
 // ════════════════════════════════════════════════════════════════════
 
 export interface EtuedenEinstellung { muster: MusterId; reihenfolge: Reihenfolge; start: number; rhythmus: Rhythmus; bpm: number; ober: number }

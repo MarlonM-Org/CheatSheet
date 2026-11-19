@@ -327,7 +327,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
   const aufnehmen = useCallback(() => {
     setFehler('');
     void mikrofonStarten({
-      raster: rasterRef.current, lautsprecher, klickWeiter, metro: { klang: metro.klang, laut: metro.laut },
+      raster: rasterRef.current, lautsprecher, klickWeiter, metro: { klang: metro.klang, laut: metro.laut, zweiVier: metro.swing.zweiVier },
       stimmung: einst.current.stimmung, kammerton: einst.current.kammerton,
       einzaehlTakte: 1, vorlauf: null, maxTakte: MAX_TAKTE,
       beiPhase: setPhase,
@@ -335,7 +335,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
       beiEnde: (liste, ok) => { if (ok) { setSpur(liste); setStart(0); setPhase('vorschlag'); } else setPhase('bereit'); },
       beiFehler: setFehler,
     });
-  }, [mikrofonStarten, metro.klang, metro.laut, klickWeiter, lautsprecher, zeichnen]);
+  }, [mikrofonStarten, metro.klang, metro.laut, metro.swing.zweiVier, klickWeiter, lautsprecher, zeichnen]);
 
   // ── Audio-Datei ──
   const dateiLaden = useCallback(async (f: File) => {
@@ -638,7 +638,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
       {leiste && phase === 'vorschlag' && quelle === 'leer' && (
         <Aufnahmeleiste stimmen={stimmen} aktiv={blattStand.aktiv} stumm={blattStand.stumm} auswahlTakt={blattStand.auswahl?.takt ?? null}
           raster={raster} blattRaster={blattRaster} tonart={tonart} lesart={lesart} setLesart={setLesart} lautsprecher={lautsprecher} setLautsprecher={setLautsprecher}
-          metro={{ klang: metro.klang, laut: metro.laut }} stimmung={stimm.stimmung} kammerton={stimm.kammerton}
+          metro={{ klang: metro.klang, laut: metro.laut, zweiVier: metro.swing.zweiVier }} stimmung={stimm.stimmung} kammerton={stimm.kammerton}
           vorschauAendern={setVorschau} zustandAendern={setLeistenZustand} uebernehmen={leisteUebernehmen} schliessen={leisteSchliessen}
           akkordBegleitung={hatAkkorde ? begleitKlaenge : undefined} />
       )}

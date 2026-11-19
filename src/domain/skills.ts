@@ -34,6 +34,9 @@ export interface SkillStand {
   zuletzt?: number;
   // Runden ab diesem Zeitpunkt zählen für die Stufe (gesetzt beim Üben nach dem Verblassen).
   ab?: number;
+  // Letzte Änderung (Runde, „geübt“, Markierung): Beim Laden einer
+  // Sicherung gewinnt je Skill der neuere Stand (skillsVereinigen).
+  geaendert?: number;
 }
 export type SkillSpeicher = Record<string, SkillStand>;
 
@@ -73,6 +76,7 @@ export function skillStandLesen(v: unknown): SkillStand | null {
   if ((s.stufe ?? 0) > (s.hoechste ?? 0)) s.hoechste = s.stufe;
   if (zeit(v.zuletzt)) s.zuletzt = v.zuletzt;
   if (zeit(v.ab)) s.ab = v.ab;
+  if (zeit(v.geaendert)) s.geaendert = v.geaendert;
   return Object.keys(s).length ? s : null;
 }
 
@@ -101,7 +105,30 @@ export function skillsGueltig(v: unknown): boolean {
     && (s.stufe === undefined || stufeOk(s.stufe))
     && (s.hoechste === undefined || stufeOk(s.hoechste))
     && (s.zuletzt === undefined || zeit(s.zuletzt))
-    && (s.ab === undefined || zeit(s.ab)));
+    && (s.ab === undefined || zeit(s.ab))
+    && (s.geaendert === undefined || zeit(s.geaendert)));
+}
+
+// ── Zwei Geräte ──
+
+// Wie neu ist der Stand eines Skills? `geaendert`, bei älteren Einträgen die
+// letzte Übung (zuletzt, letzte Runde).
+export const skillZeit = (s: SkillStand): number => s.geaendert ?? Math.max(0, s.zuletzt ?? 0, ...(s.quoten ?? []).map((q) => q.am));
+
+// Beim Laden einer Sicherung (A-08): je Skill gewinnt der neuere Stand als
+// Ganzes, bei Gleichstand der hiesige. Skills, die nur eine Seite kennt,
+// bleiben. Über SKILLS_MAX hinaus fallen die am längsten unveränderten weg.
+export function skillsVereinigen(hier: SkillSpeicher, dort: SkillSpeicher): SkillSpeicher {
+  const neu: SkillSpeicher = { ...hier };
+  for (const [id, s] of Object.entries(dort)) {
+    if (!istSkillId(id)) continue;
+    const h = Object.prototype.hasOwnProperty.call(hier, id) ? hier[id] : undefined;
+    if (!h || skillZeit(s) > skillZeit(h)) neu[id] = s;
+  }
+  const ids = Object.keys(neu);
+  if (ids.length <= SKILLS_MAX) return neu;
+  const bleiben = new Set(ids.sort((a, b) => skillZeit(neu[b]) - skillZeit(neu[a])).slice(0, SKILLS_MAX));
+  return Object.fromEntries(Object.entries(neu).filter(([id]) => bleiben.has(id)));
 }
 
 // ── Stufen ──
@@ -196,7 +223,7 @@ export function rundeEintragen(sp: SkillSpeicher, id: string, quote: number, jet
   const zaehlen = ab === undefined ? quoten : quoten.filter((r) => r.am >= ab);
   const gemessen = stufeAusRunden(zaehlen, alt.hoechste ?? 0);
   const stufe = ab !== undefined && zaehlen.length < 3 ? Math.max(vorher, gemessen) : gemessen;
-  const neu: SkillStand = { ...alt, quoten, zuletzt: jetzt };
+  const neu: SkillStand = { ...alt, quoten, zuletzt: jetzt, geaendert: jetzt };
   if (stufe > 0) neu.stufe = stufe; else delete neu.stufe;
   const hoechste = Math.max(alt.hoechste ?? 0, stufe);
   if (hoechste > 0) neu.hoechste = hoechste;
@@ -207,13 +234,17 @@ export function rundeEintragen(sp: SkillSpeicher, id: string, quote: number, jet
 // „Heute geübt“ (extern oder „Erledigt“): nur der Zeitpunkt, keine Messung.
 export function geuebtEintragen(sp: SkillSpeicher, id: string, jetzt: number): SkillSpeicher {
   if (!istSkillId(id)) return sp;
-  return setzen(sp, id, { ...(sp[id] ?? {}), zuletzt: jetzt });
+  return setzen(sp, id, { ...(sp[id] ?? {}), zuletzt: jetzt, geaendert: jetzt });
 }
 
-export function markieren(sp: SkillSpeicher, id: string, m: Markierung): SkillSpeicher {
+// Mit `jetzt` datiert (für den Abgleich zweier Geräte): Auch „offen“ bleibt
+// dann als Eintrag stehen, damit eine ältere Sicherung die alte Markierung
+// nicht zurückbringt.
+export function markieren(sp: SkillSpeicher, id: string, m: Markierung, jetzt?: number): SkillSpeicher {
   if (!istSkillId(id)) return sp;
   const s: SkillStand = { ...(sp[id] ?? {}) };
   if (m === 'offen') delete s.markierung; else s.markierung = m;
+  if (jetzt !== undefined) s.geaendert = jetzt;
   return setzen(sp, id, s);
 }
 

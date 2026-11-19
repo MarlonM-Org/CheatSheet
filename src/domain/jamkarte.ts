@@ -7,6 +7,7 @@
 // Eigene Stücke liegen im localStorage `ueben:jamkarte` und reisen mit der
 // Sicherung (./einstellungen). Rein, getestet.
 
+import type { Grabstein } from './einspielen';
 import { folgeLesen, folgeText, folgeTransponieren, tonartLesen, tonartSymbol, tonartTransponieren, type Folge, type Richtung, type TonartAngabe } from './akkorde';
 import type { Stimmung } from './ueben';
 
@@ -29,6 +30,8 @@ export interface JamStueck {
   /** Selbst angelegt (bearbeitbar, reist mit der Sicherung). */
   eigen?: boolean;
   notiz?: string;
+  /** Eigene Stücke: zuletzt gespeichert (Abgleich zweier Geräte, jamStueckeVereinigen). */
+  geaendert?: number;
 }
 
 const t = (name: string, akkorde: string): JamTeil => ({ name, akkorde });
@@ -170,6 +173,7 @@ export function istJamStueck(v: unknown): v is JamStueck {
     && (s.komponist === undefined || text(s.komponist, 120)) && text(s.form, 80) && text(s.tonart, 12)
     && (s.gefuehl === undefined || text(s.gefuehl, 80)) && (s.notiz === undefined || text(s.notiz, 1000))
     && (s.skill === undefined || text(s.skill, 80)) && (s.eigen === undefined || typeof s.eigen === 'boolean')
+    && (s.geaendert === undefined || (typeof s.geaendert === 'number' && Number.isFinite(s.geaendert) && s.geaendert > 0))
     && Array.isArray(s.teile) && s.teile.length >= 1 && s.teile.length <= 20
     && s.teile.every((x) => !!x && typeof x === 'object' && text((x as JamTeil).name, 20) && text((x as JamTeil).akkorde, 2000));
 }
@@ -267,11 +271,30 @@ export const jamAlsEingabe = (s: JamStueck): JamEingabe => ({
   titel: s.titel, komponist: s.komponist ?? '', form: s.form, tonart: s.tonart, gefuehl: s.gefuehl ?? '', akkorde: teileAlsText(s.teile), notiz: s.notiz ?? '',
 });
 
-/** Eigenes Stück einfügen oder ersetzen (gleiche id), neueste oben. */
-export function jamSpeichern(liste: readonly JamStueck[], s: JamStueck): JamStueck[] {
-  return [s, ...liste.filter((x) => x.id !== s.id)].slice(0, JAM_MAX);
+/** Eigenes Stück einfügen oder ersetzen (gleiche id), neueste oben; mit `jetzt` datiert. */
+export function jamSpeichern(liste: readonly JamStueck[], s: JamStueck, jetzt?: number): JamStueck[] {
+  const neu = jetzt === undefined ? s : { ...s, geaendert: jetzt };
+  return [neu, ...liste.filter((x) => x.id !== s.id)].slice(0, JAM_MAX);
 }
+/** Löschen braucht einen Grabstein (Art „jamstueck“) — den setzt der Aufrufer. */
 export const jamEntfernen = (liste: readonly JamStueck[], id: string) => liste.filter((x) => x.id !== id);
+
+/** Beim Laden einer Sicherung (A-08): je id gewinnt der neuere Stand
+ *  (`geaendert`), bei Gleichstand das Gerät; Grabsteine „jamstueck“ nehmen
+ *  mit, was seit dem Löschen nicht mehr geändert wurde. Neueste oben. */
+export function jamStueckeVereinigen(hier: readonly JamStueck[], dort: readonly JamStueck[], grabsteine: readonly Grabstein[]): JamStueck[] {
+  const tot = new Map<string, number>();
+  for (const g of grabsteine) if (g.art === 'jamstueck') tot.set(g.id, Math.max(g.am, tot.get(g.id) ?? 0));
+  const zeit = (s: JamStueck) => s.geaendert ?? 0;
+  const je = new Map<string, JamStueck>();
+  for (const s of hier) if (!je.has(s.id)) je.set(s.id, s);
+  for (const s of dort) {
+    const da = je.get(s.id);
+    if (!da || zeit(s) > zeit(da)) je.set(s.id, s);
+  }
+  return [...je.values()].filter((s) => (tot.get(s.id) ?? -1) < zeit(s))
+    .sort((a, b) => zeit(b) - zeit(a)).slice(0, JAM_MAX);
+}
 
 /** Mitgelieferte und eigene Stücke für die Liste: eigene zuerst (neueste oben), dann die mitgelieferten. */
 export function jamAlle(eigene: readonly JamStueck[]): JamStueck[] {

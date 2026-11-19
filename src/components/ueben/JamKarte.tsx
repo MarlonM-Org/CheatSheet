@@ -19,6 +19,7 @@ import { AkkordWahl } from './AkkordWahl';
 import { useBegleiter } from './begleiter';
 import { EinspielenDialog } from './Einspielen';
 import { gespeichert, speichern, useEinstellungenGeladen } from './klang';
+import { begraben } from './lokal';
 import { skillGeuebt } from './skillspeicher';
 import { SpickzettelBlatt, type Eingabe } from './Spickzettel';
 import { useStimmgeraetApi } from './StimmgeraetKontext';
@@ -127,7 +128,7 @@ export function JamKarteBlatt({ schliessen }: { schliessen: () => void }) {
             gespielt={gespielt.has(stueck.id)} heuteGespielt={() => heuteGespielt(stueck)}
             bearbeiten={stueck.eigen ? () => setFormular({ stueck }) : undefined}
             loeschenFragen={loeschenFragen} setLoeschenFragen={setLoeschenFragen}
-            loeschen={stueck.eigen ? () => { setEigene(jamEntfernen(eigene, stueck.id)); zurueck(); } : undefined} />
+            loeschen={stueck.eigen ? () => { setEigene(jamEntfernen(eigene, stueck.id)); begraben('jamstueck', [stueck.id]); zurueck(); } : undefined} />
         )}
       </div>
     </div>,
@@ -145,7 +146,7 @@ export function JamKarteBlatt({ schliessen }: { schliessen: () => void }) {
   )}
   {formular && (
     <JamFormular stueck={formular.stueck} stimmung={stimmung} schliessen={() => setFormular(null)}
-      sichern={(s) => { setEigene(jamSpeichern(eigene, s)); setFormular(null); begleiter.stoppen(); setGewaehlt(s.id); setLoeschenFragen(false); }} />
+      sichern={(s) => { setEigene(jamSpeichern(eigene, s, Date.now())); setFormular(null); begleiter.stoppen(); setGewaehlt(s.id); setLoeschenFragen(false); }} />
   )}
   </>);
 }

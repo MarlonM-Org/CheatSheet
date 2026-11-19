@@ -20,6 +20,7 @@ import {
   type Ton, type TonartAngabe,
 } from './akkorde';
 import { lageWaehlen, TAKT, tonartFolge, triolenFehler, UMFANG, type Abschnitt, type Ereignis, type Reihenfolge } from './etueden';
+import type { Grabstein } from './einspielen';
 import { tageSeit } from './skills';
 
 const mod = (n: number, m: number) => ((n % m) + m) % m;
@@ -43,6 +44,8 @@ export interface Lick {
   /** Zum Bearbeiten: der eingegebene Text und die Tonart dazu ("C", "Am"). */
   text: string;
   tonart: string;
+  /** Eigene Licks: zuletzt gespeichert (Abgleich zweier Geräte, licksVereinigen). */
+  geaendert?: number;
 }
 
 export const istTon = (n: LickNote): n is LickTon => 's' in n;
@@ -280,6 +283,8 @@ export interface LickSpeicher {
   stand: Record<string, LickStand>;
   /** Ausgeblendete Start-Licks. */
   aus: string[];
+  /** Wann `aus` zuletzt geändert wurde: Beim Laden gewinnt die neuere Liste. */
+  ausAm?: number;
 }
 export const LICKS_STANDARD: LickSpeicher = { eigene: [], stand: {}, aus: [] };
 export const LICKS_MAX = 300;
@@ -298,17 +303,17 @@ export function istLick(v: unknown): v is Lick {
   return objekt(v) && idOk(v.id) && text(v.name, 80, false) && text(v.ueber, 40) && typeof v.moll === 'boolean'
     && Array.isArray(v.noten) && v.noten.length > 0 && v.noten.length <= LICK_NOTEN_MAX && v.noten.every(noteOk)
     && Array.isArray(v.akkorde) && v.akkorde.length <= 64 && v.akkorde.every(akkordOk)
-    && text(v.text, 2000) && text(v.tonart, 8);
+    && text(v.text, 2000) && text(v.tonart, 8) && (v.geaendert === undefined || zeitOk(v.geaendert));
 }
-const standOk = (v: unknown): v is LickStand => objekt(v) && typeof v.zuletzt === 'number' && Number.isFinite(v.zuletzt) && v.zuletzt > 0 && v.zuletzt < 8.64e15
-  && ganz(v.staerke, 0, STAERKE_MAX);
+const zeitOk = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v > 0 && v < 8.64e15;
+const standOk = (v: unknown): v is LickStand => objekt(v) && zeitOk(v.zuletzt) && ganz(v.staerke, 0, STAERKE_MAX);
 
 /** Streng: nur ein ganz gültiger Speicher reist mit (Validator für die Sicherung). */
 export function licksGueltig(v: unknown): v is LickSpeicher {
   if (!objekt(v) || !Array.isArray(v.eigene) || v.eigene.length > LICKS_MAX || !v.eigene.every(istLick)) return false;
   if (!objekt(v.stand) || Object.keys(v.stand).length > 2 * LICKS_MAX) return false;
   for (const [k, s] of Object.entries(v.stand)) if (!idOk(k) || !standOk(s)) return false;
-  return Array.isArray(v.aus) && v.aus.length <= 100 && v.aus.every(idOk);
+  return Array.isArray(v.aus) && v.aus.length <= 100 && v.aus.every(idOk) && (v.ausAm === undefined || zeitOk(v.ausAm));
 }
 
 /** Tolerant lesen: Unbrauchbares fällt weg, der Rest bleibt. */
@@ -318,25 +323,73 @@ export function licksLesen(roh: unknown): LickSpeicher {
   const stand: Record<string, LickStand> = {};
   if (objekt(roh.stand)) for (const [k, s] of Object.entries(roh.stand)) if (idOk(k) && standOk(s)) stand[k] = { zuletzt: s.zuletzt, staerke: s.staerke };
   const aus = Array.isArray(roh.aus) ? roh.aus.filter(idOk).slice(0, 100) : [];
-  return { eigene, stand, aus };
+  return { eigene, stand, aus, ...(zeitOk(roh.ausAm) ? { ausAm: roh.ausAm } : {}) };
 }
 
 /** Alle sichtbaren Licks: Start-Licks (ohne ausgeblendete), dann eigene. */
 export const licksAlle = (sp: LickSpeicher): Lick[] => [...START_LICKS.filter((l) => !sp.aus.includes(l.id)), ...sp.eigene];
 
-export function lickSichern(sp: LickSpeicher, l: Lick): LickSpeicher {
+/** Eigenen Lick einfügen oder ersetzen; mit `jetzt` datiert (Abgleich zweier Geräte). */
+export function lickSichern(sp: LickSpeicher, l: Lick, jetzt?: number): LickSpeicher {
+  const neu = jetzt === undefined ? l : { ...l, geaendert: jetzt };
   const da = sp.eigene.some((x) => x.id === l.id);
-  return { ...sp, eigene: da ? sp.eigene.map((x) => (x.id === l.id ? l : x)) : [...sp.eigene, l] };
+  return { ...sp, eigene: da ? sp.eigene.map((x) => (x.id === l.id ? neu : x)) : [...sp.eigene, neu] };
 }
 
-/** Eigene löschen; Start-Licks ausblenden. Der Stand geht mit. */
-export function lickEntfernen(sp: LickSpeicher, id: string): LickSpeicher {
+/** Eigene löschen; Start-Licks ausblenden. Der Stand geht mit. Das Löschen
+ *  braucht einen Grabstein (Art „lick“), damit eine ältere Sicherung den
+ *  Lick und seinen Stand nicht zurückbringt — den setzt der Aufrufer. */
+export function lickEntfernen(sp: LickSpeicher, id: string, jetzt?: number): LickSpeicher {
   const stand = Object.fromEntries(Object.entries(sp.stand).filter(([k]) => k !== id));
-  if (istStartLick(id)) return { ...sp, stand, aus: sp.aus.includes(id) ? sp.aus : [...sp.aus, id] };
+  if (istStartLick(id)) {
+    return { ...sp, stand, aus: sp.aus.includes(id) ? sp.aus : [...sp.aus, id], ...(jetzt === undefined ? {} : { ausAm: jetzt }) };
+  }
   return { ...sp, stand, eigene: sp.eigene.filter((l) => l.id !== id) };
 }
 
-export const startLicksZeigen = (sp: LickSpeicher): LickSpeicher => ({ ...sp, aus: [] });
+export const startLicksZeigen = (sp: LickSpeicher, jetzt?: number): LickSpeicher =>
+  ({ ...sp, aus: [], ...(jetzt === undefined ? {} : { ausAm: jetzt }) });
+
+/** Beim Laden einer Sicherung (A-08): eigene Licks je id der neuere
+ *  (`geaendert`), Stand je Lick der neuere (`zuletzt`), ausgeblendete
+ *  Start-Licks als Ganzes die neuere Liste (`ausAm`). Grabsteine „lick“
+ *  nehmen mit, was seit dem Löschen nicht mehr geändert wurde. Bei
+ *  Gleichstand gilt das Gerät. */
+export function licksVereinigen(hier: LickSpeicher, dort: LickSpeicher, grabsteine: readonly Grabstein[]): LickSpeicher {
+  const tot = new Map<string, number>();
+  for (const g of grabsteine) if (g.art === 'lick') tot.set(g.id, Math.max(g.am, tot.get(g.id) ?? 0));
+  const lebt = (id: string, zeit: number) => (tot.get(id) ?? -1) < zeit;
+  const zeitVon = (l: Lick) => l.geaendert ?? 0;
+
+  const ausDort = new Map(dort.eigene.map((l) => [l.id, l]));
+  const gesehen = new Set<string>();
+  const eigene: Lick[] = [];
+  for (const l of hier.eigene) {
+    if (gesehen.has(l.id)) continue;
+    gesehen.add(l.id);
+    const d = ausDort.get(l.id);
+    const w = d && zeitVon(d) > zeitVon(l) ? d : l;
+    if (lebt(w.id, zeitVon(w))) eigene.push(w);
+  }
+  for (const l of dort.eigene) {
+    if (gesehen.has(l.id)) continue;
+    gesehen.add(l.id);
+    if (lebt(l.id, zeitVon(l))) eigene.push(l);
+  }
+
+  const stand: Record<string, LickStand> = {};
+  for (const [k, s] of [...Object.entries(hier.stand), ...Object.entries(dort.stand)]) {
+    if (!idOk(k)) continue;
+    const da = Object.prototype.hasOwnProperty.call(stand, k) ? stand[k] : undefined;
+    if (!da || s.zuletzt > da.zuletzt) stand[k] = s;
+  }
+  for (const k of Object.keys(stand)) if (!lebt(k, stand[k].zuletzt)) delete stand[k];
+
+  const nimmDort = (dort.ausAm ?? 0) > (hier.ausAm ?? 0);
+  const aus = nimmDort ? dort.aus : hier.aus;
+  const ausAm = nimmDort ? dort.ausAm : hier.ausAm;
+  return { eigene: eigene.slice(0, LICKS_MAX), stand, aus, ...(ausAm === undefined ? {} : { ausAm }) };
+}
 
 export const lickBewerten = (sp: LickSpeicher, id: string, b: Bewertung, jetzt: number): LickSpeicher =>
   ({ ...sp, stand: { ...sp.stand, [id]: bewerten(Object.prototype.hasOwnProperty.call(sp.stand, id) ? sp.stand[id] : undefined, b, jetzt) } });

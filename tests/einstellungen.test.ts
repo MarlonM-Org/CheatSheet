@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest';
+import { DRONE_STANDARD } from '@/domain/drone';
+import type { Grabstein } from '@/domain/einspielen';
 import {
-  EINSTELLUNG_STANDARD, EINSTELLUNGEN_STAND, einstellungenFuerSicherung, einstellungenLesen, einstellungenSammeln,
-  istAenderung, istMitreisend, MITREISEND, neuerStand, standHier, standLesen, uebernehmen,
+  EINSTELLUNG_STANDARD, EINSTELLUNGEN_STAND, einstellungenFuerSicherung, einstellungenLesen, einstellungenSammeln, GERAET,
+  istAenderung, istLernstand, istMitreisend, LERNSTAND, LERNSTAND_LEER, lernstandHier, lernstandVereinigen, METRONOM_STANDARD,
+  MITREISEND, neuerStand, standHier, standLesen, uebernehmen, VERALTET,
 } from '@/domain/einstellungen';
+import { ETUEDEN_STANDARD } from '@/domain/etueden';
+import { LICKS_STANDARD, START_LICKS } from '@/domain/licks';
 import { STIFT_STANDARD } from '@/domain/stift';
+import { SWING_STANDARD } from '@/domain/swing';
 
 // localStorage als einfache Tabelle (Werte als JSON-Text wie dort).
 const speicher = (werte: Record<string, unknown>) => {
@@ -13,11 +19,27 @@ const speicher = (werte: Record<string, unknown>) => {
 
 describe('Welche Einstellungen mitreisen', () => {
   it('Person und Instrument reisen mit', () => {
-    for (const k of ['stimm:st', 'stimm:a', 'metro:klang', 'metro:laut', 'metro:takt', 'metro:nenner', 'metro:akzente', 'metro:unter', 'metro:trainer', 'metro:swing',
-      'ueben:stift', 'ueben:marker', 'ueben:text', 'ueben:wisch-umkehren', 'ueben:zoom-immer', 'ueben:tonprofil-umfang', 'ueben:sammlungen-reihenfolge', 'ueben:ohr', 'ueben:skills', 'ueben:hoerquiz', 'ueben:jamkarte', 'ueben:drone', 'ueben:etueden', 'ueben:licks']) {
+    for (const k of ['stimm:st', 'stimm:a', 'ueben:stift', 'ueben:marker', 'ueben:text', 'ueben:wisch-umkehren', 'ueben:zoom-immer',
+      'ueben:tonprofil-umfang', 'ueben:sammlungen-reihenfolge']) {
       expect(istMitreisend(k), k).toBe(true);
     }
-    expect(MITREISEND).toHaveLength(24);
+    expect(MITREISEND).toHaveLength(9);
+  });
+  it('Lernstand reist mit, aber nicht als Einstellung', () => {
+    expect([...LERNSTAND].sort()).toEqual(['ueben:jamkarte', 'ueben:licks', 'ueben:skills']);
+    for (const k of LERNSTAND) {
+      expect(istLernstand(k), k).toBe(true);
+      expect(istMitreisend(k), k).toBe(false);
+    }
+  });
+  it('nur am Gerät oder gar nicht gespeichert: reist nicht mit (A-08)', () => {
+    for (const k of [...GERAET, ...VERALTET]) {
+      expect(istMitreisend(k), k).toBe(false);
+      expect(istLernstand(k), k).toBe(false);
+    }
+    expect(VERALTET).toEqual(expect.arrayContaining(['metro:takt', 'metro:nenner', 'metro:akzente', 'metro:unter', 'metro:trainer', 'metro:swing', 'ueben:drone', 'ueben:etueden']));
+    expect(GERAET).toEqual(expect.arrayContaining(['metro:klang', 'metro:laut', 'ueben:ohr', 'ueben:hoerquiz']));
+    expect(GERAET.filter((k) => (VERALTET as readonly string[]).includes(k))).toEqual([]);
   });
   it('Gerät, Tempo und was eigene Felder hat, bleibt', () => {
     for (const k of ['ueben:modus', 'ueben:thema-hell', 'ueben:thema-dunkel', 'ueben:lage-metronom', 'metro:bpm', 'ueben:metronom-an',
@@ -25,6 +47,7 @@ describe('Welche Einstellungen mitreisen', () => {
       'ueben:letzte-sicherung', 'ueben:sicherung-erinnern', 'ueben:geloescht', 'ueben:tags', 'ueben:tonprofile', 'ueben:ohr-verlauf', 'ueben:heute', 'ueben:tonleiter-grundton', 'ueben:tonleiter-art', 'ueben:drone-klang',
       EINSTELLUNGEN_STAND, 'toString', '__proto__', 'constructor']) {
       expect(istMitreisend(k), k).toBe(false);
+      expect(istLernstand(k), k).toBe(false);
     }
   });
   it('Standard der Stifte ist der aus @/domain/stift', () => {
@@ -32,19 +55,25 @@ describe('Welche Einstellungen mitreisen', () => {
     expect(EINSTELLUNG_STANDARD['ueben:marker']).toEqual(STIFT_STANDARD.marker);
     expect(EINSTELLUNG_STANDARD['ueben:text']).toEqual(STIFT_STANDARD.text);
   });
+  it('Metronom beginnt jede Sitzung mit 4/4, ohne Trainer und Swing', () => {
+    expect(METRONOM_STANDARD).toMatchObject({ takt: 4, nenner: 4, unter: 1, akzente: ['betont', 'normal', 'normal', 'normal'] });
+    expect(METRONOM_STANDARD.trainer.an).toBe(false);
+    expect(METRONOM_STANDARD.swing).toEqual(SWING_STANDARD);
+  });
 });
 
 describe('Sammeln auf dem Gerät', () => {
   it('nimmt nur mitreisende, lesbare Werte passender Art', () => {
     const werte = einstellungenSammeln(speicher({
-      'stimm:st': 'Es', 'stimm:a': 443, 'metro:klang': 'glocke', 'ueben:wisch-umkehren': true,
+      'stimm:st': 'Es', 'stimm:a': 443, 'ueben:wisch-umkehren': true,
       'ueben:stift': { farbe: '#d12d2d', breite: 0.004 },
-      'ueben:modus': 'dunkel', 'metro:bpm': 132, // bleiben am Gerät
-      'metro:laut': 'roh:{kaputt', // kein JSON
-      'metro:unter': 0, // würde den Taktgeber lahmlegen
-      'metro:takt': 'vier',
+      'ueben:modus': 'dunkel', 'metro:bpm': 132, 'metro:klang': 'glocke', // bleiben am Gerät
+      'metro:takt': 3, // nur für die Sitzung
+      'ueben:skills': { intervalle: { markierung: 'will' } }, // Lernstand, eigenes Sammeln
+      'ueben:text': 'roh:{kaputt', // kein JSON
+      'ueben:marker': { farbe: '#000', breite: 0 }, // würde unsichtbar zeichnen
     }));
-    expect(werte).toEqual({ 'stimm:st': 'Es', 'stimm:a': 443, 'metro:klang': 'glocke', 'ueben:wisch-umkehren': true, 'ueben:stift': { farbe: '#d12d2d', breite: 0.004 } });
+    expect(werte).toEqual({ 'stimm:st': 'Es', 'stimm:a': 443, 'ueben:wisch-umkehren': true, 'ueben:stift': { farbe: '#d12d2d', breite: 0.004 } });
   });
   it('leerer Speicher: nichts', () => {
     expect(einstellungenSammeln(() => null)).toEqual({});
@@ -62,39 +91,16 @@ describe('Prüfen der Werte', () => {
     expect(gilt('stimm:a', 451)).toBe(false);
     expect(gilt('stimm:a', '443')).toBe(false);
   });
-  it('Etüden und Licks', () => {
-    expect(gilt('ueben:etueden', EINSTELLUNG_STANDARD['ueben:etueden'])).toBe(true);
-    expect(gilt('ueben:etueden', { ...EINSTELLUNG_STANDARD['ueben:etueden'], bpm: 999 })).toBe(false);
-    expect(gilt('ueben:licks', EINSTELLUNG_STANDARD['ueben:licks'])).toBe(true);
-    expect(gilt('ueben:licks', { eigene: 'nein', stand: {}, aus: [] })).toBe(false);
+  it('was früher mitreiste (Metronom, Etüden …), gilt nicht mehr', () => {
+    expect(gilt('metro:klang', 'klick')).toBe(false);
+    expect(gilt('metro:takt', 3)).toBe(false);
+    expect(gilt('metro:swing', SWING_STANDARD)).toBe(false);
+    expect(gilt('ueben:ohr', { stufe: 'leiter', grundton: 62, bpm: 90, wechseln: true })).toBe(false);
+    expect(gilt('ueben:hoerquiz', { intervalle: { stufe: 3, richtung: 'gemischt' }, dreiklaenge: { stufe: 2 }, septakkorde: { stufe: 1 } })).toBe(false);
+    expect(gilt('ueben:etueden', ETUEDEN_STANDARD)).toBe(false);
+    expect(gilt('ueben:drone', DRONE_STANDARD)).toBe(false);
   });
-  it('Swing-Metronom', () => {
-    expect(gilt('metro:swing', { zweiVier: true, achtel: true, anteil: 67 })).toBe(true);
-    expect(gilt('metro:swing', { zweiVier: true, achtel: true, anteil: 20 })).toBe(false);
-    expect(gilt('metro:swing', { zweiVier: 'ja', achtel: true, anteil: 60 })).toBe(false);
-  });
-  it('Metronom', () => {
-    expect(gilt('metro:klang', 'klick')).toBe(true);
-    expect(gilt('metro:klang', 'trommel')).toBe(false);
-    expect(gilt('metro:laut', 0)).toBe(true);
-    expect(gilt('metro:laut', 1.5)).toBe(false);
-    expect(gilt('metro:takt', 12)).toBe(true);
-    expect(gilt('metro:takt', 0)).toBe(false);
-    expect(gilt('metro:takt', 3.5)).toBe(false);
-    expect(gilt('metro:nenner', 8)).toBe(true);
-    expect(gilt('metro:nenner', 3)).toBe(false);
-    expect(gilt('metro:nenner', '4')).toBe(false);
-    expect(gilt('metro:unter', 4)).toBe(true);
-    expect(gilt('metro:unter', 0)).toBe(false);
-    expect(gilt('metro:akzente', ['betont', 'stumm', 'normal'])).toBe(true);
-    expect(gilt('metro:akzente', ['betont', 'laut'])).toBe(false);
-    expect(gilt('metro:akzente', 'betont')).toBe(false);
-    expect(gilt('metro:trainer', { an: true, schritt: 2, takte: 8, ziel: 132 })).toBe(true);
-    expect(gilt('metro:trainer', { an: 'ja', schritt: 2, takte: 8, ziel: 132 })).toBe(false);
-    expect(gilt('metro:trainer', { an: true, schritt: 0, takte: 8, ziel: 132 })).toBe(false);
-    expect(gilt('metro:trainer', null)).toBe(false);
-  });
-  it('Stifte, Wischen, Tonumfang', () => {
+  it('Stifte, Wischen, Tonumfang, Sammlungen', () => {
     expect(gilt('ueben:marker', { farbe: 'rgba(80, 220, 120, 0.4)', breite: 0.022 })).toBe(true);
     expect(gilt('ueben:text', { farbe: '#1f5fd1', breite: 0.024 })).toBe(true);
     expect(gilt('ueben:stift', { farbe: 7, breite: 0.004 })).toBe(false);
@@ -107,20 +113,32 @@ describe('Prüfen der Werte', () => {
     expect(gilt('ueben:tonprofil-umfang', { von: 50, bis: 84, stamm: true })).toBe(true);
     expect(gilt('ueben:tonprofil-umfang', { von: 84, bis: 50, stamm: true })).toBe(false);
     expect(gilt('ueben:tonprofil-umfang', { von: 50, bis: 84 })).toBe(false);
-    expect(gilt('ueben:ohr', { stufe: 'leiter', grundton: 62, bpm: 90, wechseln: true })).toBe(true);
-    expect(gilt('ueben:hoerquiz', { intervalle: { stufe: 3, richtung: 'gemischt' }, dreiklaenge: { stufe: 2 }, septakkorde: { stufe: 1 } })).toBe(true);
-    expect(gilt('ueben:hoerquiz', { intervalle: { stufe: 4, richtung: 'auf' }, dreiklaenge: { stufe: 2 }, septakkorde: { stufe: 1 } })).toBe(false);
-    expect(gilt('ueben:hoerquiz', { intervalle: { stufe: 1 } })).toBe(false);
+    expect(gilt('ueben:sammlungen-reihenfolge', ['Märsche', 'Polkas'])).toBe(true);
+    expect(gilt('ueben:sammlungen-reihenfolge', ['', 'Polkas'])).toBe(false);
+  });
+});
+
+describe('Lernstand prüfen', () => {
+  const gilt = (k: string, v: unknown) => Object.keys(einstellungenLesen({ stand: 5, werte: { [k]: v } })?.lernstand ?? {}).length === 1;
+  it('Licks', () => {
+    expect(gilt('ueben:licks', LICKS_STANDARD)).toBe(true);
+    expect(gilt('ueben:licks', { ...LICKS_STANDARD, ausAm: 1_700_000_000_000 })).toBe(true);
+    expect(gilt('ueben:licks', { ...LICKS_STANDARD, ausAm: 'gestern' })).toBe(false);
+    expect(gilt('ueben:licks', { eigene: 'nein', stand: {}, aus: [] })).toBe(false);
+  });
+  it('Jam-Stücke', () => {
     expect(gilt('ueben:jamkarte', [])).toBe(true);
-    expect(gilt('ueben:jamkarte', [{ id: 'x', titel: 'Mein Blues', form: '12 Takte', tonart: 'G', teile: [{ name: 'A', akkorde: '| G7 | C7 |' }], eigen: true }])).toBe(true);
+    expect(gilt('ueben:jamkarte', [{ id: 'x', titel: 'Mein Blues', form: '12 Takte', tonart: 'G', teile: [{ name: 'A', akkorde: '| G7 | C7 |' }], eigen: true, geaendert: 5 }])).toBe(true);
+    expect(gilt('ueben:jamkarte', [{ id: 'x', titel: 'Mein Blues', form: '12 Takte', tonart: 'G', teile: [{ name: 'A', akkorde: '| G7 |' }], geaendert: 'neu' }])).toBe(false);
     expect(gilt('ueben:jamkarte', [{ id: 'x', titel: '', form: '', tonart: 'G', teile: [] }])).toBe(false);
     expect(gilt('ueben:jamkarte', { id: 'x' })).toBe(false);
-    expect(gilt('ueben:ohr', { stufe: 'gibtsnicht', grundton: 62, bpm: 90, wechseln: true })).toBe(false);
-    expect(gilt('ueben:ohr', { stufe: 'leiter', grundton: 80, bpm: 90, wechseln: true })).toBe(false);
+  });
+  it('Skills', () => {
     expect(gilt('ueben:skills', {})).toBe(true);
-    expect(gilt('ueben:skills', { intervalle: { markierung: 'will' }, 'kuenftig-unbekannt': { stufe: 2, hoechste: 3, quoten: [{ q: 0.8, am: 1_700_000_000_000 }], zuletzt: 1_700_000_000_000 } })).toBe(true);
+    expect(gilt('ueben:skills', { intervalle: { markierung: 'will', geaendert: 1_700_000_000_000 }, 'kuenftig-unbekannt': { stufe: 2, hoechste: 3, quoten: [{ q: 0.8, am: 1_700_000_000_000 }], zuletzt: 1_700_000_000_000 } })).toBe(true);
     expect(gilt('ueben:skills', { intervalle: { markierung: 'vielleicht' } })).toBe(false);
     expect(gilt('ueben:skills', { intervalle: { stufe: 7 } })).toBe(false);
+    expect(gilt('ueben:skills', { intervalle: { geaendert: -1 } })).toBe(false);
     expect(gilt('ueben:skills', [])).toBe(false);
   });
 });
@@ -138,14 +156,22 @@ describe('Lesen aus der Sicherung', () => {
   });
   it('nur bekannte Schlüssel mit passenden Werten', () => {
     const e = einstellungenLesen({ stand: 7, werte: { 'stimm:st': 'Es', 'stimm:a': 'hoch', 'ueben:thema-dunkel': 'schwarz', 'metro:bpm': 200, __proto__: { x: 1 } } });
-    expect(e).toEqual({ stand: 7, werte: { 'stimm:st': 'Es' } });
+    expect(e).toEqual({ stand: 7, werte: { 'stimm:st': 'Es' }, lernstand: {} });
+  });
+  it('Lernstand für sich', () => {
+    const skills = { intervalle: { markierung: 'will', geaendert: 1_700_000_000_000 } };
+    expect(einstellungenLesen({ stand: 1, werte: { 'ueben:skills': skills } })).toEqual({ stand: 1, werte: {}, lernstand: { 'ueben:skills': skills } });
+  });
+  it('ältere Sicherung mit Metronom und Lernstand: Metronom übergangen, Lernstand bleibt', () => {
+    const e = einstellungenLesen({ stand: 9, werte: { 'metro:takt': 3, 'metro:klang': 'glocke', 'stimm:st': 'Es', 'ueben:jamkarte': [] } });
+    expect(e).toEqual({ stand: 9, werte: { 'stimm:st': 'Es' }, lernstand: { 'ueben:jamkarte': [] } });
   });
 });
 
 describe('Zeitstempel', () => {
   it('Start schreibt dieselben Werte: keine Änderung', () => {
     expect(istAenderung('stimm:a', '443', 443)).toBe(false);
-    expect(istAenderung('metro:trainer', JSON.stringify({ an: false, schritt: 4, takte: 4, ziel: 120 }), { ziel: 120, takte: 4, schritt: 4, an: false })).toBe(false);
+    expect(istAenderung('ueben:tonprofil-umfang', JSON.stringify({ von: 55, bis: 79, stamm: false }), { stamm: false, bis: 79, von: 55 })).toBe(false);
   });
   it('frisches Gerät schreibt den Standard: keine Änderung', () => {
     for (const k of MITREISEND) expect(istAenderung(k, null, EINSTELLUNG_STANDARD[k]), k).toBe(false);
@@ -160,6 +186,12 @@ describe('Zeitstempel', () => {
   it('Werte, die am Gerät bleiben, bewegen ihn nie', () => {
     expect(istAenderung('metro:bpm', '80', 120)).toBe(false);
     expect(istAenderung('ueben:modus', '"hell"', 'dunkel')).toBe(false);
+    expect(istAenderung('metro:klang', '"holz"', 'glocke')).toBe(false);
+    expect(istAenderung('ueben:ohr', null, { stufe: 'leiter', grundton: 62, bpm: 90, wechseln: true })).toBe(false);
+  });
+  it('Lernstand bewegt ihn nicht: Er wird je Eintrag zusammengeführt', () => {
+    expect(istAenderung('ueben:skills', '{}', { intervalle: { markierung: 'will' } })).toBe(false);
+    expect(istAenderung('ueben:licks', null, { eigene: [], stand: { x: { zuletzt: 5, staerke: 1 } }, aus: [] })).toBe(false);
   });
   it('steigt nur, auch wenn die Uhr nachgeht', () => {
     expect(neuerStand(0, 1000)).toBe(1000);
@@ -173,7 +205,7 @@ describe('Zeitstempel', () => {
   });
   it('ohne Zeitstempel: 1, wenn etwas vom Standard abweicht (Einstellungen von früher), sonst 0', () => {
     expect(standHier(null, {})).toBe(0);
-    expect(standHier(null, { 'stimm:a': 442, 'metro:klang': 'holz' })).toBe(0);
+    expect(standHier(null, { 'stimm:a': 442, 'ueben:zoom-immer': false })).toBe(0);
     expect(standHier(null, { 'stimm:a': 443 })).toBe(1);
     expect(standHier('1234', { 'stimm:a': 442 })).toBe(1234);
   });
@@ -194,6 +226,9 @@ describe('Neuerer Stand gewinnt', () => {
     expect(uebernehmen(1, datei)).toBe(true);
     expect(uebernehmen(2000, { stand: 1, werte: { 'stimm:a': 443 } })).toBe(false);
   });
+  it('Datei nur mit Lernstand: Einstellungen und Stand bleiben, wie sie sind', () => {
+    expect(uebernehmen(0, { stand: 5000, werte: {} })).toBe(false);
+  });
 });
 
 describe('Für die Sicherung', () => {
@@ -205,8 +240,54 @@ describe('Für die Sicherung', () => {
     expect(einstellungenFuerSicherung(speicher({ 'stimm:a': 442 }))).toBeUndefined();
     expect(einstellungenFuerSicherung(() => null)).toBeUndefined();
   });
+  it('was nicht mitreist, bleibt draußen', () => {
+    const e = einstellungenFuerSicherung(speicher({
+      [EINSTELLUNGEN_STAND]: 99, 'stimm:st': 'F', 'metro:akzente': ['betont', 'stumm'], 'metro:klang': 'glocke', 'ueben:ohr': { stufe: 'leiter', grundton: 62, bpm: 90, wechseln: true },
+    }));
+    expect(e).toEqual({ stand: 99, werte: { 'stimm:st': 'F' } });
+  });
+  it('Lernstand reist mit; leerer nicht', () => {
+    const skills = { intervalle: { markierung: 'will', geaendert: 1_700_000_000_000 } };
+    expect(einstellungenFuerSicherung(speicher({ [EINSTELLUNGEN_STAND]: 99, 'stimm:st': 'F', 'ueben:skills': skills, 'ueben:licks': LICKS_STANDARD, 'ueben:jamkarte': [] })))
+      .toEqual({ stand: 99, werte: { 'stimm:st': 'F', 'ueben:skills': skills } });
+  });
+  it('nie etwas eingestellt, aber Lernstand: nur der Lernstand, Stand 1', () => {
+    const skills = { intervalle: { markierung: 'will' } };
+    expect(einstellungenFuerSicherung(speicher({ 'stimm:a': 442, 'ueben:skills': skills }))).toEqual({ stand: 1, werte: { 'ueben:skills': skills } });
+  });
   it('was die Sicherung mitgibt, liest die andere Seite genauso', () => {
-    const e = einstellungenFuerSicherung(speicher({ [EINSTELLUNGEN_STAND]: 99, 'stimm:st': 'F', 'metro:akzente': ['betont', 'stumm'] }));
-    expect(einstellungenLesen(JSON.parse(JSON.stringify(e)))).toEqual(e);
+    const skills = { intervalle: { markierung: 'will', geaendert: 1_700_000_000_000 } };
+    const e = einstellungenFuerSicherung(speicher({ [EINSTELLUNGEN_STAND]: 99, 'stimm:st': 'F', 'ueben:skills': skills }));
+    expect(einstellungenLesen(JSON.parse(JSON.stringify(e)))).toEqual({ stand: 99, werte: { 'stimm:st': 'F' }, lernstand: { 'ueben:skills': skills } });
+  });
+});
+
+describe('Lernstand zusammenführen (A-08)', () => {
+  const T = 1_700_000_000_000;
+  const lick = (id: string, geaendert?: number) => ({ ...START_LICKS[0], id, name: `Lick ${id}`, ...(geaendert ? { geaendert } : {}) });
+  const jam = (id: string, geaendert?: number) => ({ id, titel: `Stück ${id}`, form: 'AABA', tonart: 'F', teile: [{ name: 'A', akkorde: '| F |' }], eigen: true, ...(geaendert ? { geaendert } : {}) });
+
+  it('liest den Lernstand des Geräts nachsichtig, Fehlendes ist leer', () => {
+    const hier = lernstandHier(speicher({ 'ueben:skills': { intervalle: { markierung: 'will' }, kaputt: { stufe: 99 } }, 'ueben:licks': 'roh:{kaputt' }));
+    expect(hier['ueben:skills']).toEqual({ intervalle: { markierung: 'will' } });
+    expect(hier['ueben:licks']).toEqual(LICKS_STANDARD);
+    expect(hier['ueben:jamkarte']).toEqual([]);
+  });
+  it('eine geänderte Einstellung überschreibt den Lernstand nicht mehr: je Skill gewinnt der neuere', () => {
+    const hier = { ...LERNSTAND_LEER, 'ueben:skills': { a: { stufe: 3, zuletzt: T + 500, geaendert: T + 500 }, b: { markierung: 'will' as const, geaendert: T } } };
+    const dort = { 'ueben:skills': { a: { stufe: 1, zuletzt: T + 100, geaendert: T + 100 }, b: { markierung: 'kann' as const, geaendert: T + 900 }, c: { markierung: 'lerne' as const, geaendert: T } } };
+    expect(lernstandVereinigen(hier, dort, [])).toEqual({ 'ueben:skills': {
+      a: { stufe: 3, zuletzt: T + 500, geaendert: T + 500 }, b: { markierung: 'kann', geaendert: T + 900 }, c: { markierung: 'lerne', geaendert: T },
+    } });
+  });
+  it('liefert nur, was sich ändert', () => {
+    const hier = { ...LERNSTAND_LEER, 'ueben:skills': { a: { markierung: 'will' as const, geaendert: T } } };
+    expect(lernstandVereinigen(hier, { 'ueben:skills': { a: { markierung: 'kann' as const, geaendert: T - 1 } } }, [])).toEqual({});
+    expect(lernstandVereinigen(hier, {}, [])).toEqual({});
+  });
+  it('Grabsteine gelten auch ohne den Schlüssel in der Datei (letzter Lick gelöscht)', () => {
+    const hier = { ...LERNSTAND_LEER, 'ueben:licks': { eigene: [lick('l1', T)], stand: {}, aus: [] }, 'ueben:jamkarte': [jam('j1', T)] };
+    const grabsteine: Grabstein[] = [{ art: 'lick', id: 'l1', am: T + 10 }, { art: 'jamstueck', id: 'j1', am: T + 10 }];
+    expect(lernstandVereinigen(hier, {}, grabsteine)).toEqual({ 'ueben:licks': { eigene: [], stand: {}, aus: [] }, 'ueben:jamkarte': [] });
   });
 });

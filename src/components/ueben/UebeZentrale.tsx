@@ -7,7 +7,7 @@ import { gespeichert, speichern } from './klang';
 import { Lernen } from './Lernen';
 import { MetronomAnbieter } from './MetronomKontext';
 import { MetronomWidget } from './MetronomWidget';
-import { speicherBehalten, tagsLaden } from './lokal';
+import { speicherBehalten, tagsLaden, veralteteEntfernen } from './lokal';
 import { NotenPult } from './NotenPult';
 import { ladeFehler, SpeicherHinweis } from './speicherfehler';
 import { ortTippen } from '@/domain/leiste';
@@ -62,8 +62,9 @@ function Zentrale() {
   }, [mixBereich]);
   // Nach einem Neustart im Mix: Runde laden.
   useEffect(() => { if (mixAn && !mix) mixAbgleichen(); }, [mixAn, mix, mixAbgleichen]);
-  // Dauerhafter Speicher (A-07): den Browser einmal bitten, die Daten zu behalten.
-  useEffect(() => { void speicherBehalten(); }, []);
+  // Dauerhafter Speicher (A-07): den Browser einmal bitten, die Daten zu
+  // behalten; Einstellungen, die nicht mehr gespeichert werden, wegräumen (A-08).
+  useEffect(() => { void speicherBehalten(); veralteteEntfernen(); }, []);
   const mixStelle = mix ? mix.runde.reihe[mix.runde.pos] : undefined;
   const mixNoten = mixStelle ? mix?.stueckVon[mixStelle] : undefined;
   const mixStarten = (neu: boolean, bereich: MixBereich) => {
