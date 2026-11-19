@@ -84,7 +84,10 @@ interface Stueck {
   // F-03 Ausbaustufe: virtuelles Stück = Seitenbereich eines anderen
   quelle?: { stueckId: string; von: number; bis: number };
   // G-01…G-03: selbst geschrieben oder eingesungen — die Quelle, aus der die PDF
-  // in `dateien` gerendert wurde; `art` = geschrieben | eingesungen | audio
+  // in `dateien` gerendert wurde; `art` = geschrieben | eingesungen | audio.
+  // Seit 2026-11-19 (I-04) kann `text` Akkordsymbole über der ersten Stimme
+  // tragen ("Cm7"z96) und im Kopf den Stil der Begleitung als Kommentar
+  // (% begleitung: bossa) — gewöhnliches ABC, kein neues Feld.
   notation?: { format: 'abc'; text: string; art: 'geschrieben' | 'eingesungen' | 'audio' };
 }
 ```

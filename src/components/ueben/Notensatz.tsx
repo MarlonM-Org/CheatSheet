@@ -1,9 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { AbcElem, ClickListenerDrag, TuneObject } from 'abcjs';
-import { alsAbcStimmen, SCHLUESSEL, type Raster, type Stimme, type Takt, type Tonart, tonartTransponieren,
+import { alsAbcStimmen, SCHLUESSEL, taktDauer, type Raster, type Stimme, type Takt, type Tonart, tonartTransponieren,
 } from '@/domain/notation';
+import { akkordKlaenge, akkordLesen } from '@/domain/akkorde';
+import { akkordeVersetzen } from '@/domain/akkordrahmen';
+import { akkordTakte, alsKlaenge, BEGLEIT_STILE, begleitungBauen, STIL_NAMEN, type BegleitStil } from '@/domain/begleitung';
+import { schlaegeJeTakt } from '@/domain/takt';
 import {
   alleNoten, angebunden, bindebogenUmschalten, danachEinfuegen, haltebogenViele, inAllen, inStimme, klaengeAlle, leiterVerschieben, leiterVerschiebenViele,
   letzteHoehe, loeschenViele, noteSchreiben, notenZeiten, paletteWerte, pausenViele, punktiert, stimmeAendern, stimmeHinzu, stimmeWeg, taktEinfuegen,
@@ -17,6 +21,8 @@ import { useMetronom } from './MetronomKontext';
 import { useStimmgeraetApi } from './StimmgeraetKontext';
 import { useSchiebbar } from './schiebbar';
 import { fehlerGrund } from './speicherfehler';
+import { AkkordWahl } from './AkkordWahl';
+import { useVorspieler } from './vorspieler';
 
 // Notenblatt (G-01/G-04): abcjs zeichnet die Stimmen als Akkolade; eine Note
 // antippen wählt sie (und ihre Stimme), Ziehen (Maus) verschiebt sie auf der
@@ -51,10 +57,11 @@ const lagenVon = (s: Stimme) => s.takte.flatMap((t, takt) => t.noten.map((_, not
 export interface Hervorgehoben { stimme: number; von: number; bis: number; farbe: 'messing' | 'warnung' }
 export interface BlattStand { auswahl: BlattPos | null; aktiv: number; stumm: number[]; takte: number }
 
-export function Notenblatt({ stimmen, raster, tonart, titel, aendern, tonartAendern, verlauf, hervorgehoben, aufnehmen, beiStand, auswahlVorgabe }: {
+export function Notenblatt({ stimmen, raster, tonart, titel, aendern, tonartAendern, verlauf, hervorgehoben, aufnehmen, beiStand, auswahlVorgabe, akkorde = [], begleitung }: {
   stimmen: Stimme[]; raster: Raster; tonart: Tonart | null; titel: string;
-  // Ohne `aendern` nur ansehen und vorspielen.
-  aendern?: (stimmen: Stimme[]) => void;
+  // Ohne `aendern` nur ansehen und vorspielen. Mit `akkorde`: neue Akkordsymbole je Takt
+  // (sonst führt sie, wer das Blatt hält, mit den Takten nach).
+  aendern?: (stimmen: Stimme[], akkorde?: string[][]) => void;
   // Beim Transponieren folgt die Tonart (wer sie hält, setzt sie neu).
   tonartAendern?: (tonart: Tonart | null) => void;
   // Rückgängig/Wiederherstellen (null: gerade nicht möglich).
@@ -66,10 +73,19 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern, tonartAend
   beiStand?: (stand: BlattStand) => void;
   // Auswahl von außen setzen (nach dem Übernehmen einer Aufnahme: der nächste Takt).
   auswahlVorgabe?: BlattPos | null;
+  // Akkordsymbole je Takt über der ersten Stimme (Leadsheet, I-04).
+  akkorde?: string[][];
+  // Begleitung aus den Akkorden beim Vorspielen: Stil, änderbar.
+  begleitung?: { stil: BegleitStil; setzen: (s: BegleitStil) => void };
 }) {
   const metro = useMetronom();
   const stimm = useStimmgeraetApi();
-  const abc = useMemo(() => alsAbcStimmen(stimmen, raster, { titel }, tonart), [stimmen, raster, titel, tonart]);
+  const abc = useMemo(() => alsAbcStimmen(stimmen, raster, { titel }, tonart, akkorde), [stimmen, raster, titel, tonart, akkorde]);
+  const hatAkkorde = akkorde.some((x) => x.length);
+  // Begleitung beim Vorspielen (nur mit Akkorden) und die Akkord-Auswahl (Takt, an dem sie öffnet).
+  const [mitBegleitung, setMitBegleitung] = useState(true);
+  const [akkordWahl, setAkkordWahl] = useState<number | null>(null);
+  const akkordHoeren = useVorspieler();
   const bild = useRef<HTMLDivElement>(null);
   const tune = useRef<TuneObject | null>(null);
   const elemente = useRef<Elemente>([]);
@@ -240,8 +256,17 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern, tonartAend
   const abspielen = useCallback(() => {
     if (vorspiel.current) return anhalten();
     const ab = auswahl ? zeiten[auswahl.stimme]?.zeiten[index(auswahl)] ?? 0 : 0;
-    const liste = klaengeAlle(stimmen, raster, stumm).filter((k) => k.beginn + k.dauer > ab + 1e-6)
+    const noten = klaengeAlle(stimmen, raster, stumm).filter((k) => k.beginn + k.dauer > ab + 1e-6)
       .map((k) => (k.beginn < ab ? { ...k, dauer: k.dauer - (ab - k.beginn), beginn: 0 } : { ...k, beginn: k.beginn - ab }));
+    // Begleitung aus den Akkorden ab dem Takt der Auswahl (was vor `ab` beginnt, fällt weg).
+    const band = hatAkkorde && mitBegleitung && begleitung ? (() => {
+      const schlaege = schlaegeJeTakt(raster.zaehler, raster.nenner), td = taktDauer(raster);
+      const vonTakt = Math.floor(ab / td + 1e-9);
+      const voll = Array.from({ length: takte.length }, (_, i) => akkorde[i] ?? []);
+      return alsKlaenge(begleitungBauen(akkordTakte(voll), begleitung.stil, { schlaege, schleife: false }), raster.bpm, { schlaege, ab: vonTakt })
+        .map((k) => ({ ...k, beginn: k.beginn - (ab - vonTakt * td) })).filter((k) => k.beginn >= -1e-6);
+    })() : [];
+    const liste = [...noten, ...band].sort((x, y) => x.beginn - y.beginn);
     if (!liste.length) return;
     audioSitzung('playback');
     const v = { ...vorspielen(liste, stimm.stimmung, stimm.kammerton, metro.laut), raf: 0, zeiger: stimmen.map(() => -1) };
@@ -265,7 +290,7 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern, tonartAend
     };
     v.raf = requestAnimationFrame(schleife);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [anhalten, auswahl, stimmen, raster, stumm, zeiten, gesamt, stimm.stimmung, stimm.kammerton, metro.laut, farbe, faerben]);
+  }, [anhalten, auswahl, stimmen, raster, stumm, zeiten, gesamt, stimm.stimmung, stimm.kammerton, metro.laut, farbe, faerben, hatAkkorde, mitBegleitung, begleitung, akkorde, takte.length]);
   useEffect(() => () => { vorspiel.current?.stopp(); cancelAnimationFrame(vorspiel.current?.raf ?? 0); }, []);
   useEffect(() => { if (vorspiel.current) anhalten(); }, [stimmen, anhalten]);
 
@@ -378,7 +403,11 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern, tonartAend
   const stummSchalten = (i: number, an: boolean) => setStumm((alt) => { const neu = new Set(alt); if (an) neu.add(i); else neu.delete(i); return neu; });
   const hatNoten = lagen.some((l) => l.length);
   // Alle Noten aller Stimmen um Halbtöne versetzen; die Tonart zieht mit (ein Rückgängig-Schritt).
-  const transponierenUm = (halbtoene: number) => { if (!aendern) return; aendern(transponieren(stimmen, raster, halbtoene)); tonartAendern?.(tonartTransponieren(tonart, halbtoene)); };
+  const transponierenUm = (halbtoene: number) => {
+    if (!aendern) return;
+    aendern(transponieren(stimmen, raster, halbtoene), hatAkkorde ? akkordeVersetzen(akkorde, halbtoene) : undefined);
+    tonartAendern?.(tonartTransponieren(tonart, halbtoene));
+  };
   const viele = gewaehlt.length > 1 ? ` (${gewaehlt.length})` : '';
   // Hinter der gewählten Note einfügen: Note (Höhe der gewählten) oder Pause, im Palettenwert.
   const danach = (midi: 'note' | null) => {
@@ -419,9 +448,9 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern, tonartAend
           stumm). Tooltip und aria-label erklären jeden Knopf. */}
       <div className="notensatz-palette" role="group" aria-label="Werkzeuge">
         <div className="notensatz-block">
-          <button type="button" className="symbol pfeil" onClick={abspielen} aria-pressed={spielt} disabled={!hatNoten}
+          <button type="button" className="symbol pfeil" onClick={abspielen} aria-pressed={spielt} disabled={!hatNoten && !(hatAkkorde && mitBegleitung && !!begleitung)}
             aria-label={spielt ? 'Anhalten' : auswahl && index(auswahl) > 0 ? 'Ab der gewählten Note vorspielen' : 'Vorspielen'}
-            title={spielt ? 'Anhalten' : auswahl && index(auswahl) > 0 ? 'Ab der gewählten Note vorspielen' : 'Vorspielen (alle Stimmen, Klavierklang)'}>
+            title={spielt ? 'Anhalten' : auswahl && index(auswahl) > 0 ? 'Ab der gewählten Note vorspielen' : hatAkkorde && mitBegleitung ? 'Vorspielen mit Begleitung aus den Akkorden' : 'Vorspielen (alle Stimmen, Klavierklang)'}>
             {spielt ? '■' : '▶'}
           </button>
           {aendern && aufnehmen && (
@@ -511,6 +540,21 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern, tonartAend
                           <button type="button" aria-pressed={punkt} onClick={() => setPunktUnd(!punkt)} disabled={punktiert(wert, raster) === null} aria-label="Punktiert" title="Punktiert: anderthalbfacher Wert">punktiert</button>
                           <button type="button" aria-pressed={tri} onClick={() => setTriUnd(!tri)} disabled={triole(wert, raster) === null} aria-label="Triole" title="Triole: drei auf zwei">Triole</button>
                         </div>
+                      </div>
+                      <div className="notensatz-gruppe">
+                        <span>Akkorde{hatAkkorde ? '' : ' (Leadsheet)'}</span>
+                        <div className="notensatz-block">
+                          <button type="button" onClick={() => { setMenue(null); setAkkordWahl(auswahl ? auswahl.takt : 0); }} disabled={!takte.length}
+                            title="Akkordsymbole über die Takte setzen: Grundton und Art antippen">{hatAkkorde ? 'Akkorde ändern' : 'Akkorde setzen'}</button>
+                          {hatAkkorde && begleitung && (
+                            <button type="button" aria-pressed={mitBegleitung} onClick={() => setMitBegleitung(!mitBegleitung)} title="Beim Vorspielen spielt die Begleitung aus den Akkorden mit (Bass und Klavier)">Begleitung</button>
+                          )}
+                        </div>
+                        {hatAkkorde && begleitung && (
+                          <div className="notensatz-block" role="group" aria-label="Stil der Begleitung">
+                            {BEGLEIT_STILE.map((st) => <button key={st} type="button" aria-pressed={begleitung.stil === st} onClick={() => begleitung.setzen(st)}>{STIL_NAMEN[st]}</button>)}
+                          </div>
+                        )}
                       </div>
                       <div className="notensatz-gruppe">
                         <span>Takt</span>
@@ -609,6 +653,13 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern, tonartAend
           {hinweise.length > 6 && !alleHinweise && <li><button type="button" className="hinweis" onClick={() => setAlleHinweise(true)}>… und {hinweise.length - 6} weitere</button></li>}
         </ul>
       )}
+      {akkordWahl !== null && aendern && (
+        <AkkordWahl titel={`${takte.length} ${takte.length === 1 ? 'Takt' : 'Takte'} · notiert`} oben festeTakte start={akkordWahl}
+          takte={Array.from({ length: takte.length }, (_, i) => akkorde[i] ?? [])}
+          aendern={(neu) => aendern(stimmen, neu)}
+          hoeren={(sym) => { const a = akkordLesen(sym); if (a) akkordHoeren.spielen(akkordKlaenge(a, { bpm: 140 })); }}
+          schliessen={() => setAkkordWahl(null)} />
+      )}
     </div>
   );
 }
@@ -617,10 +668,21 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern, tonartAend
 // (wie die Widgets, useSchiebbar); ohne gemerkte Lage hängt sie unter dem
 // Knopf. Die Lage wird je Gerät gemerkt und beim nächsten Öffnen wieder
 // eingenommen. Ablegen nahe des Dialog-Fußes hängt sie wieder unter den Knopf.
+// Unter dem Knopf hängend ragte sie auf dem Handy links aus dem Bild (der Knopf
+// steht nicht am rechten Rand): dann rückt sie seitlich ins Sichtbare.
 function SchiebbareBlase({ schluessel, label, children }: { schluessel: string; label: string; children: React.ReactNode }) {
   const { panel, lage, anfassen, bewegen, loslassen } = useSchiebbar<HTMLDivElement>(schluessel, { grenze: '.scan-fuss', schwebBreite: null });
+  const [versatz, setVersatz] = useState(0);
+  useLayoutEffect(() => {
+    const el = panel.current;
+    if (!el || lage) { setVersatz(0); return; }
+    const r = el.getBoundingClientRect(), rand = 8;
+    const ohne = r.left - versatz;
+    const dx = ohne < rand ? rand - ohne : ohne + r.width > window.innerWidth - rand ? window.innerWidth - rand - (ohne + r.width) : 0;
+    if (Math.abs(dx - versatz) > 0.5) setVersatz(dx);
+  }, [panel, lage, versatz]);
   return (
-    <div ref={panel} className={`notensatz-blase ${lage ? 'schwebt' : ''}`} style={lage ? { left: lage.x, top: lage.y } : undefined} role="group" aria-label={label}>
+    <div ref={panel} className={`notensatz-blase ${lage ? 'schwebt' : ''}`} style={lage ? { left: lage.x, top: lage.y } : versatz ? { transform: `translateX(${versatz}px)` } : undefined} role="group" aria-label={label}>
       <div className="blase-griff" onPointerDown={anfassen} onPointerMove={bewegen} onPointerUp={loslassen} onPointerCancel={loslassen} title="Anfassen und verschieben">
         <svg className="griff" viewBox="0 0 10 16" aria-hidden="true"><circle cx="3" cy="3" r="1.2" /><circle cx="7" cy="3" r="1.2" /><circle cx="3" cy="8" r="1.2" /><circle cx="7" cy="8" r="1.2" /><circle cx="3" cy="13" r="1.2" /><circle cx="7" cy="13" r="1.2" /></svg>
         {label}

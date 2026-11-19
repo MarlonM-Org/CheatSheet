@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { akkordText, folgeAkkorde, tonartName } from '@/domain/akkorde';
 import {
   istJamStueck, JAM_STUECKE, jamAlle, jamAlsEingabe, jamAusEingabe, jamEntfernen, jamLesen, jamNotiert, jamSpeichern, jamStueckeGueltig,
-  jamStueckeLesen, jamStueckeVereinigen, teileAusText, teileAlsText, zeilen, type JamEingabe, type JamStueck,
+  jamStueckeLesen, jamStueckeVereinigen, teileAusText, teileAlsText, zeilen, entwurfAusText, entwurfAlsText, takteAusText, naechsterTeilName, type JamEingabe, type JamStueck,
 } from '@/domain/jamkarte';
 import { skillFinden } from '@/domain/skillkatalog';
 
@@ -142,5 +142,37 @@ describe('Zwei Geräte (A-08)', () => {
   it('prüfen: geaendert muss eine Zeit sein', () => {
     expect(istJamStueck(stueck('a', 5))).toBe(true);
     expect(istJamStueck({ ...stueck('a'), geaendert: 'gestern' })).toBe(false);
+  });
+});
+
+describe('Entwurf zum Antippen', () => {
+  it('Text → Teile mit Takten → Text', () => {
+    const text = 'A: | Cm7 F7 | Bbmaj7 | % |\nB: | Am7b5 | D7 |';
+    const e = entwurfAusText(text);
+    expect(e).toEqual([
+      { name: 'A', takte: [['Cm7', 'F7'], ['Bbmaj7'], ['Bbmaj7']] },
+      { name: 'B', takte: [['Am7b5'], ['D7']] },
+    ]);
+    expect(entwurfAlsText(e)).toBe('A: | Cm7 F7 | Bbmaj7 | Bbmaj7 |\nB: | Am7b5 | D7 |');
+    expect(entwurfAusText(entwurfAlsText(e))).toEqual(e);
+  });
+  it('ohne Taktstriche ist jeder Akkord ein Takt, Unlesbares bleibt stehen', () => {
+    expect(takteAusText('E A B7 E')).toEqual([['E'], ['A'], ['B7'], ['E']]);
+    expect(takteAusText('| Xyz | C |')).toEqual([['Xyz'], ['C']]);
+  });
+  it('leerer Teil bleibt als Teil erhalten', () => {
+    expect(entwurfAlsText([{ name: 'A', takte: [] }])).toBe('A: ');
+    expect(entwurfAusText('A: ')).toEqual([{ name: 'A', takte: [] }]);
+  });
+  it('nächster Teilname', () => {
+    expect(naechsterTeilName([])).toBe('A');
+    expect(naechsterTeilName([{ name: 'A', takte: [] }, { name: 'B', takte: [] }])).toBe('C');
+    expect(naechsterTeilName([{ name: 'Form', takte: [] }])).toBe('G');
+  });
+  it('über den Entwurf angelegt wie über den Text', () => {
+    const e: JamEingabe = { titel: 'Test', komponist: '', form: '', tonart: 'C', gefuehl: '', notiz: '', akkorde: entwurfAlsText([{ name: 'A', takte: [['C'], ['F7'], ['G7']] }]) };
+    const r = jamAusEingabe(e, 'x', { richtung: 'klingend', stimmung: 'B' });
+    expect(r.fehler).toEqual([]);
+    expect(r.stueck!.teile).toEqual([{ name: 'A', akkorde: '| C | F7 | G7 |' }]);
   });
 });

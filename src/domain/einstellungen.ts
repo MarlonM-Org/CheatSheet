@@ -15,12 +15,13 @@
 //    (lernstandVereinigen) — sonst überschriebe eine nebenbei geänderte
 //    Einstellung den Lernstand des anderen Geräts.
 // 3. Nur am Gerät (GERAET und alles Übrige): Metronom-Klang und -Lautstärke,
-//    Ohr-Trainer, Stufe der Hör-Übungen, Hell/Dunkel und Farbwelten, Lage der
-//    Fenster, zuletzt Geöffnetes, Filter, das Tempo (folgt den Stellen), der
-//    Verlauf des Ohr-Trainers, der Tagesstand von „Heute“ … Tags und
+//    Ohr-Trainer, Stufe der Hör-Übungen, Klang der Drone (ueben:drone-klang),
+//    Hell/Dunkel und Farbwelten, Lage der Fenster, zuletzt Geöffnetes,
+//    Filter, das Tempo (folgt den Stellen), der Verlauf des Ohr-Trainers, der
+//    Tagesstand von „Heute“, woraus der Stellen-Mix mischt … Tags und
 //    Tonprofile haben eigene Felder in der Sicherung.
 // 4. Nicht gespeichert (VERALTET): Taktart, Nenner, Akzente, Unterteilung,
-//    Tempo-Trainer, Swing, Drone, Etüden-Wahl. Jede Sitzung beginnt mit dem
+//    Tempo-Trainer, Swing, Drone (Grundton, Farbe, Lautstärke), Etüden-Wahl. Jede Sitzung beginnt mit dem
 //    App-Standard; die alten Schlüssel räumt die App beim Start weg.
 
 import type { Grabstein } from './einspielen';
@@ -96,7 +97,7 @@ export const OHR_STANDARD: OhrEinstellung = { stufe: 'drei', grundton: 60, bpm: 
 
 // Bleiben am Gerät, reisen nicht mit (die Stufen sind der eigene Stand,
 // Klang und Lautstärke hängen am Lautsprecher).
-export const GERAET = ['metro:klang', 'metro:laut', 'ueben:ohr', 'ueben:hoerquiz'] as const;
+export const GERAET = ['metro:klang', 'metro:laut', 'ueben:ohr', 'ueben:hoerquiz', 'ueben:drone-klang'] as const;
 // Früher gespeichert, jetzt nur noch für die Sitzung: Die App löscht sie beim Start.
 export const VERALTET = [
   'metro:takt', 'metro:nenner', 'metro:akzente', 'metro:unter', 'metro:trainer', 'metro:swing', 'ueben:drone', 'ueben:etueden',

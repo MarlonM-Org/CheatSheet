@@ -1833,14 +1833,63 @@ ol.stichpunkte { list-style: decimal; }
 .jam-teile { display: flex; flex-direction: column; gap: 10px; }
 .jam-teil { display: flex; gap: 6px; }
 .jam-teil-name { flex: none; width: 1.6rem; padding-top: 6px; font-weight: 800; color: var(--messing); text-align: center; }
+/* Gleich große Akkorde im ganzen Stück (Wunsch Marlon 2026-11-19): Die Schrift
+   folgt der Breite des Rasters (Containerbreite / 4 Takte) und dem vollsten Takt
+   (--akkord-em: Akkorde × längstes Symbol in em, gesetzt in JamKarte.tsx). */
+.jam-teile { container-type: inline-size; --jam-links: 0px; }
+.jam-teile.seitlich { --jam-links: calc(1.6rem + 8px); }
+.jam-teile:not(.seitlich) .jam-teil { flex-direction: column; gap: 2px; }
+.jam-teile:not(.seitlich) .jam-teil-name { width: auto; padding: 0 2px; text-align: left; font-size: 0.8rem; letter-spacing: 0.04em; }
 .jam-raster { flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-left: 2px solid var(--tinte); }
-.jam-takt { position: relative; min-height: 3.1rem; display: flex; align-items: stretch; border-right: 1px solid var(--linie-stark); border-bottom: 1px solid var(--linie); }
-.jam-takt button { flex: 1; min-width: 0; padding: 12px 2px 4px; font-weight: 750; font-size: 0.98rem; line-height: 1.1; overflow-wrap: anywhere; }
-.jam-takt button.klein { font-size: 0.78rem; padding-left: 1px; padding-right: 1px; }
+.jam-takt { position: relative; min-height: 3.1rem; display: flex; align-items: stretch; border-right: 1px solid var(--linie-stark); border-bottom: 1px solid var(--linie); transition: background-color 0.08s; }
+.jam-takt button {
+  flex: 1 1 0; min-width: 0; padding: 12px 1px 4px; font-weight: 750; line-height: 1.1; white-space: nowrap;
+  font-size: clamp(0.7rem, calc((100cqi - var(--jam-links)) / 4 / var(--akkord-em, 3)), 1.2rem);
+}
 .jam-takt button + button { border-left: 1px dotted var(--linie-stark); }
 .jam-takt button:active { background: var(--messing-hell); }
+.jam-takt.jetzt { background: var(--messing-hell); box-shadow: inset 0 -3px 0 var(--messing); }
 .jam-taktnr { position: absolute; top: 1px; left: 3px; font-size: 0.6rem; color: var(--leise); font-variant-numeric: tabular-nums; pointer-events: none; }
-@media (min-width: 640px) { .jam-takt button { font-size: 1.1rem; } .jam-takt button.klein { font-size: 0.92rem; } }
+@media (min-width: 640px) { .jam-takt button { font-size: clamp(0.8rem, calc((100cqi - var(--jam-links)) / 4 / var(--akkord-em, 3)), 1.45rem); } }
+/* Begleitung (I-04): Start, Tempo, Klick, Stil — feste Höhe, beim Abspielen wechseln nur Beschriftungen. */
+.jam-begleitung { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--linie); border-radius: 8px; }
+.jam-start { flex: none; width: 3rem; height: 3rem; border-radius: 999px; display: grid; place-items: center; background: var(--tinte); color: var(--papier); }
+.jam-start.laeuft { background: var(--messing); color: var(--papier); }
+.jam-stile { flex-wrap: nowrap; }
+.jam-stile button { min-height: 2.4rem; padding: 0 6px; font-size: 0.85rem; }
+.jam-begleitung-stand { min-height: 2.4em; }
+.jam-meldung { color: var(--gut); font-weight: 650; }
+/* Übe-Anleitung */
+.jam-anleitung { gap: 10px; }
+.jam-schritte { display: flex; flex-direction: column; gap: 6px; padding-left: 1.3rem; list-style: decimal; font-size: 0.9rem; line-height: 1.4; }
+.jam-schritte strong { font-weight: 750; }
+.jam-beispiele { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--linie); border-radius: 8px; }
+.jam-beispiele .hoer-gruppe { flex-wrap: nowrap; }
+.jam-beispiele .hoer-gruppe button { padding: 0 6px; font-size: 0.85rem; }
+/* Formular: Takte antippen */
+.jam-akkorde-kopf { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.jam-entwurf { display: flex; flex-direction: column; gap: 10px; }
+.jam-entwurf-teil { display: flex; flex-direction: column; gap: 4px; }
+.jam-entwurf-kopf { display: flex; align-items: center; gap: 8px; }
+.jam-teil-feld { width: 4.5rem; min-height: 2.2rem; padding: 0 8px; font-weight: 800; color: var(--messing); }
+.jam-entwurf-raster .jam-takt { flex-wrap: wrap; align-content: center; justify-content: center; gap: 0 6px; padding: 12px 2px 4px; font-weight: 750; font-size: 0.9rem; text-align: center; }
+.jam-entwurf-raster .jam-takt:active { background: var(--messing-hell); }
+.jam-takt-neu { color: var(--messing); font-size: 1.3rem !important; border-style: dashed; }
+/* Akkord-Auswahl */
+.akkordwahl-hintergrund { z-index: 86; }
+.akkordwahl-hintergrund.oben { z-index: 97; }
+.akkordwahl { display: flex; flex-direction: column; gap: 10px; padding-bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px)); }
+.akkordwahl-takt { display: flex; align-items: center; gap: 8px; }
+.akkordwahl-takt > .knopf { flex: none; width: 2.75rem; font-size: 1.3rem; padding: 0; }
+.akkordwahl-mitte { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 5.6rem; justify-content: center; }
+.akkordwahl-chips { display: flex; gap: 6px; flex-wrap: nowrap; min-height: 2.6rem; align-items: center; }
+.akkordwahl-chips button { min-height: 2.6rem; padding: 0 12px; border: 1px solid var(--linie-stark); border-radius: 6px; background: var(--karte); font-weight: 800; font-size: 1.15rem; }
+.akkordwahl-chips button[aria-pressed="true"] { border-color: var(--messing); background: var(--messing-hell); }
+.akkordwahl-name { min-height: 1.3em; text-align: center; }
+@media (max-width: 639px) { .akkordwahl .harmonie-arten { grid-template-columns: repeat(5, minmax(0, 1fr)); } .akkordwahl .harmonie-arten button { min-height: 2.4rem; font-size: 0.82rem; } }
+.akkordwahl-aktionen { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.akkordwahl-aktionen .knopf { min-width: 0; padding: 0 4px; font-size: 0.85rem; }
+.harmonie-arten button:disabled { opacity: 0.45; }
 .jam-notiz { padding: 8px 12px; border-radius: 6px; background: var(--flaeche); }
 .jam-feld { display: flex; flex-direction: column; gap: 4px; }
 .jam-zwei { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -1905,8 +1954,13 @@ button.ohr-note { background: none; color: inherit; font: inherit; cursor: point
 /* Drone (I-18): Tasten fest in einem Raster, Hinweis in reserviertem Feld. */
 .dr-tasten { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
 .dr-farben { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-.dr-tasten button, .dr-farben button { min-height: 2.75rem; padding: 0 4px; border: 1px solid var(--linie-stark); border-radius: 6px; background: var(--karte); font-weight: 700; font-size: 0.95rem; }
-.dr-tasten button[aria-pressed="true"], .dr-farben button[aria-pressed="true"] { border-color: var(--messing); border-width: 2px; background: var(--messing-hell); }
+/* Klang: vier Knöpfe in einer Reihe, keiner schmaler als sein Wort; auf sehr schmalen Telefonen zwei mal zwei. Hinweis immer eine Zeile. */
+.dr-klaenge { display: grid; grid-template-columns: repeat(4, minmax(max-content, 1fr)); gap: 6px; }
+@media (max-width: 359px) { .dr-klaenge { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.dr-klang-hinweis { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dr-tasten button, .dr-farben button, .dr-klaenge button { min-height: 2.75rem; padding: 0 4px; border: 1px solid var(--linie-stark); border-radius: 6px; background: var(--karte); font-weight: 700; font-size: 0.95rem; }
+.dr-tasten button[aria-pressed="true"], .dr-farben button[aria-pressed="true"], .dr-klaenge button[aria-pressed="true"] { border-color: var(--messing); border-width: 2px; background: var(--messing-hell); }
+.dr-klaenge button[aria-pressed="true"] { border-width: 1px; box-shadow: inset 0 0 0 1px var(--messing); } /* gleich breit wie ungewählt: nichts rückt */
 .dr-hinweis { min-height: 2.6em; }
 .dr-status { min-height: 1.5em; }
 .swing-block .segment { display: flex; width: 100%; }

@@ -34,7 +34,10 @@ verstoßen muss, trägt es hier als Entscheidung ein.
 - MIDI, Audio-Begleitspuren, Soundbearbeitung
   (Entscheidung Marlon 2026-11-16: eigene **Aufnahmen zum Vergleichen**
   — nur aufnehmen und abspielen — sind erlaubt, I-20; erzeugte Liegetöne
-  wie Klick und Klavier ebenfalls, I-18.)
+  wie Klick und Klavier ebenfalls, I-18. Entscheidung Marlon 2026-11-19:
+  eine **erzeugte Begleitung aus Akkorden** — Bass, Klavier, Klick zum
+  Mitspielen, Tempo wie im Metronom — ist erlaubt, I-04; sie wird
+  vorgespielt wie G-04, nie als Datei erzeugt oder gespeichert.)
 - Kollaboration/Mehrbenutzer
 - Server-Code, eigene Konten, Datenbanken außerhalb des Geräts
 
@@ -114,6 +117,12 @@ Alles hier hat Code und Tests; was fehlt, ist der Praxisbeweis auf iPhone
 oder iPad. Vorher auf jedem Gerät eine Sicherung erstellen.
 
 - A-08 · Schmale Sicherung: Einstellungen in drei Gruppen, Lernstand je Eintrag zusammengeführt, Striche gerundet und ausgedünnt, `entfernt` begrenzt, Tempo-Verlauf verdichtet · `einstellungen.ts`, `skills.ts`, `licks.ts`, `jamkarte.ts`, `notenpult.ts`, `stellen.ts` getestet. Prüfen: Checkliste in A-08.
+- I-04/I-19/G-01 · Begleitung aus Akkorden, Jam-Karte mit Übe-Anleitung, Komponieren mit Akkorden, Akkorde antippen (2026-11-19) · `begleitung.ts`, `akkordrahmen.ts`, Akkorde im ABC getestet; im Browser (iPhone- und iPad-Ansicht, künstliches Mikrofon) durchgespielt, Ton nur im Kopf-losen Browser gemessen (Frequenzen, Klicks), nie gehört auf dem Gerät.
+  - Jam-Karte, Blues in B♭: Akkorde gleich groß, auch bei geteilten Takten; Blue Bossa (Em7♭5 A7alt) und All the Things (vier Teile) lesbar auf dem iPhone?
+  - ▶: Einzähler, dann Bass, Klavier und Klick auf 2 und 4 im Kreis; der Takt leuchtet passend; Tempo-Regler wirkt ab dem nächsten Takt; Stil wechseln, Klick aus; Metronom und Begleitung laufen nie gleichzeitig. Klingt der Bass auf dem iPhone-Lautsprecher? Lautstärke-Verhältnis Bass/Klavier/Klick?
+  - „So übst du damit“: Hörbeispiele Grundtöne / Guide Tones / Arpeggien mit Notenzeile (notiert in C für B-Klarinette beim Blues in B♭), Vorzeichen richtig geschrieben (Es über F7).
+  - „Komponieren“: leeres Blatt mit Akkorden, ▶ spielt die Begleitung, ● ab Takt 1 mit Begleitung (Kopfhörer und Lautsprecher) — taucht das Klavier als Noten im Vorschlag auf? Speichern, in der Bibliothek öffnen, Komponieren am Stück: Akkorde und Stil kommen zurück.
+  - Eigenes Stück: Takte antippen, Grundton → Art, „›“, „wie davor“, zweiter Akkord, Hören; „Als Text“ zeigt dasselbe.
 - B-18 · Ort „Lernen“ und vier Knöpfe unten (Lernen · Noten | Stimmgerät · Metronom) · `ortUmschalten` und `mixQuelle` getestet, im Browser (iPhone-Ansicht) durchgespielt. Prüfen: Checkliste in B-18.
 - B-17 · Bibliothek öffnet beim offenen Stück · `zumOffenen` getestet. Prüfen: in A–Z ein Stück weit unten öffnen, „Noten“ tippen — offenes und nächstes Stück sichtbar, ohne Ruckeln; danach Sortieren oder Filtern springt nicht.
 - B-16 · Doppeltipp auf eine Stelle: heran und Schreibmodus, noch einer zurück in den Spielmodus · `aufStelle` in `zoom.ts` getestet; vom iPad bestätigt („funktioniert gut“). Beim Lesen zoomt der Doppeltipp auf 300 % um den Tipp (`umPunkt`, Faktor vom iPad bestätigt) und schaltet ebenfalls den Schreibmodus ein; der zweite Doppeltipp schaltet beides aus.
@@ -199,7 +208,7 @@ oder iPad. Vorher auf jedem Gerät eine Sicherung erstellen.
 - G-06 · Ganze Songs · bleibt Vision; Experiment (G-08) sagt: nichts bauen.
 - G-07 · Klänge einstellen · erst nach G-04.
 - I-01 · Ohr-Trainer · erste Fassung im Browser gebaut (2026-11-16), nie auf dem Gerät.
-- I-02…I-06 · Lernpfad, Song-Liste, Akkordblatt mit Begleitung, Impro-Feedback, Mitspielen nach Gehör · Vision.
+- I-02, I-03, I-05, I-06 · Lernpfad, Song-Liste, Impro-Feedback, Mitspielen nach Gehör · Vision. I-04 (Begleitung aus Akkorden) seit 2026-11-19 gebaut, s. o.
 - I-07…I-09 · Skill-Kartei, Hör-Übungen per Antippen, „Heute“-Einheit · im Bau (2026-11-16). I-10 · Vision.
 - I-11…I-20 · Werkzeuge (Spickzettel, Transponieren, Griffe, Etüden, Spielhilfe, Licks, Swing-Metronom, Drone, Jam-Karte, Aufnahme-Tagebuch) · erste Fassung im Browser gebaut (2026-11-16), nie auf dem Gerät.
 - H-01 (Rest), H-02…H-05 · Sicherung ohne PDFs, Ordner am Rechner, OneDrive/Drive/iCloud · Entscheidung zum Leitbild („kein Login“) offen.
@@ -677,6 +686,36 @@ schreiben und die Töne in der Höhe verschieben“):**
     *Bindebogen* (Phrasierung, ABC `(` … `)`) spannt von der ersten zur
     letzten gewählten Note, nochmal entfernt ihn. Vorher gab es nur den
     Haltebogen zur vorigen Note.
+- **Sechste Runde (2026-11-19, Wunsch Marlon): Akkorde im Notenblatt.**
+  „Ich wähle den Bossa, höre rein, sehe ein Notenbild ohne Notenköpfe, aber
+  über jedem Takt den richtigen Akkord — dann direkt aufnehmen und die
+  Notation anpassen; für alle Stücke dieser Art.“
+  - **Akkordsymbole je Takt** über der ersten Stimme, als ABC-Akkordsymbol
+    an der Note, die an seinem Schlag beginnt (sonst an der klingenden;
+    `akkordAnNoten`), ° als `o`, ♭/♯ setzt abcjs. `abcLesen` liest sie
+    zurück (dazu den Stil als Kommentar `% begleitung: bossa` im Kopf);
+    Stücke ohne Akkorde schreiben sich wie bisher. Die Vorzeichen der Noten
+    folgen den Akkorden des Takts (über F7 Es statt Dis, über A7 Cis —
+    `vorzugAusAkkorden`), sonst der Tonart.
+  - **Akkordrahmen** (`src/domain/akkordrahmen.ts`, getestet): ein Stück der
+    Jam-Karte → leere Takte (Pausen, an den Akkordwechseln geteilt, damit
+    jedes Symbol über seinem Schlag steht), Akkorde notiert für die Stimmung,
+    Tonart, Stil. Der Dialog öffnet als „Komponieren“, 4/4 fest, ohne
+    Quellen-Wahl. Alle Stücke der Jam-Karte, auch eigene.
+  - Die Akkorde **bleiben bei ihren Takten**: Takt +/−, Einfügen beim
+    Aufnehmen verschieben sie mit (`akkordeNachfuehren`, erkannt an den
+    unveränderten Takten), Transponieren nimmt sie mit
+    (`akkordeVersetzen`, bequemste Schreibweise), Rückgängig auch.
+  - **▶ Vorspielen** spielt die Begleitung aus den Akkorden mit (ab dem
+    gewählten Takt); Mehr → Akkorde: „Akkorde ändern/setzen“ (dieselbe
+    Auswahl wie in der Jam-Karte, Takte fest), Begleitung an/aus, Stil.
+    Damit lässt sich auch ein eigenes Leadsheet von Grund auf schreiben.
+  - **● Aufnehmen** im Rahmen: ohne Auswahl ab Takt 1 (sonst: anhängen),
+    eine offene Aufnahme hält am Ende der Form, Vorgabe „Ersetzen“; Bass und
+    Klavier laufen mit (Vorlauf ▾ → „Begleitung aus den Akkorden“) — am
+    besten mit Kopfhörer.
+  - Nebenbei: Das „Mehr“-Menü ragte auf dem Handy links aus dem Bild (es
+    hing rechtsbündig unter dem Knopf); es rückt jetzt ins Sichtbare.
 - **Noch offen aus der Liste oben:** Vorzeichen setzen (heute über
   Halbtonschritte), Wiederholungszeichen, Bindebögen als Phrasierung,
   weitere Schlüssel, Import/Export `.abc`, Triolen auch in der Erkennung,
@@ -1256,6 +1295,38 @@ minimal. Darüber: welche Töne passen (Akkordtöne, Leiter). **Berührt das
 Leitbild** („keine Audio-Begleitspuren“): erzeugt wird nichts als Datei, es
 ist Vorspielen wie G-04 — Marlon entscheidet vor dem Bau.
 
+**Entschieden und gebaut 2026-11-19** (Wunsch Marlon zur Jam-Karte: „es wäre
+cool, einen Background abspielen zu können, der die Chords spielt, Tempo
+einstellbar, gerne Metronom-Komponenten wiederverwenden — sodass man darauf
+improvisieren oder komponieren und mitspielen kann“):
+
+- **Fachlogik `src/domain/begleitung.ts`** (getestet): Akkorde je Takt →
+  je Takt Töne in Schlägen (das Tempo rechnet erst der Spieler hinein, ein
+  neues Tempo gilt ab dem nächsten Takt). Mehrere Akkorde teilen den Takt
+  auf Schläge (`akkordLagen`: zwei in 4/4 auf 1 und 3). **Klavier:** Griffe
+  ohne Grundton (den spielt der Bass), Guide Tones zuerst, schlichte
+  Septakkorde mit None (Dominante: None und 13, B♭7 = As–C–D–G), enge Lage
+  um das mittlere C, je Akkord so nah wie möglich am vorigen Griff
+  (Stimmführung). **Bass:** Walking Bass im Swing (1 – Terz – Quinte –
+  chromatische Annäherung an den nächsten Grundton; liegt der Grundton hoch,
+  abwärts über die Septime), Bossa (1, Quinte auf 2-und und 3, 4-und),
+  gerade Achtel, Ballade (Grundton und Quinte in Halben). **Rhythmus des
+  Klaviers:** Swing Charleston im Wechsel zweier Takte, Swing-Achtel bei
+  62 % („Locker“); Bossa/gerade synkopierte Achtel. **Klick:** Klang des
+  Metronoms, bei Swing und Ballade auf 2 und 4, sonst jeder Schlag;
+  Einzähler ein Takt. Im Kreis (Jam-Karte) führt der letzte Takt zum
+  ersten zurück, sonst endet die Form mit einem Schlussakkord.
+- **Stil aus dem Gefühl** des Stücks („Bossa Nova“ → Bossa, „Funk / gerade
+  Achtel“ → gerade, „Ballad“ → Ballade, sonst Swing), umschaltbar; dazu
+  ein Hinweis aufs übliche Session-Tempo (`tempoAusGefuehl`).
+- **Spieler `begleiter.ts`:** Takt für Takt auf der Audio-Uhr wie das
+  Metronom, Tempo, Lautstärke und Klick-Klang **sind die des Metronoms**
+  (ein Tempo für beides, `metro:bpm`); startet die Begleitung, hält das
+  Metronom an. Neuer Klang „Bass“ in `klavier.ts` (gezupft, Obertöne, die
+  auch ein Handy-Lautsprecher bringt); `Klang` trägt dafür optional
+  `stimme` und `staerke`. Bildschirm bleibt an, App-Wechsel stoppt.
+- Wo es läuft: Jam-Karte (I-19) und Komponieren mit Akkorden (G-01) — siehe dort.
+
 ### I-05 · Impro-Feedback
 
 Über I-04 improvisieren, aufnehmen, transkribieren (G-03); jede Note
@@ -1474,6 +1545,22 @@ Werkzeuge erreicht man auf der Seite **Lernen** (B-18) im Abschnitt **Werkzeuge*
   Farbe) als ruhiger Klangteppich, Tonart wählbar (notiert), Lautstärke;
   zum Improvisieren und Intonieren. Wie Klick und Klavier: erzeugt, keine
   Datei.
+  **Rückmeldung 2026-11-19:** Klingt zu gleichförmig — jetzt vier
+  **Klangprofile**, ganz oben im Blatt („Klang“), jederzeit umschaltbar,
+  auch während die Drone läuft (weicher Übergang): *Weich* (der bisherige
+  Klang, jede Stimme atmet langsam), *Orgel* (Pfeifenklang, ganz ruhig — zum
+  Intonieren am besten), *Streicher* (gestrichenes Ensemble, Filter geht
+  langsam auf und zu, leises Bogenrauschen), *Tanpura* (gezupfte Saiten im
+  Kreis: Pa – Sa – Sa – tiefes Sa; ein Farbton kommt als fünfte Saite nach
+  der Quinte). Alle mit leichtem Hall; die Tonhöhe bleibt in jedem Profil
+  fest. Die Wahl bleibt auf dem Gerät (`ueben:drone-klang`) und reist
+  **nicht** mit der Sicherung (Entscheidung Marlon); die Spielhilfe (I-15)
+  nimmt die zuletzt gewählte. Die Töne über dem Grundton klingen jetzt
+  **rein** (Quinte 3:2, große/kleine Terz 5:4/6:5, Sexte 5:3, Septime 16:9)
+  statt gleichstufig — gegen Orgel und Streicher schwebte die gleichstufige
+  Terz hörbar. Regeln in `src/domain/drone.ts` (getestet), Klang in
+  `src/components/ueben/droneKlang.ts`. Lautstärke der Profile nach
+  Lautheit (EBU R128) angeglichen.
 - **I-19 · Jam-Karte.** Die typischen Session-Stücke (Blues in B und F,
   Blue Bossa, Autumn Leaves, Summertime, Fly Me to the Moon, All the Things
   You Are, Take the A Train, So What, Cantaloupe Island, Watermelon Man …)
@@ -1481,6 +1568,33 @@ Werkzeuge erreicht man auf der Seite **Lernen** (B-18) im Abschnitt **Werkzeuge*
   notiert angezeigt; Tipp auf einen Akkord öffnet den Spickzettel. Nur
   Akkordfolgen und Form (keine Melodien, keine Texte). Eigene Stücke
   hinzufügbar. Zählt auf die Repertoire-Skills.
+  **Rückmeldung 2026-11-19** (Marlon, iPhone, Blues in B♭): (1) Die Akkorde
+  waren unregelmäßig groß — geteilte Takte kleiner gesetzt als der Rest, und
+  „Blues“ ragte links ins Raster. Jetzt: **eine Schriftgröße je Stück**,
+  bemessen am vollsten Takt (Akkorde × längstes Symbol) und an der Breite
+  des Rasters (Container-Einheiten, `--akkord-em`); Teilnamen nur bei
+  mehreren Teilen — kurze (A, B) links, lange darüber, ein einziger Teil
+  ohne Namen (die Form steht im Kopf). (2) **Begleitung** zum Mitspielen
+  (I-04): ▶, Tempo-Regler (= Metronom), Klick, Stil (Swing · Bossa · Gerade ·
+  Ballade); der klingende Takt leuchtet, darunter „Takt 5 von 12“. (3) **„So
+  übst du damit“**: Blatt mit sieben Stufen (Form hören → Grundtöne → Guide
+  Tones → Arpeggien → mit drei Tönen → Frage und Antwort → Festhalten) und
+  **Hörbeispielen über der Begleitung** — Grundtöne, Guide Tones (immer der
+  nächstliegende, 7 → 3) und Arpeggien als Linie aus den Akkorden
+  (`beispielLinie`), als Notenzeile mit Akkorden darüber (notiert für die
+  Stimmung; lange Formen: die ersten acht Takte) und zum Anhören. (4)
+  **„Komponieren“** öffnet die Akkorde als leeres Notenblatt (G-01,
+  Akkordrahmen) — schreiben oder aufnehmen mit Begleitung, speichern als
+  Stück in der Bibliothek. (5) **Eigenes Stück: Akkorde antippen**
+  (`AkkordWahl.tsx`): Takte als Raster, ein Tipp auf einen Takt (oder ＋)
+  öffnet die Auswahl — Grundton (12, Leadsheet-Schreibweise, ♭ ⇄ ♯ schreibt
+  um), dann Art (Dur, Moll, 7, maj7, m7, m7♭5, °7, 6, m6, 9, m9, maj9, 13,
+  7♭9, 7♯9, 7♯11, 7alt, 7sus4, sus4, °, +, 6/9); ein Grundton legt einen
+  Akkord an, eine Art ändert ihn, „›“ geht zum nächsten Takt (am Ende ein
+  neuer), „wie davor“, „＋ Akkord“ (zweiter im Takt), ▶ Hören. „Als Text“
+  schaltet auf die bisherige Eingabe um; der Text bleibt die Quelle
+  (`entwurfAusText`/`entwurfAlsText`, getestet — auch Unlesbares bleibt
+  stehen).
 - **I-20 · Aufnahme-Tagebuch.** Eine Übung oder ein Stück aufnehmen, mit
   Datum und Skill/Stück verknüpft, später alt gegen neu anhören. Nur
   aufnehmen und abspielen (keine Bearbeitung). Speicher ohne Blob in

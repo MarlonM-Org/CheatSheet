@@ -472,7 +472,8 @@ describe('Stellen', () => {
   it('Tempo-Verlauf schmal (A-08): Älteres als 90 Tage schrumpft beim Eintragen und in der Sicherung aufs Tagesbeste', async () => {
     await g.lokal.stelleAnlegen(stelle('n', 1, 0.1));
     const [{ id }] = await g.lokal.stellenVon('n');
-    const tag = 86_400_000, vor = (t: number, h = 0) => Date.now() - t * tag + h * 3_600_000;
+    // Feste Uhrzeiten (9, 10, 11 Uhr), damit kein Eintrag über Mitternacht in den nächsten Tag rutscht.
+    const vor = (t: number, h = 0) => { const d = new Date(); d.setDate(d.getDate() - t); d.setHours(9 + h, 0, 0, 0); return d.getTime(); };
     const alt = [{ tempo: 60, am: vor(200) }, { tempo: 70, am: vor(200, 1) }, { tempo: 65, am: vor(200, 2) }, { tempo: 75, am: vor(10) }, { tempo: 72, am: vor(10, 1) }];
     await g.lokal.stelleAendern(id, { tempi: alt });
     // Die Sicherung trägt nur noch das Tagesbeste der alten Tage; das Gerät behält bis zum nächsten Eintrag alles.
