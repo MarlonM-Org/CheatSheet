@@ -866,6 +866,10 @@ details[open] > summary::before { transform: rotate(90deg); }
 .mix-symbol.klein { width: 28px; height: 28px; border-radius: 6px; }
 .mix-symbol.klein svg { width: 16px; height: 16px; }
 .mix-einstieg.ohne .mix-symbol { background: var(--flaeche2); color: var(--gedaempft); }
+/* Zeile „Aufnahmen“ (unter dem Mix): roter Punkt wie am Aufnahmeknopf. */
+.mix-symbol.aufnahme-symbol { background: var(--flaeche2); }
+.mix-symbol.aufnahme-symbol .nav-aufnahme-punkt { width: 11px; height: 11px; }
+.mix-einstieg.ohne .aufnahme-symbol .nav-aufnahme-punkt { background: var(--leise); }
 .mix-symbol.gross { width: 56px; height: 56px; border-radius: 14px; }
 .mix-symbol.gross svg { width: 28px; height: 28px; }
 
@@ -1154,6 +1158,16 @@ small .stern { display: inline-block; width: 0.95em; height: 0.95em; vertical-al
 /* Lange Titel brechen um statt „…“ — beim Wählen zählt jedes Wort. */
 .sw-zeile-text > * { white-space: normal; overflow-wrap: anywhere; }
 .sw-haken { flex: none; width: 1rem; font-weight: 800; color: var(--messing); }
+/* Suche im Auswahl-Blatt: oben, über den Chips — die Tastatur deckt nur das
+   untere Ende der Liste. 16px Schrift: iOS zoomt sonst beim Antippen hinein. */
+.sw-suche { min-height: 42px; font-size: 16px; -webkit-appearance: none; appearance: none; }
+.sw-chip-leer { opacity: 0.5; }
+/* Chips seitlich schiebbar, eine Zeile — sie brechen nie um, sonst rückte die
+   Liste je nach Zahl und Namen. (Die Klasse mix-woraus-chips, auf die F-23
+   zuerst setzte, fiel mit B-19 weg; seitdem brachen die Chips um.) */
+.sw-chips { display: flex; gap: 6px; overflow-x: auto; margin: 0 -1.25rem; padding: 0 1.25rem 2px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.sw-chips::-webkit-scrollbar { display: none; }
+.sw-nichts { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 10px 2px; color: var(--gedaempft); font-size: 0.9rem; }
 @media (pointer: coarse) { .sammlung-chip { min-height: 2.5rem; } }
 
 /* „+ Noten“ mit Menü; die Zielsammlung steht unübersehbar oben. */
@@ -1595,7 +1609,7 @@ ol.stichpunkte { list-style: decimal; }
 .aufnahme-spielen.an { background: var(--messing); color: var(--messing-text); }
 .aufnahme-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .aufnahme-text strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.aufnahme-zusammen { display: flex; align-items: center; gap: 4px; flex: none; }
+.aufnahme-zusammen { display: flex; align-items: center; gap: 4px; flex: none; align-self: flex-start; min-height: 32px; }
 @media (prefers-reduced-motion: reduce) { .nav-aufnahme[aria-pressed="true"] { animation: none; } }
 
 /* Aufnahmeleiste (G-05): liegt unten über dem Notenblatt, oberhalb des
@@ -1959,6 +1973,9 @@ button.ohr-note { background: none; color: inherit; font: inherit; cursor: point
 /* Nur lange Namen trennen („Transpo-nieren“), Beschreibungen brechen an Leerzeichen. */
 .werkzeug-text strong { font-size: 0.9rem; line-height: 1.2; -webkit-hyphens: auto; hyphens: auto; }
 .werkzeug-text span { font-size: 0.75rem; color: var(--gedaempft); line-height: 1.25; }
+/* Aufnahme-Tagebuch: führt in die Bibliothek (kein Blatt) — roter Punkt, Pfeil rechts. */
+.werkzeug-zeichen.tb-zeichen { color: var(--warnung); }
+.werkzeug-pfeil { margin-left: auto; padding-left: 4px; }
 
 /* Spielhilfe (I-15): Streifen über der Stellen-Leiste — absolut, liegt über
    den Noten, verschiebt nichts; feste Maße, ‹ › ändern nur den Inhalt. */
@@ -2004,6 +2021,11 @@ button.ohr-note { background: none; color: inherit; font: inherit; cursor: point
 .tb-hinweis.waehlen { background: var(--messing-hell); font-weight: 650; }
 .tb-werkzeuge { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
 .tb-filter { grid-column: 1 / -1; min-width: 0; }
+/* Aus der Bibliothek eingegrenzt: „Märsche · Tag | Alle“ über die ganze Breite. */
+.tb-bereich { grid-column: 1 / -1; width: 100%; margin: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+.tb-bereich button { display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; min-height: 2.75rem; }
+.tb-bereich-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.tb-fuss { margin: 0; padding: 4px 2px; }
 .tb-werkzeuge .knopf { justify-content: center; min-height: 2.75rem; }
 .tb-werkzeuge .knopf[aria-pressed="true"] { border-color: var(--messing); background: var(--messing-hell); color: var(--tinte); }
 .tb-neu { gap: 6px; }

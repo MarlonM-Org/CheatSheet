@@ -20,13 +20,15 @@ import { Werkzeuge } from './Werkzeuge';
 // darüber (./seite), Auswahl-Blätter bleiben kleine Blätter. Was aus
 // I-02…I-06 dazukommt, erscheint hier erst, wenn es gebaut ist.
 
-export function Lernen({ schliessen, escapeAktiv, tiefMelden }: {
+export function Lernen({ schliessen, escapeAktiv, tiefMelden, zuAufnahmen }: {
   schliessen: () => void;
   // Escape schließt die Seite nur, wenn kein Dialog darüber liegt.
   escapeAktiv: boolean;
   // Liegt ein Werkzeug oder eine Übung darauf? Auf dem iPad bleibt die Leiste
   // dabei bedienbar, ein Tipp auf „Lernen“ führt dann zur Übersicht zurück.
   tiefMelden: (tief: boolean) => void;
+  // Kachel „Aufnahme-Tagebuch“: führt in die Bibliothek zu den Aufnahmen (ganzer Seitenwechsel).
+  zuAufnahmen: () => void;
 }) {
   const [blattOffen, setBlattOffen] = useState(false);
   useEscape(schliessen, escapeAktiv && !blattOffen);
@@ -53,7 +55,7 @@ export function Lernen({ schliessen, escapeAktiv, tiefMelden }: {
             </div>
 
             <h3 className="lernen-titel">Werkzeuge</h3>
-            <Werkzeuge offenMelden={setBlattOffen} />
+            <Werkzeuge offenMelden={setBlattOffen} zuAufnahmen={zuAufnahmen} />
 
             <h3 className="lernen-titel">Mein Stand</h3>
             <SkillsZeile offenMelden={setBlattOffen} />

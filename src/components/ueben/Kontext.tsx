@@ -4,10 +4,11 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { loeschHinweis, type Lesezeichen } from '@/domain/bestand';
-import { sammlungenUebersicht, sammlungenVon } from '@/domain/sammlungen';
+import { REIHENFOLGE, reihenfolgeLesen, sammlungenOrdnen, sammlungenUebersicht, sammlungenVon } from '@/domain/sammlungen';
 import { quellenText } from '@/domain/sicht';
 import { tagsVon, type Tag } from '@/domain/tags';
 import { abcMitTitel, notenDateiname } from '@/domain/notation';
+import { gespeichert } from './klang';
 import { loeschVorschau, stueckAendern, stueckDatei, stueckeLoeschen, stueckNeuSchreiben, sammlungenSetzen, tagsLaden, tagsSetzen, type Stueck } from './lokal';
 import { notationPdf } from './notenpdf';
 import { pdfLaden, seiteMitEbene } from './pdf';
@@ -132,13 +133,15 @@ export function StueckDaumen({ stueck }: { stueck: Stueck }) {
 
 // ── Stück ──
 
-export function StueckKontext({ stueck, stuecke, anzahlStellen, oeffnen, dateiNeu, teilen, geaendert, geloescht, schliessen }: {
+export function StueckKontext({ stueck, stuecke, anzahlStellen, oeffnen, aufnahmen, dateiNeu, teilen, geaendert, geloescht, schliessen }: {
   stueck: Stueck;
   // Alle Stücke (für Quellen-Titel, Sammlungen zur Auswahl).
   stuecke: Stueck[];
   anzahlStellen?: number;
   // Aus der Bibliothek: Stück öffnen (auf Wunsch gleich mit Stück-Blatt).
   oeffnen?: (blatt: boolean) => void;
+  // Aus der Bibliothek: das Aufnahme-Tagebuch, auf dieses Stück gefiltert (I-20).
+  aufnahmen?: () => void;
   // Aus der Bibliothek: die PDF-Datei neu wählen (nicht bei virtuellen Stücken).
   dateiNeu?: () => void;
   // „Eigene Stücke daraus“: zeigt das Formular (im Stück-Blatt) oder öffnet das Stück dort.
@@ -174,6 +177,10 @@ export function StueckKontext({ stueck, stuecke, anzahlStellen, oeffnen, dateiNe
     { name: 'Sammlungen …', hinweis: sammlungenVon(stueck).join(', ') || 'in keiner', tun: () => setModus('sammlungen') },
     { name: 'Tags …', hinweis: tagListe.length ? `${tagListe.length} gesetzt` : 'keine', tun: () => setModus('tags') },
     { name: 'Lesezeichen und Stellen …', hinweis: 'Im Stück-Blatt', tun: () => oeffnen!(true), aus: !oeffnen },
+    {
+      name: 'Aufnahmen …', tun: () => aufnahmen!(), aus: !aufnahmen,
+      hinweis: stueck.aufnahmen?.length ? `${stueck.aufnahmen.length} · anhören, vergleichen, neu aufnehmen` : 'Noch keine — hier aufnehmen',
+    },
     { name: 'Eigene Stücke daraus …', hinweis: 'Seitenbereich oder je Lesezeichen ein Stück', tun: () => teilen!(), aus: !teilen || !!stueck.quelle },
     { name: 'Datei neu wählen', hinweis: 'Dieselbe PDF neu einlesen, Stellen und Anmerkungen bleiben', tun: () => dateiNeu!(), aus: !dateiNeu || !!stueck.quelle },
     { name: 'Löschen …', art: 'warn', hinweis: stueck.quelle ? 'Nur dieses Stück; die Quelle bleibt' : 'Mit Stellen und Anmerkungen', tun: () => void loeschen() },
@@ -181,7 +188,9 @@ export function StueckKontext({ stueck, stuecke, anzahlStellen, oeffnen, dateiNe
 
   if (modus === 'sammlungen') {
     return (
-      <SammlungWahl noten={[stueck]} uebersicht={sammlungenUebersicht(stuecke)} schliessen={() => setModus('aktionen')}
+      // In der Reihenfolge der Bibliothek, wie dort die Leiste (Rückmeldung Marlon 2026-11-19).
+      <SammlungWahl noten={[stueck]} uebersicht={sammlungenOrdnen(sammlungenUebersicht(stuecke), reihenfolgeLesen(gespeichert<unknown>(REIHENFOLGE, [])))}
+        schliessen={() => setModus('aktionen')}
         speichern={(a) => {
           schliessen();
           if (!a.length) return;

@@ -1,8 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
   imFilter, mitSammlung, ohneSammlung, ordnerPlanen, reihenfolgeUmbenennen, reihenfolgeVerschieben, sammlungenAusPfad, sammlungenOrdnen, sammlungenUebersicht, sammlungenVon, sammlungName,
-  OHNE_SAMMLUNG, sammlungUmbenennen, sicherungFaellig, stueckAuswahl, wahlStart,
+  OHNE_SAMMLUNG, passtZurSuche, reihenfolgeLesen, sammlungUmbenennen, sicherungFaellig, stueckAuswahl, suchForm, suchWoerter, wahlStart,
 } from '@/domain/sammlungen';
+
+describe('Reihenfolge der Sammlungen aus dem Speicher', () => {
+  it('nur Namen; Unsinn wird leer', () => {
+    expect(reihenfolgeLesen(['Märsche', 7, 'Jazz', null])).toEqual(['Märsche', 'Jazz']);
+    expect(reihenfolgeLesen('Märsche')).toEqual([]);
+    expect(reihenfolgeLesen(null)).toEqual([]);
+  });
+});
 
 describe('Sammlungen: Namen', () => {
   it('Name aus der Eingabe: Leerraum geglättet, nicht leer, nicht zu lang', () => {
@@ -206,32 +214,107 @@ describe('Stückauswahl nach Sammlungen (F-23)', () => {
   });
 
   describe('beim Öffnen', () => {
-    it('noch nichts gemerkt: Ansicht nach Sammlung, eingegrenzt auf die Sammlung der Bibliothek', () => {
+    // Rückmeldung Marlon (2026-11-19): Die Auswahl beginnt immer bei der
+    // Sammlung, die gerade in der Bibliothek gewählt ist — keine eigene
+    // gemerkte Eingrenzung mehr. Gemerkt bleibt nur die Ansicht.
+    it('immer bei der Sammlung der Bibliothek, Ansicht nach Sammlung', () => {
       expect(wahlStart(null, 'jazz', stuecke, null)).toEqual({ ansicht: 'sammlungen', eingrenzung: 'Jazz' });
       expect(wahlStart(null, null, stuecke, null)).toEqual({ ansicht: 'sammlungen', eingrenzung: null });
     });
-    it('gemerkt am Gerät: Ansicht und Eingrenzung — auch „alle“ und „Ohne Sammlung“ gehen der Bibliothek vor', () => {
-      expect(wahlStart({ ansicht: 'abc', sammlung: 'Märsche' }, 'Jazz', stuecke, null)).toEqual({ ansicht: 'abc', eingrenzung: 'Märsche' });
-      expect(wahlStart({ ansicht: 'sammlungen', sammlung: null }, 'Jazz', stuecke, null)).toEqual({ ansicht: 'sammlungen', eingrenzung: null });
-      expect(wahlStart({ ansicht: 'sammlungen', sammlung: OHNE_SAMMLUNG }, 'Jazz', stuecke, null).eingrenzung).toBe(OHNE_SAMMLUNG);
-      // Nur die Ansicht gemerkt (keine Sammlung getippt): Die Bibliothek bestimmt die Eingrenzung.
+    it('gemerkt ist nur die Ansicht; eine früher gemerkte Eingrenzung zählt nicht mehr', () => {
       expect(wahlStart({ ansicht: 'abc' }, 'Jazz', stuecke, null)).toEqual({ ansicht: 'abc', eingrenzung: 'Jazz' });
+      // Stände von vor dem 2026-11-19 trugen auch eine Sammlung — die Bibliothek geht vor.
+      expect(wahlStart({ ansicht: 'abc', sammlung: 'Märsche' }, 'Jazz', stuecke, null)).toEqual({ ansicht: 'abc', eingrenzung: 'Jazz' });
+      expect(wahlStart({ ansicht: 'sammlungen', sammlung: null }, 'Jazz', stuecke, null).eingrenzung).toBe('Jazz');
+      expect(wahlStart({ sammlung: OHNE_SAMMLUNG }, 'Jazz', stuecke, null).eingrenzung).toBe('Jazz');
+      expect(wahlStart({ ansicht: 'abc', sammlung: 'Märsche' }, null, stuecke, null).eingrenzung).toBeNull();
     });
     it('Unsinn im Speicher zählt als nichts gemerkt', () => {
       expect(wahlStart('kaputt', 'Jazz', stuecke, null)).toEqual({ ansicht: 'sammlungen', eingrenzung: 'Jazz' });
       expect(wahlStart({ ansicht: 'quer', sammlung: 7 }, 'Jazz', stuecke, null)).toEqual({ ansicht: 'sammlungen', eingrenzung: 'Jazz' });
+      // Eine leere Sammlung gibt es nicht — auch die Bibliothek zeigt dann alle.
+      expect(wahlStart(null, '', stuecke, null).eingrenzung).toBeNull();
     });
     it('was es unter den wählbaren Stücken nicht gibt, wird „alle“', () => {
       expect(wahlStart(null, 'Weihnachten', stuecke, null).eingrenzung).toBeNull();
       expect(wahlStart(null, 'Jazz', [stuecke[1]], null).eingrenzung).toBeNull();
     });
-    it('das gewählte Stück bleibt sichtbar: Liegt es nicht in der Eingrenzung, beginnt die Wahl bei „alle“', () => {
+    it('das gewählte Stück bleibt sichtbar: Liegt es nicht in der Sammlung der Bibliothek, beginnt die Wahl bei „alle“', () => {
       expect(wahlStart(null, 'Jazz', stuecke, 'take').eingrenzung).toBe('Jazz');
       expect(wahlStart(null, 'Jazz', stuecke, 'flo').eingrenzung).toBeNull();
-      expect(wahlStart({ sammlung: OHNE_SAMMLUNG }, null, stuecke, '2').eingrenzung).toBe(OHNE_SAMMLUNG);
-      expect(wahlStart({ sammlung: OHNE_SAMMLUNG }, null, stuecke, 'flo').eingrenzung).toBeNull();
+      expect(wahlStart(null, 'märsche', stuecke, 'flo').eingrenzung).toBe('Märsche');
       // Ein gewähltes Stück, das gar nicht zur Wahl steht (gelöscht), stört nicht.
       expect(wahlStart(null, 'Jazz', stuecke, 'weg').eingrenzung).toBe('Jazz');
     });
   });
+
+  // Suchfeld im Auswahl-Blatt (Rückmeldung Marlon 2026-11-19: „wäre gut, ja“).
+  describe('Suchen', () => {
+    const mitKomponist = [
+      ...stuecke,
+      { ...st('pomp', 'Pomp and Circumstance', ['Märsche'], 'Klarinette 1'), komponist: 'Edward Elgar' },
+      st('etude', 'Étude in Es', ['Orchester A']),
+      st('strasse', 'Auf der Straße'),
+    ];
+    it('Suchform: Groß/klein, Akzente und ß egal', () => {
+      expect(suchForm('Märsche')).toBe('marsche');
+      expect(suchForm('ÉTUDE')).toBe('etude');
+      expect(suchForm('Straße')).toBe('strasse');
+      expect(suchWoerter('  Blue   BOSSA ')).toEqual(['blue', 'bossa']);
+      expect(suchWoerter('   ')).toEqual([]);
+    });
+    it('sucht in Titel, Stimme und Komponist; alle Wörter müssen vorkommen, in beliebigem Feld', () => {
+      const p = mitKomponist.find((s) => s.id === 'pomp')!;
+      expect(passtZurSuche(p, suchWoerter('pomp'))).toBe(true);
+      expect(passtZurSuche(p, suchWoerter('elgar'))).toBe(true);
+      expect(passtZurSuche(p, suchWoerter('klarinette 1 elgar'))).toBe(true);
+      expect(passtZurSuche(p, suchWoerter('pomp bossa'))).toBe(false);
+      expect(passtZurSuche(p, [])).toBe(true);
+      expect(passtZurSuche(st('x', 'Etude'), suchWoerter('étu'))).toBe(true);
+      expect(passtZurSuche(st('x', 'Auf der Strasse'), suchWoerter('straße'))).toBe(true);
+      // Kein Komponist (oder Unsinn darin) stört nicht.
+      expect(passtZurSuche({ ...st('x', 'X'), komponist: 7 }, suchWoerter('x'))).toBe(true);
+    });
+    it('Treffer in jeder Ansicht; Gruppen ohne Treffer fallen weg', () => {
+      const a = stueckAuswahl(mitKomponist, reihenfolge, 'sammlungen', null, 'blue');
+      expect(a.treffer).toBe(2);
+      expect(a.gruppen.map((g) => [g.art, g.name])).toEqual([['sammlung', 'Jazz']]);
+      expect(ids(a.gruppen[0])).toEqual(['blue1', 'blue']);
+      const z = stueckAuswahl(mitKomponist, reihenfolge, 'abc', null, 'er');
+      expect(z.gruppen.map((g) => g.art)).toEqual(['alle']);
+      expect(ids(z.gruppen[0])).toEqual(['alte', 'strasse', 'flo']);
+      expect(z.gruppen[0].zeilen[2].auch).toEqual(['Märsche', 'Orchester A']);
+    });
+    it('Chips bleiben dieselben (nichts rückt), ihre Zahl nennt die Treffer', () => {
+      const ohne = stueckAuswahl(mitKomponist, reihenfolge, 'sammlungen', null);
+      const a = stueckAuswahl(mitKomponist, reihenfolge, 'sammlungen', null, 'marsch');
+      expect(a.sammlungen.map((s) => s.name)).toEqual(ohne.sammlungen.map((s) => s.name));
+      expect(a.sammlungen).toEqual([{ name: 'Märsche', anzahl: 0 }, { name: 'Jazz', anzahl: 0 }, { name: 'Orchester A', anzahl: 0 }]);
+      expect(a.ohneDa).toBe(true);
+      expect(a.ohne).toBe(0);
+      expect(a.treffer).toBe(0);
+      expect(a.gruppen).toEqual([]);
+      const b = stueckAuswahl(mitKomponist, reihenfolge, 'sammlungen', null, 'stra');
+      expect(b.ohne).toBe(1);
+      expect(b.gruppen.map((g) => g.art)).toEqual(['ohne']);
+    });
+    it('eingegrenzt sucht nur in der Sammlung; ohne Treffer dort bleibt sie gewählt, `treffer` nennt die übrigen', () => {
+      const a = stueckAuswahl(mitKomponist, reihenfolge, 'sammlungen', 'Märsche', 'take');
+      expect(a.eingrenzung).toBe('Märsche');
+      expect(a.gruppen).toEqual([]);
+      expect(a.treffer).toBe(1);
+      const b = stueckAuswahl(mitKomponist, reihenfolge, 'abc', 'Märsche', 'elgar');
+      expect(b.gruppen.map(ids)).toEqual([['pomp']]);
+      const o = stueckAuswahl(mitKomponist, reihenfolge, 'sammlungen', OHNE_SAMMLUNG, 'etüden');
+      expect(o.eingrenzung).toBe(OHNE_SAMMLUNG);
+      expect(o.gruppen.map(ids)).toEqual([['2']]);
+    });
+    it('ohne Suche wie bisher: alles zählt, `treffer` = alle', () => {
+      const a = stueckAuswahl(stuecke, reihenfolge, 'sammlungen', null, '   ');
+      expect(a.treffer).toBe(stuecke.length);
+      expect(a.ohneDa).toBe(true);
+      expect(a).toEqual(stueckAuswahl(stuecke, reihenfolge, 'sammlungen', null));
+    });
+  });
+
 });

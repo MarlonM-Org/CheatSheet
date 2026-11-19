@@ -9,7 +9,8 @@
 // das Tempo (folgt den Stellen), der Verlauf des Ohr-Trainers (ueben:ohr-verlauf),
 // der Tagesstand von „Heute“ (ueben:heute).
 // Tags und Tonprofile haben eigene Felder.
-// Ebenfalls am Gerät: Ansicht und Eingrenzung der Stückauswahl (ueben:stueckwahl, F-23).
+// Ebenfalls am Gerät: die Ansicht der Stückauswahl (ueben:stueckwahl, F-23, { ansicht }
+// — die Sammlung kommt seit 2026-11-19 immer von der Bibliothek, ueben:sammlung).
 // Ebenfalls am Gerät: ob der Ton bei offenem Mikrofon aus dem Lautsprecher
 // kommt (ueben:lautsprecher, B-20 — Kopfhörer hat man am Gerät, nicht als
 // Person), samt den früheren Schaltern ueben:einspiel-lautsprecher und

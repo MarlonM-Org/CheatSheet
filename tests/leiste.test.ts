@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ortTippen, ortUmschalten } from '@/domain/leiste';
+import { ortSprung, ortTippen, ortUmschalten } from '@/domain/leiste';
 
 // Untere Leiste (B-18): Lernen und Noten sind Orte — ein Tipp zeigt den Ort,
 // noch einer schließt ihn; der andere Ort weicht (ganzer Seitenwechsel).
@@ -31,5 +31,24 @@ describe('ortTippen', () => {
   });
   it('der andere Ort ersetzt die Unterseite samt Ort', () => {
     expect(ortTippen('lernen', 'bibliothek', true)).toEqual({ ort: 'bibliothek', zurUebersicht: false });
+  });
+});
+
+// Ein Sprung aus einer Seite in die andere (Kachel „Aufnahme-Tagebuch“ in
+// Lernen → Aufnahmen in der Bibliothek, I-20): ganzer Seitenwechsel. Anders
+// als ein Tipp auf den Knopf schließt ein Sprung nie; danach gilt die Leiste
+// wie immer.
+describe('ortSprung', () => {
+  it('öffnet das Ziel und lässt den anderen Ort weichen — auch mit Unterseite', () => {
+    expect(ortSprung('lernen', 'bibliothek')).toBe('bibliothek');
+    expect(ortSprung(null, 'bibliothek')).toBe('bibliothek');
+  });
+  it('schließt nie: Ist das Ziel schon offen, bleibt es offen', () => {
+    expect(ortSprung('bibliothek', 'bibliothek')).toBe('bibliothek');
+  });
+  it('danach wie gewohnt: „Lernen“ führt zurück, „Noten“ schließt die Bibliothek', () => {
+    const ort = ortSprung('lernen', 'bibliothek');
+    expect(ortTippen(ort, 'lernen', false)).toEqual({ ort: 'lernen', zurUebersicht: false });
+    expect(ortTippen(ort, 'bibliothek', false)).toEqual({ ort: null, zurUebersicht: false });
   });
 });

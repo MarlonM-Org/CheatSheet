@@ -182,7 +182,8 @@ oder iPad. Vorher auf jedem Gerät eine Sicherung erstellen.
   - Sicherung mit virtuellen Stücken auf das zweite Gerät laden.
 - F-13 (Teil) · „Ordner wählen“ auf dem iPhone · ROADMAP selbst: „auf dem Gerät noch zu prüfen“ (iOS ≥ 18.4).
   - iCloud-Ordner mit Unterordnern wählen → Unterordner werden Sammlungen, nicht geladene iCloud-Dateien werden genannt, nichts doppelt.
-- F-23 · Stückauswahl nach Sammlungen (Aufnahme-Tagebuch: Filter und „Neu“ → Stück) · `stueckAuswahl` und `wahlStart` getestet, im Browser durchgespielt (iPhone 390 × 844, iPhone SE dunkel, iPad 820 × 1180). Prüfen: Checkliste in F-23.
+- F-23 · Stückauswahl nach Sammlungen und durchsuchbar (Aufnahme-Tagebuch: Filter und „Neu“ → Stück; seit 2026-11-19 Start bei der Sammlung der Bibliothek, Suchfeld, Vorwahl des offenen Stücks, Kontext-Blatt „Sammlungen …“ in Bibliotheks-Reihenfolge) · `stueckAuswahl`, `wahlStart`, Suche und `neueAufnahmeVorwahl` getestet, im Browser durchgespielt (iPhone 390 × 844, iPad 820 × 1180); die Bildschirmtastatur nur auf dem Gerät. Prüfen: Checklisten in F-23.
+- I-20 · Aufnahmen über die Bibliothek (Zeile „Aufnahmen“ unter dem Stellen-Mix, eingegrenzt auf Sammlung/Tag, „Alle“; ⋯ → „Aufnahmen …“ je Stück; Stück-Blatt abgestimmt; Kachel in Lernen führt in die Bibliothek) · `tagebuchBereich`, `aufnahmenStand`, `ortSprung` getestet, im Browser mit Fake-Mikrofon durchgespielt (iPhone und iPad). Prüfen: Checkliste in I-20.
 - B-08 · Scroll-Ring/Pedal · `geste.ts` getestet, keine Rückmeldung mit echtem Ring notiert.
   - Ring über AssistiveTouch: Probefeld in den Einstellungen zeigt Richtung und Weg; blättert auf den Noten, im Mix Stelle für Stelle; „Hoch und runter tauschen“.
 - C-04 · Tonprofil · `tonprofil.ts` getestet, Mikrofon-Pipeline des Stimmgeräts; keine Rückmeldung notiert.
@@ -206,7 +207,8 @@ oder iPad. Vorher auf jedem Gerät eine Sicherung erstellen.
 - I-01 · Ohr-Trainer · erste Fassung im Browser gebaut (2026-11-16), nie auf dem Gerät.
 - I-02…I-06 · Lernpfad, Song-Liste, Akkordblatt mit Begleitung, Impro-Feedback, Mitspielen nach Gehör · Vision.
 - I-07…I-09 · Skill-Kartei, Hör-Übungen per Antippen, „Heute“-Einheit · im Bau (2026-11-16). I-10 · Vision.
-- I-11…I-20 · Werkzeuge (Spickzettel, Transponieren, Griffe, Etüden, Spielhilfe, Licks, Swing-Metronom, Drone, Jam-Karte, Aufnahme-Tagebuch) · erste Fassung im Browser gebaut (2026-11-16), nie auf dem Gerät.
+- I-11…I-20 · Werkzeuge (Spickzettel, Transponieren, Griffe, Etüden, Spielhilfe, Licks, Swing-Metronom, Drone, Jam-Karte, Aufnahme-Tagebuch) · erste Fassung im Browser gebaut (2026-11-16), nie auf dem Gerät. Das Tagebuch liegt seit 2026-11-19 über der Bibliothek (oben, „zu prüfen“).
+- I-20 (Rest) · „Ein neues Stück aufnehmen“ (ohne vorhandene Noten) · geprüft, nicht gebaut: Ein Stück ohne PDF passt nicht in die Regel „genau eine PDF“ und nicht in `.uebe` v1. Optionen A–D in I-20, Empfehlung A (erzeugte Titelseite); Entscheidung Marlon.
 - H-01 (Rest), H-02…H-05 · Sicherung ohne PDFs, Ordner am Rechner, OneDrive/Drive/iCloud · Entscheidung zum Leitbild („kein Login“) offen.
 
 ### Was Marlon jetzt tun sollte
@@ -386,6 +388,15 @@ gehört in die **Bibliothek**.
   Jam-Karte (I-19, Akkordfolgen, keine PDFs) und das Aufnahme-Tagebuch
   (I-20): Es dient dem Üben mit Aufnahmen (auch zu einem Skill), legt die
   Aufnahmen aber an einem Stück der Bibliothek ab.
+  - **Antwort Marlon (2026-11-19), Jam-Karte:** bleibt in Lernen — „ja,
+    warum nicht“.
+  - **Antwort Marlon (2026-11-19), Aufnahme-Tagebuch:** „Die Aufnahmen
+    sollten über die Bibliothek abrufbar sein. Also sollte der Button für
+    das Aufnahme-Tagebuch zur Bibliothek leiten, oder? Und da dann ein neues
+    Stück aufnehmen, basically, oder pro Stück eine Aufnahme oder mehrere.“
+    Umgesetzt in I-20: Zeile „Aufnahmen“ unter dem Stellen-Mix, die Kachel in
+    Lernen führt dorthin; „ein neues Stück aufnehmen“ ist geprüft, aber nicht
+    gebaut (Optionen in I-20, Entscheidung offen).
 - **Geprüft im Browser** (Chromium, iPhone 390 × 844, iPad 820 × 1180 und
   1180 × 820, acht Stücke in drei Sammlungen, zwei Tags, sieben Stellen):
   Zeile über der Liste; Sammlung mit und ohne Tags gewechselt und Tag
@@ -648,9 +659,11 @@ Wunsch Marlon (2026-11-19): „Bei Aufnahme-Tagebuch sollte die Stückauswahl
 nach den Sammlungen strukturierbar sein. Das gilt für jede Stelle in der
 App, bei der die Stücke zur Auswahl stehen.“
 
-**Regel: Wo Stücke zur Auswahl stehen, sind sie nach Sammlungen geordnet.**
-Jede Stückauswahl — auch jede künftige — nimmt `StueckWahl.tsx` (gleiches
-Aussehen, gleiches Verhalten), kein eigenes `<select>`.
+**Regel: Wo Stücke zur Auswahl stehen, sind sie nach Sammlungen geordnet
+und durchsuchbar.** Jede Stückauswahl — auch jede künftige — nimmt
+`StueckWahl.tsx` (gleiches Aussehen, gleiches Verhalten), kein eigenes
+`<select>`. Wo Sammlungen zur Wahl stehen, stehen sie in der Reihenfolge der
+Bibliothek (seit 2026-11-19 auch „Sammlungen …“ im Kontext-Blatt).
 
 **Entscheidung:**
 - **Eigenes Auswahl-Blatt statt `<select>` mit `<optgroup>`.** Im Feld steht
@@ -680,12 +693,13 @@ Aussehen, gleiches Verhalten), kein eigenes `<select>`.
   wechseln nur die Liste (sie beginnt dann oben). Tipp auf ein Stück wählt
   und schließt; ✕, Tipp daneben oder Escape schließt nur das Blatt. Die
   Wahl ändert den Bibliotheks-Filter nicht.
-- **Vorwahl:** Ansicht und Eingrenzung sind am Gerät gemerkt, für alle
-  Auswahlen gemeinsam (`ueben:stueckwahl`, ein Filter — reist nicht mit).
-  Noch keine Sammlung getippt → die zuletzt in der Bibliothek gewählte
-  (`ueben:sammlung`), wie beim Stellen-Mix (B-18). Was es nicht mehr gibt,
-  wird „Alle“; liegt das gewählte Stück nicht in der Eingrenzung, ebenfalls
-  „Alle“ — die Wahl bleibt sichtbar und rückt beim Öffnen ins Bild.
+- ~~**Vorwahl:** Ansicht und Eingrenzung sind am Gerät gemerkt, für alle
+  Auswahlen gemeinsam (`ueben:stueckwahl`). Noch keine Sammlung getippt →
+  die zuletzt in der Bibliothek gewählte (`ueben:sammlung`).~~ — *seit der
+  Rückmeldung vom 2026-11-19 (unten): immer die Sammlung der Bibliothek,
+  gemerkt ist nur die Ansicht.* Was es nicht mehr gibt, wird „Alle“; liegt
+  das gewählte Stück nicht in der Sammlung, ebenfalls „Alle“ — die Wahl
+  bleibt sichtbar und rückt beim Öffnen ins Bild.
 
 **Umsetzung** (`stueckAuswahl`, `wahlStart` in `src/domain/sammlungen.ts`,
 getestet; `src/components/ueben/StueckWahl.tsx`). Bestand vom 2026-11-19 —
@@ -712,15 +726,82 @@ offene Stück). Die Bibliothek selbst hat ihre Sammlungen schon.
 - Ein Stück in zwei Sammlungen steht in beiden Gruppen mit „auch in …“,
   gewählt mit Haken an beiden Stellen.
 - „A–Z“ ↔ „Sammlungen“ und Chips: nur die Liste wechselt, Kopf und Chips
-  bleiben stehen; nach dem Neustart der App dieselbe Ansicht und Sammlung.
+  bleiben stehen; nach dem Neustart der App dieselbe Ansicht (die Sammlung kommt seit 2026-11-19 von der Bibliothek).
 - „Neu“ → Stück: Blatt liegt über „Neue Aufnahme“; während der Aufnahme
   lässt sich das Stück nicht wechseln.
-- iPad hoch und quer: Blatt mittig über dem Tagebuch (ganze Seite); nach dem
+- iPad hoch und quer: Blatt mittig über dem Tagebuch (seit 2026-11-19 aus der Bibliothek, selbst ein Blatt); nach dem
   Schließen sind Leiste und Widgets bedienbar wie vorher.
 - 30+ Stücke: Liste scrollt flüssig, Überschrift der Gruppe bleibt oben;
   lange Titel brechen um.
 - VoiceOver: Der Knopf nennt „Stück wählen (…): Titel“, die Zeilen sind
   Auswahlpunkte mit „ausgewählt“.
+
+**Rückmeldung Marlon (2026-11-19):**
+- Das Blatt soll immer bei der Sammlung starten, die gerade in der
+  Bibliothek gewählt ist, statt sich die eigene letzte Wahl zu merken: „ja“.
+- Suchfeld im Auswahl-Blatt: „wäre gut, ja“.
+- „Neue Aufnahme“ soll das gerade offene Stück vorwählen: „ja“.
+- „Sammlungen ändern“ im Kontext-Blatt in Bibliotheks-Reihenfolge statt
+  A–Z: „ja“.
+
+**Umsetzung (2026-11-19)** (`wahlStart`, `stueckAuswahl` mit Suche,
+`suchForm`/`suchWoerter`/`passtZurSuche`, `reihenfolgeLesen` in
+`src/domain/sammlungen.ts`; `neueAufnahmeVorwahl` in
+`src/domain/aufnahmetagebuch.ts` — alle zuerst als Test):
+- **Start bei der Bibliothek:** Jede Auswahl beginnt bei `ueben:sammlung`.
+  `ueben:stueckwahl` trägt nur noch `{ ansicht }` (Sammlungen | A–Z bleibt
+  gemerkt — das ist eine Vorliebe wie „A–Z | Zuletzt“ in der Bibliothek,
+  keine Eingrenzung). Ein älterer Stand mit `sammlung` darin wird
+  überlesen; der Schlüssel bleibt am Gerät und reist nicht mit
+  (`einstellungen.test.ts`).
+- **Suchfeld** oben im Blatt, unter „Stück wählen“, über den Chips: Titel,
+  Stimme, Komponist; Groß/klein, Akzente und ß egal („fucik“ findet
+  „Fučík“, „marsch“ findet „Märsche“), mehrere Wörter müssen alle
+  vorkommen. Gesucht wird in der gewählten Sammlung; die Chips bleiben
+  dieselben (nichts rückt), ihre Zahl nennt die Treffer, Chips ohne Treffer
+  sind blass. Nichts in der Sammlung, aber anderswo: „Nichts in „Märsche“
+  gefunden · In allen suchen · 2 Treffer“. Beim Suchen steht auch der
+  Komponist in der Unterzeile, die Zeile „Alle Stücke“ (Filter) ruht.
+  Escape leert erst die Suche, dann schließt es das Blatt. Kein Autofokus
+  (die Tastatur käme ungefragt).
+- **Tastatur (iPhone):** Das Blatt behält seine Höhe; das Suchfeld liegt im
+  oberen Drittel, die Tastatur deckt nur das untere Ende der Liste. Die
+  Liste bekommt unten so viel Platz, wie die Tastatur hoch ist
+  (`visualViewport`), damit jeder Treffer darüber scrollen kann. 16 px
+  Schrift im Feld, damit iOS beim Antippen nicht hineinzoomt.
+- **Chips brachen um** (Fehler aus dem Zusammenführen mit B-19: F-23 nutzte
+  die Klasse `mix-woraus-chips`, die B-19 entfernt hatte): Sie stehen
+  wieder in einer Zeile und lassen sich seitlich schieben (`.sw-chips`).
+- **„Neue Aufnahme“:** vorgewählt ist das im Tagebuch gefilterte Stück
+  (ausdrücklich gewählt), sonst das offene Stück (`UebeZentrale` gibt es
+  über die Bibliothek bzw. das Stück-Blatt weiter), sonst das der neuesten
+  Aufnahme, sonst A–Z das erste. Der Filter geht vor, weil „Aufnahmen …“ im
+  Kontext-Blatt eines anderen Stücks sonst das offene vorwählen würde.
+- **Kontext-Blatt „Sammlungen …“** in der Reihenfolge der Bibliothek
+  (`sammlungenOrdnen`, `ueben:sammlungen-reihenfolge`); `REIHENFOLGE` liegt
+  jetzt in `src/domain/sammlungen.ts`.
+- **Geprüft im Browser** (Chromium, iPhone 390 × 844, iPad 820 × 1180, acht
+  Stücke in drei Sammlungen, ein Tag, sieben Aufnahmen, ein alter
+  `ueben:stueckwahl` mit „Jazz“): Blatt startet bei „Märsche“ (Bibliothek),
+  nicht bei „Jazz“; „blue“ in Märsche → Hinweis, „In allen suchen“ → Blue
+  Bossa; „MARSCH“ und „fucik“ finden; Blatt und Liste vor und nach dem
+  Tippen auf demselben Pixel (iPhone 101/743 und 323/521 px); Escape leert,
+  zweites Escape schließt nur das Blatt; „Neu“ wählt Radetzky-Marsch (offen)
+  vor; Kontext-Blatt: Märsche · Orchester A · Jazz (Bibliothek) statt A–Z.
+  Die echte Bildschirmtastatur gibt es im Browser nicht.
+
+**Auf dem Gerät prüfen (Nachtrag 2026-11-19):**
+- iPhone: Bibliothek auf „Jazz“, dann Tagebuch → Neu → Stück: Das Blatt
+  steht auf „Jazz“; Bibliothek auf „Alle“ → Blatt auf „Alle“.
+- Suchfeld antippen: Tastatur kommt, das Blatt bleibt, wo es ist, nichts
+  zoomt; Treffer stehen über der Tastatur, der letzte lässt sich darüber
+  scrollen; ein Treffer-Tipp wählt und schließt (Tastatur geht mit).
+- Chips seitlich schieben, auch während der Suche; „Ohne Sammlung“ ganz
+  rechts erreichbar.
+- Ein Stück offen, Bibliothek → Aufnahmen → Neu: das offene Stück ist
+  vorgewählt.
+- ⋯ an einem Stück → Sammlungen …: Reihenfolge wie die Leiste der
+  Bibliothek (vorher eine Sammlung nach vorn schieben).
 
 ---
 
@@ -1110,7 +1191,11 @@ Sorge: der Speicher.
   pumpen sonst). App-Wechsel beendet und sichert die Aufnahme.
 - **Im Stück-Blatt** der Abschnitt „Aufnahmen“: neueste zuerst, Name oder
   Zeitpunkt, Dauer, Seite/Stelle; ▶ anhören, „zusammen“ ankreuzen und
-  **übereinander abspielen**, umbenennen, löschen.
+  **übereinander abspielen**, umbenennen, löschen. *Seit 2026-11-19 mit dem
+  Aufnahme-Tagebuch abgestimmt (I-20): dieselben Angaben je Zeile (auch der
+  Skill), „zusammen“ unter dem Namen, und der Weg ins Tagebuch auf dieses
+  Stück gefiltert (Vergleichen A/B, „Neu“ mit Skill). Über die Bibliothek:
+  ⋯ an einem Stück → „Aufnahmen …“.*
 - **Speicher:** `MediaRecorder`, komprimiert (AAC `audio/mp4` auf iPhone
   und iPad, Opus/WebM in Chrome, 96 kbit/s): **etwa 0,7 MB je Minute**.
   Hundert Aufnahmen à zwei Minuten sind ~150 MB — das ist für IndexedDB
@@ -1628,7 +1713,8 @@ spielen (braucht I-04).
 
 Marlon 2026-11-16: „Bau alles“ — zehn Ideen aus der Recherche. Alle
 Werkzeuge erreicht man auf der Seite **Lernen** (B-18) im Abschnitt **Werkzeuge**
-(Kacheln, je ein Blatt). Tonhöhen immer **notiert für die gewählte Stimmung**
+(Kacheln, je ein Blatt; die Kachel „Aufnahme-Tagebuch“ führt seit 2026-11-19
+in die Bibliothek, I-20). Tonhöhen immer **notiert für die gewählte Stimmung**
 (Stimmgerät), daneben klingend, wo es hilft.
 
 - **I-11 · Akkord-Spickzettel.** Akkordsymbol eingeben oder antippen (C,
@@ -1715,6 +1801,140 @@ Werkzeuge erreicht man auf der Seite **Lernen** (B-18) im Abschnitt **Werkzeuge*
   geübt). Eine Aufnahme **ohne Stück** gibt es nicht: Sie liegt im
   Datensatz eines Stücks, ein verstecktes Übungs-Stück sähe das Datenmodell
   nicht vor (bräuchte eine PDF, erschiene in der Bibliothek) — offen.
+
+  **Rückmeldung Marlon (2026-11-19):** „Die Aufnahmen sollten über die
+  Bibliothek abrufbar sein. Also sollte der Button für das Aufnahme-Tagebuch
+  zur Bibliothek leiten, oder? Und da dann ein neues Stück aufnehmen,
+  basically, oder pro Stück eine Aufnahme oder mehrere.“ Dazu (F-23): „Neue
+  Aufnahme“ wählt das offene Stück vor — „ja“.
+
+  **Umsetzung (2026-11-19)** — Aufnahmen über die Bibliothek
+  (`AufnahmeTagebuch.tsx`, `Bibliothek.tsx`, `Kontext.tsx`, `NotenPult.tsx`,
+  `Aufnahmen.tsx`, `Werkzeuge.tsx`, `UebeZentrale.tsx`; Regeln
+  `tagebuchBereich`, `imBereich`, `aufnahmenStand`, `zuletztKurz`,
+  `neueAufnahmeVorwahl` in `src/domain/aufnahmetagebuch.ts`, `ortSprung` in
+  `src/domain/leiste.ts`, zuerst als Test):
+  - **Zeile „Aufnahmen“** in der Bibliothek direkt unter dem Stellen-Mix,
+    über den Tags: roter Punkt, „Aufnahmen“, rechts „4 · zuletzt heute“,
+    „keine in „Orchester A · Wichtig üben““ oder „noch keine“. Sie zählt, was
+    die Bibliothek zeigt (Sammlung und Tag). **Bedienregel:** gleich gebaut
+    und gleich hoch wie die Mix-Zeile (48 px), immer da, sobald es Stücke
+    gibt; beim Wechsel der Sammlung oder des Tags ändert sich nur der Text.
+    Sie kommt im selben Lesen wie Sammlungen, Mix und Liste — nichts rückt
+    nach.
+  - **Tagebuch aus der Bibliothek** (Blatt über der Bibliothek, iPad mittig):
+    eingegrenzt auf deren Sammlung und Tag; oben „Märsche 4 | Alle 7“ (nur,
+    wenn die Bibliothek eingegrenzt ist — steht beim Öffnen fest, kommt und
+    geht nicht). Liegt außerhalb noch etwas, sagt es die Statuszeile:
+    „Unter „Alle“ noch 3 Aufnahmen, davon 2 mit Skill.“ — so bleiben
+    Aufnahmen zu Skills auffindbar, deren Stück woanders liegt; der Hinweis
+    „bleiben auf diesem Gerät“ steht dann am Ende der Liste. Filter je Stück
+    (F-23-Auswahl, nur Stücke mit Aufnahmen im Bereich), Vergleichen,
+    Abspielen, Name, Löschen wie bisher. Neue Aufnahmen, Umbenennen und
+    Löschen zählen gleich in der Zeile mit.
+  - **Je Stück eine oder mehrere:** ⋯ (oder Halten) an einem Stück →
+    „Aufnahmen …“ („2 · anhören, vergleichen, neu aufnehmen“ bzw. „Noch
+    keine — hier aufnehmen“) öffnet das Tagebuch auf dieses Stück gefiltert;
+    „Neu“ wählt es vor, auch ohne bisherige Aufnahme. In der Liste der
+    Bibliothek steht „2 Aufnahmen“ in der Unterzeile wie „3 Stellen“.
+  - **Stück-Blatt (G-09) abgestimmt:** Die Zeilen zeigen dieselben Angaben
+    wie das Tagebuch (Stelle oder Seite, Skill, Dauer; dieselben Regeln
+    `wo`/`dauerText`), „zusammen“ als eigene Zeile darunter (vorher drückte
+    es den Namen auf „Trio s…“). Darunter „Vergleichen und neu aufnehmen im
+    Tagebuch ›“ — das Tagebuch auf dieses Stück gefiltert, über dem
+    Stück-Blatt; Escape schließt erst das Tagebuch. Ohne Aufnahme: „Im
+    Tagebuch aufnehmen ›“.
+  - **Kachel in Lernen** „Aufnahme-Tagebuch · In der Bibliothek: alt gegen
+    neu ›“ (roter Punkt, Pfeil): ganzer Seitenwechsel in die Bibliothek
+    (`ortSprung`: das Ziel öffnet, Lernen weicht samt Unterseite; ein Sprung
+    schließt nie), dort liegt gleich das Tagebuch über der Liste. Danach gilt
+    die Leiste wie immer: „Lernen“ führt zurück, „Noten“ schließt die
+    Bibliothek. Die Aufnahme mit Skill („Neu“ → Skill) bleibt, wie sie war.
+  - **Geprüft im Browser** (Chromium mit Fake-Mikrofon, iPhone 390 × 844 und
+    iPad 820 × 1180; acht Stücke in Märsche/Orchester A/Jazz/ohne, ein Tag,
+    sechs Aufnahmen, zwei mit Skill): Zeile bei Märsche, Jazz, Alle,
+    Orchester A und Orchester A + Tag auf demselben Pixel (iPhone y 284,
+    48 px hoch); Tagebuch „3 Aufnahmen aus „Märsche““ mit Hinweis auf 3
+    weitere, 2 mit Skill; „Alle“ zeigt 6; „Neu“ wählt das offene
+    Radetzky-Marsch vor, Aufnahme 2 s mit Fake-Mikrofon gespeichert, Zeile
+    zählt danach 4; Kontext → „Aufnahmen …“ an „Take Five“ (ohne Aufnahme)
+    → leer, „Neu“ wählt Take Five; Kachel in Lernen → Bibliothek mit
+    Tagebuch, „Lernen“ zurück; Stück-Blatt → Tagebuch gefiltert, Escape
+    schließt nur das Tagebuch. Keine Fehler in der Konsole.
+
+  **„Ein neues Stück aufnehmen“ — geprüft, nicht gebaut (2026-11-19).**
+  Gemeint: etwas aufnehmen, für das es noch keine Noten (keine PDF) gibt, und
+  es landet als Stück in der Bibliothek. Ergebnis der Prüfung:
+  - *Datenbank:* Ein Datensatz in `stuecke` ohne Eintrag in `dateien` ginge
+    ohne Versionssprung — es gibt ihn heute schon als Fehlerfall (Übernahme
+    aus `ueben`, PDF verloren). Aber das Datenmodell sagt „Stück = Datensatz
+    und **genau eine PDF**“, und daran hängt viel:
+  - *Öffnen:* `NotenPult` liest `stueckDatei` → `DateiVerloren` („Die
+    PDF-Datei dieses Stücks ist auf dem Gerät nicht mehr lesbar …“), der
+    `NotenBetrachter` braucht ein geladenes PDF. Es bräuchte eine eigene
+    Ansicht ohne Noten. Ebenso Sonderwege für das Vorschaubild im
+    Kontext-Blatt, „Eigene Stücke daraus“, die Quelle virtueller Stücke und
+    die Doppelten-Erkennung beim Ordner-Import (Größe der PDF).
+  - *Sicherung (`sicherung.ts`, `lesbar.ts`):* `sicherungErstellen` prüft
+    jede PDF (`nurLesbare`); so ein Stück fiele heraus und stünde bei jeder
+    Sicherung unter „nicht lesbar“. Mitnehmen lässt es sich in `.uebe` v1
+    nicht: Jeder Eintrag unter `noten` bringt genau einen PDF-Teil mit (ein
+    leerer Teil wäre im Registerführer ein Stück mit kaputter PDF),
+    `virtuelle` verlangt eine `quelle`, und eine weitere Liste im Kopf
+    schließt CLAUDE.md aus („Nicht weiter ändern“). Der
+    Registerführer-Zuschnitt (`notenId` an Stellen und Anmerkungen) wäre
+    nicht das Problem — so ein Stück hätte keine —, sondern der Noten-Eintrag
+    selbst. Alte Dateien blieben ladbar, aber „Daten übertragen“ ließe ein
+    Stück der Bibliothek weg.
+  - *Darum nicht gebaut:* Es ginge nur, wenn die Regel „genau eine PDF“
+    fällt und das Stück bewusst nur auf dem Gerät bleibt — eine Entscheidung
+    über das Datenmodell, die Marlon treffen soll.
+
+  **Optionen — Entscheidung Marlon offen:**
+  - **A · Erzeugte Titelseite als PDF** (wie bei geschriebenen/eingesungenen
+    Stücken; die App schreibt PDFs schon selbst, `notenpdf.ts`, Scan F-07).
+    „Neu“ im Tagebuch bekommt „Neues Stück …“: Titel, Sammlung (die der
+    Bibliothek), dann aufnehmen. Angelegt wird ein gewöhnliches Stück mit
+    einer schlichten Seite (Titel, Stimme, „Noten folgen“, leere
+    Notenzeilen). *Für:* nichts an Datenbank oder Format; reist mit der
+    Sicherung (wenige KB); der Registerführer liest es wie jedes Stück; es
+    öffnet in den Noten, roter Knopf, Kontext-Blatt, Sammlungen, Tags wie
+    gewohnt; später ersetzt „Datei neu wählen“ die Seite durch die echten
+    Noten, die Aufnahmen bleiben. *Gegen:* eine Seite ohne Inhalt in der
+    Bibliothek (und nach einer Übertragung im Registerführer); auf dem
+    anderen Gerät kommt das Stück ohne seine Aufnahmen an (die reisen nie
+    mit). **Empfehlung**, weil alle Verträge bleiben.
+  - **B · Stück ohne PDF, nur auf diesem Gerät:** ein Merkmal am Stück (etwa
+    `nurAufnahmen`, kein neuer Speicher, keine Version — wie `aufnahmen` in
+    G-09), eine eigene Ansicht statt der Noten, die Sicherung lässt es
+    bewusst weg (mit eigener Meldung). *Für:* keine Schein-Seite. *Gegen:*
+    „genau eine PDF“ fällt (datenmodell.md ändern), jede Stelle, die eine
+    PDF erwartet, braucht einen Sonderweg — auch künftige; „Daten
+    übertragen“ nimmt ein Stück der Bibliothek nicht mit.
+  - **C · Format erweitern** (eigene Liste im Kopf der Sicherung): nach
+    CLAUDE.md nur mit neuer Version des `.uebe`-Formats samt Lesen der alten;
+    der Registerführer kennt sie nicht. Nicht empfohlen.
+  - **D · Ohne neues Stück:** an ein vorhandenes Stück aufnehmen (etwa eines
+    „Übungen“). Geht heute; trifft den Wunsch nur halb.
+
+  **Auf dem Gerät prüfen:**
+  - iPhone und iPad: „Noten“ → Zeile „Aufnahmen“ unter dem Stellen-Mix.
+    Sammlung wechseln (mit und ohne Tags) und einen Tag tippen: nur der Text
+    rechts ändert sich, die Zeile springt nicht.
+  - Zeile tippen: Tagebuch über der Bibliothek, „Märsche n | Alle m“; die
+    Statuszeile nennt, was unter „Alle“ noch liegt (mit Skill); „Alle“
+    zeigt es. Fertig → zurück in der Bibliothek, an derselben Stelle.
+  - Ein Stück offen, Tagebuch → Neu: das offene Stück ist vorgewählt;
+    aufnehmen (Mikrofon-Erlaubnis), beenden → die Aufnahme steht oben, die
+    Zeile zählt eine mehr.
+  - ⋯ an einem Stück → „Aufnahmen …“: Tagebuch nur mit diesem Stück; ohne
+    Aufnahme leer mit Hinweis, „Neu“ wählt das Stück vor.
+  - Stück öffnen, Titel tippen → Stück-Blatt → Aufnahmen: Name ganz
+    lesbar, „zusammen“ darunter; „… im Tagebuch ›“ → Vergleichen A/B geht.
+  - Lernen → Kachel „Aufnahme-Tagebuch“: Bibliothek mit Tagebuch; nach
+    „Fertig“ „Lernen“ tippen → Lernen-Übersicht; „Noten“ → Bibliothek zu.
+  - Eine Aufnahme mit Skill zu einem Stück außerhalb der gewählten Sammlung:
+    über „Alle“ auffindbar.
 
 ## Erledigt
 

@@ -16,3 +16,10 @@ export function ortTippen(offen: Ort, ziel: Exclude<Ort, null>, unterseite: bool
   if (offen === ziel && unterseite) return { ort: offen, zurUebersicht: true };
   return { ort: ortUmschalten(offen, ziel), zurUebersicht: false };
 }
+
+// Ein Sprung aus einer Seite in die andere — die Kachel „Aufnahme-Tagebuch“
+// in Lernen führt zu den Aufnahmen in der Bibliothek (I-20, Rückmeldung
+// Marlon 2026-11-19). Ganzer Seitenwechsel: Das Ziel öffnet, der andere Ort
+// weicht samt seiner Unterseite. Anders als ein Tipp auf den Knopf schließt
+// ein Sprung nie; danach gilt die Leiste wie immer.
+export const ortSprung = (_offen: Ort, ziel: Exclude<Ort, null>): Ort => ziel;

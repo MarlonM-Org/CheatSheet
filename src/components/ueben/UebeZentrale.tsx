@@ -10,7 +10,7 @@ import { MetronomWidget } from './MetronomWidget';
 import { speicherBehalten, tagsLaden } from './lokal';
 import { NotenPult } from './NotenPult';
 import { ladeFehler, SpeicherHinweis } from './speicherfehler';
-import { ortTippen } from '@/domain/leiste';
+import { ortSprung, ortTippen } from '@/domain/leiste';
 import { mixBereichLesen, type MixBereich } from '@/domain/stellen';
 import { MixFertig, mixLaden, mixTitel, rundeSpeichern, type MixStand, type MixSteuerung } from './StellenMix';
 import { StimmgeraetAnbieter, useStimmgeraetApi } from './StimmgeraetKontext';
@@ -44,6 +44,9 @@ function Zentrale() {
   // führt ein Tipp auf „Lernen“ zur Übersicht: Lernen baut sich neu auf.
   const [lernenTief, setLernenTief] = useState(false);
   const [lernenFassung, setLernenFassung] = useState(0);
+  // Die Bibliothek gleich mit den Aufnahmen öffnen (Kachel „Aufnahme-Tagebuch“
+  // in Lernen, I-20); gilt nur für das eine Öffnen.
+  const [bibAufnahmen, setBibAufnahmen] = useState(false);
   const [einstellungen, setEinstellungen] = useState(false);
   // Zählt hoch, wenn in den Einstellungen eine Sicherung geladen wurde —
   // die Bibliothek liest ihre Liste dann neu.
@@ -101,7 +104,7 @@ function Zentrale() {
     else { setOffen(id); speichern('ueben:offen', id); }
     setBibliothek(false); setLernen(false);
   };
-  const offenWeg = () => { setOffen(null); speichern('ueben:offen', null); setLernen(false); setBibliothek(true); };
+  const offenWeg = () => { setOffen(null); speichern('ueben:offen', null); setLernen(false); setBibAufnahmen(false); setBibliothek(true); };
   // Gelöscht, während der Mix es zeigt: Runde ohne seine Stellen weiter.
   const angezeigtWeg = () => { if (mixAn) mixAbgleichen(); else offenWeg(); };
   // Nach „aktualisieren" in der Bibliothek: offenes Stück neu aufbauen.
@@ -115,10 +118,17 @@ function Zentrale() {
     if (ziel === 'lernen' || ziel === 'bibliothek') {
       const { ort, zurUebersicht } = ortTippen(lernen ? 'lernen' : bibliothek ? 'bibliothek' : null, ziel, lernen && lernenTief);
       if (zurUebersicht) setLernenFassung((f) => f + 1);
-      else { setLernen(ort === 'lernen'); setBibliothek(ort === 'bibliothek'); }
+      else { setLernen(ort === 'lernen'); setBibliothek(ort === 'bibliothek'); setBibAufnahmen(false); }
     }
     if (ziel === 'metronom') metroUmschalten(!metroAn);
     if (ziel === 'stimmgeraet') stimmUmschalten(!stimmAn);
+  };
+
+  // Aus Lernen zu den Aufnahmen: ganzer Seitenwechsel in die Bibliothek, dort
+  // liegt gleich das Tagebuch über der Liste (Rückmeldung Marlon 2026-11-19).
+  const zuAufnahmen = () => {
+    const ort = ortSprung(lernen ? 'lernen' : bibliothek ? 'bibliothek' : null, 'bibliothek');
+    setBibAufnahmen(true); setLernen(ort === 'lernen'); setBibliothek(ort === 'bibliothek');
   };
 
   const dialogOffen = einstellungen || metroVoll || stimmVoll;
@@ -149,7 +159,7 @@ function Zentrale() {
           <div className="leer">
             <p className="titel">CheatSheet</p>
             <p className="gedaempft max-w-xs">Noten, schwierige Stellen, Metronom und Stimmgerät. Alles auf diesem Gerät.</p>
-            <button type="button" className="knopf" onClick={() => { setLernen(false); setBibliothek(true); }}>Bibliothek öffnen</button>
+            <button type="button" className="knopf" onClick={() => { setLernen(false); setBibAufnahmen(false); setBibliothek(true); }}>Bibliothek öffnen</button>
           </div>
         )}
       </main>
@@ -162,10 +172,11 @@ function Zentrale() {
       {bibliothek && (
         <Bibliothek offen={angezeigt} oeffnen={oeffnen} schliessen={() => setBibliothek(false)}
           einstellungen={() => setEinstellungen(true)} offenEntfernt={angezeigtWeg}
-          aktualisiert={aktualisiert} escapeAktiv={!dialogOffen} stand={bibStand} mixStarten={mixStarten} mixAktiv={mixBereich} />
+          aktualisiert={aktualisiert} escapeAktiv={!dialogOffen} stand={bibStand} mixStarten={mixStarten} mixAktiv={mixBereich}
+          aufnahmenAnfang={bibAufnahmen} />
       )}
       {lernen && (
-        <Lernen key={lernenFassung} schliessen={() => setLernen(false)} escapeAktiv={!dialogOffen} tiefMelden={setLernenTief} />
+        <Lernen key={lernenFassung} schliessen={() => setLernen(false)} escapeAktiv={!dialogOffen} tiefMelden={setLernenTief} zuAufnahmen={zuAufnahmen} />
       )}
       {einstellungen && <Einstellungen schliessen={() => setEinstellungen(false)} geaendert={() => setBibStand((n) => n + 1)} />}
 

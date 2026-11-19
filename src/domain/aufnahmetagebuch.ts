@@ -6,6 +6,9 @@
 // Bytes in „dateien“ unter der id der Aufnahme (docs/datenmodell.md). Sie
 // bleiben auf dem Gerät und reisen nicht mit der Sicherung.
 import type { Aufnahme, Stelle, Stueck } from './bestand';
+import { nachTitel } from './notenpult';
+import { imFilter } from './sammlungen';
+import { imTagFilter } from './tags';
 
 export interface TagebuchEintrag {
   aufnahme: Aufnahme;
@@ -65,6 +68,57 @@ export function stueckeMitAufnahmen(alle: readonly TagebuchEintrag[]): { id: str
     m.set(e.stueckId, x);
   }
   return [...m.values()].sort((a, b) => a.titel.localeCompare(b.titel, 'de'));
+}
+
+// ── Über die Bibliothek (Rückmeldung Marlon 2026-11-19) ──
+// Die Aufnahmen sind über die Bibliothek abrufbar: Die Zeile „Aufnahmen“ und
+// das Tagebuch grenzen auf das ein, was die Bibliothek gerade zeigt — Sammlung
+// und Tag, wie der Stellen-Mix (B-19). „Alle“ im Tagebuch zeigt den Rest; so
+// bleiben auch Aufnahmen zu einem Skill auffindbar, deren Stück woanders liegt.
+export interface Bereich { sammlung: string | null; tag: string | null }
+type ImBereich = { sammlungen?: unknown; tags?: unknown };
+
+export const imBereich = (s: ImBereich | undefined, b: Bereich) => !!s && imFilter(s, b.sammlung) && imTagFilter(s, b.tag);
+
+/** drin: Aufnahmen der Stücke im Bereich (Reihenfolge bleibt); draußen: die übrigen, davon mit Skill. */
+export function tagebuchBereich(alle: TagebuchEintrag[], stuecke: readonly (ImBereich & { id: string })[], b: Bereich):
+  { drin: TagebuchEintrag[]; draussen: number; draussenSkill: number } {
+  if (b.sammlung === null && b.tag === null) return { drin: alle, draussen: 0, draussenSkill: 0 };
+  const je = new Map(stuecke.map((s) => [s.id, s]));
+  const drin = alle.filter((e) => imBereich(je.get(e.stueckId), b));
+  const draussen = alle.filter((e) => !drin.includes(e));
+  return { drin, draussen: draussen.length, draussenSkill: draussen.filter((e) => e.skillId !== undefined).length };
+}
+
+/** „Märsche · Wichtig“: Sammlung und Tag-Name (wie mixTitel); null ohne beides. */
+export const bereichTitel = (sammlung: string | null, tagName: string | null) => [sammlung, tagName].filter(Boolean).join(' · ') || null;
+
+/** Zeile „Aufnahmen“ in der Bibliothek, rechts: „4 · zuletzt heute“, „keine in „Märsche““, „noch keine“. */
+export function aufnahmenStand(drin: number, gesamt: number, neueste: number | null, jetzt: number, titel: string | null): string {
+  if (!drin || neueste === null) return gesamt && titel ? `keine in „${titel}“` : 'noch keine';
+  return `${drin} · zuletzt ${zuletztKurz(neueste, jetzt)}`;
+}
+
+/** „heute“, „gestern“, sonst „3. Nov.“ (anderes Jahr: „3. Nov. 2025“), Ortszeit. */
+export function zuletztKurz(t: number, jetzt: number): string {
+  const titel = tagTitel(t, jetzt);
+  if (titel === 'Heute' || titel === 'Gestern') return titel.toLowerCase();
+  const d = new Date(t);
+  return d.toLocaleDateString('de-DE', { day: 'numeric', month: 'short', ...(d.getFullYear() !== new Date(jetzt).getFullYear() ? { year: 'numeric' } : {}) });
+}
+
+/**
+ * „Neue Aufnahme“: welches Stück vorgewählt ist. Ein im Tagebuch gefiltertes
+ * Stück (ausdrücklich gewählt), sonst das offene Stück (Rückmeldung Marlon
+ * 2026-11-19), sonst das der neuesten Aufnahme, sonst A–Z das erste. Was es
+ * nicht (mehr) gibt, wird übersprungen.
+ */
+export function neueAufnahmeVorwahl(
+  stuecke: readonly Pick<Stueck, 'id' | 'titel' | 'stimme'>[],
+  wunsch: { filter: string | null; offen: string | null; neueste: string | null },
+): string | null {
+  for (const id of [wunsch.filter, wunsch.offen, wunsch.neueste]) if (id !== null && stuecke.some((s) => s.id === id)) return id;
+  return [...stuecke].sort(nachTitel)[0]?.id ?? null;
 }
 
 const tagBeginn = (t: number) => { const d = new Date(t); return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); };

@@ -1,8 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { dauerText, tagebuch, wo } from '@/domain/aufnahmetagebuch';
 import type { Aufnahme, Stelle, Stueck } from '@/domain/bestand';
 import { zeitpunkt } from '@/domain/notenpult';
+import { skillFinden } from '@/domain/skillkatalog';
 import { aufnahmeAendern, aufnahmeAnlegen, aufnahmeDatei, aufnahmeLoeschen } from './lokal';
 import { mikrofonWunsch } from '@/domain/lautsprecher';
 import { mikrofonOffen, useBeimVerlassen, wachHalten, wiedergabeSitzung } from './klang';
@@ -95,11 +97,18 @@ export function useAufnahme(stueckId: string, fertig: () => void): AufnahmeLauf 
   return { laeuft, sekunden, fehler, umschalten: (z) => { if (lauf.current) stoppen(); else void starten(z); } };
 }
 
-const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
-
-// Die Aufnahmen eines Stücks im Stück-Blatt.
-export function AufnahmenListe({ stueck, stellen, geaendert }: { stueck: Stueck; stellen: Stelle[]; geaendert: () => void }) {
+// Die Aufnahmen eines Stücks im Stück-Blatt (G-09): je Stück eine oder
+// mehrere, neueste zuerst; anhören, „zusammen“ übereinander, benennen, löschen.
+// Abgestimmt mit dem Aufnahme-Tagebuch (I-20): dieselben Angaben je Zeile
+// (Stelle oder Seite, Skill, Dauer — Regeln in @/domain/aufnahmetagebuch);
+// dort, auf dieses Stück gefiltert, das Vergleichen A/B und „Neu“ samt Skill.
+export function AufnahmenListe({ stueck, stellen, geaendert, zumTagebuch }: {
+  stueck: Stueck; stellen: Stelle[]; geaendert: () => void;
+  // Das Tagebuch auf dieses Stück gefiltert öffnen.
+  zumTagebuch?: () => void;
+}) {
   const liste = [...(stueck.aufnahmen ?? [])].sort((a, b) => b.am - a.am);
+  const angaben = new Map(tagebuch([stueck], stellen).map((e) => [e.aufnahme.id, e]));
   const [spielt, setSpielt] = useState<Set<string>>(() => new Set());
   const [zusammen, setZusammen] = useState<Set<string>>(() => new Set());
   const [fehler, setFehler] = useState('');
@@ -143,15 +152,28 @@ export function AufnahmenListe({ stueck, stellen, geaendert }: { stueck: Stueck;
     try { await aufnahmeLoeschen(stueck.id, a.id); geaendert(); } catch (x) { speicherFehler(x); }
   };
   const name = (a: Aufnahme) => a.titel || zeitpunkt(a.am);
-  const wo = (a: Aufnahme) => {
-    const st = a.stelleId ? stellen.find((s) => s.id === a.stelleId) : null;
-    return st ? `Stelle „${st.titel || `Seite ${st.seite}`}“` : a.seite ? `Seite ${a.seite}` : '';
+  // Wo und wozu: „Stelle „T. 32–48““ oder „Seite 2“, dazu der Skill — wie im Tagebuch.
+  const zusatz = (a: Aufnahme) => {
+    const e = angaben.get(a.id);
+    const skill = a.skillId ? skillFinden(a.skillId)?.name ?? a.skillId : '';
+    return [e ? wo(e) : '', skill].filter(Boolean).join(' · ');
   };
   const gewaehlt = liste.filter((a) => zusammen.has(a.id));
 
   // B-20: Der rote Knopf hat keinen Platz für einen Schalter — hier, eine Zeile unter den Aufnahmen.
   const schalter = <LautsprecherSchalter className="mt-3" hinweis="Beim Aufnehmen — an: Metronom aus dem Lautsprecher, bleibt draußen. Aus: für Kopfhörer, rohes Mikrofon." />;
-  if (!liste.length) return <><p className="gedaempft text-sm">Noch keine Aufnahme. Der rote Knopf in der Notenansicht nimmt auf, während du spielst.</p>{schalter}</>;
+  const tagebuchKnopf = zumTagebuch && (
+    <button type="button" className="knopf knopf-leise knopf-klein" onClick={zumTagebuch}>
+      {liste.length > 1 ? 'Vergleichen und neu aufnehmen im Tagebuch ›' : 'Im Tagebuch aufnehmen ›'}
+    </button>
+  );
+  if (!liste.length) return (
+    <>
+      <p className="gedaempft text-sm">Noch keine Aufnahme. Der rote Knopf in der Notenansicht nimmt auf, während du spielst — oder „Neu“ im Aufnahme-Tagebuch, auf Wunsch mit einem Skill.</p>
+      {tagebuchKnopf && <div className="mt-2">{tagebuchKnopf}</div>}
+      {schalter}
+    </>
+  );
   return (
     <div className="aufnahmen">
       {fehler && <p className="karte warnung" role="alert">{fehler}</p>}
@@ -161,14 +183,16 @@ export function AufnahmenListe({ stueck, stellen, geaendert }: { stueck: Stueck;
             <button type="button" className={`aufnahme-spielen ${spielt.has(a.id) ? 'an' : ''}`} onClick={() => umschalten(a)} aria-label={spielt.has(a.id) ? 'Anhalten' : 'Abspielen'} aria-pressed={spielt.has(a.id)}>
               {spielt.has(a.id) ? '■' : '▶'}
             </button>
+            {/* Wie eine Zeile im Tagebuch: Name, darunter wo und wozu, dann Dauer und Zeit; „zusammen“ als dritte Zeile. */}
             <span className="aufnahme-text">
               <strong>{name(a)}</strong>
-              <span className="gedaempft text-xs">{mmss(a.dauer)}{wo(a) ? ` · ${wo(a)}` : ''}{a.titel ? ` · ${zeitpunkt(a.am)}` : ''}</span>
+              {zusatz(a) && <span className="gedaempft text-xs">{zusatz(a)}</span>}
+              <span className="gedaempft text-xs tabular-nums">{dauerText(a.dauer)}{a.titel ? ` · ${zeitpunkt(a.am)}` : ''}</span>
+              <label className="aufnahme-zusammen" title="Zum Übereinander-Abspielen wählen">
+                <input type="checkbox" checked={zusammen.has(a.id)} onChange={(e) => setZusammen((alt) => { const neu = new Set(alt); if (e.target.checked) neu.add(a.id); else neu.delete(a.id); return neu; })} aria-label={`„${name(a)}“ zum gemeinsamen Abspielen wählen`} />
+                <span className="text-xs gedaempft">zusammen</span>
+              </label>
             </span>
-            <label className="aufnahme-zusammen" title="Zum Übereinander-Abspielen wählen">
-              <input type="checkbox" checked={zusammen.has(a.id)} onChange={(e) => setZusammen((alt) => { const neu = new Set(alt); if (e.target.checked) neu.add(a.id); else neu.delete(a.id); return neu; })} aria-label={`„${name(a)}“ zum gemeinsamen Abspielen wählen`} />
-              <span className="text-xs gedaempft">zusammen</span>
-            </label>
             <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => void benennen(a)} aria-label="Umbenennen">Name</button>
             <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => void loeschen(a)} aria-label="Löschen">×</button>
           </li>
@@ -180,6 +204,7 @@ export function AufnahmenListe({ stueck, stellen, geaendert }: { stueck: Stueck;
         </button>
         <span className="gedaempft text-xs">„zusammen“ ankreuzen und übereinander abspielen — Versionen vergleichen oder Stimmen schichten.</span>
       </div>
+      {tagebuchKnopf && <div className="mt-2">{tagebuchKnopf}</div>}
       {schalter}
     </div>
   );

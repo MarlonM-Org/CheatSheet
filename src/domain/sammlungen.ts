@@ -50,6 +50,9 @@ export function sammlungenUebersicht(noten: { sammlungen?: unknown }[]): { name:
 }
 
 // ── Reihenfolge der Sammlungen ──
+export const REIHENFOLGE = 'ueben:sammlungen-reihenfolge';
+// Aus dem Speicher: nur Namen, Unsinn wird leer.
+export const reihenfolgeLesen = (roh: unknown): string[] => (Array.isArray(roh) ? roh.filter((x): x is string => typeof x === 'string') : []);
 // Persönlich (reist mit der Sicherung, `ueben:sammlungen-reihenfolge`): die
 // Namen in der Reihenfolge, in der die Leiste sie zeigt. Was in der Liste
 // fehlt (neue Sammlungen, aus einem Ordner übernommene), kommt dahinter in
@@ -84,41 +87,63 @@ export function reihenfolgeUmbenennen(reihenfolge: string[], alt: string, neu: s
 }
 
 // ── Stückauswahl nach Sammlungen (F-23) ──
-// Wo Stücke zur Auswahl stehen, sind sie nach Sammlungen geordnet: je
-// Sammlung eine Gruppe in der Reihenfolge der Bibliothek, darin A–Z wie in
-// der Bibliothek (nachTitel), zuletzt „Ohne Sammlung“. Ein Stück in mehreren
-// Sammlungen steht in jeder davon — dort, wo man es sucht, wie in der großen
-// Ansicht (F-21) — und nennt die übrigen („auch“). Umschaltbar auf eine
-// Liste A–Z (jedes Stück einmal) und eingrenzbar auf eine Sammlung oder auf
-// „Ohne Sammlung“. Gezählt wird nur, was zur Wahl steht.
+// Wo Stücke zur Auswahl stehen, sind sie nach Sammlungen geordnet und
+// durchsuchbar: je Sammlung eine Gruppe in der Reihenfolge der Bibliothek,
+// darin A–Z wie in der Bibliothek (nachTitel), zuletzt „Ohne Sammlung“. Ein
+// Stück in mehreren Sammlungen steht in jeder davon — dort, wo man es sucht,
+// wie in der großen Ansicht (F-21) — und nennt die übrigen („auch“).
+// Umschaltbar auf eine Liste A–Z (jedes Stück einmal) und eingrenzbar auf eine
+// Sammlung oder auf „Ohne Sammlung“. Gezählt wird nur, was zur Wahl steht.
 
 // Eingrenzung „Ohne Sammlung“: Eine Sammlung kann nicht leer heißen (sammlungName).
 export const OHNE_SAMMLUNG = '';
 export type WahlAnsicht = 'sammlungen' | 'abc';
 /** null: alle; ein Name: nur diese Sammlung; OHNE_SAMMLUNG: nur Stücke ohne Sammlung. */
 export type Eingrenzung = string | null;
-type Waehlbar = { titel: string; stimme: string; sammlungen?: unknown };
+type Waehlbar = { titel: string; stimme: string; sammlungen?: unknown; komponist?: unknown };
 /** auch: die übrigen Sammlungen des Stücks (in der Gruppe „alle“: alle), Reihenfolge und Schreibweise der Übersicht. */
 export interface WahlZeile<T> { stueck: T; auch: string[] }
 /** art „sammlung“ mit ihrem Namen; „ohne“ und „alle“ (eine Liste ohne Gliederung) haben keinen. */
 export interface WahlGruppe<T> { art: 'sammlung' | 'ohne' | 'alle'; name: string; zeilen: WahlZeile<T>[] }
 export interface StueckAuswahl<T> {
-  // Für die Chips: Sammlungen der wählbaren Stücke in der Reihenfolge der Bibliothek, mit Zahl.
+  // Für die Chips: die Sammlungen aller wählbaren Stücke in der Reihenfolge der
+  // Bibliothek — beim Suchen dieselben (nichts rückt), die Zahl nennt die Treffer.
   sammlungen: { name: string; anzahl: number }[];
+  // Treffer ohne Sammlung; ohneDa: Gibt es unter den wählbaren überhaupt welche (Chip „Ohne Sammlung“)?
   ohne: number;
+  ohneDa: boolean;
   // Die geltende Eingrenzung — was es unter den wählbaren Stücken nicht gibt, wird null.
   eingrenzung: Eingrenzung;
   gruppen: WahlGruppe<T>[];
+  // Treffer unter allen wählbaren Stücken, unabhängig von der Eingrenzung (ohne Suche: alle).
+  treffer: number;
 }
 
-export function stueckAuswahl<T extends Waehlbar>(stuecke: readonly T[], reihenfolge: readonly string[], ansicht: WahlAnsicht, eingrenzung: Eingrenzung): StueckAuswahl<T> {
-  const sammlungen = sammlungenOrdnen(sammlungenUebersicht([...stuecke]), [...reihenfolge]);
-  const namen = sammlungen.map((s) => s.name);
+// ── Suchen ── Titel, Stimme, Komponist; Groß/klein, Akzente und ß egal
+// („marsch“ findet „Märsche“, „etude“ findet „Étude“). Mehrere Wörter müssen
+// alle vorkommen, gleich in welchem Feld („blue 2“).
+export const suchForm = (text: string) => text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/ß/g, 'ss');
+export const suchWoerter = (suche: string) => suchForm(suche).split(/\s+/).filter(Boolean);
+export function passtZurSuche(s: Waehlbar, woerter: readonly string[]): boolean {
+  if (!woerter.length) return true;
+  const text = suchForm([s.titel, s.stimme, typeof s.komponist === 'string' ? s.komponist : ''].join(' '));
+  return woerter.every((w) => text.includes(w));
+}
+
+export function stueckAuswahl<T extends Waehlbar>(
+  stuecke: readonly T[], reihenfolge: readonly string[], ansicht: WahlAnsicht, eingrenzung: Eingrenzung, suche = '',
+): StueckAuswahl<T> {
+  const woerter = suchWoerter(suche);
+  const passend = woerter.length ? stuecke.filter((s) => passtZurSuche(s, woerter)) : stuecke;
+  const alleSammlungen = sammlungenOrdnen(sammlungenUebersicht([...stuecke]), [...reihenfolge]);
+  const namen = alleSammlungen.map((s) => s.name);
   // Sammlungen eines Stücks in der Schreibweise und Reihenfolge der Übersicht.
   const vonStueck = (s: T) => { const eigene = sammlungenVon(s); return namen.filter((n) => eigene.some((x) => gleich(x, n))); };
-  const az = [...stuecke].sort(nachTitel);
+  const az = [...passend].sort(nachTitel);
   const ohneListe = az.filter((s) => sammlungenVon(s).length === 0);
-  const gilt: Eingrenzung = eingrenzung === OHNE_SAMMLUNG ? (ohneListe.length ? OHNE_SAMMLUNG : null)
+  const ohneDa = stuecke.some((s) => sammlungenVon(s).length === 0);
+  // Ob es die Eingrenzung gibt, entscheiden alle wählbaren Stücke, nicht die Treffer.
+  const gilt: Eingrenzung = eingrenzung === OHNE_SAMMLUNG ? (ohneDa ? OHNE_SAMMLUNG : null)
     : eingrenzung === null ? null : namen.find((n) => gleich(n, eingrenzung)) ?? null;
   const gruppe = (name: string): WahlGruppe<T> => ({
     art: 'sammlung', name,
@@ -128,25 +153,33 @@ export function stueckAuswahl<T extends Waehlbar>(stuecke: readonly T[], reihenf
   let gruppen: WahlGruppe<T>[];
   if (gilt === OHNE_SAMMLUNG) gruppen = [ohne];
   else if (gilt !== null) gruppen = [gruppe(gilt)];
-  else if (ansicht === 'abc' || !namen.length) gruppen = az.length ? [{ art: 'alle', name: '', zeilen: az.map((s) => ({ stueck: s, auch: vonStueck(s) })) }] : [];
-  else gruppen = [...namen.map(gruppe), ...(ohneListe.length ? [ohne] : [])];
-  return { sammlungen, ohne: ohneListe.length, eingrenzung: gilt, gruppen };
+  else if (ansicht === 'abc' || !namen.length) gruppen = [{ art: 'alle', name: '', zeilen: az.map((s) => ({ stueck: s, auch: vonStueck(s) })) }];
+  else gruppen = [...namen.map(gruppe), ohne];
+  return {
+    sammlungen: alleSammlungen.map((s) => ({ name: s.name, anzahl: woerter.length ? passend.filter((p) => imFilter(p, s.name)).length : s.anzahl })),
+    ohne: ohneListe.length, ohneDa, eingrenzung: gilt,
+    // Gruppen ohne Zeilen (beim Suchen) fallen weg — keine leeren Überschriften.
+    gruppen: gruppen.filter((g) => g.zeilen.length > 0),
+    treffer: passend.length,
+  };
 }
 
-// Beim Öffnen einer Auswahl: Ansicht und Eingrenzung sind am Gerät gemerkt
-// (`ueben:stueckwahl`, ein Filter — reist nicht mit), für alle Auswahlen
-// gemeinsam. Noch keine Sammlung getippt → die zuletzt in der Bibliothek
-// gewählte (`ueben:sammlung`), wie beim Stellen-Mix (mixQuelle). Was es
-// unter den wählbaren Stücken nicht gibt, wird „alle“; ebenso, wenn das
-// gewählte Stück nicht in der Eingrenzung liegt — die Wahl bleibt sichtbar.
+// Beim Öffnen einer Auswahl (Rückmeldung Marlon 2026-11-19): Sie beginnt
+// immer bei der Sammlung, die gerade in der Bibliothek gewählt ist
+// (`ueben:sammlung`) — keine eigene gemerkte Eingrenzung. Gemerkt am Gerät
+// bleibt nur die Ansicht (`ueben:stueckwahl`, { ansicht }, für alle Auswahlen
+// gemeinsam; reist nicht mit). Ein früher dort gemerktes `sammlung` zählt
+// nicht mehr. Was es unter den wählbaren Stücken nicht gibt, wird „alle“;
+// ebenso, wenn das gewählte Stück nicht in der Sammlung liegt — die Wahl
+// bleibt sichtbar.
 export function wahlStart<T extends Waehlbar & { id: string }>(gemerkt: unknown, bibliothek: string | null, stuecke: readonly T[], gewaehlt: string | null):
   { ansicht: WahlAnsicht; eingrenzung: Eingrenzung } {
-  const g = gemerkt && typeof gemerkt === 'object' ? gemerkt as { ansicht?: unknown; sammlung?: unknown } : {};
+  const g = gemerkt && typeof gemerkt === 'object' ? gemerkt as { ansicht?: unknown } : {};
   const ansicht: WahlAnsicht = g.ansicht === 'abc' ? 'abc' : 'sammlungen';
-  const roh = g.sammlung === null || typeof g.sammlung === 'string' ? g.sammlung : bibliothek;
-  let eingrenzung = stueckAuswahl(stuecke, [], ansicht, roh).eingrenzung;
+  // Eine leere Sammlung gibt es nicht: Auch die Bibliothek zeigt dann alle.
+  let eingrenzung = bibliothek ? stueckAuswahl(stuecke, [], ansicht, bibliothek).eingrenzung : null;
   const stueck = gewaehlt === null ? undefined : stuecke.find((s) => s.id === gewaehlt);
-  if (stueck && eingrenzung !== null && (eingrenzung === OHNE_SAMMLUNG ? sammlungenVon(stueck).length > 0 : !imFilter(stueck, eingrenzung))) eingrenzung = null;
+  if (stueck && eingrenzung !== null && !imFilter(stueck, eingrenzung)) eingrenzung = null;
   return { ansicht, eingrenzung };
 }
 
