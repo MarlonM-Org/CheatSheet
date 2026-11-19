@@ -1954,8 +1954,13 @@ button.ohr-note { background: none; color: inherit; font: inherit; cursor: point
 /* Drone (I-18): Tasten fest in einem Raster, Hinweis in reserviertem Feld. */
 .dr-tasten { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
 .dr-farben { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-.dr-tasten button, .dr-farben button { min-height: 2.75rem; padding: 0 4px; border: 1px solid var(--linie-stark); border-radius: 6px; background: var(--karte); font-weight: 700; font-size: 0.95rem; }
-.dr-tasten button[aria-pressed="true"], .dr-farben button[aria-pressed="true"] { border-color: var(--messing); border-width: 2px; background: var(--messing-hell); }
+/* Klang: vier Knöpfe in einer Reihe, keiner schmaler als sein Wort; auf sehr schmalen Telefonen zwei mal zwei. Hinweis immer eine Zeile. */
+.dr-klaenge { display: grid; grid-template-columns: repeat(4, minmax(max-content, 1fr)); gap: 6px; }
+@media (max-width: 359px) { .dr-klaenge { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.dr-klang-hinweis { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dr-tasten button, .dr-farben button, .dr-klaenge button { min-height: 2.75rem; padding: 0 4px; border: 1px solid var(--linie-stark); border-radius: 6px; background: var(--karte); font-weight: 700; font-size: 0.95rem; }
+.dr-tasten button[aria-pressed="true"], .dr-farben button[aria-pressed="true"], .dr-klaenge button[aria-pressed="true"] { border-color: var(--messing); border-width: 2px; background: var(--messing-hell); }
+.dr-klaenge button[aria-pressed="true"] { border-width: 1px; box-shadow: inset 0 0 0 1px var(--messing); } /* gleich breit wie ungewählt: nichts rückt */
 .dr-hinweis { min-height: 2.6em; }
 .dr-status { min-height: 1.5em; }
 .swing-block .segment { display: flex; width: 100%; }
