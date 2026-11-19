@@ -11,6 +11,7 @@ import { skillFinden } from '@/domain/skillkatalog';
 import { AbcZeile } from './AbcZeile';
 import { gespeichert, speichern, useEinstellungenGeladen } from './klang';
 import { useKlickSpieler } from './klickspieler';
+import { LautsprecherSchalter } from './lautsprecher';
 import { skillGeuebt } from './skillspeicher';
 import { useDialogFokus, useEscape } from './tasten';
 import { useSeite } from './seite';
@@ -162,6 +163,8 @@ export function EtuedenBlatt({ schliessen, muster: anfang }: { schliessen: () =>
           <p className="gedaempft text-xs et-hinweis">
             {geuebt === muster.id ? `Zählt für: ${skillNamen}.` : `${klick ? 'Ein Takt Vorzählen, dann ' : ''}${etuede.abschnitte.length === 1 ? 'eine Tonart' : `${etuede.abschnitte.length} Tonarten`} am Stück. „Geübt“ zählt für: ${skillNamen}.`}
           </p>
+          {/* B-20/D-08: dieselbe Wahl wie überall; wirkt, wenn nebenbei das Stimmgerät hört. */}
+          <LautsprecherSchalter />
         </div>
 
         <div ref={flaeche} className="et-noten">

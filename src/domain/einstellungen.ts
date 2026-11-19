@@ -14,7 +14,10 @@
 // Ebenfalls am Gerät: ob der Ton bei offenem Mikrofon aus dem Lautsprecher
 // kommt (ueben:lautsprecher, B-20 — Kopfhörer hat man am Gerät, nicht als
 // Person), samt den früheren Schaltern ueben:einspiel-lautsprecher und
-// ueben:stimm-verstaerken (@/domain/lautsprecher).
+// ueben:stimm-verstaerken (@/domain/lautsprecher). Ebenso, ob Klänge mit
+// Musik anderer Apps mischen (ueben:mischen) und ob das Metronom im
+// Hintergrund weiterläuft (ueben:metronom-hintergrund, D-08) — beides hängt
+// am Gerät und daran, was dort nebenher läuft.
 //
 // Auf dem Gerät liegen die Werte im localStorage (JSON) unter ihrem
 // Schlüssel; dazu der Zeitpunkt der letzten echten Änderung

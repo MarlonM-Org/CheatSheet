@@ -7,6 +7,7 @@ import { tonName } from '@/domain/tonprofil';
 import { STIMMUNGEN, type Ton } from '@/domain/ueben';
 import { AbcZeile } from './AbcZeile';
 import { vorspielen, type Vorspiel } from './klavier';
+import { LautsprecherSchalter } from './lautsprecher';
 import { useMetronom } from './MetronomKontext';
 import { skillGeuebt } from './skillspeicher';
 import { useStimmgeraetApi } from './StimmgeraetKontext';
@@ -193,6 +194,7 @@ export function GriffeBlatt({ schliessen, midi: anfang }: { schliessen: () => vo
               : hoeren ? (gehoert ? `Gehört: ${tonName(gehoert.midi)} ${gehoert.cent >= 0 ? '+' : '−'}${Math.abs(gehoert.cent)} ct${gehoert.midi < BEREICH.von || gehoert.midi > BEREICH.bis ? ' — außerhalb der Tabelle' : ''}` : 'Spiel einen Ton …')
                 : 'Ton wählen oder Mikrofon einschalten und spielen.'}
           </p>
+          <LautsprecherSchalter />
         </div>
 
         {standard && (

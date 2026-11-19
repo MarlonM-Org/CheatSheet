@@ -13,6 +13,7 @@ import { AbcZeile } from './AbcZeile';
 import { takteFuer, useBreite } from './Etueden';
 import { gespeichert, speichern, useEinstellungenGeladen } from './klang';
 import { useKlickSpieler } from './klickspieler';
+import { LautsprecherSchalter } from './lautsprecher';
 import { skillGeuebt } from './skillspeicher';
 import { useDialogFokus, useEscape } from './tasten';
 import { useSeite } from './seite';
@@ -167,6 +168,7 @@ function LickAnsicht({ lick, sp, jetzt, laeuft, spielen, stopp, bewerten, bearbe
       {laeuft
         ? <button type="button" className="knopf w-full" onClick={stopp}>■ Stopp</button>
         : <button type="button" className="knopf w-full" onClick={() => spielen(abschnitteKlaenge(abschnitte, bpm, { klick, vorzaehlen: klick ? 4 : 0 }))}>▶ Vorspielen</button>}
+      <LautsprecherSchalter />
 
       <div ref={ref} className="et-noten">
         {breite > 0 && <AbcZeile abc={abc} hoehe={klasse === 'alle' ? 900 : 110} umbrechen={false} label={`${lick.name}, Noten`} />}

@@ -658,6 +658,7 @@ details[open] > summary::before { transform: rotate(90deg); }
 }
 .ios-schalter:checked { background: var(--messing); border-color: var(--messing); }
 .ios-schalter:checked::after { transform: translateX(18px); }
+.ios-schalter:disabled { opacity: 0.45; cursor: not-allowed; }
 @media (prefers-reduced-motion: reduce) { .ios-schalter, .ios-schalter::after { transition: none; } }
 
 /* Ansicht-Menü: Popover unter der Leiste, Fang-Fläche schließt daneben. */

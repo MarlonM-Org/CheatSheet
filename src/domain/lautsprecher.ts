@@ -12,6 +12,14 @@
 // Ohne offenes Mikrofon kommt jeder Klang ohnehin aus dem Lautsprecher (bzw.
 // Kopfhörer, Bluetooth, AirPlay — was im Kontrollzentrum gewählt ist).
 //
+// Automatisch erkennen, ob Kopfhörer oder eine Box dran sind, kann eine
+// Web-App auf iOS nicht verlässlich (Recherche D-08/B-20, 2026-11-19): Den
+// Audio-Weg (Lautsprecher, Kopfhörer, Bluetooth, AirPlay) verrät WebKit
+// Webseiten nicht. `enumerateDevices` nennt nur Mikrofone, Namen erst nach
+// der Mikrofon-Erlaubnis, und Kopfhörer ohne Mikrofon, Boxen und AirPlay gar
+// nicht. Darum bleibt es beim Schalter, Vorgabe „an“ — der Ton geht ohnehin
+// dorthin, wo iOS ihn hinschickt; „aus“ ändert nur das Mikrofon.
+//
 // Rein und getestet (tests/lautsprecher.test.ts).
 
 // Gerät-Einstellung: ob man gerade Kopfhörer trägt, ist eine Frage des
@@ -38,14 +46,25 @@ export function mikrofonWunsch(lautsprecher: boolean, zweck: MikrofonZweck): Mik
   return { echoCancellation: lautsprecher, noiseSuppression: false, autoGainControl: lautsprecher && zweck === 'erkennen' };
 }
 
-export type Sitzung = 'playback' | 'play-and-record';
+export type Sitzung = 'playback' | 'play-and-record' | 'ambient';
+
+// Mit anderen Apps mischen (D-08): Metronom und Klänge laufen zu Musik aus
+// Spotify, Moises, iReal Pro, statt sie anzuhalten. Gerät-Einstellung (ob
+// nebenher Musik läuft, ist eine Frage des Geräts), Vorgabe aus: gemischt
+// gilt der Stummschalter, und im Hintergrund hält iOS den Ton an.
+export const MISCHEN_SCHLUESSEL = 'ueben:mischen';
+export const MISCHEN_STANDARD = false;
 
 // navigator.audioSession.type: Solange ein Mikrofon offen ist, „play-and-
-// record“ (mit „playback“ stellte iOS das Mikrofon stumm). Sonst immer
-// „playback“ — Ton auch bei Stummschalter, und nach dem Mikrofon kein
-// Hängenbleiben in der Telefon-Lautstärke.
-export function sitzungFuer(offeneMikrofone: number): Sitzung {
-  return offeneMikrofone > 0 ? 'play-and-record' : 'playback';
+// record“ (mit „playback“ stellte iOS das Mikrofon stumm) — auch beim
+// Mischen: WebKit setzt für Aufnahme und Wiedergabe kein „mit anderen
+// mischen“, die andere Musik hält an. Sonst „ambient“, wenn gemischt werden
+// soll (der einzige Typ, den WebKit mischen lässt; „transient“ ist dasselbe),
+// und andernfalls „playback“ — Ton auch bei Stummschalter, im Hintergrund
+// weiter, und nach dem Mikrofon kein Hängenbleiben in der Telefon-Lautstärke.
+export function sitzungFuer(offeneMikrofone: number, mischen = false): Sitzung {
+  if (offeneMikrofone > 0) return 'play-and-record';
+  return mischen ? 'ambient' : 'playback';
 }
 
 function wahrheitswert(roh: string | null): boolean | null {
@@ -61,4 +80,10 @@ export function lautsprecherAnfang(lesen: (k: string) => string | null): boolean
     if (v !== null) return v;
   }
   return LAUTSPRECHER_STANDARD;
+}
+
+// Ein gemerkter Schalter (Gerät): nur ein echter Wahrheitswert zählt, sonst
+// die Vorgabe. Schreibt nichts.
+export function schalterAnfang(lesen: (k: string) => string | null, schluessel: string, standard: boolean): boolean {
+  return wahrheitswert(lesen(schluessel)) ?? standard;
 }
