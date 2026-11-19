@@ -8,7 +8,10 @@ import {
 } from '@/domain/notation';
 import type { Stueck } from '@/domain/bestand';
 import { TAKTARTEN, taktartText, type Nenner } from '@/domain/takt';
-import { aufBlatt, aufsBlattStimmen, einstimmig, leeresBlatt, skalieren } from '@/domain/notensatz';
+import { aufBlatt, aufsBlattStimmen, einstimmig, leeresBlatt, skalieren, type Klang } from '@/domain/notensatz';
+import { akkordeNachfuehren, rahmenTakte, type Rahmen } from '@/domain/akkordrahmen';
+import { akkordTakte, alsKlaenge, begleitungBauen, istStil, type BegleitStil } from '@/domain/begleitung';
+import { schlaegeJeTakt } from '@/domain/takt';
 import { frequenzZuTon, grundfrequenz, type Stimmung } from '@/domain/ueben';
 import { audioSitzung, gespeichert, speichern } from './klang';
 import { useMikrofonSpur } from './mikrofonspur';
@@ -81,17 +84,19 @@ interface Wiedergabe { ctx: AudioContext; quelle: AudioBufferSourceNode; beginn:
 // („Komponieren“ in der Notenansicht) — Speichern schreibt es neu.
 export interface Vorlage { stueck: Stueck; gelesen: Gelesen }
 
-export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlage, fertig, schliessen }: {
+export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlage, rahmen, fertig, schliessen }: {
   quelle: EinspielQuelle;
   sammlungen: string[]; tags: string[];
   vorlage?: Vorlage;
+  // Akkordrahmen (aus der Jam-Karte): leere Takte mit Akkorden darüber, Begleitung beim Vorspielen und Aufnehmen.
+  rahmen?: Rahmen;
   fertig: (meldung: string) => void;
   schliessen: () => void;
 }) {
   const metro = useMetronom();
   const stimm = useStimmgeraetApi();
-  const [quelle, setQuelle] = useState<EinspielQuelle>(vorlage ? 'leer' : quelleStart);
-  const [phase, setPhase] = useState<Phase>(vorlage || quelleStart === 'leer' ? 'vorschlag' : 'bereit');
+  const [quelle, setQuelle] = useState<EinspielQuelle>(vorlage || rahmen ? 'leer' : quelleStart);
+  const [phase, setPhase] = useState<Phase>(vorlage || rahmen || quelleStart === 'leer' ? 'vorschlag' : 'bereit');
   // Raster: Vorgaben vom Metronom (bei einer Vorlage: aus ihr), hier nur für diese Aufnahme geändert.
   const [bpm, setBpmRoh] = useState(vorlage ? vorlage.gelesen.raster.bpm : metro.bpm);
   const setBpm = (n: number) => setBpmRoh(Math.min(300, Math.max(20, Math.round(n))));
@@ -99,7 +104,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
   // und begrenzt beim Verlassen oder mit Enter.
   const [tempoText, setTempoText] = useState<string | null>(null);
   const tempoUebernehmen = () => { const n = Number(tempoText); if (n) setBpm(n); setTempoText(null); };
-  const [taktart, setTaktart] = useState<[number, Nenner]>(vorlage ? [vorlage.gelesen.raster.zaehler, vorlage.gelesen.raster.nenner] : [metro.takt, metro.nenner]);
+  const [taktart, setTaktart] = useState<[number, Nenner]>(vorlage ? [vorlage.gelesen.raster.zaehler, vorlage.gelesen.raster.nenner] : rahmen ? [4, 4] : [metro.takt, metro.nenner]);
   const [feinheit, setFeinheitRoh] = useState<Feinheit>(() => (gespeichert<number>(FEINHEIT_SCHLUESSEL, 16) === 8 ? 8 : 16));
   const setFeinheit = (f: Feinheit) => { setFeinheitRoh(f); speichern(FEINHEIT_SCHLUESSEL, f); };
   // Lesart der Erkennung: melodisch (gehaltene Töne) oder rhythmisch (kurze Töne, Schwellen folgen dem Tempo).
@@ -111,7 +116,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
   const setLautsprecher = (an: boolean) => { setLautsprecherRoh(an); speichern(LAUTSPRECHER_SCHLUESSEL, an); };
   // Tonart (notiert, wie das Stimmgerät zeigt): zieht die Töne auf die Leiter
   // und setzt die Vorzeichen; leer = keine Tonart, Töne bleiben, wie gehört.
-  const [tonartAbc, setTonartAbcRoh] = useState(() => (vorlage ? vorlage.gelesen.tonart?.abc ?? '' : gespeichert<string>(TONART_SCHLUESSEL, 'C')));
+  const [tonartAbc, setTonartAbcRoh] = useState(() => (vorlage ? vorlage.gelesen.tonart?.abc ?? '' : rahmen ? rahmen.tonart?.abc ?? '' : gespeichert<string>(TONART_SCHLUESSEL, 'C')));
   const setTonartAbc = (a: string) => { setTonartAbcRoh(a); speichern(TONART_SCHLUESSEL, a); setTonartBlatt(null); };
   const tonart = useMemo(() => tonartFinden(tonartAbc), [tonartAbc]);
   // Tonart des Blatts nach dem Transponieren (null: wie die Erkennung). Nur
@@ -133,7 +138,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
   const [start, setStart] = useState(0);
   const [dauer, setDauer] = useState(0); // Länge der Datei in Sekunden
   const [dateiName, setDateiName] = useState('');
-  const [titel, setTitel] = useState(vorlage?.stueck.titel ?? '');
+  const [titel, setTitel] = useState(vorlage?.stueck.titel ?? rahmen?.titel ?? '');
   const [fehler, setFehler] = useState('');
   const [laeuft, setLaeuft] = useState<string | null>(null);
   const [spielt, setSpielt] = useState(false);
@@ -159,7 +164,10 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
   const blattRaster = useMemo(() => aufBlatt(raster), [raster]);
   // Schreiben: ein leerer Takt in der Taktart (Tempo und Tonart ändern das Blatt nicht).
   const [zaehler, nenner] = taktart;
-  const leer = useMemo(() => leeresBlatt(aufBlatt({ bpm: 60, zaehler, nenner, feinheit: 16 })), [zaehler, nenner]);
+  const leer = useMemo(() => {
+    const b = aufBlatt({ bpm: 60, zaehler, nenner, feinheit: 16 });
+    return rahmen?.akkorde.length ? rahmenTakte(rahmen.akkorde, b) : leeresBlatt(b);
+  }, [zaehler, nenner, rahmen]);
   // Grundlage als eine Stimme; mehr Stimmen kommen im Notenblatt dazu.
   const basisLeer = useMemo(() => einstimmig(leer), [leer]);
   const basisErkannt = useMemo(() => einstimmig(erkannt), [erkannt]);
@@ -170,9 +178,16 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
     () => (vorlage ? { basis: basisLeer, stimmen: aufsBlattStimmen(vorlage.gelesen.stimmen, vorlage.gelesen.raster.feinheit, vorlage.gelesen.raster) } : null));
   const stimmen = bearbeitet && bearbeitet.basis === basis ? bearbeitet.stimmen : basis;
   const takte = stimmen[0]?.takte ?? [];
+  // Akkordsymbole je Takt (Leadsheet): aus dem Rahmen oder der Vorlage; sie bleiben bei ihren Takten (akkordeNachfuehren).
+  const [akkorde, setAkkorde] = useState<string[][]>(() => rahmen?.akkorde ?? vorlage?.gelesen.akkorde ?? []);
+  const akkordeRef = useRef(akkorde);
+  useEffect(() => { akkordeRef.current = akkorde; }, [akkorde]);
+  const [stil, setStil] = useState<BegleitStil>(() => rahmen?.begleitung ?? (istStil(vorlage?.gelesen.begleitung) ? vorlage.gelesen.begleitung : 'swing'));
+  const hatAkkorde = akkorde.some((x) => x.length);
   // Verlauf für Rückgängig/Wiederherstellen — je Eintrag mit seiner Grundlage,
   // ein Eintrag aus einer anderen Grundlage (neue Aufnahme) zählt nicht.
-  const verlauf = useRef<{ zurueck: { basis: Stimme[]; stimmen: Stimme[]; tonart: string | null }[]; vor: { basis: Stimme[]; stimmen: Stimme[]; tonart: string | null }[] }>({ zurueck: [], vor: [] });
+  type Schritt = { basis: Stimme[]; stimmen: Stimme[]; tonart: string | null; akkorde: string[][] };
+  const verlauf = useRef<{ zurueck: Schritt[]; vor: Schritt[] }>({ zurueck: [], vor: [] });
   // Ob es etwas zurück- oder vorzugehen gibt (für die Knöpfe) — als Zustand, nicht aus dem Ref gelesen.
   const [kann, setKann] = useState({ zurueck: false, vor: false });
   const stimmenRef = useRef(stimmen);
@@ -181,22 +196,27 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
     const v = verlauf.current;
     setKann({ zurueck: v.zurueck.some((e) => e.basis === b), vor: v.vor.some((e) => e.basis === b) });
   }, []);
-  const aendern = useCallback((neu: Stimme[]) => {
+  const aendern = useCallback((neu: Stimme[], neueAkkorde?: string[][]) => {
     const v = verlauf.current;
-    v.zurueck.push({ basis, stimmen: stimmenRef.current, tonart: tonartBlattRef.current });
+    v.zurueck.push({ basis, stimmen: stimmenRef.current, tonart: tonartBlattRef.current, akkorde: akkordeRef.current });
     if (v.zurueck.length > 200) v.zurueck.shift();
     v.vor = [];
+    const akk = neueAkkorde ?? akkordeNachfuehren(stimmenRef.current, neu, akkordeRef.current);
     stimmenRef.current = neu;
+    akkordeRef.current = akk;
     setBearbeitet({ basis, stimmen: neu });
+    setAkkorde(akk);
     kannNeu(basis);
   }, [basis, kannNeu]);
   const zurueck = () => {
     const v = verlauf.current;
     const e = v.zurueck.pop();
     if (!e || e.basis !== basis) { if (e) v.zurueck.push(e); return; }
-    v.vor.push({ basis, stimmen: stimmenRef.current, tonart: tonartBlattRef.current });
+    v.vor.push({ basis, stimmen: stimmenRef.current, tonart: tonartBlattRef.current, akkorde: akkordeRef.current });
     stimmenRef.current = e.stimmen;
+    akkordeRef.current = e.akkorde;
     setBearbeitet({ basis, stimmen: e.stimmen });
+    setAkkorde(e.akkorde);
     setTonartBlatt(e.tonart);
     kannNeu(basis);
   };
@@ -204,9 +224,11 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
     const v = verlauf.current;
     const e = v.vor.pop();
     if (!e || e.basis !== basis) { if (e) v.vor.push(e); return; }
-    v.zurueck.push({ basis, stimmen: stimmenRef.current, tonart: tonartBlattRef.current });
+    v.zurueck.push({ basis, stimmen: stimmenRef.current, tonart: tonartBlattRef.current, akkorde: akkordeRef.current });
     stimmenRef.current = e.stimmen;
+    akkordeRef.current = e.akkorde;
     setBearbeitet({ basis, stimmen: e.stimmen });
+    setAkkorde(e.akkorde);
     setTonartBlatt(e.tonart);
     kannNeu(basis);
   };
@@ -225,6 +247,15 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
     const s = blattStand.aktiv;
     setAuswahlVorgabe({ stimme: s, takt: Math.min(naechsterTakt, Math.max(0, (neu[s]?.takte.length ?? 1) - 1)), note: 0 });
   }, [aendern, blattStand.aktiv]);
+
+  // Begleitung aus den Akkorden beim Aufnehmen: Klänge ab `ziel − vor` bis `ziel + n` Takte, Zeit ab dem Zieltakt.
+  const begleitKlaenge = useCallback((ziel: number, vor: number, n: number): Klang[] => {
+    if (!hatAkkorde) return [];
+    const schlaege = schlaegeJeTakt(raster.zaehler, raster.nenner), td = taktDauer(raster);
+    const voll = Array.from({ length: Math.max(takte.length, ziel + n) }, (_, i) => akkorde[i] ?? []);
+    return alsKlaenge(begleitungBauen(akkordTakte(voll), stil, { schlaege, schleife: false }), raster.bpm, { schlaege, ab: Math.max(0, ziel - vor), bis: ziel + n })
+      .map((k) => ({ ...k, beginn: k.beginn - Math.min(vor, ziel) * td }));
+  }, [hatAkkorde, raster, takte.length, akkorde, stil]);
 
   // ── Spur zeichnen ──
   const zeichnen = useCallback((liste: readonly Tonrahmen[], jetzt: number | null) => {
@@ -399,7 +430,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
     if (!takte.length || laeuft) return;
     setFehler('');
     const name = titel.trim() || vorlage?.stueck.titel || (quelle === 'mikro' ? 'Eingesungen' : quelle === 'leer' ? 'Neues Stück' : dateiName.replace(/\.[^.]+$/, '') || 'Aus Audio');
-    const text = alsAbcStimmen(stimmen, blattRaster, { titel: name }, tonartAnzeige);
+    const text = alsAbcStimmen(stimmen, blattRaster, { titel: name, ...(hatAkkorde ? { begleitung: stil } : {}) }, tonartAnzeige, akkorde);
     try {
       setLaeuft('Noten werden gezeichnet …');
       await luft();
@@ -435,13 +466,13 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
   // aufgenommen). Schreiben: Taktart und kleinster Wert, sobald etwas auf
   // dem Blatt steht — sonst wäre es weg; das Tempo bleibt frei.
   const festesTempo = quelle === 'mikro' && phase !== 'bereit';
-  const festesRaster = festesTempo || (quelle === 'leer' && !!bearbeitet);
+  const festesRaster = festesTempo || (quelle === 'leer' && (!!bearbeitet || !!rahmen));
   const stimmungHinweis = stimm.stimmung !== 'C' ? ` · notiert für ${stimm.stimmung}-Instrument` : '';
 
   return createPortal(
     <div className="scan-dialog" role="dialog" aria-modal="true" aria-label="Selbst schreiben, einsingen oder Audio laden" ref={fokus} tabIndex={-1}>
       <div className="panel-kopf mit-linie">
-        <h2>{vorlage ? 'Komponieren' : quelle === 'mikro' ? 'Einsingen' : quelle === 'leer' ? 'Schreiben' : 'Aus Audio'}</h2>
+        <h2>{vorlage || rahmen ? 'Komponieren' : quelle === 'mikro' ? 'Einsingen' : quelle === 'leer' ? 'Schreiben' : 'Aus Audio'}</h2>
         <span className="bib-anzahl">{phase === 'vorschlag' && takte.length ? `· ${takte.length} ${takte.length === 1 ? 'Takt' : 'Takte'}` : ''}</span>
         <span className="flex-1" />
         <button type="button" className="panel-zu" onClick={schliessen} disabled={beschaeftigt} aria-label="Abbrechen">
@@ -454,7 +485,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
       <div className="scan-inhalt" style={leiste ? { paddingBottom: '10rem' } : undefined}>
         {fehler && <p className="karte warnung" role="alert">{fehler}</p>}
 
-        {!vorlage && (
+        {!vorlage && !rahmen && (
           <div className="segment !mx-0" role="group" aria-label="Quelle">
             <button type="button" aria-pressed={quelle === 'mikro'} onClick={() => quelleWechseln('mikro')} disabled={beschaeftigt}>Mikrofon</button>
             <button type="button" aria-pressed={quelle === 'datei'} onClick={() => quelleWechseln('datei')} disabled={beschaeftigt}>Audio-Datei</button>
@@ -591,7 +622,8 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
                   verlauf={{ zurueck: kannZurueck ? zurueck : null, vor: kannVor ? vor : null }}
                   hervorgehoben={vorschau ? { stimme: blattStand.aktiv, von: vorschau.von, bis: vorschau.bis, farbe: 'messing' } : null}
                   aufnehmen={quelle === 'leer' && !leiste && typeof navigator !== 'undefined' && !!navigator.mediaDevices ? () => setLeiste(true) : undefined}
-                  beiStand={setBlattStand} auswahlVorgabe={auswahlVorgabe} />
+                  beiStand={setBlattStand} auswahlVorgabe={auswahlVorgabe}
+                  akkorde={akkorde} begleitung={{ stil, setzen: setStil }} />
               : (
                 <div className="einspiel-zeile">
                   <p className="gedaempft text-sm">Kein Ton erkannt. Näher ans Mikrofon, lauter, oder eine andere Datei.</p>
@@ -599,6 +631,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
                 </div>
               )}
             {quelle !== 'leer' && <p className="gedaempft text-xs">Ein Vorschlag — die Erkennung ist nie fehlerfrei; hier lässt er sich korrigieren. Die Quelle (ABC) bleibt am Stück.</p>}
+            {rahmen && <p className="gedaempft text-xs">▶ spielt die Begleitung aus den Akkorden, ● nimmt ab dem gewählten Takt auf — die Begleitung läuft mit (am besten mit Kopfhörer). Akkorde und Stil: Mehr → Akkorde.</p>}
           </div>
         )}
       </div>
@@ -606,7 +639,8 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
         <Aufnahmeleiste stimmen={stimmen} aktiv={blattStand.aktiv} stumm={blattStand.stumm} auswahlTakt={blattStand.auswahl?.takt ?? null}
           raster={raster} blattRaster={blattRaster} tonart={tonart} lesart={lesart} setLesart={setLesart} lautsprecher={lautsprecher} setLautsprecher={setLautsprecher}
           metro={{ klang: metro.klang, laut: metro.laut }} stimmung={stimm.stimmung} kammerton={stimm.kammerton}
-          vorschauAendern={setVorschau} zustandAendern={setLeistenZustand} uebernehmen={leisteUebernehmen} schliessen={leisteSchliessen} />
+          vorschauAendern={setVorschau} zustandAendern={setLeistenZustand} uebernehmen={leisteUebernehmen} schliessen={leisteSchliessen}
+          akkordBegleitung={hatAkkorde ? begleitKlaenge : undefined} />
       )}
       </div>
       <form className="scan-fuss" onSubmit={(e) => { e.preventDefault(); void speichernUndSchliessen(); }}>

@@ -18,7 +18,7 @@ import { frequenzZuTon, grundfrequenz, type Stimmung } from '@/domain/ueben';
 import { EINSTELLUNG_STANDARD } from '@/domain/einstellungen';
 import { schlagKlingt, type Swing } from '@/domain/swing';
 import { audioSitzung, gespeichert, klangPuffer, mikrofonOffen, mikrofonWunsch, useBeimVerlassen, wachHalten, type Klang as MetronomKlang } from './klang';
-import { klavierTon, klingend } from './klavier';
+import { klangSpielen, klingend } from './klavier';
 
 // Pegel, ab dem ein Fenster als Ton gilt (−50 dBFS): das rohe Mikrofon ohne
 // Verstärkung liefert aus einem Meter Abstand deutlich weniger als das
@@ -115,7 +115,7 @@ export function useMikrofonSpur() {
         klavier.connect(ctx.destination);
         for (const k of o.vorlauf.klaenge) {
           const start = t0 + k.beginn;
-          if (start >= beginn - 1e-3 && k.dauer > 0.01) klavierTon(ctx, klavier, klingend(k.midi, o.stimmung, o.kammerton), Math.max(beginn, start), k.dauer);
+          if (start >= beginn - 1e-3 && k.dauer > 0.01) klangSpielen(ctx, klavier, k, klingend(k.midi, o.stimmung, o.kammerton), Math.max(beginn, start));
         }
       }
       rahmen.current = [];

@@ -654,8 +654,10 @@ export const aufsBlattStimmen = (stimmen: readonly Stimme[], von: number, r: Ras
 // ── Vorspielen ──
 
 // Ein Klang: Beginn und Dauer in Sekunden, notierte Tonhöhe. Gebundene Noten
-// (auch über Taktstriche) sind ein Klang; Pausen klingen nicht.
-export interface Klang { beginn: number; dauer: number; midi: number }
+// (auch über Taktstriche) sind ein Klang; Pausen klingen nicht. Die
+// Begleitung aus Akkorden (./begleitung) sagt dazu, wer spielt (Bass klingt
+// anders als Klavier) und wie stark (0…1, fehlt: voll).
+export interface Klang { beginn: number; dauer: number; midi: number; stimme?: 'bass' | 'akkord' | 'melodie'; staerke?: number }
 export function klaenge(takte: readonly Takt[], r: Raster): Klang[] {
   const zd = zellenDauer(r);
   const liste: Klang[] = [];

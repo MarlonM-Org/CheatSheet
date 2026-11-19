@@ -12,7 +12,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LESARTEN, rastern, versatzSchaetzen, type Lesart, type Raster, type Stimme, type Takt, type Tonart, type Tonrahmen } from '@/domain/notation';
-import { leererTakt, skalieren } from '@/domain/notensatz';
+import { leererTakt, skalieren, type Klang } from '@/domain/notensatz';
 import { abschnittKuerzen, bereichSetzen, bereichTakte, nachlaufKuerzen, takteEinsetzen, vorgabeArt, vorlaufKlaenge, type Bereich, type EinsetzArt } from '@/domain/taktaufnahme';
 import { schlaegeJeTakt, taktartText } from '@/domain/takt';
 import type { Stimmung } from '@/domain/ueben';
@@ -30,7 +30,7 @@ export type LeistenZustand = 'scharf' | 'zaehlt' | 'nimmt' | 'pruefen';
 export interface Vorschau { stimmen: Stimme[]; von: number; bis: number }
 
 export function Aufnahmeleiste({ stimmen, aktiv, stumm, auswahlTakt, raster, blattRaster, tonart, lesart, setLesart, lautsprecher, setLautsprecher,
-  metro, stimmung, kammerton, vorschauAendern, zustandAendern, uebernehmen, schliessen }: {
+  metro, stimmung, kammerton, vorschauAendern, zustandAendern, uebernehmen, schliessen, akkordBegleitung }: {
   stimmen: Stimme[]; aktiv: number; stumm: number[]; auswahlTakt: number | null;
   raster: Raster; blattRaster: Raster; tonart: Tonart | null;
   lesart: Lesart; setLesart: (l: Lesart) => void;
@@ -42,11 +42,15 @@ export function Aufnahmeleiste({ stimmen, aktiv, stumm, auswahlTakt, raster, bla
   // Übernehmen: die neuen Stimmen und der Takt, auf dem die Leiste danach steht.
   uebernehmen: (stimmen: Stimme[], naechsterTakt: number) => void;
   schliessen: () => void;
+  // Begleitung aus den Akkorden (Akkordrahmen, I-04): Klänge ab `ziel − vor` für `n` Takte, Zeit ab dem Zieltakt.
+  // Damit endet eine offene Aufnahme am Ende der Form, und Ersetzen ist die Vorgabe (die Akkorde bleiben bei ihren Takten).
+  akkordBegleitung?: (ziel: number, vor: number, n: number) => Klang[];
 }) {
   const takte = stimmen[aktiv]?.takte ?? [];
   const [zustand, setZustand] = useState<LeistenZustand>('scharf');
   // Aufnahmebereich: Zieltakt und auf Wunsch ein Endtakt (Regeln in taktaufnahme.ts).
-  const [bereichRoh, setBereich] = useState<Bereich>(() => ({ von: auswahlTakt ?? takte.length, bis: null }));
+  // Ohne Auswahl: anhängen — im Akkordrahmen aber von vorn, über die Form.
+  const [bereichRoh, setBereich] = useState<Bereich>(() => ({ von: auswahlTakt ?? (akkordBegleitung ? 0 : takte.length), bis: null }));
   const { von: zielTakt, bis } = bereichSetzen(bereichRoh, {}, takte.length);
   const bereichAendern = (neu: Partial<Bereich>) => setBereich((b) => bereichSetzen(b, neu, takte.length));
   // Antippen im Blatt setzt den Zieltakt, solange nichts läuft (abgeleitet, kein Effekt).
@@ -58,6 +62,7 @@ export function Aufnahmeleiste({ stimmen, aktiv, stumm, auswahlTakt, raster, bla
   const [begleitung, setBegleitungRoh] = useState(() => gespeichert(BEGLEITUNG_SCHLUESSEL, false));
   const setBegleitung = (an: boolean) => { setBegleitungRoh(an); speichern(BEGLEITUNG_SCHLUESSEL, an); };
   const [menue, setMenue] = useState(false);
+  const [mitAkkorden, setMitAkkorden] = useState(true);
   const [fehler, setFehler] = useState('');
   // Die Spur des Abschnitts, schon um die Latenz vorgezogen.
   const [spur, setSpur] = useState<Tonrahmen[]>([]);
@@ -79,7 +84,7 @@ export function Aufnahmeleiste({ stimmen, aktiv, stumm, auswahlTakt, raster, bla
     return { takte: gekuerzt, nachklangWeg: gekuerzt.length < roh.length };
   }, [zustand, spur, raster, blattRaster, tonart, lesart]);
   const n = Math.min(anzahl ?? erkannt.takte.length, erkannt.takte.length);
-  const art: EinsetzArt = artWahl ?? vorgabeArt(takte, zielTakt, erkannt.takte.length || 1, bis !== null);
+  const art: EinsetzArt = artWahl ?? vorgabeArt(takte, zielTakt, erkannt.takte.length || 1, bis !== null || !!akkordBegleitung);
   const setArt = setArtWahl;
   const vorschau = useMemo<Vorschau | null>(() => {
     if (zustand !== 'pruefen' || !n) return null;
@@ -92,12 +97,16 @@ export function Aufnahmeleiste({ stimmen, aktiv, stumm, auswahlTakt, raster, bla
   const starten = useCallback(() => {
     setFehler('');
     const vorlaufTakte = Math.min(vorlauf, zielTakt);
-    const klaenge = vorlaufKlaenge(stimmen, blattRaster, new Set(stumm), aktiv, zielTakt, vorlaufTakte, begleitung);
+    // Mit Akkordrahmen läuft eine offene Aufnahme bis zum Ende der Form.
+    const offen = akkordBegleitung && zielTakt < takte.length ? Math.min(MAX_TAKTE, takte.length - zielTakt) : MAX_TAKTE;
+    const maxTakte = bereichTakte({ von: zielTakt, bis }, offen);
+    const band = akkordBegleitung && mitAkkorden ? akkordBegleitung(zielTakt, vorlaufTakte, maxTakte) : [];
+    const klaenge = [...vorlaufKlaenge(stimmen, blattRaster, new Set(stumm), aktiv, zielTakt, vorlaufTakte, begleitung), ...band].sort((x, y) => x.beginn - y.beginn);
     void mikrofonStarten({
       raster, lautsprecher, klickWeiter: true, metro, stimmung, kammerton,
       einzaehlTakte: vorlaufTakte ? 0 : 1,
-      vorlauf: vorlaufTakte ? { klaenge, takte: vorlaufTakte } : null,
-      maxTakte: bereichTakte({ von: zielTakt, bis }, MAX_TAKTE),
+      vorlauf: vorlaufTakte || band.length ? { klaenge, takte: vorlaufTakte } : null,
+      maxTakte,
       beiPhase: setZustand,
       beiEnde: (liste, ok) => {
         if (ok) {
@@ -112,7 +121,7 @@ export function Aufnahmeleiste({ stimmen, aktiv, stumm, auswahlTakt, raster, bla
       },
       beiFehler: (t) => { setFehler(t); setZustand('scharf'); },
     });
-  }, [vorlauf, zielTakt, bis, stimmen, blattRaster, stumm, aktiv, begleitung, mikrofonStarten, raster, lautsprecher, metro, stimmung, kammerton, letzterVersatz]);
+  }, [vorlauf, zielTakt, bis, stimmen, blattRaster, stumm, aktiv, begleitung, mikrofonStarten, raster, lautsprecher, metro, stimmung, kammerton, letzterVersatz, akkordBegleitung, mitAkkorden, takte.length]);
   const stoppen = () => mikrofonStoppen(zustand === 'nimmt');
   const verwerfen = () => { setSpur([]); setZustand('scharf'); };
   const nochmal = () => { setSpur([]); setZustand('scharf'); starten(); };
@@ -141,6 +150,7 @@ export function Aufnahmeleiste({ stimmen, aktiv, stumm, auswahlTakt, raster, bla
   const vorlaufText = zielTakt === 0 || vorlauf === 0 ? 'Einzähler, dann singen' : `Vorlauf: ${vorlauf === 1 ? `Takt ${zielTakt}` : `Takte ${Math.max(1, zielTakt - 1)}–${zielTakt}`} wird vorgespielt, dann singen`;
   const a = mikrofon.anzeige;
   const laeuft = zustand === 'zaehlt' || zustand === 'nimmt';
+  const offenBis = akkordBegleitung && zielTakt < takte.length ? Math.min(MAX_TAKTE, takte.length - zielTakt) : MAX_TAKTE;
 
   return (
     <div ref={panel} className={`aufnahme-leiste ${lage ? 'schwebt' : ''}`} style={lage ? { left: lage.x, top: lage.y } : undefined} role="region" aria-label="Aufnehmen im Stück">
@@ -201,6 +211,12 @@ export function Aufnahmeleiste({ stimmen, aktiv, stumm, auswahlTakt, raster, bla
                         <button type="button" aria-pressed={vorlauf === 2} onClick={() => setVorlauf(2)}>2 Takte</button>
                       </div>
                     </div>
+                    {akkordBegleitung && (
+                      <label className="notensatz-gruppe">
+                        <span>Begleitung aus den Akkorden</span>
+                        <span className="notensatz-reihe"><input type="checkbox" role="switch" className="ios-schalter" checked={mitAkkorden} onChange={(e) => setMitAkkorden(e.target.checked)} /><span className="gedaempft text-xs">Bass und Klavier spielen mit — am besten mit Kopfhörer</span></span>
+                      </label>
+                    )}
                     {stimmen.length > 1 && (
                       <label className="notensatz-gruppe">
                         <span>Begleitung ab dem Zieltakt weiter hören</span>
@@ -217,7 +233,7 @@ export function Aufnahmeleiste({ stimmen, aktiv, stumm, auswahlTakt, raster, bla
             </div>
           </>
         )}
-        {laeuft && <span className="gedaempft text-xs">{zustand === 'zaehlt' ? 'Vorlauf läuft — ■ bricht ab' : bis === null ? `höchstens ${MAX_TAKTE} Takte, dann hält die Aufnahme von selbst` : `${bereichTakte({ von: zielTakt, bis }, MAX_TAKTE)} ${bis === zielTakt ? 'Takt' : 'Takte'}, dann hält die Aufnahme von selbst — ■ vorher, wenn es reicht`}</span>}
+        {laeuft && <span className="gedaempft text-xs">{zustand === 'zaehlt' ? 'Vorlauf läuft — ■ bricht ab' : bis === null ? `höchstens ${offenBis} ${offenBis === 1 ? 'Takt' : 'Takte'}, dann hält die Aufnahme von selbst` : `${bereichTakte({ von: zielTakt, bis }, MAX_TAKTE)} ${bis === zielTakt ? 'Takt' : 'Takte'}, dann hält die Aufnahme von selbst — ■ vorher, wenn es reicht`}</span>}
         {zustand === 'pruefen' && erkannt.takte.length > 0 && (
           <>
             <div className="notensatz-block" role="group" aria-label="Einfügen oder Ersetzen">
