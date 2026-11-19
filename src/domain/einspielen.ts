@@ -36,9 +36,10 @@ export interface Vorhanden {
 
 // Ein gelöschtes Stück (samt Stellen und Anmerkungen; auch ein virtuelles),
 // eine gelöschte Stelle, ein gelöschter Tag (F-14, @/domain/tags), ein
-// gelöschtes Tonprofil (C-04, @/domain/tonprofil), Lesezeichen, Merker oder
-// eine Setliste.
-export const GRABSTEIN_ARTEN = ['noten', 'stelle', 'tag', 'tonprofil', 'lesezeichen', 'merker', 'setliste'] as const;
+// gelöschtes Tonprofil (C-04, @/domain/tonprofil), Lesezeichen, Merker, eine
+// Setliste, ein eigener oder ausgeblendeter Lick (I-16, @/domain/licks) oder
+// ein eigenes Jam-Stück (I-19, @/domain/jamkarte).
+export const GRABSTEIN_ARTEN = ['noten', 'stelle', 'tag', 'tonprofil', 'lesezeichen', 'merker', 'setliste', 'lick', 'jamstueck'] as const;
 export interface Grabstein { art: (typeof GRABSTEIN_ARTEN)[number]; id: string; am: number }
 
 // Stand eines Eintrags auf dem Gerät, für Grabsteine und „neuer gewinnt“.
@@ -342,6 +343,13 @@ export function stelleZusammenfuehren<S extends Record<string, unknown>>(geraet:
   return { ...neuerGewinnt(geraet, sicherung), tempi: tempiVereinigen(liste(geraet.tempi) as Tempo[], liste(sicherung.tempi) as Tempo[]) } as unknown as S;
 }
 
+// Wegradierte Striche (`entfernt`) merkt sich eine Seite, damit eine ältere
+// Sicherung sie nicht zurückbringt — aber nicht ewig (A-08): die letzten
+// ENTFERNT_MAX ids (neueste hinten). Das Feld bleibt eine Liste von ids
+// (Vertrag); die Grenze wirkt wie die Frist der Grabsteine.
+export const ENTFERNT_MAX = 300;
+export const entferntBegrenzen = (ids: readonly string[], max = ENTFERNT_MAX): string[] => ids.slice(Math.max(0, ids.length - max));
+
 // Seite mit Anmerkungen: Striche und Texte nach ihrer id vereinigen. Was es auf
 // beiden Seiten gibt, kommt aus der Sicherung und bleibt an seinem Platz; was
 // nur in der Sicherung ist, kommt dahinter (darüber gezeichnet). Was auf
@@ -368,7 +376,10 @@ export function seiteZusammenfuehren<A extends Record<string, unknown>>(geraet: 
     vergeben.add(k);
     objekte.push(ausSicherung.get(k));
   }
-  return { ...geraet, ...sicherung, objekte: objekte.filter((o) => !entfernt.has(id(o) ?? '')), entfernt: [...entfernt], geaendert: Math.max(stand(geraet), stand(sicherung)) };
+  return {
+    ...geraet, ...sicherung, objekte: objekte.filter((o) => !entfernt.has(id(o) ?? '')), entfernt: entferntBegrenzen([...entfernt]),
+    geaendert: Math.max(stand(geraet), stand(sicherung)),
+  };
 }
 
 // Lesezeichen, Merker, Setlisten: der neuere Stand ganz (eine Setliste samt

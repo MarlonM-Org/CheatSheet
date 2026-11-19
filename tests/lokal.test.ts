@@ -469,6 +469,20 @@ describe('Stellen', () => {
     expect((await g.lokal.stellenVon(a))[0].akkorde).toEqual({ text: 42, eingabe: 'quer' });
   });
 
+  it('Tempo-Verlauf schmal (A-08): Älteres als 90 Tage schrumpft beim Eintragen und in der Sicherung aufs Tagesbeste', async () => {
+    await g.lokal.stelleAnlegen(stelle('n', 1, 0.1));
+    const [{ id }] = await g.lokal.stellenVon('n');
+    const tag = 86_400_000, vor = (t: number, h = 0) => Date.now() - t * tag + h * 3_600_000;
+    const alt = [{ tempo: 60, am: vor(200) }, { tempo: 70, am: vor(200, 1) }, { tempo: 65, am: vor(200, 2) }, { tempo: 75, am: vor(10) }, { tempo: 72, am: vor(10, 1) }];
+    await g.lokal.stelleAendern(id, { tempi: alt });
+    // Die Sicherung trägt nur noch das Tagesbeste der alten Tage; das Gerät behält bis zum nächsten Eintrag alles.
+    const { kopf } = await sicherungLesen((await g.lokal.sicherungErstellen()).datei);
+    expect((kopf.stellen[0].tempi as { tempo: number }[]).map((t) => t.tempo)).toEqual([70, 75, 72]);
+    expect((await g.lokal.stellenVon('n'))[0].tempi).toHaveLength(5);
+    await g.lokal.tempoGeschafft(id, 80);
+    expect((await g.lokal.stellenVon('n'))[0].tempi.map((t) => t.tempo)).toEqual([70, 75, 72, 80]);
+  });
+
   it('ignoriert Änderungen an einer Stelle, die es nicht gibt', async () => {
     await g.lokal.stelleAendern('gibtsnicht', { notiz: 'x' });
     await g.lokal.tempoGeschafft('gibtsnicht', 80);
@@ -491,6 +505,18 @@ describe('Anmerkungen', () => {
     // Was wegkommt, merkt sich die Seite — damit eine Sicherung es nicht zurückbringt.
     await g.lokal.anmerkungenSpeichern('n', 1, [spur]);
     expect((await g.lokal.anmerkungenVon('n')).find((a) => a.seite === 1)?.entfernt).toEqual(['x']);
+  });
+
+  it('die Liste des Wegradierten bleibt begrenzt: die letzten 300 je Seite (A-08)', async () => {
+    const viele = Array.from({ length: 320 }, (_, i) => ({ ...strich, id: `s${i}` }));
+    await g.lokal.anmerkungenSpeichern('n', 1, viele);
+    await g.lokal.anmerkungenSpeichern('n', 1, []);
+    await g.lokal.anmerkungenSpeichern('n', 1, [{ ...strich, id: 'neu' }]);
+    await g.lokal.anmerkungenSpeichern('n', 1, []);
+    const entfernt = (await g.lokal.anmerkungenVon('n'))[0].entfernt!;
+    expect(entfernt).toHaveLength(300);
+    expect(entfernt[entfernt.length - 1]).toBe('neu');
+    expect(entfernt).not.toContain('s0');
   });
 });
 
@@ -544,7 +570,9 @@ describe('Setlisten', () => {
     await g.lokal.setlisteAendern(id, { titel: 'Konzert Mai' });
     const s = await g.lokal.setlisteHolen(id);
     expect(s).toMatchObject({ titel: 'Konzert Mai', eintraege });
-    expect(s?.aktualisiert).toBeTypeOf('number');
+    expect(s?.geaendert).toBeTypeOf('number');
+    // `aktualisiert` war immer gleich `geaendert` und wird nicht mehr geschrieben (A-08).
+    expect(s).not.toHaveProperty('aktualisiert');
     await g.lokal.setlisteLoeschen(id);
     expect(await g.lokal.alleSetlisten()).toEqual([]);
   });
@@ -694,6 +722,9 @@ describe('Umstieg: Sicherungen im bisherigen Format', () => {
     expect(kopf.stellen[0]).toMatchObject({ id: 's1', notenId: 'n1' });
     expect(kopf.stellen[0]).not.toHaveProperty('stueckId');
     expect(kopf.anmerkungen[0]).toMatchObject({ id: 'n1:2', notenId: 'n1' });
+    // „Zuletzt geöffnet“ gehört zum Gerät — der alte Datensatz trägt es, die Sicherung nicht (A-08).
+    expect((await g.lokal.stueckHolen('n1'))?.zuletzt).toBe(3);
+    expect(kopf.noten[0]).not.toHaveProperty('zuletzt');
   });
 });
 

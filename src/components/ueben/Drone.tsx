@@ -8,7 +8,7 @@ import {
 } from '@/domain/drone';
 import { tonName } from '@/domain/tonprofil';
 import type { Stimmung } from '@/domain/ueben';
-import { audioSitzung, gespeichert, speichern, useBeimVerlassen, verwerfen, wachHalten } from './klang';
+import { audioSitzung, gespeichert, useBeimVerlassen, verwerfen, wachHalten } from './klang';
 import { klingend } from './klavier';
 import { useStimmgeraetApi } from './StimmgeraetKontext';
 import { useDialogFokus, useEscape } from './tasten';
@@ -190,20 +190,20 @@ export function useDrone() {
   return { laeuft, starten, stoppen, aendern };
 }
 
-const SCHLUESSEL = 'ueben:drone';
+// Die Wahl gilt, solange die App offen ist; jeder Start beginnt mit dem
+// Standard (A-08: nicht gespeichert).
+let sitzung: DroneEinstellung = DRONE_STANDARD;
 const KLASSEN = Array.from({ length: 12 }, (_, i) => i);
 
-// Blatt „Drone“. `grundton`: damit öffnen (notierte MIDI-Zahl oder Tonklasse), sonst die zuletzt gewählte Tonart.
+// Blatt „Drone“. `grundton`: damit öffnen (notierte MIDI-Zahl oder Tonklasse), sonst die zuletzt gewählte Tonart dieser Sitzung.
 export function DroneBlatt({ schliessen, grundton }: { schliessen: () => void; grundton?: number }) {
   const seite = useSeite();
   const fokus = useDialogFokus<HTMLDivElement>();
   const stimm = useStimmgeraetApi();
   const drone = useDrone();
-  const [ein, setEinRoh] = useState<DroneEinstellung>(() => {
-    const e = gespeichert<DroneEinstellung>(SCHLUESSEL, DRONE_STANDARD);
-    return grundton === undefined ? e : { ...e, grundton: tonklasse(grundton) };
-  });
-  const setEin = (t: Partial<DroneEinstellung>) => { const n = { ...ein, ...t }; setEinRoh(n); speichern(SCHLUESSEL, n); };
+  const [ein, setEinRoh] = useState<DroneEinstellung>(() => (grundton === undefined ? sitzung : { ...sitzung, grundton: tonklasse(grundton) }));
+  const setEin = (t: Partial<DroneEinstellung>) => setEinRoh({ ...ein, ...t });
+  useEffect(() => { sitzung = ein; }, [ein]);
   useEscape(schliessen);
 
   const { aendern } = drone;

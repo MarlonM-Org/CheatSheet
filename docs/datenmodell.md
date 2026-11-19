@@ -168,12 +168,17 @@ type Eintrag =
 - **Keine Einstellungen.** Sie gehören zum Gerät, nicht zu den Daten, und
   das Thema muss `layout.tsx` synchron vor dem ersten Bild lesen. Das kann
   nur localStorage. Die Schlüssel (`ueben:*`, `metro:*`, `stimm:*`)
-  bleiben, wie sie sind.
+  bleiben, wie sie sind. Welche davon mit der Sicherung reisen, welche am
+  Gerät bleiben und welche gar nicht gespeichert werden, steht in
+  `src/domain/einstellungen.ts` (A-08).
 - **Ebenfalls im localStorage, aber Daten** (Entscheidung Marlon, reisen im
   Kopf der Sicherung mit): Tag-Definitionen (`ueben:tags`), Tonprofile
-  (`ueben:tonprofile`), Grabsteine (`ueben:geloescht`). Dazu der Zeitpunkt
-  der letzten Sicherung (`ueben:letzte-sicherung`). Ein Umzug in die
-  Datenbank wäre ein eigener Versionssprung.
+  (`ueben:tonprofile`), Grabsteine (`ueben:geloescht`; Arten auch `lick`
+  und `jamstueck`) und der Lernstand (`ueben:skills`, `ueben:licks`,
+  `ueben:jamkarte`; reist in `einstellungen.werte`, wird aber je Eintrag
+  zusammengeführt, A-08). Dazu der Zeitpunkt der letzten Sicherung
+  (`ueben:letzte-sicherung`). Ein Umzug in die Datenbank wäre ein eigener
+  Versionssprung.
 
 ## Sicherung (.uebe)
 
@@ -193,7 +198,16 @@ aus der heutigen CheatSheet-Fassung laden können.
 Beim Erstellen gilt dieselbe Übersetzung rückwärts. Metadaten, Sammlungen,
 Tags, Ausschnitte, `geaendert`, `entfernt` und `groesse` reisen als zusätzliche Felder
 mit, das kann v1 schon heute. Im Kopf stehen außerdem `geloescht`
-(Grabsteine), `tags` (Tag-Definitionen) und `tonprofile`.
+(Grabsteine), `tags` (Tag-Definitionen), `tonprofile` und `einstellungen`
+(persönliche Einstellungen und Lernstand).
+
+**Schmal halten (A-08):** Nicht in die Sicherung kommen `aufnahmen`,
+`handle` und `zuletzt` (gehört zum Gerät). Tempo-Verläufe tragen für
+Tage, die älter als 90 Tage sind, nur das Tagesbeste (`tempiVerdichten`,
+ebenso beim nächsten Eintragen auf dem Gerät). `entfernt` behält je Seite
+die letzten 300 ids (`entferntBegrenzen`). Neue Striche werden beim
+Absetzen gerundet und ausgedünnt (`strichVerdichten`). Setlisten schreiben
+`aktualisiert` nicht mehr (war gleich `geaendert`).
 
 Beim Laden auf ein Gerät mit Daten (`src/domain/einspielen.ts`, Regeln von
 Marlon): Bei gleicher id gilt der **neuere Stand** (`geaendert`);

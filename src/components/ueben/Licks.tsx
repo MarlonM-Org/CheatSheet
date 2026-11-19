@@ -12,6 +12,7 @@ import {
 import { AbcZeile } from './AbcZeile';
 import { takteFuer, useBreite } from './Etueden';
 import { gespeichert, speichern, useEinstellungenGeladen } from './klang';
+import { begraben } from './lokal';
 import { useKlickSpieler } from './klickspieler';
 import { skillGeuebt } from './skillspeicher';
 import { useDialogFokus, useEscape } from './tasten';
@@ -91,7 +92,7 @@ export function LicksBlatt({ schliessen }: { schliessen: () => void }) {
           <LickAnsicht key={lick.id} lick={lick} sp={sp} jetzt={jetzt} laeuft={laeuft} spielen={spielen} stopp={stopp}
             bewerten={(b) => { setSp(lickBewerten(sp, lick.id, b, Date.now())); for (const s of lickSkills(lick)) skillGeuebt(s); }}
             bearbeiten={istStartLick(lick.id) ? null : () => setFormular({ lick })}
-            entfernen={() => { setSp(lickEntfernen(sp, lick.id)); zurueck(); }} />
+            entfernen={() => { setSp(lickEntfernen(sp, lick.id, Date.now())); begraben('lick', [lick.id]); zurueck(); }} />
         ) : (
           <>
             <button type="button" className="knopf knopf-leise w-full" onClick={() => setFormular({ lick: null })}>＋ Eigener Lick</button>
@@ -109,7 +110,7 @@ export function LicksBlatt({ schliessen }: { schliessen: () => void }) {
             )}
             <p className="gedaempft text-xs">Tonarten notiert für {STIMMUNG_NAMEN[stimmung]}.</p>
             {sp.aus.length > 0 && (
-              <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => setSp(startLicksZeigen(sp))}>
+              <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => setSp(startLicksZeigen(sp, Date.now()))}>
                 {sp.aus.length} ausgeblendete Start-Licks wieder zeigen
               </button>
             )}
@@ -122,7 +123,7 @@ export function LicksBlatt({ schliessen }: { schliessen: () => void }) {
   )}
   {formular && (
     <LickFormular lick={formular.lick} schliessen={() => setFormular(null)}
-      sichern={(l) => { setSp(lickSichern(sp, l)); setFormular(null); setGewaehlt(l.id); }} />
+      sichern={(l) => { setSp(lickSichern(sp, l, Date.now())); setFormular(null); setGewaehlt(l.id); }} />
   )}
   </>);
 }

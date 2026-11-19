@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  einspielenPlanen, eintragZusammenfuehren, grabsteineLesen, grabsteineVereinigen, notenZusammenfuehren, nurGueltige, rueckfrage, seiteZusammenfuehren, stand,
+  einspielenPlanen, eintragZusammenfuehren, ENTFERNT_MAX, entferntBegrenzen, grabsteineLesen, grabsteineVereinigen, notenZusammenfuehren, nurGueltige, rueckfrage, seiteZusammenfuehren, stand,
   stelleZusammenfuehren, tempiVereinigen, ueberschreibt, type Vorhanden,
 } from '@/domain/einspielen';
 import { SicherungsFehler } from '@/domain/sicherung';
@@ -164,6 +164,19 @@ describe('Sicherung zusammenführen ohne Verlust', () => {
     const r = seiteZusammenfuehren(geraet, sicherung);
     expect(r.objekte.map((o) => (o as { id: string }).id)).toEqual(['neuHier', 'neuDort']);
     expect([...(r.entfernt as string[])].sort()).toEqual(['alt', 'wegDort']);
+  });
+
+  it('Seite: die Liste wegradierter Striche wächst nicht ohne Grenze (A-08)', () => {
+    const ids = (von: number, n: number) => Array.from({ length: n }, (_, i) => `w${von + i}`);
+    expect(entferntBegrenzen(ids(0, 5), 3)).toEqual(['w2', 'w3', 'w4']);
+    expect(entferntBegrenzen(ids(0, 2), 3)).toEqual(['w0', 'w1']);
+    expect(ENTFERNT_MAX).toBe(300);
+    const geraet = { ...anm('a', 1), objekte: [], entfernt: ids(0, 250) };
+    const sicherung = { ...anm('a', 1), objekte: [], entfernt: ids(200, 150) };
+    const r = seiteZusammenfuehren(geraet, sicherung).entfernt as string[];
+    expect(r).toHaveLength(300);
+    expect(r[r.length - 1]).toBe('w349');
+    expect(r).not.toContain('w0');
   });
 
   it('Seite: Striche nach id vereinigt, bei gleicher id gewinnt die Sicherung', () => {

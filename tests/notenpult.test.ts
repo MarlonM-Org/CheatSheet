@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ansichten, ansichtVonSeite, ausDateiname, blaetternLesen, einheitlich, getroffen, hauptseite, modusSetzen, radierWeg, seitenModus, seitenVon, strichKappen, zeigtGanz, zuordnen, type Anmerkung, type Blaettermodus, type Blaettern } from '@/domain/notenpult';
+import { ansichten, ansichtVonSeite, ausDateiname, blaetternLesen, einheitlich, getroffen, hauptseite, modusSetzen, punkteRunden, radierWeg, radierZug, runden, seitenModus, seitenVon, strichKappen, strichVerdichten, zeigtGanz, zuordnen, type Anmerkung, type Blaettermodus, type Blaettern } from '@/domain/notenpult';
 
 describe('Blättern', () => {
   it('ganze Seiten: eine Ansicht je Seite', () => {
@@ -175,5 +175,69 @@ describe('Zwei Seiten nebeneinander (B-13)', () => {
     expect(zeigtGanz(d[1], 2)).toBe(false);
     expect(ansichtVonSeite(d, 4)).toBe(1);
     expect(ansichtVonSeite(d, 1)).toBe(0);
+  });
+});
+
+describe('Schmale Striche (A-08)', () => {
+  // Kreisbogen mit Hunderten Abtastungen wie vom Pencil (240 je Sekunde).
+  const bogen = (n: number) => Array.from({ length: n }, (_, i) => {
+    const w = (i / (n - 1)) * Math.PI;
+    return [0.5 + 0.1 * Math.cos(w) + 1e-9 * i, 0.3 + 0.05 * Math.sin(w)];
+  }).flat();
+  // Größter Abstand der Originalpunkte zum verdichteten Linienzug (Seitenbreiten).
+  const abweichung = (orig: number[], neu: number[], f = 1.414) => {
+    let max = 0;
+    for (let i = 0; i < orig.length; i += 2) {
+      let best = Infinity;
+      for (let j = 0; j + 3 < neu.length; j += 2) {
+        const ax = neu[j], ay = neu[j + 1] * f, dx = neu[j + 2] - ax, dy = neu[j + 3] * f - ay, l2 = dx * dx + dy * dy;
+        const px = orig[i] - ax, py = orig[i + 1] * f - ay;
+        const t = l2 ? Math.max(0, Math.min(1, (px * dx + py * dy) / l2)) : 0;
+        best = Math.min(best, Math.hypot(px - t * dx, py - t * dy));
+      }
+      max = Math.max(max, best);
+    }
+    return max;
+  };
+
+  it('runden auf 4 Nachkommastellen', () => {
+    expect(runden(0.38273615635179153)).toBe(0.3827);
+    expect(punkteRunden([0.12345, 0.99999])).toEqual([0.1235, 1]);
+    expect(JSON.stringify(punkteRunden([0.1 + 0.2]))).toBe('[0.3]');
+  });
+  it('gerade Linie: nur Anfang und Ende bleiben', () => {
+    const p = Array.from({ length: 100 }, (_, i) => [0.1 + i * 0.004, 0.2 + i * 0.002]).flat();
+    expect(strichVerdichten(p)).toEqual([0.1, 0.2, runden(0.1 + 99 * 0.004), runden(0.2 + 99 * 0.002)]);
+  });
+  it('Bogen: viel kleiner, Form bleibt (Abweichung unter einem Zehntel der feinsten Stiftbreite)', () => {
+    const p = bogen(480);
+    const v = strichVerdichten(p);
+    expect(v.length).toBeLessThan(p.length / 5);
+    expect(abweichung(p, v)).toBeLessThan(0.00015);
+    expect(JSON.stringify(v).length).toBeLessThan(JSON.stringify(p).length / 10);
+    // Anfang und Ende bleiben (gerundet).
+    expect(v.slice(0, 2)).toEqual(punkteRunden(p.slice(0, 2)));
+    expect(v.slice(-2)).toEqual(punkteRunden(p.slice(-2)));
+  });
+  it('hin und zurück bleibt hin und zurück', () => {
+    const v = strichVerdichten([0.1, 0.5, 0.2, 0.5, 0.3, 0.5, 0.2, 0.5, 0.1, 0.5]);
+    expect(v).toEqual([0.1, 0.5, 0.3, 0.5, 0.1, 0.5]);
+  });
+  it('ein Tipp bleibt ein Punkt; doppelte fallen weg', () => {
+    expect(strichVerdichten([0.4, 0.4])).toEqual([0.4, 0.4]);
+    expect(strichVerdichten([0.4, 0.4, 0.40001, 0.40001])).toEqual([0.4, 0.4]);
+    expect(strichVerdichten([])).toEqual([]);
+  });
+  it('schon verdichtet: bleibt gleich', () => {
+    const v = strichVerdichten(bogen(300));
+    expect(strichVerdichten(v)).toEqual(v);
+  });
+  it('Radieren rundet die Schnittpunkte und die Radier-Spur', () => {
+    let n = 0;
+    const strich: Anmerkung = { id: 's', art: 'stift', farbe: '#000', breite: 0.002, punkte: [0.1, 0.5, 0.9, 0.5] };
+    const r = radierZug([strich], 0.5, 0.5, 0.0123456, 1.414, null, true, () => `n${n++}`);
+    const zahlen = r.objekte.flatMap((o) => ('punkte' in o ? o.punkte : []));
+    expect(zahlen.length).toBeGreaterThan(4);
+    for (const z of zahlen) expect(z).toBe(runden(z));
   });
 });

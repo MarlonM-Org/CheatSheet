@@ -1,15 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { STIMMUNG_NAMEN, tonDeutsch } from '@/domain/akkorde';
 import {
-  abschnitteAbc, abschnitteKlaenge, ETUEDEN_STANDARD, ETUEDEN_TEMPO, etuedeBauen, grundFuer, istEtuedenEinstellung, MUSTER, musterVon,
+  abschnitteAbc, abschnitteKlaenge, ETUEDEN_STANDARD, ETUEDEN_TEMPO, etuedeBauen, grundFuer, MUSTER, musterVon,
   OBERE_GRENZEN, REIHENFOLGE_NAMEN, REIHENFOLGEN, RHYTHMEN, RHYTHMUS_NAMEN, RHYTHMUS_TICKS, TAKT, type EtuedenEinstellung,
 } from '@/domain/etueden';
 import { skillFinden } from '@/domain/skillkatalog';
 import { AbcZeile } from './AbcZeile';
-import { gespeichert, speichern, useEinstellungenGeladen } from './klang';
 import { useKlickSpieler } from './klickspieler';
 import { skillGeuebt } from './skillspeicher';
 import { useDialogFokus, useEscape } from './tasten';
@@ -19,14 +18,12 @@ import { useSeite } from './seite';
 // Quartenzirkel, chromatisch oder eine), Rhythmus, Tempo, obere Grenze des
 // Umfangs. Notenzeile mit einer Tonart je Zeile (auf dem Handy umbrochen),
 // Vorspielen mit Klick und einem Takt Vorzählen, „Geübt“ zählt auf die
-// Klarinetten-Skills. Regeln in @/domain/etueden; Wahl in `ueben:etueden`.
+// Klarinetten-Skills. Regeln in @/domain/etueden; die Wahl gilt für die Sitzung.
 
-const SCHLUESSEL = 'ueben:etueden';
 const REIHENFOLGE_KURZ = { quinten: 'Quinten', quarten: 'Quarten', chromatisch: 'Chromat.', eine: 'Eine' } as const;
-const laden = (): EtuedenEinstellung => {
-  const v = gespeichert<unknown>(SCHLUESSEL, ETUEDEN_STANDARD);
-  return istEtuedenEinstellung(v) ? v : ETUEDEN_STANDARD;
-};
+// Die Wahl gilt, solange die App offen ist; jeder Start beginnt mit dem
+// Standard (A-08: nicht gespeichert).
+let sitzung: EtuedenEinstellung = ETUEDEN_STANDARD;
 
 /** Breite eines Elements (für Takte je Zeile). */
 export function useBreite<T extends HTMLElement>() {
@@ -53,18 +50,17 @@ export function EtuedenBlatt({ schliessen }: { schliessen: () => void }) {
   const fokus = useDialogFokus<HTMLDivElement>();
   const kopf = useId();
   const { spielen, stopp, laeuft, stimmung } = useKlickSpieler();
-  const [w, setWRoh] = useState<EtuedenEinstellung>(laden);
+  const [w, setWRoh] = useState<EtuedenEinstellung>(sitzung);
   const [klick, setKlick] = useState(true);
   const [geuebt, setGeuebt] = useState<string | null>(null);
   const { ref: flaeche, breite } = useBreite<HTMLDivElement>();
-  useEinstellungenGeladen(useCallback(() => setWRoh(laden()), []));
 
   const setW = (teil: Partial<EtuedenEinstellung>) => {
     stopp();
     const neu = { ...w, ...teil };
     setWRoh(neu);
-    speichern(SCHLUESSEL, neu);
   };
+  useEffect(() => { sitzung = w; }, [w]);
   const zu = () => { stopp(); schliessen(); };
   useEscape(zu);
 

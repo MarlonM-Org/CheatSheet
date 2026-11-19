@@ -59,7 +59,8 @@ export function useSicherungLaden(geaendert: () => void): SicherungLaden {
         + (e.ungueltig ? ` ${anzahl(e.ungueltig, 'beschädigter Eintrag', 'beschädigte Einträge')} nicht übernommen.` : '')
         + (ohnePdf.length ? ` Ohne lesbare PDF (Stellen und Anmerkungen sind da): ${ohnePdf.join(', ')} — in der Bibliothek „Auswählen“, `
           + 'das Stück antippen, „Aktualisieren“ und die Datei neu wählen.' : '')
-        + (n.einstellungen ? ' Einstellungen übernommen.' : ''));
+        + (n.einstellungen ? ' Einstellungen übernommen.' : '')
+        + (n.lernstand ? ' Lernstand (Skills, Licks, Jam-Stücke) zusammengeführt.' : ''));
       geaendert();
     } catch (x) {
       setFehler(x instanceof SicherungsFehler ? x.message
@@ -186,7 +187,7 @@ export function Sicherung({ laden }: { laden: SicherungLaden }) {
         <li>Alle Noten mit Stellen, Tempi, Anmerkungen, Lesezeichen, Merkern und Setlisten in einer Datei</li>
         <li>Anderes Gerät: dort „Sicherung laden“</li>
         <li>Beim Laden gilt der neuere Stand, Gelöschtes wird auch dort gelöscht</li>
-        <li>Stimmung, Metronom und Stiftfarben reisen mit, Hell/Dunkel bleibt je Gerät</li>
+        <li>Stimmung, Stiftfarben, Skills und Licks reisen mit; Metronom und Hell/Dunkel bleiben je Gerät</li>
       </ul>
       <p className="text-sm" role="status">
         {letzte ? <>Letzte Sicherung: <strong>{kurzZeit(letzte)}</strong></> : <span className="gedaempft">Noch keine Sicherung gespeichert.</span>}

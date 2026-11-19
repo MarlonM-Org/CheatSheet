@@ -5,17 +5,18 @@ import {
   type Aufnahme, type Lesezeichen, type Loeschfolgen, type Merker, type SeitenAnmerkungen, type Setliste, type Stelle, type Stueck,
 } from '@/domain/bestand';
 import {
-  dateiStand, einspielenPlanen, eintragZusammenfuehren, grabsteineLesen, grabsteineVereinigen, notenZusammenfuehren,
+  dateiStand, einspielenPlanen, eintragZusammenfuehren, entferntBegrenzen, grabsteineLesen, grabsteineVereinigen, notenZusammenfuehren,
   nurGueltige, seiteZusammenfuehren, stand, stelleZusammenfuehren, type Einspielplan, type Grabstein, type Staende, type Vorhanden,
 } from '@/domain/einspielen';
 import {
-  EINSTELLUNGEN_GELADEN, EINSTELLUNGEN_STAND, einstellungenFuerSicherung, einstellungenLesen, einstellungenSammeln, standHier, uebernehmen,
-  type EinstellungsStand,
+  EINSTELLUNGEN_GELADEN, EINSTELLUNGEN_STAND, einstellungenFuerSicherung, einstellungenLesen, einstellungenSammeln, lernstandHier,
+  lernstandVereinigen, standHier, uebernehmen, VERALTET, type EinstellungenGelesen, type EinstellungsStand,
 } from '@/domain/einstellungen';
 import { nurLesbare } from '@/domain/lesbar';
 import { ueberzaehlig } from '@/domain/notation';
 import type { Anmerkung } from '@/domain/notenpult';
 import { sicherungLesen, sicherungPacken, SicherungsFehler, type Zusatz } from '@/domain/sicherung';
+import { tempiVerdichten } from '@/domain/stellen';
 import { verbindungVerloren, type SpeicherDauer } from '@/domain/speicher';
 import { tagMitNamen, tagsAbgleichen, tagSchluessel, tagsLesen, tagsUmschreiben, tagsVon, type Tag, type TagFarbe } from '@/domain/tags';
 import { profileLesen, profileVereinigen, type Tonprofil } from '@/domain/tonprofil';
@@ -351,6 +352,12 @@ const LETZTE_SICHERUNG = 'ueben:letzte-sicherung';
 // Dauerhafter Speicher (A-07): einmal beim Start bitten; der Stand ist
 // danach jederzeit abfragbar. Fehlt die Schnittstelle (ältere Browser): null.
 type SpeicherNavigator = Navigator & { storage?: { persist?: () => Promise<boolean>; persisted?: () => Promise<boolean> } };
+// Einstellungen, die nicht mehr gespeichert werden (A-08: Taktart, Swing,
+// Drone, Etüden …), vom Gerät räumen. Beim Start, einmal je Sitzung reicht.
+export function veralteteEntfernen() {
+  try { for (const k of VERALTET) localStorage.removeItem(k); } catch { /* egal */ }
+}
+
 export async function speicherBehalten(): Promise<SpeicherDauer> {
   const st = typeof navigator === 'undefined' ? undefined : (navigator as SpeicherNavigator).storage;
   if (!st?.persist) return null;
@@ -380,7 +387,7 @@ export function grabsteineHier(): Grabstein[] {
 function grabsteineSetzen(g: Grabstein[]) {
   try { localStorage.setItem(GRAB, JSON.stringify(grabsteineVereinigen(g, [], Date.now()))); } catch { /* egal */ }
 }
-function begraben(art: Grabstein['art'], ids: readonly string[]) {
+export function begraben(art: Grabstein['art'], ids: readonly string[]) {
   if (!ids.length) return;
   const am = Date.now();
   grabsteineSetzen([...grabsteineHier(), ...ids.map((id) => ({ art, id, am }))]);
@@ -611,8 +618,12 @@ export async function stelleLoeschen(id: string) {
   await tx('stellen', 'readwrite', (s) => s.delete(id));
   begraben('stelle', [id]);
 }
+// Ältere Einträge schrumpfen dabei aufs Tagesbeste (tempiVerdichten, A-08).
 export const tempoGeschafft = (id: string, tempo: number) =>
-  aendern<Stelle>('stellen', id, (alt) => ({ ...alt, tempi: [...alt.tempi, { tempo: Math.round(tempo), am: Date.now() }], geaendert: Date.now() }));
+  aendern<Stelle>('stellen', id, (alt) => {
+    const jetzt = Date.now();
+    return { ...alt, tempi: tempiVerdichten([...alt.tempi, { tempo: Math.round(tempo), am: jetzt }], jetzt), geaendert: jetzt };
+  });
 
 // ── Anmerkungen (je Seite ein Datensatz) ──
 export const anmerkungenVon = (stueckId: string) =>
@@ -628,7 +639,7 @@ export const anmerkungenSpeichern = (stueckId: string, seite: number, objekte: A
       try {
         const jetzt = new Set(objekte.map((o) => o.id));
         const weg = new Set([...(r.result?.entfernt ?? []), ...(r.result?.objekte ?? []).map((o) => o.id)].filter((x) => !jetzt.has(x)));
-        s.put({ id, stueckId, seite, objekte, entfernt: [...weg], geaendert: Date.now() } satisfies SeitenAnmerkungen);
+        s.put({ id, stueckId, seite, objekte, entfernt: entferntBegrenzen([...weg]), geaendert: Date.now() } satisfies SeitenAnmerkungen);
       } catch (x) { abbrechen(x); }
     };
   });
@@ -689,7 +700,7 @@ export async function setlisteAnlegen(titel: string): Promise<string> {
   return id;
 }
 export const setlisteAendern = (id: string, felder: Partial<Pick<Setliste, 'titel' | 'eintraege'>>) =>
-  aendern<Setliste>('setlisten', id, (alt) => ({ ...alt, ...felder, aktualisiert: Date.now(), geaendert: Date.now() }));
+  aendern<Setliste>('setlisten', id, (alt) => ({ ...alt, ...felder, geaendert: Date.now() }));
 export async function setlisteLoeschen(id: string) {
   await tx('setlisten', 'readwrite', (s) => s.delete(id));
   begraben('setliste', [id]);
@@ -732,7 +743,8 @@ const allesLesen = () => transaktion(ALLE, 'readonly', (t) => {
     });
     return {
       echte,
-      stellen: (r.stellen.result as Stelle[]).map(zurSicherung),
+      // Tempo-Verläufe schmal (A-08): Älteres nur als Tagesbestes.
+      stellen: (r.stellen.result as Stelle[]).map((st) => zurSicherung(Array.isArray(st.tempi) ? { ...st, tempi: tempiVerdichten(st.tempi, Date.now()) } : st)),
       anmerkungen: (r.anmerkungen.result as SeitenAnmerkungen[]).map(zurSicherung),
       zusatz: {
         virtuelle: stuecke.filter((s) => s.quelle),
@@ -744,22 +756,33 @@ const allesLesen = () => transaktion(ALLE, 'readonly', (t) => {
   };
 });
 
-// Persönliche Einstellungen (Stimmung, Metronom, Stiftfarben …) im
-// localStorage; sie reisen im Kopf der Sicherung mit, der neuere Stand
-// gewinnt als Ganzes (Regeln in @/domain/einstellungen).
+// Persönliche Einstellungen (Stimmung, Stiftfarben …) und Lernstand (Skills,
+// Licks, Jam-Stücke) im localStorage; sie reisen im Kopf der Sicherung mit.
+// Bei den Einstellungen gewinnt der neuere Stand als Ganzes, der Lernstand
+// wird je Eintrag zusammengeführt (Regeln in @/domain/einstellungen).
 const merkzettel = (k: string) => { try { return localStorage.getItem(k); } catch { return null; } };
 
 // Setzt die Einstellungen einer Sicherung, wenn sie neuer sind als die hier;
-// was der Datei fehlt, bleibt. Danach lesen Metronom, Stimmgerät & Co. neu.
-function einstellungenUebernehmen(dort: EinstellungsStand | null): boolean {
-  if (!uebernehmen(standHier(merkzettel(EINSTELLUNGEN_STAND), einstellungenSammeln(merkzettel)), dort)) return false;
+// was der Datei fehlt, bleibt. Danach lesen Stimmgerät, Stifte & Co. neu.
+function einstellungenUebernehmen(dort: EinstellungsStand | null): { versucht: boolean; gesetzt: boolean } {
+  if (!uebernehmen(standHier(merkzettel(EINSTELLUNGEN_STAND), einstellungenSammeln(merkzettel)), dort)) return { versucht: false, gesetzt: false };
   let gesetzt = true;
   try {
     for (const [k, v] of Object.entries(dort.werte)) localStorage.setItem(k, JSON.stringify(v));
     localStorage.setItem(EINSTELLUNGEN_STAND, String(dort.stand));
   } catch { gesetzt = false; }
-  // Auch wenn nur ein Teil ankam: Was jetzt gespeichert ist, gilt überall.
-  window.dispatchEvent(new Event(EINSTELLUNGEN_GELADEN));
+  return { versucht: true, gesetzt };
+}
+
+// Lernstand (Skills, Licks, Jam-Stücke) je Eintrag zusammenführen — immer,
+// unabhängig vom Stand der Einstellungen; die Grabsteine (schon vereinigt)
+// nehmen Gelöschtes mit. Rückt den Stand nicht vor.
+function lernstandUebernehmen(dort: EinstellungenGelesen['lernstand'], grabsteine: Grabstein[]): boolean {
+  const neu = lernstandVereinigen(lernstandHier(merkzettel), dort, grabsteine);
+  let gesetzt = false;
+  try {
+    for (const [k, v] of Object.entries(neu)) { localStorage.setItem(k, JSON.stringify(v)); gesetzt = true; }
+  } catch { /* egal */ }
   return gesetzt;
 }
 
@@ -774,9 +797,12 @@ export async function sicherungErstellen(): Promise<{ datei: Blob; noten: number
   // Nach nurLesbare trägt jedes verbliebene Stück eine lesbare Datei.
   // Aufnahmen bleiben auf dem Gerät: ihre Angaben kommen nicht mit (die
   // Bytes ohnehin nicht — ein Verweis ins Leere wäre schlimmer als keiner).
-  const noten = (bestand.noten as (Stueck & { datei: Blob })[]).map(({ aufnahmen: _a, ...n }) => { void _a; return n; });
+  // „Zuletzt geöffnet“ gehört zum Gerät (ältere Datensätze tragen es noch).
+  const noten = (bestand.noten as (Stueck & { datei: Blob })[]).map(({ aufnahmen: _a, zuletzt: _z, ...n }) => { void _a; void _z; return n; });
+  const virtuelle = zusatz.virtuelle.map(({ zuletzt: _z, ...v }) => { void _z; return v; });
   const datei = await sicherungPacken({ ...bestand, noten }, 'cheatsheet', Date.now(), {
-    ...(zusatz as unknown as Zusatz), geloescht: grabsteineHier(), tags: tagsLaden(), tonprofile: tonprofileLaden(),
+    ...(zusatz as unknown as Zusatz), virtuelle: virtuelle as unknown as Zusatz['virtuelle'],
+    geloescht: grabsteineHier(), tags: tagsLaden(), tonprofile: tonprofileLaden(),
     einstellungen: einstellungenFuerSicherung(merkzettel),
   });
   return { datei, noten: noten.length + zusatz.virtuelle.length, fehlen: [...fehlen, ...fehlenVirtuelle] };
@@ -792,8 +818,8 @@ export interface Einspielung extends Einspielplan<Record<string, unknown> & { id
   grabsteine: Grabstein[];
   tags: Tag[];
   tonprofile: Tonprofil[];
-  // Persönliche Einstellungen aus der Sicherung (nicht bei der Übernahme aus „ueben“).
-  einstellungen: EinstellungsStand | null;
+  // Persönliche Einstellungen und Lernstand aus der Sicherung (nicht bei der Übernahme aus „ueben“).
+  einstellungen: EinstellungenGelesen | null;
   // Nur bei der Übernahme aus „ueben“: Titel der Stücke ohne lesbare PDF,
   // weggelassene kaputte Einträge, Dateiverweise (gehören zu diesem Gerät).
   ohnePdf?: string[];
@@ -950,7 +976,7 @@ export async function vorgaengerPruefen(): Promise<Einspielung> {
 const VORLAEUFIG = 'einspielen:';
 export async function sicherungSchreiben(e: Einspielung): Promise<{
   neu: number; aktualisiert: number; stellen: number; anmerkungen: number; uebersprungen: number; geloescht: number;
-  lesezeichen: number; merker: number; setlisten: number; einstellungen: boolean;
+  lesezeichen: number; merker: number; setlisten: number; einstellungen: boolean; lernstand: boolean;
 }> {
   const vorlaeufig = () => IDBKeyRange.bound(VORLAEUFIG, `${VORLAEUFIG}￿`);
   await tx('dateien', 'readwrite', (s) => { s.delete(vorlaeufig()); });
@@ -1065,7 +1091,12 @@ export async function sicherungSchreiben(e: Einspielung): Promise<{
     tagVerweiseUmschreiben(ergebnis.tabelle);
   }
   tonprofileSpeichern(profileVereinigen(tonprofileLaden(), e.tonprofile, grabsteineHier()));
-  const einstellungen = einstellungenUebernehmen(e.einstellungen);
+  const einst = einstellungenUebernehmen(e.einstellungen);
+  const einstellungen = einst.gesetzt;
+  const lernstand = lernstandUebernehmen(e.einstellungen?.lernstand ?? {}, grabsteineHier());
+  // Was jetzt gespeichert ist (auch wenn nur ein Teil ankam), gilt überall:
+  // Stimmgerät, Stifte, Licks … lesen neu.
+  if (einst.versucht || lernstand) window.dispatchEvent(new Event(EINSTELLUNGEN_GELADEN));
   dauerhaftAnfragen();
   const l = e.loeschen;
   return {
@@ -1073,6 +1104,6 @@ export async function sicherungSchreiben(e: Einspielung): Promise<{
     uebersprungen: e.uebersprungen,
     geloescht: l.noten.length + l.stellen.length + (l.lesezeichen?.length ?? 0) + (l.merker?.length ?? 0) + (l.setlisten?.length ?? 0),
     lesezeichen: e.zusatz.lesezeichen.length, merker: e.zusatz.merker.length, setlisten: e.zusatz.setlisten.length,
-    einstellungen,
+    einstellungen, lernstand,
   };
 }

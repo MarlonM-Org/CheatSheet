@@ -4,7 +4,7 @@ import { geuebtEintragen, heuteLesen, markieren, rundeEintragen, skillsLesen, ty
 import { gespeichert, speichern } from './klang';
 
 // Skill-Kartei (I-07) auf dem Gerät: `ueben:skills` reist mit der Sicherung
-// (@/domain/einstellungen), `ueben:heute` (Tagesstand der Einheit, I-09)
+// und wird beim Laden je Skill zusammengeführt (@/domain/einstellungen), `ueben:heute` (Tagesstand der Einheit, I-09)
 // bleibt am Gerät. Jede Änderung meldet SKILLS_GEAENDERT am window, damit
 // offene Ansichten neu lesen.
 
@@ -27,7 +27,7 @@ function aendern(f: (sp: SkillSpeicher) => SkillSpeicher): SkillSpeicher {
 export const skillErgebnis = (skillId: string, quote: number, jetzt = Date.now()) => aendern((sp) => rundeEintragen(sp, skillId, quote, jetzt));
 // „Heute geübt“ ohne Messung (extern geübt, „Erledigt“).
 export const skillGeuebt = (skillId: string, jetzt = Date.now()) => aendern((sp) => geuebtEintragen(sp, skillId, jetzt));
-export const skillMarkieren = (skillId: string, m: Markierung) => aendern((sp) => markieren(sp, skillId, m));
+export const skillMarkieren = (skillId: string, m: Markierung, jetzt = Date.now()) => aendern((sp) => markieren(sp, skillId, m, jetzt));
 
 export const heuteLaden = (jetzt = Date.now()): HeuteStand => heuteLesen(gespeichert<unknown>(HEUTE_SCHLUESSEL, null), jetzt);
 export const heuteSpeichern = (h: HeuteStand) => speichern(HEUTE_SCHLUESSEL, h);

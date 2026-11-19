@@ -12,8 +12,8 @@
 // `geloescht`, `tags`, `tonprofile` (siehe unten) und, so wie sie im
 // Gerätespeicher „cheatsheet“ liegen (`stueckId`), `virtuelle` (Stücke ohne
 // eigene PDF, tragen nichts zum Datenteil bei), `lesezeichen`, `merker`,
-// `setlisten`; dazu `einstellungen` (persönliche Einstellungen,
-// @/domain/einstellungen).
+// `setlisten`; dazu `einstellungen` (persönliche Einstellungen und
+// Lernstand, @/domain/einstellungen).
 
 export const SICHERUNG_ENDUNG = '.uebe';
 const MAGIE = [0x55, 0x45, 0x42, 0x45]; // "UEBE"
@@ -41,7 +41,8 @@ export interface Sicherungskopf {
   merker?: Eintrag[];
   setlisten?: Eintrag[];
   // Ergänzung 2026-10-13, ebenso optional: persönliche Einstellungen
-  // { stand, werte } — Stimmung, Metronom, Stiftfarben … (@/domain/einstellungen).
+  // { stand, werte } — Stimmung, Stiftfarben …, dazu der Lernstand (Skills,
+  // Licks, Jam-Stücke; seit A-08 je Eintrag zusammengeführt) (@/domain/einstellungen).
   einstellungen?: unknown;
 }
 

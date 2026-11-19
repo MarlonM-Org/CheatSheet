@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { akkordText, folgeAkkorde, tonartName } from '@/domain/akkorde';
 import {
   istJamStueck, JAM_STUECKE, jamAlle, jamAlsEingabe, jamAusEingabe, jamEntfernen, jamLesen, jamNotiert, jamSpeichern, jamStueckeGueltig,
-  jamStueckeLesen, teileAusText, teileAlsText, zeilen, type JamEingabe, type JamStueck,
+  jamStueckeLesen, jamStueckeVereinigen, teileAusText, teileAlsText, zeilen, type JamEingabe, type JamStueck,
 } from '@/domain/jamkarte';
 import { skillFinden } from '@/domain/skillkatalog';
 
@@ -123,5 +123,24 @@ describe('Eigene Stücke', () => {
   });
   it('Raster: 4 Takte je Zeile', () => {
     expect(zeilen([1, 2, 3, 4, 5, 6])).toEqual([[1, 2, 3, 4], [5, 6]]);
+  });
+});
+
+describe('Zwei Geräte (A-08)', () => {
+  const stueck = (id: string, geaendert?: number, titel = id): JamStueck => ({
+    id, titel, form: 'AABA', tonart: 'F', teile: [{ name: 'A', akkorde: '| F |' }], eigen: true, ...(geaendert ? { geaendert } : {}),
+  });
+  it('speichern datiert', () => {
+    expect(jamSpeichern([], stueck('a'), 42)[0].geaendert).toBe(42);
+  });
+  it('je id gewinnt der neuere; neueste oben; Grabsteine nehmen Gelöschtes mit', () => {
+    const hier = [stueck('a', 5, 'A hier'), stueck('b', 9, 'B hier'), stueck('alt')];
+    const dort = [stueck('a', 7, 'A dort'), stueck('b', 3, 'B dort'), stueck('c', 8), stueck('weg', 2)];
+    const r = jamStueckeVereinigen(hier, dort, [{ art: 'jamstueck', id: 'weg', am: 4 }, { art: 'jamstueck', id: 'alt', am: 1 }]);
+    expect(r.map((s) => s.titel)).toEqual(['B hier', 'c', 'A dort']);
+  });
+  it('prüfen: geaendert muss eine Zeit sein', () => {
+    expect(istJamStueck(stueck('a', 5))).toBe(true);
+    expect(istJamStueck({ ...stueck('a'), geaendert: 'gestern' })).toBe(false);
   });
 });
