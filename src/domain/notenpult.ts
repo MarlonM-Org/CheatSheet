@@ -167,6 +167,53 @@ export type Anmerkung =
   | { id: string; art: 'schnitt'; y: number; abstand: number }
   | { id: string; art: 'sticker'; von: { seite: number; x: number; y: number; b: number; h: number }; x: number; y: number; b: number; luecke?: string };
 
+// ── Schmale Striche (A-08) ──
+// Koordinaten auf 4 Nachkommastellen: 0,0001 der Seite, auf dem iPad etwa
+// 0,2 px — viel feiner als die feinste Stiftbreite (0,0015). Spart im JSON
+// gut zwei Drittel gegenüber den vollen Kommazahlen.
+export const runden = (v: number) => Math.round(v * 1e4) / 1e4;
+export const punkteRunden = (p: readonly number[]) => p.map(runden);
+// Wie weit ein weggelassener Punkt höchstens neben der verbleibenden Linie
+// lag (in Seitenbreiten).
+export const VERDICHTEN_TOLERANZ = 0.0001;
+
+// Ein fertiger Strich: gerundet, doppelte Punkte hintereinander weg, dann
+// ausgedünnt (Ramer-Douglas-Peucker; Abstand zur Strecke, y mal
+// Seitenformat). Anfang und Ende bleiben, ein Punkt bleibt ein Punkt. Ein
+// Strich mit Hunderten Abtastungen (Pencil: bis 240 je Sekunde) schrumpft
+// so auf die Punkte, die seine Form tragen.
+export function strichVerdichten(punkte: readonly number[], seitenformat = 1.414, toleranz = VERDICHTEN_TOLERANZ): number[] {
+  const p = punkteRunden(punkte);
+  const xs: number[] = [], ys: number[] = [];
+  for (let i = 0; i + 1 < p.length; i += 2) {
+    const n = xs.length;
+    if (n && xs[n - 1] === p[i] && ys[n - 1] === p[i + 1]) continue;
+    xs.push(p[i]); ys.push(p[i + 1]);
+  }
+  const n = xs.length;
+  const behalten = new Uint8Array(n).fill(n <= 2 ? 1 : 0);
+  if (n > 2) {
+    behalten[0] = 1; behalten[n - 1] = 1;
+    const f = seitenformat, t2 = toleranz * toleranz;
+    const stapel: [number, number][] = [[0, n - 1]];
+    while (stapel.length) {
+      const [a, b] = stapel.pop()!;
+      const ax = xs[a], ay = ys[a] * f, dx = xs[b] - ax, dy = ys[b] * f - ay, l2 = dx * dx + dy * dy;
+      let weit = -1, max = t2;
+      for (let i = a + 1; i < b; i++) {
+        const px = xs[i] - ax, py = ys[i] * f - ay;
+        const t = l2 ? Math.max(0, Math.min(1, (px * dx + py * dy) / l2)) : 0;
+        const d2 = (px - t * dx) ** 2 + (py - t * dy) ** 2;
+        if (d2 > max) { max = d2; weit = i; }
+      }
+      if (weit >= 0) { behalten[weit] = 1; stapel.push([a, weit], [weit, b]); }
+    }
+  }
+  const aus: number[] = [];
+  for (let i = 0; i < n; i++) if (behalten[i]) aus.push(xs[i], ys[i]);
+  return aus;
+}
+
 // Trifft der Radierer (Punkt, Radius relativ zur Seitenbreite) eine Anmerkung?
 // Schnitte und Sticker nimmt er nicht weg (dafür gibt es die Schere).
 export function getroffen(a: Anmerkung, x: number, y: number, radius: number, seitenformat = 1.414): boolean {
@@ -271,12 +318,13 @@ export function radierZug(
     const teile = strichKappen(a.punkte, x, y, r, seitenformat);
     if (!teile) { neu.push(a); continue; }
     geaendert = true;
-    for (const punkte of teile) neu.push({ ...a, id: neueId(), punkte });
+    // Schnittpunkte gerundet wie jeder Strich (A-08).
+    for (const punkte of teile) neu.push({ ...a, id: neueId(), punkte: punkteRunden(punkte) });
   }
   if (ebene) {
     const da = spur !== null && neu.some((a) => a.id === spur);
-    if (da) neu = neu.map((a) => (a.id === spur && a.art === 'radiert' ? { ...a, punkte: [...a.punkte, x, y] } : a));
-    else { spur = neueId(); neu = [...neu, { id: spur, art: 'radiert', breite: radius * 2, punkte: [x, y] }]; }
+    if (da) neu = neu.map((a) => (a.id === spur && a.art === 'radiert' ? { ...a, punkte: [...a.punkte, runden(x), runden(y)] } : a));
+    else { spur = neueId(); neu = [...neu, { id: spur, art: 'radiert', breite: radius * 2, punkte: [runden(x), runden(y)] }]; }
     geaendert = true;
   }
   return { objekte: geaendert ? neu : objekte, spur, geaendert };

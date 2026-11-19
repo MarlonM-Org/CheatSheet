@@ -35,7 +35,7 @@ export function Aufnahmeleiste({ stimmen, aktiv, stumm, auswahlTakt, raster, bla
   stimmen: Stimme[]; aktiv: number; stumm: number[]; auswahlTakt: number | null;
   raster: Raster; blattRaster: Raster; tonart: Tonart | null;
   lesart: Lesart; setLesart: (l: Lesart) => void;
-  metro: { klang: MetronomKlang; laut: number }; stimmung: Stimmung; kammerton: number;
+  metro: { klang: MetronomKlang; laut: number; zweiVier: boolean }; stimmung: Stimmung; kammerton: number;
   // Die Vorschau fürs Blatt (null: keine) und der Zustand (zum Sperren der Palette).
   vorschauAendern: (v: Vorschau | null) => void;
   zustandAendern: (z: LeistenZustand) => void;

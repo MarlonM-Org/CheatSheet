@@ -5,7 +5,7 @@ import { ablage, dateiVon, type Lesezeichen } from '@/domain/bestand';
 import { ausschnitteLesen, ausschnittFuer, ausschnittSetzen, darstellung, doppelDarstellung, fuerAlleSeiten, VOLL, type SeitenLage } from '@/domain/ausschnitt';
 import { pipettenPunkt } from '@/domain/farbe';
 import { RAD_ANFANG, radGeste, radWeg, tastenAktion, WISCH_UMKEHREN, zeigerGeste, type Blaetter } from '@/domain/geste';
-import { ansichten, ansichtVonSeite, blaetternLesen, einheitlich, hauptseite, modusSetzen, radierWeg, radierZug, seitenModus, seitenVon, STELLE_HELL, ZWEI_SEITEN, type Anmerkung, type Ansicht, type Blaettermodus, type Blaettern } from '@/domain/notenpult';
+import { ansichten, ansichtVonSeite, blaetternLesen, einheitlich, hauptseite, modusSetzen, radierWeg, radierZug, seitenModus, seitenVon, STELLE_HELL, strichVerdichten, ZWEI_SEITEN, type Anmerkung, type Ansicht, type Blaettermodus, type Blaettern } from '@/domain/notenpult';
 import {
   ankunftSchritt, genommeneSpruenge, nachSprung, spielfolge, spruengeLaden, sprungEinordnen, standUebertragen, standZu,
   weiterGehen, zurueckGehen, type Stand,
@@ -1154,9 +1154,11 @@ export function NotenBetrachter({ noten, pdf, stellen, lesezeichen, lesezeichenG
     if (werkzeug === 'radierer') radierEnde(seite);
     if (werkzeug === 'stift' || werkzeug === 'marker') {
       const luecke = z.luecke ? { luecke: z.luecke } : {};
+      // Gerundet und ausgedünnt (A-08): sieht gleich aus, braucht ein Sechstel bis ein Zehntel.
+      const punkte = strichVerdichten(z.punkte, format);
       const neu: Anmerkung = werkzeug === 'stift'
-        ? { id: crypto.randomUUID(), art: 'stift', farbe: einst.stift.farbe, breite: einst.stift.breite, punkte: z.punkte, ...luecke }
-        : { id: crypto.randomUUID(), art: 'marker', farbe: einst.marker.farbe, breite: einst.marker.breite, punkte: z.punkte, ...luecke };
+        ? { id: crypto.randomUUID(), art: 'stift', farbe: einst.stift.farbe, breite: einst.stift.breite, punkte, ...luecke }
+        : { id: crypto.randomUUID(), art: 'marker', farbe: einst.marker.farbe, breite: einst.marker.breite, punkte, ...luecke };
       anmerkungenSetzen(seite, [...(anm[seite] ?? []), neu]);
       liveLeeren();
     }

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   mischen, mixAuswahl, mixBereichLesen, mixSchluessel, neueRunde, reserveVon, rundeAbgleichen, rundeLesen, rundeStand, steigerung, stelleFavorit, stelleOffen,
   mixMenge, mixLeer, mixFertigText, mixKopf, stelleZurSeite,
-  tagesbeste, tempoAchse, tempoStand, zielAusText, zielStand, type MixStelle,
+  tagesbeste, tempiVerdichten, tempoAchse, tempoStand, zielAusText, zielStand, type MixStelle,
 } from '@/domain/stellen';
 
 // Wiederholbarer Zufall für die Tests.
@@ -311,5 +311,36 @@ describe('Stellen-Mix: Texte je Auswahl', () => {
     expect(mixKopf(null, fav, 1, 4)).toEqual({ formen: ['Mix ★ · 1 von 4', 'Mix ★ 1 von 4', 'Mix · 1 von 4'], aria: 'Stellen-Mix, nur Favoriten, Stelle 1 von 4' });
     expect(mixKopf('2026', offen, 2, 5).formen).toEqual(['Mix 2026 · offen · 2 von 5', 'Mix offen · 2 von 5', 'Mix · 2 von 5']);
     expect(mixKopf(null, alle, 2, 5)).toEqual({ formen: ['Mix · 2 von 5'], aria: 'Stellen-Mix, Stelle 2 von 5' });
+  });
+});
+
+describe('Tempo-Verlauf verdichten (A-08)', () => {
+  const TAG = 86_400_000;
+  const jetzt = new Date(2026, 10, 19, 12).getTime();
+  const um = (tage: number, stunde: number) => new Date(2026, 10, 19 - tage, stunde).getTime();
+  it('älter als 90 Tage: je Tag nur das beste; Jüngeres bleibt ganz', () => {
+    const tempi = [
+      { tempo: 60, am: um(120, 9) }, { tempo: 72, am: um(120, 10) }, { tempo: 66, am: um(120, 11) }, // alt: nur 72
+      { tempo: 80, am: um(100, 9) }, { tempo: 80, am: um(100, 18) }, // gleich gut: der spätere
+      { tempo: 84, am: um(30, 9) }, { tempo: 78, am: um(30, 10) }, // jung: beide
+      { tempo: 90, am: um(0, 8) },
+    ];
+    expect(tempiVerdichten(tempi, jetzt)).toEqual([
+      { tempo: 72, am: um(120, 10) }, { tempo: 80, am: um(100, 18) },
+      { tempo: 84, am: um(30, 9) }, { tempo: 78, am: um(30, 10) }, { tempo: 90, am: um(0, 8) },
+    ]);
+  });
+  it('Kurve, bestes Tempo und Steigerung bleiben gleich', () => {
+    const tempi = Array.from({ length: 400 }, (_, i) => ({ tempo: 60 + (i % 7) * 3 + Math.floor(i / 20), am: jetzt - (200 - i / 2) * TAG }));
+    const v = tempiVerdichten(tempi, jetzt);
+    expect(v.length).toBeLessThan(tempi.length);
+    expect(tagesbeste(v).map((t) => [t.tag, t.tempo])).toEqual(tagesbeste(tempi).map((t) => [t.tag, t.tempo]));
+    expect(tempoStand(v)).toEqual(tempoStand(tempi));
+    expect(steigerung(v, jetzt)).toEqual(steigerung(tempi, jetzt));
+  });
+  it('nichts Altes: unverändert (sortiert)', () => {
+    const t = [{ tempo: 90, am: jetzt - 1000 }, { tempo: 80, am: jetzt - 2000 }];
+    expect(tempiVerdichten(t, jetzt)).toEqual([t[1], t[0]]);
+    expect(tempiVerdichten([], jetzt)).toEqual([]);
   });
 });

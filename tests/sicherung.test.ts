@@ -63,10 +63,10 @@ describe('Übe-Sicherung', () => {
 
   it('trägt persönliche Einstellungen im Kopf mit', async () => {
     const leer = { noten: [], stellen: [], anmerkungen: [] };
-    const einstellungen = { stand: 1760000000000, werte: { 'stimm:st': 'Es', 'stimm:a': 443, 'metro:klang': 'glocke', 'ueben:stift': { farbe: '#d12d2d', breite: 0.004 } } };
+    const einstellungen = { stand: 1760000000000, werte: { 'stimm:st': 'Es', 'stimm:a': 443, 'ueben:stift': { farbe: '#d12d2d', breite: 0.004 } } };
     const mit = await sicherungLesen(await sicherungPacken(leer, 'cheatsheet', 1, { einstellungen }));
     expect(mit.kopf.einstellungen).toEqual(einstellungen);
-    expect(einstellungenLesen(mit.kopf.einstellungen)).toEqual(einstellungen);
+    expect(einstellungenLesen(mit.kopf.einstellungen)).toEqual({ ...einstellungen, lernstand: {} });
     // ohne Einstellungen, oder ohne einen Wert: kein Feld
     const ohne = await sicherungLesen(await sicherungPacken(leer, 'cheatsheet', 1));
     expect('einstellungen' in ohne.kopf).toBe(false);
@@ -99,7 +99,7 @@ describe('Übe-Sicherung', () => {
     const leer = { noten: [], stellen: [], anmerkungen: [] };
     const datei = await sicherungPacken(leer, 'cheatsheet', 1, { einstellungen: { stand: 5, werte: { 'ueben:mix-woraus': { sammlung: 'Märsche', tag: null }, 'stimm:st': 'Es' } } });
     const { kopf } = await sicherungLesen(datei);
-    expect(einstellungenLesen(kopf.einstellungen)).toEqual({ stand: 5, werte: { 'stimm:st': 'Es' } });
+    expect(einstellungenLesen(kopf.einstellungen)).toEqual({ stand: 5, werte: { 'stimm:st': 'Es' }, lernstand: {} });
   });
 
   it('kaputtes Einstellungs-Feld: Datei lädt, Einstellungen bleiben weg', async () => {

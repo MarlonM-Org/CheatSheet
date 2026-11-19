@@ -15,10 +15,9 @@ import { bandpegel, effektivwert, taktDauer, type Raster, type Tonrahmen } from 
 import type { Klang } from '@/domain/notensatz';
 import { schlaegeJeTakt } from '@/domain/takt';
 import { frequenzZuTon, grundfrequenz, type Stimmung } from '@/domain/ueben';
-import { EINSTELLUNG_STANDARD } from '@/domain/einstellungen';
 import { mikrofonWunsch } from '@/domain/lautsprecher';
-import { schlagKlingt, type Swing } from '@/domain/swing';
-import { gespeichert, klangPuffer, mikrofonOffen, useBeimVerlassen, wachHalten, type Klang as MetronomKlang } from './klang';
+import { schlagKlingt } from '@/domain/swing';
+import { klangPuffer, mikrofonOffen, useBeimVerlassen, wachHalten, type Klang as MetronomKlang } from './klang';
 import { klangSpielen, klingend } from './klavier';
 import { lautsprecherAn } from './lautsprecher';
 
@@ -36,7 +35,8 @@ export interface SpurAnzeige { zaehlt?: number; vor?: number; takt?: number; sch
 export interface SpurStart {
   raster: Raster;
   klickWeiter: boolean;
-  metro: { klang: MetronomKlang; laut: number };
+  // zweiVier: „nur 2 und 4“ des Metronoms (I-17), gilt auch für den Klick hier.
+  metro: { klang: MetronomKlang; laut: number; zweiVier: boolean };
   stimmung: Stimmung; kammerton: number;
   // Takte nur mit Klick vor dem Einsatz (Einzähler).
   einzaehlTakte: number;
@@ -106,7 +106,7 @@ export function useMikrofonSpur() {
       for (let i = 0; i < vorTakte * jeTakt; i++) klick(beginn + i * schlag, i % jeTakt === 0);
       // Einzähler und Vorlauf zählen jeden Schlag; der Klick danach folgt dem Metronom:
       // „nur 2 und 4“ gilt (I-17), hörbare Achtel nicht (die Spur misst Töne, kein Swing-Raster).
-      const zweiVier = gespeichert<Swing>('metro:swing', EINSTELLUNG_STANDARD['metro:swing']).zweiVier;
+      const { zweiVier } = o.metro;
       if (o.klickWeiter) for (let n = 0; n < jeTakt * o.maxTakte; n++) if (schlagKlingt(r.zaehler, r.nenner, n % jeTakt, zweiVier)) klick(t0 + n * schlag, n % jeTakt === 0);
       // Vorlauf: die Takte davor aus dem Stück, im selben Kontext wie der Klick.
       if (o.vorlauf?.klaenge.length) {

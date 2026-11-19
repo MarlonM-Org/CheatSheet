@@ -42,6 +42,24 @@ export function tagesbeste(tempi: Tempo[]): { tag: number; tempo: number; alle: 
   return [...tage].map(([tag, alle]) => ({ tag, tempo: Math.max(...alle), alle }));
 }
 
+// Tempo-Verlauf schmal halten (A-08): Was älter ist als `tage`, behält je
+// Übetag nur das beste Tempo (bei gleichem den späteren Eintrag) — Kurve,
+// bestes Tempo und Steigerung rechnen ohnehin mit Tagesbesten bzw. den
+// letzten Wochen. Jüngeres bleibt ganz. Nach Zeit sortiert.
+export const TEMPI_VOLL_TAGE = 90;
+export function tempiVerdichten<T extends Tempo>(tempi: readonly T[], jetzt: number, tage = TEMPI_VOLL_TAGE): T[] {
+  const grenze = jetzt - tage * TAG;
+  const bester = new Map<number, T>();
+  const jung: T[] = [];
+  for (const t of tempi) {
+    if (t.am >= grenze) { jung.push(t); continue; }
+    const tag = tagVon(t.am);
+    const da = bester.get(tag);
+    if (!da || t.tempo > da.tempo || (t.tempo === da.tempo && t.am >= da.am)) bester.set(tag, t);
+  }
+  return [...bester.values(), ...jung].sort((a, b) => a.am - b.am);
+}
+
 // Wie viel schneller als vor `tage` Tagen? Verglichen wird das Beste bis
 // heute mit dem Besten bis zur Grenze — Aufwärmen und schlechte Tage
 // verfälschen nichts. Ist alles jünger, zählt der erste Übetag als

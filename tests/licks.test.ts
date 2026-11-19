@@ -4,7 +4,7 @@ import { tonartLesen, tonDeutsch, tonKlasse } from '@/domain/akkorde';
 import { abschnitteAbc, abschnitteKlaenge, OBERE_GRENZEN, UMFANG } from '@/domain/etueden';
 import {
   bewerten, faellig, faelligIn, faelligText, heuteFaellig, istPause, lickAbschnitt, lickAlle12, lickAusEingabe, lickBewerten, lickEntfernen,
-  lickLesen, licksAlle, licksGueltig, licksLesen, lickSichern, lickSkills, LICKS_STANDARD, START_LICKS, startLicksZeigen, type Lick, type LickSpeicher,
+  lickLesen, licksAlle, licksGueltig, licksLesen, lickSichern, lickSkills, licksVereinigen, LICKS_STANDARD, START_LICKS, startLicksZeigen, type Lick, type LickSpeicher,
 } from '@/domain/licks';
 
 const TAG = 86_400_000;
@@ -170,5 +170,47 @@ describe('Speicher', () => {
     expect(licksLesen({ eigene: [eigen, { kaputt: 1 }], stand: { a: { zuletzt: jetzt, staerke: 9 }, b: { zuletzt: jetzt, staerke: 1 } }, aus: [3, 'x'] }))
       .toEqual({ eigene: [eigen], stand: { b: { zuletzt: jetzt, staerke: 1 } }, aus: ['x'] });
     expect(licksLesen(null)).toEqual(LICKS_STANDARD);
+  });
+});
+
+describe('Zwei Geräte (A-08)', () => {
+  const eigen = (id: string, geaendert?: number, name = id): Lick => ({ ...lick('C8 D8 E4'), id, name, ...(geaendert ? { geaendert } : {}) });
+  const sp = (teil: Partial<LickSpeicher>): LickSpeicher => ({ ...LICKS_STANDARD, ...teil });
+
+  it('sichern, ausblenden und wieder zeigen datieren', () => {
+    expect(lickSichern(LICKS_STANDARD, eigen('a'), jetzt).eigene[0].geaendert).toBe(jetzt);
+    expect(lickEntfernen(LICKS_STANDARD, START_LICKS[0].id, jetzt).ausAm).toBe(jetzt);
+    expect(startLicksZeigen(sp({ aus: [START_LICKS[0].id] }), jetzt)).toEqual(sp({ ausAm: jetzt }));
+  });
+  it('eigene: je id der neuere, die übrigen von beiden Seiten', () => {
+    const hier = sp({ eigene: [eigen('a', 5, 'A hier'), eigen('b', 9, 'B hier')] });
+    const dort = sp({ eigene: [eigen('a', 7, 'A dort'), eigen('b', 3, 'B dort'), eigen('c', 1)] });
+    expect(licksVereinigen(hier, dort, []).eigene.map((l) => l.name)).toEqual(['A dort', 'B hier', 'c']);
+  });
+  it('Stand je Lick: das spätere Üben gewinnt', () => {
+    const hier = sp({ stand: { x: { zuletzt: 5, staerke: 3 }, y: { zuletzt: 9, staerke: 1 } } });
+    const dort = sp({ stand: { x: { zuletzt: 7, staerke: 0 }, y: { zuletzt: 2, staerke: 4 }, z: { zuletzt: 1, staerke: 2 } } });
+    expect(licksVereinigen(hier, dort, []).stand).toEqual({ x: { zuletzt: 7, staerke: 0 }, y: { zuletzt: 9, staerke: 1 }, z: { zuletzt: 1, staerke: 2 } });
+  });
+  it('Grabsteine nehmen gelöschte Licks samt Stand mit — nicht aber, was danach geändert wurde', () => {
+    const hier = sp({ eigene: [eigen('a', 5)], stand: { a: { zuletzt: 6, staerke: 1 } } });
+    const dort = sp({ eigene: [eigen('b', 5), eigen('c', 50)], stand: { b: { zuletzt: 6, staerke: 1 } } });
+    const grab = [{ art: 'lick' as const, id: 'a', am: 10 }, { art: 'lick' as const, id: 'b', am: 10 }, { art: 'lick' as const, id: 'c', am: 10 }, { art: 'tag' as const, id: 'x', am: 99 }];
+    const r = licksVereinigen(hier, dort, grab);
+    expect(r.eigene.map((l) => l.id)).toEqual(['c']);
+    expect(r.stand).toEqual({});
+  });
+  it('ausgeblendete Start-Licks: die neuere Liste gewinnt als Ganzes', () => {
+    const [s1, s2] = START_LICKS.map((l) => l.id);
+    expect(licksVereinigen(sp({ aus: [s1], ausAm: 5 }), sp({ aus: [s2], ausAm: 9 }), [])).toEqual(sp({ aus: [s2], ausAm: 9 }));
+    expect(licksVereinigen(sp({ aus: [], ausAm: 9 }), sp({ aus: [s2], ausAm: 5 }), [])).toEqual(sp({ aus: [], ausAm: 9 }));
+    expect(licksVereinigen(sp({ aus: [s1] }), sp({}), [])).toEqual(sp({ aus: [s1] }));
+  });
+  it('lesen und prüfen behalten geaendert und ausAm', () => {
+    const roh = sp({ eigene: [eigen('a', 5)], ausAm: 7 });
+    expect(licksLesen(JSON.parse(JSON.stringify(roh)))).toEqual(roh);
+    expect(licksGueltig(roh)).toBe(true);
+    expect(licksGueltig(sp({ ausAm: -1 }))).toBe(false);
+    expect(licksGueltig(sp({ eigene: [{ ...eigen('a'), geaendert: 'neu' as unknown as number }] }))).toBe(false);
   });
 });

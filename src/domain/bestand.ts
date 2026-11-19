@@ -77,6 +77,7 @@ export type Eintrag =
   | { id: string; art: 'lesezeichen'; lesezeichenId: string }
   // Gewollt leerer Platz („spiele ich auswendig“) — nie der Rest eines gelöschten Stücks.
   | { id: string; art: 'platzhalter'; titel: string };
+// `aktualisiert` tragen nur ältere Datensätze (war immer gleich `geaendert`, A-08).
 export interface Setliste { id: string; titel: string; erstellt: number; aktualisiert?: number; geaendert?: number; eintraege: Eintrag[] }
 
 // Anmerkungen und Merker: ein Datensatz je Seite.
@@ -163,7 +164,7 @@ export function setlistenOhne(
     || (e.art === 'lesezeichen' && lesezeichen.has(e.lesezeichenId));
   return setlisten
     .filter((s) => s.eintraege.some(raus))
-    .map((s) => ({ ...s, eintraege: s.eintraege.filter((e) => !raus(e)), aktualisiert: jetzt, geaendert: jetzt }));
+    .map((s) => ({ ...s, eintraege: s.eintraege.filter((e) => !raus(e)), geaendert: jetzt }));
 }
 
 // Zusatz zur Rückfrage beim Löschen; leer, wenn nichts mitbetroffen ist.

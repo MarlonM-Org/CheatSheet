@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { EINSTELLUNG_STANDARD, type OhrEinstellung } from '@/domain/einstellungen';
+import { OHR_STANDARD, type OhrEinstellung } from '@/domain/einstellungen';
 import {
   bewerten, empfehlung, GRUNDTOENE, hinweis, nachbarStufe, naechsterGrundton, phraseErzeugen, phraseKlaenge,
   rundeMerken, STUFEN, vorlaufFuerRunde, stufeFinden, tonBezeichnung, verlaufLesen, zufall, type Ergebnis, type Phrase, type Runde, type StufenId,
@@ -43,7 +43,7 @@ function OhrSymbol() {
 
 // Einstieg auf der Lernen-Seite (B-18) unter „Üben“, neben den Hör-Übungen (seit B-19 ohne Stellen-Mix).
 function standText(): string {
-  const ein = gespeichert<OhrEinstellung>(EINSTELLUNG, EINSTELLUNG_STANDARD[EINSTELLUNG]);
+  const ein = gespeichert<OhrEinstellung>(EINSTELLUNG, OHR_STANDARD);
   const letzte = verlaufLaden().filter((r) => r.stufe === ein.stufe).slice(-5);
   const name = stufeFinden(ein.stufe).name;
   return letzte.length ? `${name} · zuletzt ${prozent(letzte.reduce((s, r) => s + r.quote, 0) / letzte.length)}` : name;
@@ -83,7 +83,7 @@ export function OhrTrainerBlatt({ schliessen, stufe: anfangsStufe }: { schliesse
   const metro = useMetronom();
   const spur = useMikrofonSpur();
   const [ein, setEinRoh] = useState<OhrEinstellung>(() => {
-    const e = gespeichert<OhrEinstellung>(EINSTELLUNG, EINSTELLUNG_STANDARD[EINSTELLUNG]);
+    const e = gespeichert<OhrEinstellung>(EINSTELLUNG, OHR_STANDARD);
     return anfangsStufe ? { ...e, stufe: anfangsStufe } : e;
   });
   const [verlauf, setVerlauf] = useState<Runde[]>(verlaufLaden);
@@ -100,7 +100,7 @@ export function OhrTrainerBlatt({ schliessen, stufe: anfangsStufe }: { schliesse
   const anhoerenStopp = () => { vorspiel.current?.stopp(); vorspiel.current = null; };
   useEffect(() => () => anhoerenStopp(), []);
   // Eine vorgegebene Stufe gilt auch fürs nächste Öffnen über die Bibliothek.
-  useEffect(() => { if (anfangsStufe) speichern(EINSTELLUNG, { ...gespeichert<OhrEinstellung>(EINSTELLUNG, EINSTELLUNG_STANDARD[EINSTELLUNG]), stufe: anfangsStufe }); }, [anfangsStufe]);
+  useEffect(() => { if (anfangsStufe) speichern(EINSTELLUNG, { ...gespeichert<OhrEinstellung>(EINSTELLUNG, OHR_STANDARD), stufe: anfangsStufe }); }, [anfangsStufe]);
 
   const zu = () => { anhoerenStopp(); if (spur.aktiv) spur.stoppen(false); schliessen(); };
   useEscape(zu, griff === null);
@@ -115,7 +115,7 @@ export function OhrTrainerBlatt({ schliessen, stufe: anfangsStufe }: { schliesse
     const raster: Raster = { bpm, zaehler: 4, nenner: 4, feinheit: 16 };
     void spur.starten({
       raster, klickWeiter: true,
-      metro: { klang: metro.klang, laut: metro.laut },
+      metro: { klang: metro.klang, laut: metro.laut, zweiVier: metro.swing.zweiVier },
       stimmung: stimm.stimmung, kammerton: stimm.kammerton,
       einzaehlTakte: 1,
       // Phrase, dann ein Takt Einzählen für die Antwort.

@@ -24,15 +24,18 @@ anders ist, ist ein Fehler oder gehört dort nachgetragen.
   optionale Kopf-Felder `geloescht` (Grabsteine), `tags` (Tag-Definitionen,
   sonst im localStorage `ueben:tags`; optional `auch` = weitere ids desselben
   Tags), `tonprofile` (sonst `ueben:tonprofile`), `einstellungen`
-  (`{stand, werte}`: persönliche Einstellungen; Liste und Regeln in
-  `src/domain/einstellungen.ts`) und, im Zuschnitt des Geräts (`stueckId`),
+  (`{stand, werte}`: persönliche Einstellungen und Lernstand; Liste und
+  Regeln in `src/domain/einstellungen.ts`) und, im Zuschnitt des Geräts (`stueckId`),
   `virtuelle`, `lesezeichen`, `merker`, `setlisten`. Zusätzliche Felder an
   Noten/Stellen/Seiten (`sammlungen`, `tags`, `geaendert`, `entfernt`,
   `groesse`, `ausschnitte`, `spruenge`, `favorit`, `akkorde`, Metadaten) reisen ohnehin mit. Nicht
   weiter ändern; eine neue Version nur mit Lesen der alten.
 - Neuer localStorage-Schlüssel: in `src/domain/einstellungen.ts` entscheiden,
-  ob er mit der Sicherung reist (Person/Instrument ja, Gerät nein), und über
-  `speichern()` aus `klang.ts` schreiben, sonst rückt der Stand nicht vor.
+  ob er mit der Sicherung reist (Person/Instrument ja, Gerät nein,
+  Lernstand je Eintrag zusammengeführt) — oder ob er gar nicht gespeichert
+  werden muss (Bedienung, „zuletzt gewählt“: Sitzung genügt; Speicher
+  schmal halten, ROADMAP A-08) — und über `speichern()` aus `klang.ts`
+  schreiben, sonst rückt der Stand nicht vor.
 - Fachlogik rein und getestet in `src/domain/` — neue Regeln dort zuerst als Test.
 - Die Adresse steht nur in `src/adresse.ts`.
 - Offline: `public/sw.js` + `scripts/precache.mjs`. Neue statische Dateien

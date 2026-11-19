@@ -8,7 +8,7 @@ import { BEREICHE, HOER_UEBUNGEN, SKILLS, skillFinden, skillFuerHoerUebung, skil
 import { STUFEN } from '@/domain/gehoer';
 import {
   andererVorschlag, BLOECKE_MAX, geuebtEintragen, heuteArt, heuteFestschreiben, heuteKandidaten, heuteLeer, heuteLesen, heuteVorschlag,
-  hoechsteStufe, imFilter, istSicher, markieren, rundeEintragen, skillsGueltig, skillsLesen, staerke, stufeAusRunden, tagSchluessel, tageSeit,
+  hoechsteStufe, imFilter, istSicher, markieren, rundeEintragen, skillsGueltig, skillsLesen, skillsVereinigen, skillZeit, staerke, stufeAusRunden, tagSchluessel, tageSeit,
   uebersicht, verblasst, wirksameStufe, wocheEinheiten, zuletztText, type HeuteStand, type SkillSpeicher,
 } from '@/domain/skills';
 
@@ -596,5 +596,36 @@ describe('Heute (I-09): Blöcke aus den „Lerne ich“-Skills', () => {
     // „Erledigt“ laut altem Stand, aber heute gar nicht geübt: wird an derselben Stelle ersetzt.
     const h = heuteLesen({ tag: tagSchluessel(T0), erledigt: { ohr: 'intervalle' }, einheiten: [] }, T0);
     expect(ids(heuteVorschlag(h, lerne('tonleitern-12'), T0))).toEqual(['tonleitern-12']);
+  });
+});
+
+describe('Zwei Geräte (A-08)', () => {
+  it('jede Änderung datiert den Skill', () => {
+    expect(rundeEintragen({}, 'x', 0.8, T0).x.geaendert).toBe(T0);
+    expect(geuebtEintragen({}, 'x', T0).x.geaendert).toBe(T0);
+    expect(markieren({}, 'x', 'will', T0).x.geaendert).toBe(T0);
+    // Auch „offen“ bleibt als datierter Eintrag stehen.
+    expect(markieren(markieren({}, 'x', 'will', T0), 'x', 'offen', tag(1))).toEqual({ x: { geaendert: tag(1) } });
+  });
+  it('Zeit eines Skills: geaendert, sonst die letzte Übung', () => {
+    expect(skillZeit({ geaendert: 5, zuletzt: 9 })).toBe(5);
+    expect(skillZeit({ zuletzt: 9, quoten: [{ q: 1, am: 12 }] })).toBe(12);
+    expect(skillZeit({ markierung: 'will' })).toBe(0);
+  });
+  it('je Skill gewinnt der neuere Stand als Ganzes; bei Gleichstand der hiesige', () => {
+    const hier: SkillSpeicher = { a: { stufe: 3, hoechste: 3, geaendert: tag(5) }, b: { markierung: 'will', geaendert: tag(1) }, gleich: { markierung: 'lerne', geaendert: tag(2) } };
+    const dort: SkillSpeicher = { a: { stufe: 1, hoechste: 1, geaendert: tag(2) }, b: { markierung: 'kann', geaendert: tag(3) }, c: { markierung: 'pause' }, gleich: { markierung: 'kann', geaendert: tag(2) } };
+    expect(skillsVereinigen(hier, dort)).toEqual({
+      a: { stufe: 3, hoechste: 3, geaendert: tag(5) }, b: { markierung: 'kann', geaendert: tag(3) }, c: { markierung: 'pause' }, gleich: { markierung: 'lerne', geaendert: tag(2) },
+    });
+  });
+  it('„offen“ auf einem Gerät schlägt eine ältere Markierung vom anderen', () => {
+    const hier = markieren(markieren({}, 'x', 'will', T0), 'x', 'offen', tag(2));
+    expect(skillsVereinigen(hier, markieren({}, 'x', 'kann', tag(1))).x.markierung).toBeUndefined();
+  });
+  it('lesen und prüfen behalten geaendert', () => {
+    expect(skillsLesen({ x: { markierung: 'will', geaendert: T0 } })).toEqual({ x: { markierung: 'will', geaendert: T0 } });
+    expect(skillsGueltig({ x: { geaendert: T0 } })).toBe(true);
+    expect(skillsGueltig({ x: { geaendert: 'gestern' } })).toBe(false);
   });
 });

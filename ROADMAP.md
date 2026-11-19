@@ -119,6 +119,7 @@ ist auf `main` und damit auf cheat-sheet.ma-und-ma.de.
 Alles hier hat Code und Tests; was fehlt, ist der Praxisbeweis auf iPhone
 oder iPad. Vorher auf jedem Gerät eine Sicherung erstellen.
 
+- A-08 · Schmale Sicherung: Einstellungen in drei Gruppen, Lernstand je Eintrag zusammengeführt, Striche gerundet und ausgedünnt, `entfernt` begrenzt, Tempo-Verlauf verdichtet · `einstellungen.ts`, `skills.ts`, `licks.ts`, `jamkarte.ts`, `notenpult.ts`, `stellen.ts` getestet. Prüfen: Checkliste in A-08.
 - I-09 · „Heute“ aus den „Lerne ich“-Skills aller Bereiche (Umbau 2026-11-19): bis drei Blöcke à 10 Minuten, aufgefüllt mit ☆/Verblasstem, Aufgabe je Skill, Etüden/Licks/Jam-Karte/Spickzettel/Drone/Griffweisen/Transponieren/Metronom voreingestellt, Plan des Tages fest · Regeln und alter Tagesstand in `tests/skills.test.ts`, im Browser (iPhone 390 × 844, iPad 820 × 1180) mit 0, 1, 3 und 5 markierten Skills durchgespielt. Prüfen: Checkliste in I-09.
 - B-19 · Stellen-Mix zurück in der Bibliothek (Zeile unter den Sammlungen, Punkt an „Noten“), Lernen nur für Grundlagen; „Woraus“, `ueben:mix-woraus` und `mixQuelle` entfernt · Laden alter Sicherungen getestet, im Browser (iPhone und iPad hoch/quer) durchgespielt. Prüfen: Checkliste in B-19.
 - I-04/I-19/G-01 · Begleitung aus Akkorden, Jam-Karte mit Übe-Anleitung, Komponieren mit Akkorden, Akkorde antippen (2026-11-19) · `begleitung.ts`, `akkordrahmen.ts`, Akkorde im ABC getestet; im Browser (iPhone- und iPad-Ansicht, künstliches Mikrofon) durchgespielt, Ton nur im Kopf-losen Browser gemessen (Frequenzen, Klicks), nie gehört auf dem Gerät.
@@ -246,6 +247,91 @@ Umgesetzt in B-06 (siehe Erledigt). Der `.uebe`-Vertrag mit `registerfuehrer`
 bleibt damit bestehen.
 
 *(A-02 und A-03 erledigt am 2026-10-12 — siehe unten.)*
+
+### A-08 · Schmale Sicherung — umgesetzt 2026-11-19, zu prüfen
+
+Wunsch Marlon (2026-11-19): „Grundsätzlich sollte der Speicher schmal
+gehalten werden.“ In die Sicherung gehört nur, was wirklich Nutzerdaten
+sind (und was der Abgleich zwischen Geräten braucht). Was nur Bedienung
+ist, wird jedes Mal neu eingestellt und nicht gespeichert.
+
+**Befund (Analyse 2026-11-19):** Den Großteil einer `.uebe` machen die PDFs
+aus; der Kopf (JSON) ist klein, wuchs aber an drei Stellen ohne Grenze
+(Striche, `entfernt`, Tempo-Verläufe). Von den 24 mitreisenden
+Einstellungen waren zwölf nur „zuletzt gewählt“, und drei waren in
+Wahrheit Nutzerdaten (Skill-Kartei, Licks, Jam-Stücke). Weil der
+Einstellungsblock beim Laden als Ganzes gewinnt, konnte eine nebenbei
+geänderte Metronom-Lautstärke auf dem einen Gerät den Lernstand des
+anderen überschreiben.
+
+**Entschieden und umgesetzt:**
+
+1. **Einstellungen in drei Gruppen** (`src/domain/einstellungen.ts`, getestet):
+   - *Reisen mit* (zur Person, zum Instrument; neuerer Stand gewinnt als
+     Ganzes wie bisher): Stimmung und Kammerton, Tonumfang fürs Tonprofil,
+     Stift-, Marker- und Textfarbe, Wischrichtung, „Immer zoomen“,
+     Reihenfolge der Sammlungen.
+   - *Nur am Gerät:* Metronom-Klang und -Lautstärke, Ohr-Trainer (Stufe,
+     Grundton, Tempo, Wechseln), Stufe der Hör-Übungen. Die Stufen sind
+     der eigene Stand — jedes Mal neu wählen wäre lästig.
+   - *Nicht gespeichert* (jede Sitzung beginnt mit dem App-Standard; was
+     man einstellt, gilt, bis die App geschlossen wird): Taktart und
+     Nenner, Akzente, Unterteilung, Tempo-Trainer, Swing, Drone (Grundton,
+     Farbe, Lautstärke), Etüden-Wahl. Die alten Schlüssel räumt die App
+     beim Start weg (`VERALTET`). Das Tempo (`metro:bpm`) bleibt wie bisher
+     am Gerät.
+2. **Lernstand ist Nutzerdaten** (`ueben:skills`, `ueben:licks`,
+   `ueben:jamkarte`). Er reist weiter in `einstellungen.werte` (Format
+   unverändert), gehört aber nicht mehr zum Block: Änderungen rücken den
+   Stand der Einstellungen nicht vor, und beim Laden wird **je Eintrag**
+   zusammengeführt — je Skill, je Lick, je Jam-Stück gewinnt der neuere
+   Stand (`geaendert`, bei älteren Einträgen die letzte Übung). Gelöschte
+   eigene Licks und Jam-Stücke hinterlassen Grabsteine (`lick`,
+   `jamstueck`), damit eine ältere Sicherung sie nicht zurückbringt; bei
+   den ausgeblendeten Start-Licks gewinnt die neuere Liste (`ausAm`).
+   Regeln `skillsVereinigen`, `licksVereinigen`, `jamStueckeVereinigen`
+   (getestet).
+3. **Striche schmal** (`strichVerdichten` in `src/domain/notenpult.ts`,
+   getestet): Beim Absetzen werden die Punkte auf 4 Nachkommastellen
+   gerundet (0,0001 Seitenbreite, etwa 0,2 px auf dem iPad) und
+   ausgedünnt (Ramer-Douglas-Peucker: Punkte, die weniger als 0,0001
+   Seitenbreite von der Linie abweichen, fallen weg — weit unter der
+   feinsten Stiftbreite 0,0015). Ein Strich von einer Sekunde wird damit
+   fünf- bis zehnmal kleiner (gemessen: Schreibschrift-Schlinge mit 240
+   Abtastungen 9,3 KB → 1,4 KB). Radier-Schnitte und Radier-Spuren werden
+   ebenso gerundet. Bestehende Striche bleiben, wie sie sind.
+4. **`entfernt` begrenzt** (`entferntBegrenzen` in
+   `src/domain/einspielen.ts`): je Seite die letzten 300 ids. Das Feld
+   bleibt eine Liste von ids (Vertrag), Zeitstempel gibt es dafür nicht;
+   die Grenze wirkt wie eine Frist: Ein wegradierter Strich kehrt über eine
+   alte Sicherung nur zurück, wenn auf derselben Seite seitdem mehr als 300
+   Striche wegradiert oder zerschnitten wurden.
+5. **Tempo-Verlauf verdichtet** (`tempiVerdichten` in
+   `src/domain/stellen.ts`, getestet): Einträge, die älter als 90 Tage
+   sind, behalten je Tag nur das beste Tempo — Kurve, „bestes Tempo“ und
+   Steigerung rechnen ohnehin mit Tagesbesten bzw. den letzten Wochen.
+   Geschieht beim nächsten Eintragen an der Stelle.
+6. **Kleinkram:** Setlisten schreiben `aktualisiert` nicht mehr (war immer
+   gleich `geaendert`); `zuletzt` am Stück (Altlast aus `ueben`, „zuletzt
+   geöffnet“ gehört zum Gerät) bleibt aus der Sicherung.
+
+Das Format bleibt Version 1 ohne neue Kopf-Felder; ältere Sicherungen
+laden wie bisher (Einstellungen, die nicht mehr mitreisen, werden
+übergangen; Lernstand darin wird zusammengeführt). Größter Hebel bleibt
+die „Sicherung ohne PDFs“ (H-01, Rest).
+
+**Prüfen auf dem Gerät:**
+- Metronom auf 3/4 mit Swing stellen, App ganz schließen, neu öffnen →
+  4/4 ohne Swing; Klang und Lautstärke sind geblieben. Drone und Etüden
+  beginnen nach dem Neustart mit dem Standard, behalten ihre Wahl aber,
+  solange die App offen ist.
+- Zwei Geräte: auf dem iPhone Skill A üben, auf dem iPad Skill B, dann die
+  Sicherungen jeweils auf dem anderen Gerät laden → beide Geräte haben
+  beide Stände.
+- Eigenen Lick löschen, Sicherung auf dem anderen Gerät laden → dort weg;
+  eine ältere Sicherung zurückspielen → kommt nicht wieder.
+- Mit dem Stift schreiben, auch stark gezoomt: Striche sehen aus wie
+  vorher (keine Ecken, keine Lücken), Radieren schneidet wie gewohnt.
 
 ---
 
@@ -1829,9 +1915,9 @@ dem Versuch zu sehen — es ist Gehörbildung, kein Vom-Blatt-Spielen.
   höchstens ein Drittel Schlag daneben.
 - **Steigerung:** fünf Runden einer Stufe im Schnitt ≥ 80 % → „Nächste Stufe?“;
   drei Runden < 40 % → „Eine Stufe zurück?“. Vorschlag, kein Zwang.
-- Einstellungen (`ueben:ohr`: Stufe, Grundton, Tempo, Wechseln) reisen mit
-  der Sicherung; der Verlauf (`ueben:ohr-verlauf`, letzte 200 Runden) bleibt
-  vorerst auf dem Gerät.
+- Einstellungen (`ueben:ohr`: Stufe, Grundton, Tempo, Wechseln) und der
+  Verlauf (`ueben:ohr-verlauf`, letzte 200 Runden) bleiben auf dem Gerät
+  (seit A-08; vorher reisten die Einstellungen mit der Sicherung).
 - Einstieg: Zeile „Ohr-Trainer“ auf der Lernen-Seite unter „Üben“
   (seit B-18; vorher in der Bibliothek; seit B-19 ohne Stellen-Mix davor).
 - **Geprüft im Browser** (Chrome, künstliches Mikrofon mit einer
@@ -2016,7 +2102,7 @@ Dreiklänge 2, Septakkorde 2; Richtung bei Intervallen), Blatt
 B-18 direkt über die Zeile „Hör-Übungen“ auf der Lernen-Seite, jede
 Runde zählt auf den Skill (Dreiklänge → „Dur und Moll hören“). Nach dem
 Antworten spielt ein Tipp auf jede Antwort deren Klang (Vergleich). Letzte
-Stufe je Übung in `ueben:hoerquiz` (reist mit der Sicherung).
+Stufe je Übung in `ueben:hoerquiz` (am Gerät; reiste bis A-08 mit der Sicherung).
 
 ### I-09 · „Heute“: geführte Einheit — Bau 2026-11-16, Umbau 2026-11-19, zu prüfen
 
@@ -2991,8 +3077,9 @@ in die Bibliothek, I-20). Tonhöhen immer **notiert für die gewählte Stimmung*
   Achtel“), wie bei einem Metronom „♪ = 120“. Zusammengesetzte Takte (6/8,
   9/8, 12/8) betonen jede Dreiergruppe; bei gleichem Nenner bleiben gesetzte
   Akzente Schlag für Schlag. Das Widget zeigt „Takt 6/8“. Regeln in
-  `src/domain/takt.ts` (getestet). Daten: `metro:nenner` (reist mit der
-  Sicherung), `metro:takt` bleibt der Zähler.
+  `src/domain/takt.ts` (getestet). Daten: `metro:nenner` (reiste mit der
+  Sicherung), `metro:takt` bleibt der Zähler. Seit A-08 gelten Taktart und
+  Nenner nur für die Sitzung, jeder Start beginnt mit 4/4.
 - **D-06 · Schmales Metronom-Widget, gleichmäßigere Größen** (2026-10-23):
   Wunsch Marlon. Im Kopf des Widgets schaltet ⇥⇤ auf eine **schmale Säule**,
   nur so breit wie der Start-Knopf: Start, Tempo (antippen zum Eingeben),

@@ -1,14 +1,14 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { EINSTELLUNG_STANDARD as STANDARD, type Akzent, type Trainer } from '@/domain/einstellungen';
+import { METRONOM_STANDARD as STANDARD, type Akzent, type Trainer } from '@/domain/einstellungen';
 import type { Swing } from '@/domain/swing';
-import { akzenteFuer, nennerPruefen, unterPruefen, type Nenner } from '@/domain/takt';
+import { akzenteFuer, unterPruefen, type Nenner } from '@/domain/takt';
 import {
   imHintergrundWeiter, jetztLaeuft, taktgeberPlanen, taktgeberStart, vorlauf, VORLAUF_VORN, zurueckAb, type TaktgeberStand,
 } from '@/domain/taktgeber';
 import {
-  gespeichert, hintergrundSchalter, klangPuffer, mischenSchalter, speichern, useBeimVerlassen, useBeimZurueckkommen, useEinstellungenGeladen,
+  gespeichert, hintergrundSchalter, klangPuffer, mischenSchalter, speichern, useBeimVerlassen, useBeimZurueckkommen,
   verwerfen, wachHalten, wiedergabeSitzung, type Art, type Klang,
 } from './klang';
 import { skillGeuebt } from './skillspeicher';
@@ -84,31 +84,18 @@ export function MetronomAnbieter({ children }: { children: React.ReactNode }) {
     if (lauf.current) lauf.current.stand.bpm = w;
   }, [tempoZeigen]);
   const [laeuft, setLaeuft] = useState(false);
-  const [takt, setTakt] = useState(() => gespeichert('metro:takt', STANDARD['metro:takt']));
-  const [nenner, setNenner] = useState<Nenner>(() => nennerPruefen(gespeichert('metro:nenner', STANDARD['metro:nenner'])));
-  const [akzente, setAkzente] = useState<Akzent[]>(() => akzenteFuer(
-    gespeichert('metro:takt', STANDARD['metro:takt']), nennerPruefen(gespeichert('metro:nenner', STANDARD['metro:nenner'])), gespeichert<Akzent[]>('metro:akzente', [])));
-  const [unter, setUnter] = useState(() => gespeichert('metro:unter', STANDARD['metro:unter']));
-  const [klang, setKlang] = useState<Klang>(() => gespeichert('metro:klang', STANDARD['metro:klang']));
-  const [laut, setLaut] = useState(() => gespeichert('metro:laut', STANDARD['metro:laut']));
-  const [trainer, setTrainer] = useState<Trainer>(() => gespeichert('metro:trainer', STANDARD['metro:trainer']));
-  const [swing, setSwing] = useState<Swing>(() => gespeichert('metro:swing', STANDARD['metro:swing']));
+  // Taktart, Akzente, Unterteilung, Trainer und Swing gelten für diese
+  // Sitzung: Jeder Start beginnt mit dem Standard (A-08). Klang und
+  // Lautstärke merkt sich das Gerät; mit der Sicherung reist nichts davon.
+  const [takt, setTakt] = useState(STANDARD.takt);
+  const [nenner, setNenner] = useState<Nenner>(STANDARD.nenner);
+  const [akzente, setAkzente] = useState<Akzent[]>(() => akzenteFuer(STANDARD.takt, STANDARD.nenner, STANDARD.akzente));
+  const [unter, setUnter] = useState(STANDARD.unter);
+  const [klang, setKlang] = useState<Klang>(() => gespeichert('metro:klang', STANDARD.klang));
+  const [laut, setLaut] = useState(() => gespeichert('metro:laut', STANDARD.laut));
+  const [trainer, setTrainer] = useState<Trainer>(STANDARD.trainer);
+  const [swing, setSwing] = useState<Swing>(STANDARD.swing);
   const [aktiv, setAktiv] = useState<{ schlag: number; sub: number } | null>(null);
-  // Eine Sicherung hat Einstellungen übernommen: neu lesen, sonst schriebe
-  // der Effekt unten die alten Werte zurück. Das Tempo bleibt am Gerät.
-  const neuLesen = useCallback(() => {
-    const t = gespeichert('metro:takt', STANDARD['metro:takt']);
-    const n = nennerPruefen(gespeichert('metro:nenner', STANDARD['metro:nenner']));
-    setTakt(t);
-    setNenner(n);
-    setAkzente(akzenteFuer(t, n, gespeichert<Akzent[]>('metro:akzente', [])));
-    setUnter(unterPruefen(t, n, gespeichert('metro:unter', STANDARD['metro:unter'])));
-    setKlang(gespeichert('metro:klang', STANDARD['metro:klang']));
-    setLaut(gespeichert('metro:laut', STANDARD['metro:laut']));
-    setTrainer(gespeichert('metro:trainer', STANDARD['metro:trainer']));
-    setSwing(gespeichert('metro:swing', STANDARD['metro:swing']));
-  }, []);
-  useEinstellungenGeladen(neuLesen);
 
   // Alles, was der Taktgeber liest, als Referenz (er läuft außerhalb von
   // React). Das Tempo, mit dem er plant, steht in seinem Stand (lauf.stand).
@@ -116,8 +103,7 @@ export function MetronomAnbieter({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     r.current = { ...r.current, bpm, takt, nenner, akzente, unter, klang, laut, trainer, swing };
   }, [bpm, takt, nenner, akzente, unter, klang, laut, trainer, swing]);
-  useEffect(() => { speichern('metro:takt', takt); speichern('metro:nenner', nenner); speichern('metro:akzente', akzente); speichern('metro:unter', unter); speichern('metro:klang', klang); speichern('metro:laut', laut); speichern('metro:trainer', trainer); speichern('metro:swing', swing); },
-    [takt, nenner, akzente, unter, klang, laut, trainer, swing]);
+  useEffect(() => { speichern('metro:klang', klang); speichern('metro:laut', laut); }, [klang, laut]);
 
   // Plant voraus: vorn 0,12 s, im Hintergrund einige Sekunden — dort weckt
   // iOS die Seite nur etwa einmal je Sekunde (D-08).
