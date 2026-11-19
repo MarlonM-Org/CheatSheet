@@ -1388,6 +1388,22 @@ Werkzeuge erreicht man auf der Seite **Lernen** (B-18) im Abschnitt **Werkzeuge*
   Farbe) als ruhiger Klangteppich, Tonart wählbar (notiert), Lautstärke;
   zum Improvisieren und Intonieren. Wie Klick und Klavier: erzeugt, keine
   Datei.
+  **Rückmeldung 2026-11-19:** Klingt zu gleichförmig — jetzt vier
+  **Klangprofile**, ganz oben im Blatt („Klang“), jederzeit umschaltbar,
+  auch während die Drone läuft (weicher Übergang): *Weich* (der bisherige
+  Klang, jede Stimme atmet langsam), *Orgel* (Pfeifenklang, ganz ruhig — zum
+  Intonieren am besten), *Streicher* (gestrichenes Ensemble, Filter geht
+  langsam auf und zu, leises Bogenrauschen), *Tanpura* (gezupfte Saiten im
+  Kreis: Pa – Sa – Sa – tiefes Sa; ein Farbton kommt als fünfte Saite nach
+  der Quinte). Alle mit leichtem Hall; die Tonhöhe bleibt in jedem Profil
+  fest. Die Wahl bleibt auf dem Gerät (`ueben:drone-klang`) und reist
+  **nicht** mit der Sicherung (Entscheidung Marlon); die Spielhilfe (I-15)
+  nimmt die zuletzt gewählte. Die Töne über dem Grundton klingen jetzt
+  **rein** (Quinte 3:2, große/kleine Terz 5:4/6:5, Sexte 5:3, Septime 16:9)
+  statt gleichstufig — gegen Orgel und Streicher schwebte die gleichstufige
+  Terz hörbar. Regeln in `src/domain/drone.ts` (getestet), Klang in
+  `src/components/ueben/droneKlang.ts`. Lautstärke der Profile nach
+  Lautheit (EBU R128) angeglichen.
 - **I-19 · Jam-Karte.** Die typischen Session-Stücke (Blues in B und F,
   Blue Bossa, Autumn Leaves, Summertime, Fly Me to the Moon, All the Things
   You Are, Take the A Train, So What, Cantaloupe Island, Watermelon Man …)
