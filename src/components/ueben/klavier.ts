@@ -2,6 +2,7 @@
 
 import { STIMMUNGEN, tonFrequenz, type Stimmung } from '@/domain/ueben';
 import type { Klang } from '@/domain/notensatz';
+import { wiedergabeSitzung } from './klang';
 
 // Vorspielen (G-04), erste Stufe: ein Klavier-ähnlicher Ton aus Web Audio,
 // ohne Soundfont-Dateien — läuft offline und wiegt nichts. Je Ton ein
@@ -101,6 +102,10 @@ export interface Vorspiel { ctx: AudioContext; beginn: number; stopp: () => void
 // Fenster von zwei Sekunden geplant (ein langes Stück legt nicht tausend
 // Knoten auf einmal an). `zeit()` liefert die Stelle in Sekunden ab Schlag 1.
 export function vorspielen(liste: readonly Klang[], stimmung: Stimmung, kammerton: number, laut: number): Vorspiel & { zeit: () => number } {
+  // Audio-Sitzung für alle, die vorspielen (Notenblatt, Etüden, Licks,
+  // Spickzettel, Hör-Übungen, Ohr-Trainer, Griffe): nach dem Mikrofon zurück
+  // auf Wiedergabe (B-20).
+  wiedergabeSitzung();
   const ctx = new AudioContext();
   const master = ctx.createGain();
   master.gain.value = Math.max(0.05, laut);

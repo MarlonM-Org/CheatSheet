@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  aufnahmeLesen, aufnahmeNameAufbereiten, dauerText, nachTagen, stueckeMitAufnahmen, tagebuch, tagebuchFiltern, tagTitel, umschaltZeit,
-  vergleichbar, vergleichsPaar, vergleichsPartner, wo,
+  aufnahmeLesen, aufnahmeNameAufbereiten, aufnahmenStand, bereichTitel, dauerText, imBereich, nachTagen, neueAufnahmeVorwahl, stueckeMitAufnahmen,
+  tagebuch, tagebuchBereich, tagebuchFiltern, tagTitel, umschaltZeit, vergleichbar, vergleichsPaar, vergleichsPartner, wo, zuletztKurz,
 } from '@/domain/aufnahmetagebuch';
 
 const auf = (id: string, am: number, extra: Record<string, unknown> = {}) => ({ id, am, dauer: 10, typ: 'audio/mp4', ...extra });
@@ -100,5 +100,84 @@ describe('Namen und Dauer', () => {
     expect(dauerText(0)).toBe('0:00');
     expect(dauerText(65.4)).toBe('1:05');
     expect(dauerText(3600)).toBe('60:00');
+  });
+});
+
+// Aufnahmen über die Bibliothek (Rückmeldung Marlon 2026-11-19): Die Zeile
+// „Aufnahmen“ und das Tagebuch grenzen auf das ein, was die Bibliothek zeigt
+// (Sammlung und Tag); „Alle“ zeigt den Rest — auch Aufnahmen mit Skill, deren
+// Stück woanders liegt.
+describe('Bereich der Bibliothek', () => {
+  const bib = [
+    { id: 'pomp', titel: 'Pomp', sammlungen: ['Märsche'], tags: ['t1'], aufnahmen: [auf('p1', tag(10)), auf('p2', tag(14))] },
+    { id: 'alte', titel: 'Alte Kameraden', sammlungen: ['märsche'], aufnahmen: [auf('a1', tag(12))] },
+    { id: 'blues', titel: 'Blues in B', sammlungen: ['Jazz'], aufnahmen: [auf('b1', tag(16, 10), { skillId: 'blues-b' }), auf('b2', tag(15))] },
+    { id: 'skala', titel: 'Tonleitern', aufnahmen: [auf('s1', tag(16, 11), { skillId: 'tonleitern' })] },
+    { id: 'leer', titel: 'Leer', sammlungen: ['Märsche'] },
+  ] as never[];
+  const alle = tagebuch(bib, []);
+  const ids = (l: { aufnahme: { id: string } }[]) => l.map((e) => e.aufnahme.id);
+
+  it('im Bereich: Sammlung (Groß/klein egal) und Tag zugleich; ohne beides alles', () => {
+    expect(imBereich(bib[0], { sammlung: 'MÄRSCHE', tag: null })).toBe(true);
+    expect(imBereich(bib[1], { sammlung: 'Märsche', tag: 't1' })).toBe(false);
+    expect(imBereich(bib[0], { sammlung: 'Märsche', tag: 't1' })).toBe(true);
+    expect(imBereich(bib[3], { sammlung: null, tag: null })).toBe(true);
+    expect(imBereich(undefined, { sammlung: null, tag: null })).toBe(false);
+  });
+  it('drin und draußen, neueste zuerst; draußen zählt die mit Skill eigens', () => {
+    const b = tagebuchBereich(alle, bib, { sammlung: 'Märsche', tag: null });
+    expect(ids(b.drin)).toEqual(['p2', 'a1', 'p1']);
+    expect(b.draussen).toBe(3);
+    expect(b.draussenSkill).toBe(2);
+    const t = tagebuchBereich(alle, bib, { sammlung: 'Märsche', tag: 't1' });
+    expect(ids(t.drin)).toEqual(['p2', 'p1']);
+    expect(t.draussen).toBe(4);
+  });
+  it('ohne Eingrenzung ist alles drin', () => {
+    const b = tagebuchBereich(alle, bib, { sammlung: null, tag: null });
+    expect(b.drin).toBe(alle);
+    expect(b).toMatchObject({ draussen: 0, draussenSkill: 0 });
+  });
+  it('ein Stück, das es nicht mehr gibt, liegt draußen', () => {
+    expect(tagebuchBereich(alle, bib.slice(1), { sammlung: 'Märsche', tag: null }).drin.map((e) => e.stueckId)).toEqual(['alte']);
+  });
+  it('Titel des Bereichs: Sammlung und Tag-Name, wie beim Stellen-Mix', () => {
+    expect(bereichTitel('Märsche', 'Wichtig')).toBe('Märsche · Wichtig');
+    expect(bereichTitel(null, 'Wichtig')).toBe('Wichtig');
+    expect(bereichTitel(null, null)).toBeNull();
+  });
+});
+
+describe('Zeile „Aufnahmen“ in der Bibliothek', () => {
+  const jetzt = tag(16, 18);
+  it('zuletzt: heute, gestern, sonst Tag und Monat (Jahr nur, wenn es ein anderes ist)', () => {
+    expect(zuletztKurz(tag(16, 8), jetzt)).toBe('heute');
+    expect(zuletztKurz(tag(15, 23), jetzt)).toBe('gestern');
+    expect(zuletztKurz(tag(3), jetzt)).toMatch(/^3\. Nov/);
+    expect(zuletztKurz(new Date(2025, 10, 3).getTime(), jetzt)).toMatch(/2025$/);
+  });
+  it('Zahl im Bereich und wann zuletzt', () => {
+    expect(aufnahmenStand(4, 9, tag(16, 8), jetzt, 'Märsche')).toBe('4 · zuletzt heute');
+    expect(aufnahmenStand(1, 1, tag(15), jetzt, null)).toBe('1 · zuletzt gestern');
+  });
+  it('leer: noch keine auf dem Gerät, sonst keine in der Auswahl', () => {
+    expect(aufnahmenStand(0, 0, null, jetzt, 'Märsche')).toBe('noch keine');
+    expect(aufnahmenStand(0, 5, null, jetzt, 'Märsche · Wichtig')).toBe('keine in „Märsche · Wichtig“');
+    expect(aufnahmenStand(0, 5, null, jetzt, null)).toBe('noch keine');
+  });
+});
+
+describe('„Neue Aufnahme“: welches Stück vorgewählt ist', () => {
+  const st = [{ id: 'b', titel: 'B', stimme: '' }, { id: 'a', titel: 'A', stimme: '' }, { id: 'c', titel: 'C', stimme: '' }];
+  it('der Filter im Tagebuch (ausdrücklich gewählt), sonst das offene Stück, sonst das der neuesten Aufnahme, sonst A–Z das erste', () => {
+    expect(neueAufnahmeVorwahl(st, { filter: 'c', offen: 'b', neueste: 'a' })).toBe('c');
+    expect(neueAufnahmeVorwahl(st, { filter: null, offen: 'b', neueste: 'c' })).toBe('b');
+    expect(neueAufnahmeVorwahl(st, { filter: null, offen: null, neueste: 'c' })).toBe('c');
+    expect(neueAufnahmeVorwahl(st, { filter: null, offen: null, neueste: null })).toBe('a');
+  });
+  it('was es nicht (mehr) gibt, wird übersprungen; ohne Stücke keins', () => {
+    expect(neueAufnahmeVorwahl(st, { filter: 'weg', offen: 'auch-weg', neueste: 'b' })).toBe('b');
+    expect(neueAufnahmeVorwahl([], { filter: 'a', offen: 'a', neueste: 'a' })).toBeNull();
   });
 });

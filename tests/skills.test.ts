@@ -1,10 +1,15 @@
 import { describe, expect, it } from 'vitest';
+import { akkordPruefen, istAkkord } from '@/domain/akkorde';
+import { MUSTER, musterVon } from '@/domain/etueden';
+import { BEREICH as GRIFF_BEREICH } from '@/domain/griffe';
+import { JAM_STUECKE } from '@/domain/jamkarte';
+import { lickSkills, START_LICKS } from '@/domain/licks';
 import { BEREICHE, HOER_UEBUNGEN, SKILLS, skillFinden, skillFuerHoerUebung, skillFuerOhrStufe, type Skill } from '@/domain/skillkatalog';
 import { STUFEN } from '@/domain/gehoer';
 import {
-  andererVorschlag, geuebtEintragen, heuteErledigen, heuteKandidaten, heuteLeer, heuteLesen, heuteVorschlag, hoechsteStufe, imFilter,
-  istSicher, markieren, rundeEintragen, skillsGueltig, skillsLesen, skillsVereinigen, skillZeit, staerke, stufeAusRunden, tagSchluessel, tageSeit, uebersicht,
-  verblasst, wirksameStufe, wocheEinheiten, zuletztText, type SkillSpeicher,
+  andererVorschlag, BLOECKE_MAX, geuebtEintragen, heuteArt, heuteFestschreiben, heuteKandidaten, heuteLeer, heuteLesen, heuteVorschlag,
+  hoechsteStufe, imFilter, istSicher, markieren, rundeEintragen, skillsGueltig, skillsLesen, skillsVereinigen, skillZeit, staerke, stufeAusRunden, tagSchluessel, tageSeit,
+  uebersicht, verblasst, wirksameStufe, wocheEinheiten, zuletztText, type HeuteStand, type SkillSpeicher,
 } from '@/domain/skills';
 
 const TAG = 86_400_000;
@@ -68,6 +73,50 @@ describe('Katalog', () => {
     expect(skillFuerHoerUebung('septakkorde')).toBe('septakkorde');
     for (const h of HOER_UEBUNGEN) expect(skillFinden(skillFuerHoerUebung(h))?.uebung).toEqual({ art: 'hoer', id: h });
     expect(skillFinden('vermindert-uebermaessig')?.uebung).toEqual({ art: 'hoer', id: 'dreiklaenge' });
+  });
+  it('jeder Skill sagt in einer Aufgabe, was in zehn Minuten zu tun ist (kurz genug für den Block)', () => {
+    for (const s of SKILLS) {
+      expect(s.aufgabe, s.id).toBeTruthy();
+      expect(s.aufgabe.length, s.id).toBeLessThanOrEqual(150);
+      expect(s.aufgabe, s.id).not.toMatch(/^Extern üben/);
+    }
+  });
+  it('Werkzeug-Verknüpfungen zeigen auf etwas, das es gibt; nie zugleich mit einer App-Übung', () => {
+    const mit = SKILLS.filter((s) => s.werkzeug);
+    expect(mit.length).toBeGreaterThanOrEqual(15);
+    for (const s of mit) {
+      const w = s.werkzeug!;
+      expect(s.uebung, s.id).toBeUndefined();
+      if (w.art === 'etueden') expect(MUSTER.some((m) => m.id === w.muster), s.id).toBe(true);
+      if (w.art === 'licks' && w.lick) expect(START_LICKS.some((l) => l.id === w.lick), s.id).toBe(true);
+      if (w.art === 'jam') expect(JAM_STUECKE.some((j) => j.id === w.stueck), s.id).toBe(true);
+      if (w.art === 'spick') expect(istAkkord(akkordPruefen(w.akkord)), s.id).toBe(true);
+      if (w.art === 'griffe') expect(w.midi >= GRIFF_BEREICH.von && w.midi <= GRIFF_BEREICH.bis, s.id).toBe(true);
+      if (w.art === 'drone') expect(Number.isInteger(w.grundton) && w.grundton >= 0 && w.grundton < 12, s.id).toBe(true);
+    }
+  });
+  it('wo das Werkzeug selbst „geübt“ meldet, meldet es auf den verknüpften Skill', () => {
+    const werkzeug = (id: string) => skillFinden(id)?.werkzeug;
+    // Etüden: „Geübt“ zählt für die Skills des Musters.
+    for (const id of ['tonleitern-12', 'dreiklang-arpeggien', 'septakkord-arpeggien', 'guide-tones', 'enclosure']) {
+      const w = werkzeug(id);
+      expect(w?.art, id).toBe('etueden');
+      if (w?.art === 'etueden') expect(musterVon(w.muster).skills, id).toContain(id);
+    }
+    // Jam-Karte: „Heute gespielt“ zählt auf den Repertoire-Skill des Stücks.
+    for (const id of ['blues-in-b', 'blue-bossa', 'autumn-leaves', 'summertime']) {
+      const w = werkzeug(id);
+      expect(w?.art, id).toBe('jam');
+      if (w?.art === 'jam') expect(JAM_STUECKE.find((j) => j.id === w.stueck)?.skill, id).toBe(id);
+    }
+    // Licks: Bewerten zählt auf „Licks“, ein Blues-Lick auch auf „Blues-Phrasen“.
+    const blues = werkzeug('blues-phrasen');
+    expect(blues?.art).toBe('licks');
+    if (blues?.art === 'licks') expect(lickSkills(START_LICKS.find((l) => l.id === blues.lick)!)).toContain('blues-phrasen');
+    expect(werkzeug('licks-transponieren')?.art).toBe('licks');
+    // Griffweisen: „Heute geübt“ erst ab dem Clarion.
+    expect(werkzeug('clarion-altissimo')).toEqual({ art: 'griffe', midi: 71 });
+    expect(werkzeug('swing-artikulation')?.art).toBe('metronom');
   });
 });
 
@@ -296,107 +345,257 @@ describe('Übersicht und Filter', () => {
   });
 });
 
-describe('Heute (I-09)', () => {
-  const ids = (l: Skill[]) => l.map((s) => s.id);
-  it('Ohr: nur Skills mit Übung in der App; Stück: Repertoire/Mitspielen; Impro: Improvisation', () => {
-    const ohr = heuteKandidaten('ohr', {}, T0);
-    expect(ohr.every((s) => s.uebung)).toBe(true);
-    expect(heuteKandidaten('stueck', {}, T0).every((s) => !s.uebung && (s.bereich === 'repertoire' || s.bereich === 'mitspielen'))).toBe(true);
-    expect(heuteKandidaten('impro', {}, T0).every((s) => s.bereich === 'impro')).toBe(true);
-  });
-  it('ohne Markierungen: zuerst, wofür die Voraussetzungen erfüllt sind', () => {
-    const ohr = heuteKandidaten('ohr', {}, T0);
-    expect(ohr[0].id).toBe('melodie-drei');
-    expect(ohr.findIndex((s) => s.id === 'melodie-fuenf')).toBeGreaterThan(ohr.findIndex((s) => s.id === 'intervalle'));
-  });
-  it('lerne vor will vor verblasst vor offen', () => {
-    let sp = markieren({}, 'septakkorde', 'will');
-    sp = markieren(sp, 'melodie-leiter', 'lerne');
-    sp = runden('intervalle', gleich(0.9, 5), sp); // verblasst an Tag 30
-    const l = ids(heuteKandidaten('ohr', sp, tag(30)));
-    expect(l.slice(0, 3)).toEqual(['melodie-leiter', 'septakkorde', 'intervalle']);
-  });
-  it('pausierte nie; „kann“ nur, wenn verblasst', () => {
-    let sp = markieren({}, 'melodie-drei', 'pause');
-    sp = markieren(sp, 'intervalle', 'kann');
-    expect(ids(heuteKandidaten('ohr', sp, T0))).not.toContain('melodie-drei');
-    expect(ids(heuteKandidaten('ohr', sp, T0))).not.toContain('intervalle');
+describe('Heute (I-09): Blöcke aus den „Lerne ich“-Skills', () => {
+  const ids = (v: { bloecke: { skill: Skill }[] }) => v.bloecke.map((b) => b.skill.id);
+  const lerne = (...liste: string[]) => liste.reduce<SkillSpeicher>((sp, id) => markieren(sp, id, 'lerne'), {});
+  // Wie die Ansicht: Vorschlag zeigen und den Tagesplan festhalten.
+  const ansehen = (h: HeuteStand, sp: SkillSpeicher, jetzt: number) => {
+    const v = heuteVorschlag(h, sp, jetzt);
+    return { v, h: heuteFestschreiben(h, v, jetzt) };
+  };
+  // Fünf „Lerne ich“ aus vier Bereichen, in Katalog-Reihenfolge.
+  const FUENF = ['intervalle', 'stufen-funktionen', 'tonleitern-12', 'doppelzunge', 'frage-antwort'];
+
+  it('kein „Lerne ich“: keine Blöcke — auch nicht mit ☆ oder Verblasstem', () => {
+    let sp = markieren({}, 'pentatonik', 'will');
     sp = runden('intervalle', gleich(0.9, 5), sp);
-    expect(ids(heuteKandidaten('ohr', sp, tag(1)))).not.toContain('intervalle');
-    expect(ids(heuteKandidaten('ohr', sp, tag(25)))[0]).toBe('intervalle');
-    // auch verblasst nie, wenn pausiert
-    sp = markieren(sp, 'intervalle', 'pause');
-    expect(ids(heuteKandidaten('ohr', sp, tag(25)))).not.toContain('intervalle');
+    const v = heuteVorschlag(heuteLeer(tag(30)), sp, tag(30));
+    expect(v).toEqual({ bloecke: [], plan: [], lerne: 0, fertig: false });
   });
-  it('am stärksten verblasst zuerst', () => {
-    let sp = runden('intervalle', gleich(0.9, 5));
+
+  it('Kandidaten aus allen Bereichen: „Lerne ich“ zuerst, darin am längsten nicht geübt zuerst', () => {
+    let sp = lerne('doppelzunge', 'stufen-funktionen', 'tonleitern-12', 'intervalle');
+    sp = geuebtEintragen(sp, 'doppelzunge', tag(-1));
+    sp = geuebtEintragen(sp, 'tonleitern-12', tag(-5));
+    sp = markieren(sp, 'pentatonik', 'will');
+    const k = heuteKandidaten(sp, T0);
+    expect(k.map((x) => x.skill.id)).toEqual(['intervalle', 'stufen-funktionen', 'tonleitern-12', 'doppelzunge', 'pentatonik']);
+    expect(k.map((x) => x.art)).toEqual(['lerne', 'lerne', 'lerne', 'lerne', 'will']);
+  });
+
+  it('drei „Lerne ich“ aus Klarinette, Technik und Theorie: genau diese drei Blöcke, nichts zu tauschen', () => {
+    const v = heuteVorschlag(heuteLeer(T0), lerne('doppelzunge', 'stufen-funktionen', 'tonleitern-12'), T0);
+    expect(ids(v)).toEqual(['stufen-funktionen', 'tonleitern-12', 'doppelzunge']);
+    expect(v.bloecke.map((b) => b.art)).toEqual(['lerne', 'lerne', 'lerne']);
+    expect(v.bloecke.some((b) => b.erledigt || b.tauschbar)).toBe(false);
+    expect(v.lerne).toBe(3);
+  });
+
+  it('mehr als drei: die am längsten nicht geübten — reihum über die Tage', () => {
+    let sp = lerne(...FUENF);
+    let h = heuteLeer(T0);
+    const tage: string[][] = [];
+    for (let t = 0; t < 3; t++) {
+      const gezeigt = ansehen(heuteLesen(JSON.parse(JSON.stringify(h)), tag(t)), sp, tag(t));
+      const v = gezeigt.v;
+      h = gezeigt.h;
+      expect(v.bloecke).toHaveLength(BLOECKE_MAX);
+      tage.push(ids(v));
+      ids(v).forEach((id, i) => { sp = geuebtEintragen(sp, id, tag(t) + 1000 * (i + 1)); });
+      h = ansehen(h, sp, tag(t) + 5000).h;
+    }
+    expect(tage[0]).toEqual(['intervalle', 'stufen-funktionen', 'tonleitern-12']);
+    expect(tage[1]).toEqual(['doppelzunge', 'frage-antwort', 'intervalle']);
+    expect(tage[2]).toEqual(['stufen-funktionen', 'tonleitern-12', 'doppelzunge']);
+    expect(new Set(tage.slice(0, 2).flat()).size).toBe(5);
+    expect(h.einheiten).toEqual([tagSchluessel(tag(0)), tagSchluessel(tag(1)), tagSchluessel(tag(2))]);
+  });
+
+  it('Üben verschiebt nichts: der Plan des Tages steht, sobald er gezeigt wurde', () => {
+    let sp = lerne(...FUENF);
+    const { h } = ansehen(heuteLeer(T0), sp, T0);
+    expect(h.plan).toEqual(['intervalle', 'stufen-funktionen', 'tonleitern-12']);
+    sp = geuebtEintragen(sp, 'stufen-funktionen', T0 + 1000); // Block 2 erledigt
+    sp = geuebtEintragen(sp, 'doppelzunge', T0 + 2000); // außerhalb von „Heute“ geübt
+    const v = heuteVorschlag(h, sp, T0 + 3000);
+    expect(ids(v)).toEqual(h.plan);
+    expect(v.bloecke.map((b) => b.erledigt)).toEqual([false, true, false]);
+    // Ohne festgehaltenen Plan sähe es jetzt anders aus — darum wird er festgehalten.
+    expect(ids(heuteVorschlag(heuteLeer(T0), sp, T0 + 3000))).not.toEqual(h.plan);
+  });
+
+  it('„Anderer Vorschlag“ tauscht nur diesen Block gegen den nächsten „Lerne ich“, reihum', () => {
+    let sp = lerne(...FUENF);
+    let { h } = ansehen(heuteLeer(T0), sp, T0);
+    h = andererVorschlag(h, 1, sp, T0);
+    expect(h.plan).toEqual(['intervalle', 'doppelzunge', 'tonleitern-12']);
+    h = andererVorschlag(h, 1, sp, T0);
+    expect(h.plan).toEqual(['intervalle', 'frage-antwort', 'tonleitern-12']);
+    h = andererVorschlag(h, 1, sp, T0);
+    expect(h.plan).toEqual(['intervalle', 'stufen-funktionen', 'tonleitern-12']);
+    // Erledigtes ist nicht tauschbar; heute schon Geübtes kommt nicht als Tausch.
+    sp = geuebtEintragen(sp, 'intervalle', T0 + 1000);
+    sp = geuebtEintragen(sp, 'doppelzunge', T0 + 1000);
+    const v = heuteVorschlag(h, sp, T0 + 2000);
+    expect(v.bloecke.map((b) => b.tauschbar)).toEqual([false, true, true]);
+    expect(andererVorschlag(h, 0, sp, T0 + 2000).plan).toEqual(h.plan);
+    expect(andererVorschlag(h, 2, sp, T0 + 2000).plan).toEqual(['intervalle', 'stufen-funktionen', 'frage-antwort']);
+    expect(andererVorschlag(h, 7, sp, T0 + 2000).plan).toEqual(h.plan);
+  });
+
+  it('weniger als drei: aufgefüllt mit ☆ „Will ich“, dann Verblasstem — als Auffüllung gekennzeichnet', () => {
+    let sp = lerne('tonleitern-12');
+    sp = markieren(sp, 'pentatonik', 'will');
+    sp = runden('intervalle', gleich(0.9, 5), sp); // an Tag 30 verblasst
+    sp = markieren(sp, 'blue-bossa', 'pause');
+    sp = markieren(sp, 'dur-moll', 'kann');
+    const v = heuteVorschlag(heuteLeer(tag(30)), sp, tag(30));
+    expect(ids(v)).toEqual(['tonleitern-12', 'pentatonik', 'intervalle']);
+    expect(v.bloecke.map((b) => b.art)).toEqual(['lerne', 'will', 'verblasst']);
+    expect(v.lerne).toBe(1);
+    expect(v.bloecke.map((b) => b.tauschbar)).toEqual([false, false, false]);
+    // Auffüllungen tauschen untereinander, nie gegen ein „Lerne ich“.
+    const h = heuteFestschreiben(heuteLeer(tag(30)), v, tag(30));
+    sp = markieren(sp, 'blues-tonleiter', 'will');
+    expect(heuteVorschlag(h, sp, tag(30)).bloecke.map((b) => b.tauschbar)).toEqual([false, true, true]);
+    expect(andererVorschlag(h, 1, sp, tag(30)).plan).toEqual(['tonleitern-12', 'blues-tonleiter', 'intervalle']);
+    expect(andererVorschlag(h, 2, sp, tag(30)).plan).toEqual(['tonleitern-12', 'pentatonik', 'blues-tonleiter']);
+  });
+
+  it('was zum Auffüllen taugt: ☆ und Verblasstes (auch „kann“), nie „Gerade nicht“, nie Sicheres oder Unberührtes', () => {
+    let sp = runden('septakkorde', gleich(0.9, 5));
+    sp = markieren(sp, 'septakkorde', 'kann');
+    expect(heuteArt(sp.septakkorde, tag(1))).toBeNull();
+    expect(heuteArt(sp.septakkorde, tag(30))).toBe('verblasst');
+    sp = markieren(sp, 'septakkorde', 'pause');
+    expect(heuteArt(sp.septakkorde, tag(30))).toBeNull();
+    expect(heuteArt(undefined, T0)).toBeNull();
+    expect(heuteArt(markieren({}, 'x', 'will').x, T0)).toBe('will');
+    expect(heuteArt(markieren({}, 'x', 'lerne').x, T0)).toBe('lerne');
+  });
+
+  it('Auffüllung: ☆ am längsten nicht geübt zuerst, dann am stärksten verblasst zuerst', () => {
+    let sp = lerne('tonleitern-12');
+    sp = runden('intervalle', gleich(0.9, 5), sp);
     sp = runden('dur-moll', gleich(0.9, 5).map(([q]): [number, number] => [q, 10]), sp);
-    expect(ids(heuteKandidaten('ohr', sp, tag(40))).slice(0, 2)).toEqual(['intervalle', 'dur-moll']);
+    expect(ids(heuteVorschlag(heuteLeer(tag(40)), sp, tag(40)))).toEqual(['tonleitern-12', 'intervalle', 'dur-moll']);
+    sp = geuebtEintragen(markieren(sp, 'pentatonik', 'will'), 'pentatonik', tag(39));
+    sp = markieren(sp, 'blues-tonleiter', 'will');
+    expect(heuteKandidaten(sp, tag(40)).map((k) => k.skill.id)).toEqual(['tonleitern-12', 'blues-tonleiter', 'pentatonik', 'intervalle', 'dur-moll']);
   });
-  it('bei mehreren „lerne“ zuerst, was am längsten nicht geübt wurde', () => {
-    let sp = markieren(markieren({}, 'blue-bossa', 'lerne'), 'autumn-leaves', 'lerne');
-    expect(ids(heuteKandidaten('stueck', sp, T0)).slice(0, 2)).toEqual(['blue-bossa', 'autumn-leaves']);
-    sp = geuebtEintragen(sp, 'blue-bossa', T0);
-    expect(ids(heuteKandidaten('stueck', sp, tag(1))).slice(0, 2)).toEqual(['autumn-leaves', 'blue-bossa']);
+
+  it('nicht genug zum Auffüllen: weniger Blöcke, die Einheit braucht nur sie', () => {
+    let sp = lerne('doppelzunge', 'tonleitern-12');
+    let r = ansehen(heuteLeer(T0), sp, T0);
+    expect(ids(r.v)).toEqual(['tonleitern-12', 'doppelzunge']);
+    sp = geuebtEintragen(sp, 'doppelzunge', T0 + 1);
+    sp = geuebtEintragen(sp, 'tonleitern-12', T0 + 2);
+    r = ansehen(r.h, sp, T0 + 3);
+    expect(r.v.fertig).toBe(true);
+    expect(r.h.einheiten).toEqual([tagSchluessel(T0)]);
   });
+
+  it('neues „Lerne ich“ verdrängt eine offene Auffüllung an ihrer Stelle; was nicht mehr passt, wird an derselben Stelle ersetzt', () => {
+    let sp = lerne('tonleitern-12');
+    sp = markieren(sp, 'pentatonik', 'will');
+    sp = markieren(sp, 'blues-tonleiter', 'will');
+    let { h } = ansehen(heuteLeer(T0), sp, T0);
+    expect(h.plan).toEqual(['tonleitern-12', 'pentatonik', 'blues-tonleiter']);
+    sp = markieren(sp, 'doppelzunge', 'lerne');
+    ({ h } = ansehen(h, sp, T0));
+    expect(h.plan).toEqual(['tonleitern-12', 'doppelzunge', 'blues-tonleiter']);
+    sp = markieren(sp, 'tonleitern-12', 'pause');
+    ({ h } = ansehen(h, sp, T0));
+    expect(h.plan).toEqual(['pentatonik', 'doppelzunge', 'blues-tonleiter']);
+  });
+
+  it('erledigt, sobald der Skill heute geübt ist — gleich wo; alle erledigt = eine Einheit', () => {
+    let sp = lerne('intervalle', 'tonleitern-12', 'blues-in-b');
+    let r = ansehen(heuteLeer(T0), sp, T0);
+    expect(r.v.bloecke.some((b) => b.erledigt)).toBe(false);
+    sp = rundeEintragen(sp, 'intervalle', 0.8, T0 + 1000); // Runde der Hör-Übung
+    sp = geuebtEintragen(sp, 'tonleitern-12', T0 + 2000); // „Geübt“ in den Etüden
+    r = ansehen(r.h, sp, T0 + 3000);
+    expect(r.v.bloecke.map((b) => b.erledigt)).toEqual([true, true, false]);
+    expect(r.v.fertig).toBe(false);
+    expect(r.h.einheiten).toEqual([]);
+    sp = geuebtEintragen(sp, 'blues-in-b', T0 + 4000); // „Erledigt“ im Block
+    r = ansehen(r.h, sp, T0 + 5000);
+    expect(r.v.fertig).toBe(true);
+    expect(r.h.einheiten).toEqual([tagSchluessel(T0)]);
+    expect(heuteFestschreiben(r.h, heuteVorschlag(r.h, sp, T0 + 6000), T0 + 6000)).toBe(r.h); // nichts doppelt
+    // Erledigtes bleibt stehen, auch wenn die Markierung danach wechselt.
+    sp = markieren(sp, 'tonleitern-12', 'kann');
+    expect(ids(heuteVorschlag(r.h, sp, T0 + 7000))).toEqual(['intervalle', 'tonleitern-12', 'blues-in-b']);
+    // Gestern Geübtes zählt heute nicht.
+    expect(heuteVorschlag(heuteLeer(tag(1)), sp, tag(1)).bloecke.some((b) => b.erledigt)).toBe(false);
+  });
+
+  it('kein „Lerne ich“ mehr, aber heute schon erledigt: bleibt sichtbar, ohne Auffüllung und ohne neue Einheit', () => {
+    let sp = lerne('intervalle', 'tonleitern-12');
+    sp = markieren(sp, 'pentatonik', 'will');
+    const { h } = ansehen(heuteLeer(T0), sp, T0);
+    expect(h.plan).toEqual(['intervalle', 'tonleitern-12', 'pentatonik']);
+    sp = geuebtEintragen(sp, 'intervalle', T0 + 1);
+    sp = markieren(markieren(sp, 'intervalle', 'kann'), 'tonleitern-12', 'offen');
+    const v = heuteVorschlag(h, sp, T0 + 2);
+    expect(v.lerne).toBe(0);
+    expect(ids(v)).toEqual(['intervalle']);
+    expect(v.bloecke[0].erledigt).toBe(true);
+    expect(v.fertig).toBe(false);
+  });
+
   it('nicht verfügbare Übungen fallen weg', () => {
-    const ohne = heuteKandidaten('ohr', {}, T0, (s) => s.uebung?.art !== 'hoer');
-    expect(ohne.some((s) => s.uebung?.art === 'hoer')).toBe(false);
-    expect(ohne.length).toBe(6);
+    const v = heuteVorschlag(heuteLeer(T0), lerne('intervalle', 'melodie-drei', 'tonleitern-12'), T0, (s) => s.uebung?.art !== 'hoer');
+    expect(ids(v)).toEqual(['melodie-drei', 'tonleitern-12']);
   });
+
   it('deterministisch: gleiche Eingabe, gleicher Vorschlag', () => {
-    const sp = markieren(runden('intervalle', gleich(0.9, 5)), 'blues-phrasen', 'will');
-    const h = heuteLeer(tag(3));
-    expect(heuteVorschlag(h, sp, tag(3))).toEqual(heuteVorschlag(h, sp, tag(3)));
-    expect(heuteVorschlag(h, sp, tag(3)).find((b) => b.block === 'impro')?.skill?.id).toBe('blues-phrasen');
+    const sp = markieren(runden('intervalle', gleich(0.9, 5)), 'blues-phrasen', 'lerne');
+    const h = heuteLeer(tag(30));
+    expect(heuteVorschlag(h, sp, tag(30))).toEqual(heuteVorschlag(h, sp, tag(30)));
+    expect(ids(heuteVorschlag(h, sp, tag(30)))).toEqual(['blues-phrasen', 'intervalle']);
   });
-  it('„Anderer Vorschlag“ tauscht nur diesen Block, reihum', () => {
-    const sp: SkillSpeicher = {};
-    let h = heuteLeer(T0);
-    const vorher = heuteVorschlag(h, sp, T0);
-    h = andererVorschlag(h, 'stueck');
-    const nachher = heuteVorschlag(h, sp, T0);
-    expect(nachher[0].skill?.id).toBe(vorher[0].skill?.id);
-    expect(nachher[1].skill?.id).not.toBe(vorher[1].skill?.id);
-    expect(nachher[2].skill?.id).toBe(vorher[2].skill?.id);
-    for (let i = 1; i < nachher[1].anzahl; i++) h = andererVorschlag(h, 'stueck');
-    expect(heuteVorschlag(h, sp, T0)[1].skill?.id).toBe(vorher[1].skill?.id);
-  });
-  it('erledigte Blöcke behalten ihren Skill; alle drei = eine Einheit', () => {
-    let h = heuteLeer(T0);
-    h = heuteErledigen(h, 'ohr', 'intervalle', T0);
-    h = heuteErledigen(h, 'stueck', 'blue-bossa', T0);
-    expect(h.einheiten).toEqual([]);
-    const v = heuteVorschlag(h, {}, T0);
-    expect(v[0]).toMatchObject({ erledigt: true, skill: { id: 'intervalle' } });
-    h = heuteErledigen(h, 'impro', 'frage-antwort', T0);
-    expect(h.einheiten).toEqual([tagSchluessel(T0)]);
-    h = heuteErledigen(h, 'impro', 'frage-antwort', T0 + 1000);
-    expect(h.einheiten).toHaveLength(1);
-  });
-  it('Block ohne Vorschlag zählt nicht mit', () => {
-    let h = heuteLeer(T0);
-    h = heuteErledigen(h, 'ohr', 'intervalle', T0, ['ohr', 'stueck']);
-    h = heuteErledigen(h, 'stueck', 'blue-bossa', T0, ['ohr', 'stueck']);
-    expect(h.einheiten).toHaveLength(1);
-  });
-  it('neuer Tag: frische Einheit, Einheiten bleiben; Woche ab Montag', () => {
-    let h = heuteLeer(T0);
-    for (const b of ['ohr', 'stueck', 'impro'] as const) h = heuteErledigen(h, b, 'x', T0);
-    const gelesen = heuteLesen(JSON.parse(JSON.stringify(h)), tag(1));
-    expect(gelesen.erledigt).toEqual({});
-    expect(gelesen.einheiten).toEqual([tagSchluessel(T0)]);
-    expect(heuteLesen(h, T0).erledigt.ohr).toBe('x');
+
+  it('neuer Tag: frischer Plan, Einheiten bleiben; Woche ab Montag', () => {
+    const h: HeuteStand = { tag: tagSchluessel(T0), plan: ['intervalle'], einheiten: [tagSchluessel(T0)] };
+    expect(heuteLesen(JSON.parse(JSON.stringify(h)), tag(1))).toEqual({ tag: tagSchluessel(tag(1)), plan: [], einheiten: [tagSchluessel(T0)] });
+    expect(heuteLesen(h, T0).plan).toEqual(['intervalle']);
+    // Ein liegengebliebener Stand von gestern gilt heute nicht als Plan.
+    expect(ids(heuteVorschlag(h, lerne('tonleitern-12'), tag(1)))).toEqual(['tonleitern-12']);
     // T0 ist Mittwoch: Montag davor zählt, Sonntag davor nicht.
     const mehr = { ...h, einheiten: [tagSchluessel(tag(-3)), tagSchluessel(tag(-2)), tagSchluessel(T0)] };
     expect(wocheEinheiten(mehr, T0)).toBe(2);
     expect(wocheEinheiten(mehr, tag(4))).toBe(2); // Sonntag
     expect(wocheEinheiten(mehr, tag(5))).toBe(0); // nächster Montag
   });
+
   it('Lesen ist nachsichtig', () => {
-    const h = heuteLesen({ tag: tagSchluessel(T0), wechsel: { ohr: 2, quatsch: 3, impro: -1 }, erledigt: { stueck: 'blue-bossa', ohr: 5 }, einheiten: ['2026-11-17', 'kaputt', '2026-11-17'] }, T0);
-    expect(h).toEqual({ tag: tagSchluessel(T0), wechsel: { ohr: 2 }, erledigt: { stueck: 'blue-bossa' }, einheiten: ['2026-11-17'] });
+    const h = heuteLesen({ tag: tagSchluessel(T0), plan: ['intervalle', 5, '__proto__', 'intervalle', 'a', 'b', 'c'], einheiten: ['2026-11-17', 'kaputt', '2026-11-17'] }, T0);
+    expect(h).toEqual({ tag: tagSchluessel(T0), plan: ['intervalle', 'a', 'b'], einheiten: ['2026-11-17'] });
     expect(heuteLesen(null, T0)).toEqual(heuteLeer(T0));
+    expect(heuteLesen('kaputt', T0)).toEqual(heuteLeer(T0));
+    expect(heuteLesen({ tag: tagSchluessel(T0), plan: 'x', einheiten: 'y' }, T0)).toEqual(heuteLeer(T0));
+    // Unbekannte ids im Plan stören den Vorschlag nicht: Ersatz an derselben Stelle.
+    expect(ids(heuteVorschlag(h, lerne('tonleitern-12', 'doppelzunge'), T0))).toEqual(['tonleitern-12', 'doppelzunge']);
+  });
+
+  it('alter Stand (Blöcke ohr/stueck/impro) vom selben Tag: Erledigtes wird übernommen, der Rest kommt neu dazu', () => {
+    const alt = { tag: tagSchluessel(T0), wechsel: { ohr: 2, stueck: 1 }, erledigt: { ohr: 'intervalle', stueck: 'blue-bossa' }, einheiten: ['2026-11-16'] };
+    const h = heuteLesen(JSON.parse(JSON.stringify(alt)), T0 + 1000);
+    expect(h).toEqual({ tag: tagSchluessel(T0), plan: ['intervalle', 'blue-bossa'], einheiten: ['2026-11-16'] });
+    // Die alte Fassung hatte beim Erledigen „heute geübt“ eingetragen.
+    let sp = geuebtEintragen(rundeEintragen({}, 'intervalle', 0.9, T0 - 2000), 'blue-bossa', T0 - 1000);
+    sp = markieren(sp, 'tonleitern-12', 'lerne');
+    let r = ansehen(h, sp, T0 + 1000);
+    expect(ids(r.v)).toEqual(['intervalle', 'blue-bossa', 'tonleitern-12']);
+    expect(r.v.bloecke.map((b) => b.erledigt)).toEqual([true, true, false]);
+    sp = geuebtEintragen(sp, 'tonleitern-12', T0 + 2000);
+    r = ansehen(r.h, sp, T0 + 3000);
+    expect(r.h.einheiten).toEqual(['2026-11-16', tagSchluessel(T0)]);
+    // Der gespeicherte Stand hat danach die neue Form.
+    expect(Object.keys(r.h).sort()).toEqual(['einheiten', 'plan', 'tag']);
+  });
+
+  it('alter Stand von gestern, kaputt oder unstimmig: sauber neu, Einheiten bleiben', () => {
+    expect(heuteLesen({ tag: tagSchluessel(tag(-1)), wechsel: { ohr: 1 }, erledigt: { ohr: 'intervalle' }, einheiten: [tagSchluessel(tag(-1))] }, T0))
+      .toEqual({ tag: tagSchluessel(T0), plan: [], einheiten: [tagSchluessel(tag(-1))] });
+    expect(heuteLesen({ tag: tagSchluessel(T0), wechsel: 'x', erledigt: { ohr: 5, impro: '__proto__', quatsch: 'intervalle', stueck: 'blue-bossa' } }, T0))
+      .toEqual({ tag: tagSchluessel(T0), plan: ['blue-bossa'], einheiten: [] });
+    expect(heuteLesen({ tag: tagSchluessel(T0), erledigt: [] }, T0)).toEqual(heuteLeer(T0));
+    // „Erledigt“ laut altem Stand, aber heute gar nicht geübt: wird an derselben Stelle ersetzt.
+    const h = heuteLesen({ tag: tagSchluessel(T0), erledigt: { ohr: 'intervalle' }, einheiten: [] }, T0);
+    expect(ids(heuteVorschlag(h, lerne('tonleitern-12'), T0))).toEqual(['tonleitern-12']);
   });
 });
 

@@ -1,17 +1,26 @@
 'use client';
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { StufenId } from '@/domain/gehoer';
-import { BEREICHE, SKILLS, bereichFinden, skillFinden, skillFuerHoerUebung, type HoerUebungId, type Skill } from '@/domain/skillkatalog';
 import {
-  andererVorschlag, BLOCK_NAMEN, FILTER, FILTER_NAMEN, heuteErledigen, heuteVorschlag, hoechsteStufe, imFilter, MARKIERUNG_NAMEN, MARKIERUNGEN,
-  markierungVon, STUFE_MAX, STUFE_NAMEN, uebersicht, verblasst, wirksameStufe, WOCHENZIEL, wocheEinheiten, zuletztText,
-  type Block, type Filter, type HeuteStand, type Markierung, type SkillSpeicher, type SkillStand,
+  BEREICHE, SKILLS, bereichFinden, skillFinden, type HoerUebungId, type Skill, type SkillUebung, type SkillWerkzeug,
+} from '@/domain/skillkatalog';
+import {
+  andererVorschlag, BLOCK_MINUTEN, BLOECKE_MAX, FILTER, FILTER_NAMEN, heuteFestschreiben, heuteVorschlag, hoechsteStufe, imFilter,
+  istAuffuellung, MARKIERUNG_NAMEN, MARKIERUNGEN, markierungVon, STUFE_MAX, STUFE_NAMEN, uebersicht, verblasst, wirksameStufe, WOCHENZIEL,
+  wocheEinheiten, zuletztText, type Filter, type HeuteBlock, type HeuteStand, type Markierung, type SkillSpeicher, type SkillStand,
 } from '@/domain/skills';
 import { useEinstellungenGeladen } from './klang';
+import { DroneBlatt } from './Drone';
+import { EtuedenBlatt } from './Etueden';
+import { GriffeBlatt } from './Griffe';
 import { HoerUebungBlatt } from './HoerUebung';
+import { JamKarteBlatt } from './JamKarte';
+import { LicksBlatt } from './Licks';
 import { OhrTrainerBlatt } from './OhrTrainer';
+import { SpickzettelBlatt } from './Spickzettel';
+import { TransponierBlatt } from './Transponieren';
 import { heuteLaden, heuteSpeichern, SKILLS_GEAENDERT, skillErgebnis, skillGeuebt, skillMarkieren, skillsLaden } from './skillspeicher';
 import { useDialogFokus, useEscape } from './tasten';
 import { useSeite } from './seite';
@@ -22,6 +31,53 @@ import { useSeite } from './seite';
 // Detail und Übungen legen sich als Blatt über die Liste — nichts verschiebt sich.
 
 export type HoerUebungStarten = (id: HoerUebungId, skillId: string) => void;
+
+// Ein Block (Swing, Zunge) öffnet das volle Metronom: Es gehört der Zentrale
+// (Widget und Dialog), darum ein Ereignis statt eines Blatts.
+export const METRONOM_ZEIGEN = 'ueben:metronom-zeigen';
+
+const WERKZEUG_NAMEN: Record<SkillWerkzeug['art'], string> = {
+  etueden: 'Etüden', licks: 'Licks', jam: 'Jam-Karte', spick: 'Spickzettel', drone: 'Drone', griffe: 'Griffweisen', trans: 'Transponieren',
+  metronom: 'Metronom',
+};
+const uebungName = (u: SkillUebung) => (u.art === 'ohr' ? 'Ohr-Trainer' : 'Hör-Übung');
+
+// Das Werkzeug eines Skills, voreingestellt (Muster, Lick, Stück, Akkord, Ton).
+function WerkzeugBlatt({ w, schliessen }: { w: SkillWerkzeug; schliessen: () => void }) {
+  switch (w.art) {
+    case 'etueden': return <EtuedenBlatt schliessen={schliessen} muster={w.muster} />;
+    case 'licks': return <LicksBlatt schliessen={schliessen} lick={w.lick} />;
+    case 'jam': return <JamKarteBlatt schliessen={schliessen} stueck={w.stueck} />;
+    case 'spick': return <SpickzettelBlatt schliessen={schliessen} akkord={w.akkord} eingabe="notiert" />;
+    case 'drone': return <DroneBlatt schliessen={schliessen} grundton={w.grundton} />;
+    case 'griffe': return <GriffeBlatt schliessen={schliessen} midi={w.midi} />;
+    case 'trans': return <TransponierBlatt schliessen={schliessen} />;
+    case 'metronom': return null;
+  }
+}
+
+// Übung (Ohr-Trainer, Hör-Übung) oder Werkzeug eines Skills öffnen — für
+// Kartei und „Heute“ gleich. Jede Runde und jedes „Geübt“ im Werkzeug zählt
+// auf den Skill; damit ist auch sein Block in „Heute“ erledigt.
+function useUeben(hoerUebungStarten?: HoerUebungStarten) {
+  const [ohr, setOhr] = useState<StufenId | null>(null);
+  const [hoer, setHoer] = useState<{ id: HoerUebungId; skillId: string } | null>(null);
+  const [werkzeug, setWerkzeug] = useState<SkillWerkzeug | null>(null);
+  const ueben = (s: Skill) => {
+    if (s.uebung?.art === 'ohr') setOhr(s.uebung.stufe);
+    else if (s.uebung) (hoerUebungStarten ?? ((id, skillId) => setHoer({ id, skillId })))(s.uebung.id, s.id);
+  };
+  const oeffnen = (w: SkillWerkzeug) => {
+    if (w.art === 'metronom') window.dispatchEvent(new Event(METRONOM_ZEIGEN));
+    else setWerkzeug(w);
+  };
+  const blaetter = (<>
+    {ohr && <OhrTrainerBlatt stufe={ohr} schliessen={() => setOhr(null)} />}
+    {hoer && <HoerUebungBlatt uebung={hoer.id} schliessen={() => setHoer(null)} beiErgebnis={(r) => skillErgebnis(hoer.skillId, r.quote)} />}
+    {werkzeug && <WerkzeugBlatt w={werkzeug} schliessen={() => setWerkzeug(null)} />}
+  </>);
+  return { ueben, oeffnen, offen: ohr !== null || hoer !== null || werkzeug !== null, blaetter };
+}
 
 function KarteiSymbol() {
   return (
@@ -121,22 +177,11 @@ export function SkillsBlatt({ schliessen, hoerUebungStarten }: { schliessen: () 
   const [filter, setFilter] = useState<Filter>('alle');
   const [detail, setDetail] = useState<string | null>(null);
   const [wahl, setWahl] = useState<string | null>(null);
-  const [ohr, setOhr] = useState<StufenId | null>(null);
-  // Hör-Übung (I-08), wenn niemand von außen eine eigene Startfunktion mitgibt.
-  const [hoer, setHoer] = useState<{ id: HoerUebungId; skillId: string } | null>(null);
-  const hoerStarten: HoerUebungStarten = hoerUebungStarten ?? ((id, skillId) => setHoer({ id, skillId }));
-  // Alle Übungen sind eingebaut (Ohr-Trainer, Hör-Übungen) — nichts ist gesperrt.
-  const verfuegbar = useCallback((s: Skill) => s !== undefined, []);
-
-  const kannUeben = (s: Skill) => !!s.uebung && verfuegbar(s);
-  const ueben = (s: Skill) => {
-    if (!s.uebung || !verfuegbar(s)) return;
-    if (s.uebung.art === 'ohr') setOhr(s.uebung.stufe);
-    else hoerStarten(s.uebung.id, s.id);
-  };
+  // Übung oder Werkzeug (Hör-Übung von außen, falls jemand eine Startfunktion mitgibt).
+  const uebung = useUeben(hoerUebungStarten);
 
   const zu = () => schliessen();
-  useEscape(zu, !detail && !wahl && !ohr && !hoer);
+  useEscape(zu, !detail && !wahl && !uebung.offen);
 
   const u = uebersicht(sp, jetzt);
   const anzahl = (f: Filter) => SKILLS.filter((s) => imFilter(sp[s.id], f, jetzt)).length;
@@ -205,13 +250,11 @@ export function SkillsBlatt({ schliessen, hoerUebungStarten }: { schliessen: () 
     seite.ziel,
   )}
       {detail && (
-        <SkillDetail id={detail} sp={sp} jetzt={jetzt} aktiv={!wahl && !ohr && !hoer} schliessen={() => setDetail(null)} wechseln={setDetail}
-          markierungAendern={() => setWahl(detail)} kannUeben={kannUeben} ueben={(s) => ueben(s)} />
+        <SkillDetail id={detail} sp={sp} jetzt={jetzt} aktiv={!wahl} schliessen={() => setDetail(null)} wechseln={setDetail}
+          markierungAendern={() => setWahl(detail)} ueben={uebung.ueben} oeffnen={uebung.oeffnen} />
       )}
       {wahl && <MarkierungsWahl id={wahl} m={markierungVon(sp[wahl])} schliessen={() => setWahl(null)} />}
-      {ohr && <OhrTrainerBlatt stufe={ohr} schliessen={() => setOhr(null)} />}
-      {hoer && <HoerUebungBlatt uebung={hoer.id} schliessen={() => setHoer(null)}
-        beiErgebnis={(r) => skillErgebnis(hoer.skillId, r.quote)} />}
+      {uebung.blaetter}
   </>);
 }
 
@@ -236,108 +279,117 @@ export function SkillStand() {
   return <BereichsBalken bereiche={uebersicht(sp, jetzt).bereiche} />;
 }
 
-// „Heute · 30 Min.“ (I-09) oben auf der Lernen-Seite (B-18): drei Blöcke,
-// Wochenstand, „Anderer Vorschlag“. Name → Detail, „Üben“ → Übung als Blatt
-// darüber; meldet die Übung eine Runde, ist der Block erledigt.
+// „Heute“ (I-09) oben auf der Lernen-Seite (B-18): bis zu drei Blöcke à 10
+// Minuten aus den „Lerne ich“-Skills (Regeln in @/domain/skills), Wochenstand,
+// „Anderer Vorschlag“. Jeder Block sagt, was zu tun ist, und öffnet die
+// Übung oder das passende Werkzeug; ohne beides „Erledigt“. Erledigt ist ein
+// Block, sobald sein Skill heute geübt wurde (Runde, „Geübt“ im Werkzeug,
+// „Erledigt“). Der gezeigte Plan wird festgehalten — Üben verschiebt nichts;
+// jeder Block hat eine feste Höhe, Tauschen ändert nur seinen Inhalt.
 // `blattMelden`: die Seite lässt Escape dem offenen Blatt.
 export function HeuteAbschnitt({ blattMelden }: { blattMelden?: (offen: boolean) => void }) {
   const { sp, jetzt } = useSkillDaten();
-  const [heute, setHeuteRoh] = useState<HeuteStand>(() => heuteLaden());
+  const [heute, setHeute] = useState<HeuteStand>(() => heuteLaden());
   const [detail, setDetail] = useState<string | null>(null);
   const [wahl, setWahl] = useState<string | null>(null);
-  const [ohr, setOhr] = useState<StufenId | null>(null);
-  const [hoer, setHoer] = useState<{ id: HoerUebungId; skillId: string } | null>(null);
-  const laeuft = useRef<{ block: Block; skillId: string; seit: number } | null>(null);
-  const offen = detail !== null || wahl !== null || ohr !== null || hoer !== null;
+  const [kartei, setKartei] = useState(false);
+  const uebung = useUeben();
+  const offen = detail !== null || wahl !== null || kartei || uebung.offen;
   useEffect(() => { blattMelden?.(offen); }, [offen, blattMelden]);
 
-  const setHeute = (h: HeuteStand) => { setHeuteRoh(h); heuteSpeichern(h); };
-  // Alle Übungen sind eingebaut (Ohr-Trainer, Hör-Übungen) — nichts ist gesperrt.
-  const verfuegbar = useCallback((s: Skill) => s !== undefined, []);
-  const bloecke = useMemo(() => heuteVorschlag(heute, sp, jetzt, verfuegbar), [heute, sp, jetzt, verfuegbar]);
-  const noetig = bloecke.filter((b) => b.skill).map((b) => b.block);
-  const noetigRef = useRef(noetig);
-  useEffect(() => { noetigRef.current = noetig; });
-  const erledigen = (b: Block, skillId: string) => setHeute(heuteErledigen(heuteLaden(), b, skillId, Date.now(), noetig));
-
-  useEffect(() => {
-    const pruefen = () => {
-      const l = laeuft.current;
-      if (!l) return;
-      const jetztSp = skillsLaden();
-      const skill = skillFinden(l.skillId);
-      const gemeldet = [l.skillId, skill?.uebung?.art === 'hoer' ? skillFuerHoerUebung(skill.uebung.id) : null];
-      if (!gemeldet.some((id) => id && (jetztSp[id]?.zuletzt ?? 0) >= l.seit)) return;
-      laeuft.current = null;
-      const h = heuteErledigen(heuteLaden(), l.block, l.skillId, Date.now(), noetigRef.current);
-      setHeuteRoh(h);
-      heuteSpeichern(h);
-    };
-    window.addEventListener(SKILLS_GEAENDERT, pruefen);
-    return () => window.removeEventListener(SKILLS_GEAENDERT, pruefen);
-  }, []);
-
-  const kannUeben = (s: Skill) => !!s.uebung && verfuegbar(s);
-  const ueben = (s: Skill, block?: Block) => {
-    if (!s.uebung || !verfuegbar(s)) return;
-    laeuft.current = block ? { block, skillId: s.id, seit: Date.now() } : null;
-    if (s.uebung.art === 'ohr') setOhr(s.uebung.stufe);
-    else setHoer({ id: s.uebung.id, skillId: s.id });
-  };
+  const v = useMemo(() => heuteVorschlag(heute, sp, jetzt), [heute, sp, jetzt]);
+  // Gezeigt heißt festgehalten: der Plan des Tages, und ist alles erledigt, die
+  // Einheit. Gleich im Rendern übernommen (festschreiben ist idempotent), am Gerät gespeichert.
+  const fest = heuteFestschreiben(heute, v, jetzt);
+  if (fest !== heute) setHeute(fest);
+  useEffect(() => { heuteSpeichern(heute); }, [heute]);
 
   const woche = wocheEinheiten(heute, jetzt);
-  const alleFertig = noetig.length > 0 && noetig.every((b) => heute.erledigt[b]);
+  const n = v.bloecke.length;
+  const kartenKnopf = (leise: boolean) => (
+    <button type="button" className={`knopf knopf-klein${leise ? ' knopf-leise' : ''}`} aria-haspopup="dialog" onClick={() => setKartei(true)}>Skills ›</button>
+  );
 
   return (<>
     <section className="skill-heute" aria-label="Heute">
       <div className="skill-heute-kopf">
-        <strong>Heute · 30 Min.</strong>
-        <span className={alleFertig ? 'skill-woche fertig' : 'skill-woche'}>{alleFertig ? '✓ geschafft · ' : ''}{woche} von {WOCHENZIEL} Einheiten</span>
+        <strong>{v.lerne && n ? `Heute · ${n * BLOCK_MINUTEN} Min.` : 'Heute'}</strong>
+        <span className={v.fertig ? 'skill-woche fertig' : 'skill-woche'}>{v.fertig ? '✓ geschafft · ' : ''}{woche} von {WOCHENZIEL} Einheiten</span>
       </div>
-      <ol className="skill-heute-bloecke">
-        {bloecke.map((b) => (
-          <li key={b.block} className={b.erledigt ? 'erledigt' : ''}>
-            <div className="skill-heute-text">
-              <span className="kennzahl-label">{BLOCK_NAMEN[b.block]}</span>
-              {b.skill ? (
-                <button type="button" className="skill-heute-name" onClick={() => setDetail(b.skill!.id)}>{b.skill.name}</button>
-              ) : <span className="gedaempft text-sm">Nichts vorzuschlagen — alles pausiert oder sicher.</span>}
-            </div>
-            <div className="skill-heute-knoepfe">
-              <button type="button" className="skill-anderer" onClick={() => setHeute(andererVorschlag(heute, b.block))}
-                aria-label={`Anderer Vorschlag für ${BLOCK_NAMEN[b.block]}`} title="Anderer Vorschlag"
-                style={{ visibility: !b.erledigt && b.anzahl > 1 ? 'visible' : 'hidden' }}>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.5-4.5L3 9M3 4v5h5M4 13a8 8 0 0 0 14.5 4.5L21 15M21 20v-5h-5" /></svg>
-              </button>
-              {b.erledigt ? (
-                <span className="skill-heute-fertig">✓ Erledigt</span>
-              ) : b.skill && kannUeben(b.skill) ? (
-                <button type="button" className="knopf knopf-klein skill-heute-los" onClick={() => ueben(b.skill!, b.block)}>▶ Üben</button>
-              ) : (
-                <button type="button" className="knopf knopf-leise knopf-klein skill-heute-los" disabled={!b.skill}
-                  onClick={() => { if (b.skill) { skillGeuebt(b.skill.id); erledigen(b.block, b.skill.id); } }}>Erledigt</button>
-              )}
-            </div>
-          </li>
-        ))}
-      </ol>
+      {n > 0 && (
+        <ol className="skill-heute-bloecke" style={{ ['--bloecke' as string]: n }}>
+          {v.bloecke.map((b, i) => (
+            <HeuteBlockZeile key={i} b={b} detail={() => setDetail(b.skill.id)} ueben={() => uebung.ueben(b.skill)}
+              oeffnen={uebung.oeffnen} erledigen={() => skillGeuebt(b.skill.id)}
+              anderer={() => setHeute(andererVorschlag(heute, i, sp, jetzt))} />
+          ))}
+        </ol>
+      )}
+      {!v.lerne ? (
+        <div className="skill-heute-hinweis">
+          <p>Markiere in der Skill-Kartei, was du gerade lernst („Lerne ich“). Daraus stellt „Heute“ bis zu drei Blöcke à 10 Minuten zusammen.</p>
+          {kartenKnopf(false)}
+        </div>
+      ) : n < BLOECKE_MAX && (
+        <div className="skill-heute-hinweis">
+          <p>Nur {n === 1 ? 'ein Block' : `${n} Blöcke`}: Markiere mehr Skills mit „Lerne ich“ oder ☆, dann sind es 30 Minuten.</p>
+          {kartenKnopf(true)}
+        </div>
+      )}
     </section>
 
       {detail && (
-        <SkillDetail id={detail} sp={sp} jetzt={jetzt} aktiv={!wahl && !ohr && !hoer} schliessen={() => setDetail(null)} wechseln={setDetail}
-          markierungAendern={() => setWahl(detail)} kannUeben={kannUeben} ueben={(s) => ueben(s)} />
+        <SkillDetail id={detail} sp={sp} jetzt={jetzt} aktiv={!wahl} schliessen={() => setDetail(null)} wechseln={setDetail}
+          markierungAendern={() => setWahl(detail)} ueben={uebung.ueben} oeffnen={uebung.oeffnen} />
       )}
       {wahl && <MarkierungsWahl id={wahl} m={markierungVon(sp[wahl])} schliessen={() => setWahl(null)} />}
-      {ohr && <OhrTrainerBlatt stufe={ohr} schliessen={() => { setOhr(null); laeuft.current = null; }} />}
-      {hoer && <HoerUebungBlatt uebung={hoer.id} schliessen={() => { setHoer(null); laeuft.current = null; }}
-        beiErgebnis={(r) => skillErgebnis(hoer.skillId, r.quote)} />}
+      {kartei && <SkillsBlatt schliessen={() => setKartei(false)} />}
+      {uebung.blaetter}
   </>);
 }
 
-function SkillDetail({ id, sp, jetzt, aktiv, schliessen, wechseln, markierungAendern, kannUeben, ueben }: {
+// Ein Block: warum er da ist, Skill (oben rechts „Anderer Vorschlag“), Aufgabe,
+// unten Übung/Werkzeug links und „Erledigt“ rechts. Unsichtbares behält seinen Platz.
+function HeuteBlockZeile({ b, detail, ueben, oeffnen, erledigen, anderer }: {
+  b: HeuteBlock; detail: () => void; ueben: () => void; oeffnen: (w: SkillWerkzeug) => void; erledigen: () => void; anderer: () => void;
+}) {
+  const s = b.skill;
+  const art = b.art === 'lerne' ? `Lerne ich · ${bereichFinden(s.bereich).name}`
+    : b.art === 'will' ? 'Aufgefüllt · ☆ Will ich'
+      : b.art === 'verblasst' ? 'Aufgefüllt · verblasst'
+        : bereichFinden(s.bereich).name;
+  return (
+    <li className={b.erledigt ? 'erledigt' : ''}>
+      <div className="skill-heute-oben">
+        <span className={`kennzahl-label skill-heute-art${istAuffuellung(b.art) ? ' aufgefuellt' : ''}`}>{art}</span>
+        <button type="button" className="skill-heute-name" aria-haspopup="dialog" onClick={detail}><span>{s.name}</span></button>
+        <button type="button" className="skill-anderer" onClick={anderer} aria-label={`Anderer Vorschlag statt „${s.name}“`} title="Anderer Vorschlag"
+          style={{ visibility: b.tauschbar ? 'visible' : 'hidden' }} tabIndex={b.tauschbar ? 0 : -1}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.5-4.5L3 9M3 4v5h5M4 13a8 8 0 0 0 14.5 4.5L21 15M21 20v-5h-5" /></svg>
+        </button>
+      </div>
+      <p className="skill-heute-aufgabe">{s.aufgabe}</p>
+      <div className="skill-heute-knoepfe">
+        {s.uebung ? (
+          <button type="button" className="knopf knopf-klein skill-heute-werkzeug" onClick={ueben}>▶ {uebungName(s.uebung)}</button>
+        ) : s.werkzeug ? (
+          <button type="button" className={`knopf knopf-klein skill-heute-werkzeug${b.erledigt ? ' knopf-leise' : ''}`} onClick={() => oeffnen(s.werkzeug!)}>
+            ▶ {WERKZEUG_NAMEN[s.werkzeug.art]}
+          </button>
+        ) : null}
+        {b.erledigt ? <span className="skill-heute-fertig">✓ Erledigt</span>
+          : !s.uebung && <button type="button" className="knopf knopf-leise knopf-klein skill-heute-los" onClick={erledigen}>Erledigt</button>}
+      </div>
+    </li>
+  );
+}
+
+// Detail eines Skills. „Üben“ und das Werkzeug schließen erst das Detail: Auf
+// dem iPad liegen Übungen und Werkzeuge als Seite unter den kleinen Blättern.
+function SkillDetail({ id, sp, jetzt, aktiv, schliessen, wechseln, markierungAendern, ueben, oeffnen }: {
   id: string; sp: SkillSpeicher; jetzt: number; aktiv: boolean;
   schliessen: () => void; wechseln: (id: string) => void; markierungAendern: () => void;
-  kannUeben: (s: Skill) => boolean; ueben: (s: Skill) => void;
+  ueben: (s: Skill) => void; oeffnen: (w: SkillWerkzeug) => void;
 }) {
   const fokus = useDialogFokus<HTMLDivElement>();
   const kopf = useId();
@@ -408,17 +460,22 @@ function SkillDetail({ id, sp, jetzt, aktiv, schliessen, wechseln, markierungAen
             </ol>
           </div>
         )}
-        {!s.uebung && s.extern && <p className="skill-extern text-sm">{s.extern}</p>}
+        <div className="skill-absatz">
+          <span className="kennzahl-label">So übst du · {BLOCK_MINUTEN} Min.</span>
+          <p>{s.aufgabe}</p>
+        </div>
+        {!s.uebung && !s.werkzeug && s.extern && <p className="skill-extern text-sm">{s.extern}</p>}
 
         {s.uebung ? (
-          kannUeben(s)
-            ? <button type="button" className="knopf w-full" onClick={() => ueben(s)}>▶ Üben</button>
-            : <button type="button" className="knopf knopf-leise w-full" disabled>Üben — kommt gleich</button>
-        ) : (
+          <button type="button" className="knopf w-full" onClick={() => { schliessen(); ueben(s); }}>▶ {uebungName(s.uebung)}</button>
+        ) : (<>
+          {s.werkzeug && (
+            <button type="button" className="knopf w-full" onClick={() => { schliessen(); oeffnen(s.werkzeug!); }}>▶ {WERKZEUG_NAMEN[s.werkzeug.art]}</button>
+          )}
           <button type="button" className="knopf knopf-leise w-full" aria-pressed={heuteGeuebt} disabled={heuteGeuebt} onClick={() => skillGeuebt(s.id)}>
             {heuteGeuebt ? '✓ Heute geübt' : 'Heute geübt'}
           </button>
-        )}
+        </>)}
       </div>
     </div>,
     document.body,
@@ -432,8 +489,8 @@ function MarkierungsWahl({ id, m, schliessen }: { id: string; m: Markierung; sch
   const s = skillFinden(id);
   const waehlen = (neu: Markierung) => { skillMarkieren(id, neu); schliessen(); };
   const ERKLAERUNG: Record<Markierung, string> = {
-    offen: 'nicht markiert', will: 'auf die Liste für später', lerne: 'gerade dran — kommt in „Heute“ zuerst',
-    kann: 'selbst eingeschätzt — zählt als sicher', pause: 'gerade nicht — nie in „Heute“',
+    offen: 'nicht markiert', will: 'für später — füllt „Heute“ auf, solange weniger als drei „Lerne ich“',
+    lerne: 'gerade dran — steht in „Heute“', kann: 'selbst eingeschätzt — zählt als sicher', pause: 'gerade nicht — nie in „Heute“',
   };
   return createPortal(
     <div className="blatt-hintergrund skill-wahl-hintergrund" onClick={(e) => { e.stopPropagation(); schliessen(); }}>

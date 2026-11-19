@@ -4,7 +4,7 @@ import { useEffect, useId, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { imFilter } from '@/domain/sammlungen';
 import {
-  mixAuswahl, mixFertigText, mixLeer, mixMenge, mixSchluessel, neueRunde, rundeAbgleichen, rundeLesen, rundeStand, type MixBereich, type MixQuelle, type Runde,
+  mixAuswahl, mixFertigText, mixLeer, mixMenge, mixSchluessel, neueRunde, rundeAbgleichen, rundeLesen, rundeStand, type MixBereich, type Runde,
 } from '@/domain/stellen';
 import { stueckeMitSeite } from '@/domain/sicht';
 import { imTagFilter, type Tag } from '@/domain/tags';
@@ -86,17 +86,15 @@ function mixInfo(bereich: MixBereich, noten: Stueck[], stellen: Stelle[], aktiv:
   return { ...stand, gesamt, laeuft: stand.anzahl > 0 && !stand.fertig && (stand.geuebt > 0 || offen) };
 }
 
-// Woraus gemischt wird, auf der Lernen-Seite im Blatt wählbar (B-18):
-// Sammlungen in der Reihenfolge der Leiste, alle Tags.
-export interface Woraus { sammlungen: string[]; tags: Tag[]; waehlen: (q: MixQuelle) => void }
-
-// Einstieg auf der Lernen-Seite: eine Zeile („Stellen-Mix · Weiter bei 4 von 9 ›“).
-// Tippen öffnet die Optionen samt „Woraus“. `offenMelden`: die Seite lässt
-// Escape dem offenen Blatt.
-export function MixZeile({ sammlung, tag, noten, stellen, starten, aktiv, woraus, offenMelden }: {
+// Einstieg in der Bibliothek (B-19, wie vor B-18): eine Zeile unter den
+// Sammlungen („Stellen-Mix · Weiter bei 4 von 9 ›“). Gemischt wird, was die
+// Bibliothek gerade zeigt — Sammlung und Tag. Wechselt die Auswahl, ändert
+// sich nur der Text rechts; die Zeile bleibt gleich hoch. Tippen öffnet die
+// Optionen. `offenMelden`: die Bibliothek lässt Escape dem offenen Blatt.
+export function MixZeile({ sammlung, tag, noten, stellen, starten, aktiv, offenMelden }: {
   sammlung: string | null; tag: Tag | null; noten: Stueck[]; stellen: Stelle[];
   starten: (neu: boolean, bereich: MixBereich) => void; aktiv: MixBereich | null;
-  woraus?: Woraus; offenMelden?: (offen: boolean) => void;
+  offenMelden?: (offen: boolean) => void;
 }) {
   const [blatt, setBlattRoh] = useState(false);
   const setBlatt = (o: boolean) => { setBlattRoh(o); offenMelden?.(o); };
@@ -115,22 +113,20 @@ export function MixZeile({ sammlung, tag, noten, stellen, starten, aktiv, woraus
         <span className="bib-pfeil" aria-hidden="true">›</span>
       </button>
       {blatt && (
-        <MixBlatt sammlung={sammlung} tag={tag} noten={noten} stellen={stellen} nur={nur} aktiv={aktiv} woraus={woraus}
+        <MixBlatt sammlung={sammlung} tag={tag} noten={noten} stellen={stellen} nur={nur} aktiv={aktiv}
           setNur={(n) => { setNur(n); nurMerken(n); }} starten={starten} schliessen={() => setBlatt(false)} />
       )}
     </>
   );
 }
 
-// Optionen des Mix: woraus (mit `woraus` wählbar, sonst nur Anzeige), nur
-// offene, nur Favoriten, wie viele das sind, und los. Jede Kombination hat
-// ihre eigene Runde — der Knopf zeigt ihren Stand. Die Wahl ändert nur Zahl
-// und Knopf, die Chips bleiben stehen.
-export function MixBlatt({ sammlung, tag, noten, stellen, nur, setNur, aktiv, starten, schliessen, woraus }: {
+// Optionen des Mix: woraus (nur Anzeige — gewählt wird in der Bibliothek),
+// nur offene, nur Favoriten, wie viele das sind, und los. Jede Kombination
+// hat ihre eigene Runde — der Knopf zeigt ihren Stand.
+export function MixBlatt({ sammlung, tag, noten, stellen, nur, setNur, aktiv, starten, schliessen }: {
   sammlung: string | null; tag: Tag | null; noten: Stueck[]; stellen: Stelle[];
   nur: Nur; setNur: (n: Nur) => void; aktiv: MixBereich | null;
   starten: (neu: boolean, bereich: MixBereich) => void; schliessen: () => void;
-  woraus?: Woraus;
 }) {
   useEscape(schliessen);
   const fokus = useDialogFokus<HTMLDivElement>();
@@ -159,31 +155,7 @@ export function MixBlatt({ sammlung, tag, noten, stellen, nur, setNur, aktiv, st
           </button>
         </div>
 
-        {woraus && (
-          <div className="mix-woraus">
-            <span className="kennzahl-label">Woraus</span>
-            <div className="mix-woraus-chips" role="group" aria-label="Sammlung">
-              <button type="button" className="sammlung-chip" aria-pressed={sammlung === null} onClick={() => woraus.waehlen({ sammlung: null, tag: tag?.id ?? null })}>Alle Noten</button>
-              {woraus.sammlungen.map((n) => (
-                <button key={n} type="button" className="sammlung-chip" aria-pressed={sammlung === n} onClick={() => woraus.waehlen({ sammlung: n, tag: tag?.id ?? null })}>{n}</button>
-              ))}
-            </div>
-            {woraus.tags.length > 0 && (
-              <div className="mix-woraus-chips" role="group" aria-label="Tag">
-                <button type="button" className="sammlung-chip" aria-pressed={tag === null} onClick={() => woraus.waehlen({ sammlung, tag: null })}>Alle Tags</button>
-                {woraus.tags.map((t) => (
-                  <button key={t.id} type="button" className="sammlung-chip" aria-pressed={tag?.id === t.id} onClick={() => woraus.waehlen({ sammlung, tag: t.id })}>
-                    <TagPunkt farbe={t.farbe} klein />{t.name}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Mit „Woraus“ bleibt der Aufbau gleich, auch wenn die gewählte Sammlung
-            keine Stellen hat — nur ganz ohne Stellen kommt die Anleitung. */}
-        {info.gesamt || (woraus && stellen.length > 0) ? (
+        {info.gesamt ? (
           <>
             <ul className="mix-schalter">
               <li>

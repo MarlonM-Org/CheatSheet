@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Vortrag } from '@/domain/etueden';
 import { vorspielen, type Vorspiel } from './klavier';
-import { audioSitzung, klangPuffer, useBeimVerlassen } from './klang';
+import { klangPuffer, useBeimVerlassen } from './klang';
 import { useMetronom } from './MetronomKontext';
 import { useStimmgeraetApi } from './StimmgeraetKontext';
 
@@ -34,7 +34,6 @@ export function useKlickSpieler() {
   const spielen = useCallback((v: Vortrag) => {
     stopp();
     if (!v.klaenge.length) return;
-    audioSitzung('playback');
     const { st, a, laut, klang } = einst.current;
     const vs = vorspielen(v.klaenge, st, a, laut);
     if (v.klicks.length) {

@@ -5,11 +5,12 @@ import { createPortal } from 'react-dom';
 import { STIMMUNG_NAMEN, tonDeutsch } from '@/domain/akkorde';
 import {
   abschnitteAbc, abschnitteKlaenge, ETUEDEN_STANDARD, ETUEDEN_TEMPO, etuedeBauen, grundFuer, MUSTER, musterVon,
-  OBERE_GRENZEN, REIHENFOLGE_NAMEN, REIHENFOLGEN, RHYTHMEN, RHYTHMUS_NAMEN, RHYTHMUS_TICKS, TAKT, type EtuedenEinstellung,
+  OBERE_GRENZEN, REIHENFOLGE_NAMEN, REIHENFOLGEN, RHYTHMEN, RHYTHMUS_NAMEN, RHYTHMUS_TICKS, TAKT, type EtuedenEinstellung, type MusterId,
 } from '@/domain/etueden';
 import { skillFinden } from '@/domain/skillkatalog';
 import { AbcZeile } from './AbcZeile';
 import { useKlickSpieler } from './klickspieler';
+import { LautsprecherSchalter } from './lautsprecher';
 import { skillGeuebt } from './skillspeicher';
 import { useDialogFokus, useEscape } from './tasten';
 import { useSeite } from './seite';
@@ -45,12 +46,13 @@ export const takteFuer = (breite: number, ticksJeNote: number) => {
   return 2 ** Math.floor(Math.log2(n));
 };
 
-export function EtuedenBlatt({ schliessen }: { schliessen: () => void }) {
+// `muster`: damit öffnen (aus „Heute“, I-09), sonst die in dieser Sitzung zuletzt gewählte Etüde.
+export function EtuedenBlatt({ schliessen, muster: anfang }: { schliessen: () => void; muster?: MusterId }) {
   const seite = useSeite();
   const fokus = useDialogFokus<HTMLDivElement>();
   const kopf = useId();
   const { spielen, stopp, laeuft, stimmung } = useKlickSpieler();
-  const [w, setWRoh] = useState<EtuedenEinstellung>(sitzung);
+  const [w, setWRoh] = useState<EtuedenEinstellung>(() => (anfang ? { ...sitzung, muster: anfang } : sitzung));
   const [klick, setKlick] = useState(true);
   const [geuebt, setGeuebt] = useState<string | null>(null);
   const { ref: flaeche, breite } = useBreite<HTMLDivElement>();
@@ -157,6 +159,8 @@ export function EtuedenBlatt({ schliessen }: { schliessen: () => void }) {
           <p className="gedaempft text-xs et-hinweis">
             {geuebt === muster.id ? `Zählt für: ${skillNamen}.` : `${klick ? 'Ein Takt Vorzählen, dann ' : ''}${etuede.abschnitte.length === 1 ? 'eine Tonart' : `${etuede.abschnitte.length} Tonarten`} am Stück. „Geübt“ zählt für: ${skillNamen}.`}
           </p>
+          {/* B-20/D-08: dieselbe Wahl wie überall; wirkt, wenn nebenbei das Stimmgerät hört. */}
+          <LautsprecherSchalter />
         </div>
 
         <div ref={flaeche} className="et-noten">

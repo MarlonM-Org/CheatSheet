@@ -3,18 +3,20 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  aufnahmeNameAufbereiten, dauerText, nachTagen, stueckeMitAufnahmen, tagebuch, tagebuchFiltern, umschaltZeit, vergleichbar, vergleichsPaar, wo,
-  type TagebuchEintrag,
+  aufnahmeNameAufbereiten, aufnahmenStand, bereichTitel, dauerText, imBereich, nachTagen, neueAufnahmeVorwahl, stueckeMitAufnahmen, tagebuch,
+  tagebuchBereich, tagebuchFiltern, umschaltZeit, vergleichbar, vergleichsPaar, wo, type Bereich, type TagebuchEintrag,
 } from '@/domain/aufnahmetagebuch';
 import { nachTitel } from '@/domain/notenpult';
 import { BEREICHE, SKILLS, skillFinden } from '@/domain/skillkatalog';
 import { useAufnahme } from './Aufnahmen';
-import { audioSitzung } from './klang';
+import { wiedergabeSitzung } from './klang';
+import { LautsprecherSchalter } from './lautsprecher';
 import { alleStellen, alleStuecke, aufnahmeAendern, aufnahmeDatei, aufnahmeLoeschen, type Stelle, type Stueck } from './lokal';
 import { skillGeuebt } from './skillspeicher';
 import { fehlerGrund, speicherFehler } from './speicherfehler';
 import { useDialogFokus, useEscape } from './tasten';
 import { useSeite } from './seite';
+import { StueckWahl } from './StueckWahl';
 
 // Aufnahme-Tagebuch (I-20): alle eigenen Aufnahmen (G-09) über alle Stücke,
 // neueste zuerst und nach Tagen; filtern nach Stück, anhören, umbenennen,
@@ -24,12 +26,18 @@ import { useSeite } from './seite';
 // Neue Aufnahme: zu einem Stück, optional mit einem Skill aus der Kartei.
 // Eine Aufnahme ohne Stück gibt es nicht — sie liegt am Stück (Datenmodell).
 // Nur aufnehmen und abspielen, keine Bearbeitung (Leitbild). Die Aufnahmen
-// bleiben auf dem Gerät und reisen nicht mit der Sicherung (Hinweis oben).
+// bleiben auf dem Gerät und reisen nicht mit der Sicherung (Hinweis unten).
+// Seit 2026-11-19 (Rückmeldung Marlon) über die Bibliothek abrufbar: die
+// Zeile „Aufnahmen“ unter dem Stellen-Mix (AufnahmenZeile), „Aufnahmen …“
+// im Kontext-Blatt eines Stücks, im Stück-Blatt; die Kachel in Lernen führt
+// dorthin. Aus der Bibliothek grenzt das Tagebuch auf das ein, was sie zeigt
+// (Sammlung und Tag); „Alle“ zeigt den Rest, auch Aufnahmen zu Skills.
 // Regeln in @/domain/aufnahmetagebuch.
 
 const uhrzeit = (t: number) => new Date(t).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 const anzeigeName = (e: TagebuchEintrag) => e.aufnahme.titel || `Aufnahme ${uhrzeit(e.aufnahme.am)}`;
 const datumKurz = (t: number) => new Date(t).toLocaleDateString('de-DE', { day: 'numeric', month: 'short' });
+const aufnahmenText = (n: number) => `${n} ${n === 1 ? 'Aufnahme' : 'Aufnahmen'}`;
 
 // Ein Abspieler für das ganze Blatt: immer nur eine Aufnahme zugleich.
 function useAbspieler() {
@@ -48,7 +56,7 @@ function useAbspieler() {
     aus();
     if (war === e.aufnahme.id) return;
     setFehler('');
-    audioSitzung('playback');
+    wiedergabeSitzung();
     try {
       const url = URL.createObjectURL(await aufnahmeDatei(e.aufnahme));
       const audio = new Audio(url);
@@ -61,31 +69,63 @@ function useAbspieler() {
   return { spielt, fehler, umschalten, aus };
 }
 
-export function AufnahmeTagebuchBlatt({ schliessen }: { schliessen: () => void }) {
+// Was die Bibliothek gerade zeigt: Sammlung und Tag (mit Namen für die Anzeige).
+export interface BibliotheksBereich { sammlung: string | null; tag: { id: string; name: string } | null }
+const ALLES: BibliotheksBereich = { sammlung: null, tag: null };
+
+export function AufnahmeTagebuchBlatt({ schliessen, bereich = ALLES, offen = null, filterStart = null, geaendert }: {
+  schliessen: () => void;
+  // Aus der Bibliothek: worauf sie gerade eingegrenzt ist — das Tagebuch auch, „Alle“ zeigt den Rest.
+  bereich?: BibliotheksBereich;
+  // Das gerade offene Stück: „Neu“ wählt es vor.
+  offen?: string | null;
+  // Gleich auf ein Stück gefiltert (Kontext-Blatt, Stück-Blatt).
+  filterStart?: string | null;
+  // Aufnahmen kamen dazu, wurden umbenannt oder gelöscht (für Zahlen in der Bibliothek, im Stück-Blatt).
+  geaendert?: () => void;
+}) {
   const seite = useSeite();
   const fokus = useDialogFokus<HTMLDivElement>();
   const kopf = useId();
   const [daten, setDaten] = useState<{ stuecke: Stueck[]; stellen: Stelle[]; jetzt: number } | null>(null);
   const [ladeFehler, setLadeFehler] = useState('');
-  const [filter, setFilter] = useState<string | null>(null);
+  const [filter, setFilter] = useState<string | null>(filterStart);
   const [waehlen, setWaehlen] = useState<{ erste: string | null } | null>(null);
   const [paar, setPaar] = useState<{ a: TagebuchEintrag; b: TagebuchEintrag } | null>(null);
   const [neu, setNeu] = useState(false);
+  // „Alle“ statt des Bereichs der Bibliothek (nur, wenn sie eingegrenzt ist). null: von selbst —
+  // eingegrenzt, außer das Stück, mit dem das Tagebuch aufging, liegt draußen.
+  const [weit, setWeit] = useState<boolean | null>(null);
   const spieler = useAbspieler();
+  const geaendertJetzt = useRef(geaendert);
+  useEffect(() => { geaendertJetzt.current = geaendert; }, [geaendert]);
 
-  const laden = useCallback(() => {
+  const laden = useCallback((nachAenderung = false) => {
     Promise.all([alleStuecke(), alleStellen()])
-      .then(([stuecke, stellen]) => { setDaten({ stuecke, stellen, jetzt: Date.now() }); setLadeFehler(''); })
+      .then(([stuecke, stellen]) => { setDaten({ stuecke, stellen, jetzt: Date.now() }); setLadeFehler(''); if (nachAenderung) geaendertJetzt.current?.(); })
       .catch((x) => setLadeFehler(`Die Aufnahmen ließen sich nicht laden: ${fehlerGrund(x)}`));
   }, []);
-  useEffect(laden, [laden]);
+  useEffect(() => laden(), [laden]);
 
+  // Der Bereich steht beim Öffnen fest (darunter liegt die Bibliothek), damit
+  // der Umschalter „Bereich | Alle“ da ist oder nicht — nichts kommt dazu.
+  const [b] = useState<Bereich>(() => ({ sammlung: bereich.sammlung, tag: bereich.tag?.id ?? null }));
+  const [titel] = useState(() => bereichTitel(bereich.sammlung, bereich.tag?.name ?? null));
   const alle = useMemo(() => (daten ? tagebuch(daten.stuecke, daten.stellen) : []), [daten]);
-  const stuecke = useMemo(() => stueckeMitAufnahmen(alle), [alle]);
-  const filterGilt = filter !== null && stuecke.some((s) => s.id === filter) ? filter : null;
-  const gezeigt = tagebuchFiltern(alle, filterGilt);
+  const imB = useMemo(() => tagebuchBereich(alle, daten?.stuecke ?? [], b), [alle, daten, b]);
+  const startDraussen = filterStart !== null && !!daten && !imBereich(daten.stuecke.find((s) => s.id === filterStart), b);
+  const alleZeigen = titel === null || (weit ?? startDraussen);
+  const sichtbar = alleZeigen ? alle : imB.drin;
+  const stuecke = useMemo(() => stueckeMitAufnahmen(sichtbar), [sichtbar]);
+  // Für die Stückauswahl (F-23): die Stücke mit Aufnahmen, samt Sammlungen — und
+  // das Stück, mit dem das Tagebuch aufging, auch ohne Aufnahme (für „Neu“).
+  const mitAufnahmen = useMemo(() => (daten?.stuecke ?? []).filter((s) => s.id === filterStart || stuecke.some((x) => x.id === s.id)), [daten, stuecke, filterStart]);
+  const filterGilt = filter !== null && mitAufnahmen.some((s) => s.id === filter) ? filter : null;
+  const filterTitel = filterGilt ? mitAufnahmen.find((s) => s.id === filterGilt)?.titel : undefined;
+  const gezeigt = tagebuchFiltern(sichtbar, filterGilt);
   const tage = nachTagen(gezeigt, daten?.jetzt ?? 0);
   const erste = waehlen?.erste ? alle.find((e) => e.aufnahme.id === waehlen.erste) ?? null : null;
+  const vorwahl = daten ? neueAufnahmeVorwahl(daten.stuecke, { filter: filterGilt, offen, neueste: sichtbar[0]?.stueckId ?? null }) : null;
 
   const zu = () => {
     if (paar) { setPaar(null); return; }
@@ -108,19 +148,25 @@ export function AufnahmeTagebuchBlatt({ schliessen }: { schliessen: () => void }
     const roh = prompt('Name der Aufnahme', e.aufnahme.titel ?? '');
     if (roh === null) return;
     try { await aufnahmeAendern(e.stueckId, e.aufnahme.id, { titel: aufnahmeNameAufbereiten(roh) }); } catch (x) { speicherFehler(x); return; }
-    laden();
+    laden(true);
   };
   const loeschen = async (e: TagebuchEintrag) => {
     if (!confirm(`Aufnahme „${anzeigeName(e)}“ (${e.stueckTitel}, ${datumKurz(e.aufnahme.am)}) löschen? Sie ist danach weg — es gibt keine Kopie in der Sicherung.`)) return;
     if (spieler.spielt === e.aufnahme.id) spieler.aus();
     if (paar && (paar.a.aufnahme.id === e.aufnahme.id || paar.b.aufnahme.id === e.aufnahme.id)) setPaar(null);
     try { await aufnahmeLoeschen(e.stueckId, e.aufnahme.id); } catch (x) { speicherFehler(x); return; }
-    laden();
+    laden(true);
   };
+  const bereichSetzen = (alle: boolean) => { spieler.aus(); setPaar(null); setWaehlen(null); setWeit(alle); };
 
+  // Eingegrenzt und draußen liegt noch etwas: Das sagt die Statuszeile (auch,
+  // wie viele davon zu einem Skill gehören); der Hinweis aufs Gerät rückt dann ans Ende der Liste.
+  const draussenText = !alleZeigen && imB.draussen
+    ? `Unter „Alle“ noch ${aufnahmenText(imB.draussen)}${imB.draussenSkill ? `, davon ${imB.draussenSkill} mit Skill` : ''}.` : '';
+  const GERAET = 'Aufnahmen bleiben auf diesem Gerät und reisen nicht mit der Sicherung.';
   const hinweis = waehlen
     ? (erste ? `Zweite Aufnahme wählen — gleiche${erste.aufnahme.stelleId ? ' Stelle' : 's Stück'} wie „${anzeigeName(erste)}“` : 'Erste Aufnahme zum Vergleichen wählen')
-    : 'Aufnahmen bleiben auf diesem Gerät und reisen nicht mit der Sicherung.';
+    : draussenText || GERAET;
 
   return (<>{createPortal(
     <div className={`blatt-hintergrund${seite.klasse}`} onClick={(e) => { e.stopPropagation(); zu(); }}>
@@ -128,7 +174,9 @@ export function AufnahmeTagebuchBlatt({ schliessen }: { schliessen: () => void }
         <div className="mix-blatt-kopf">
           <div className="min-w-0 flex-1">
             <h2 id={kopf} className="text-xl font-extrabold">Aufnahme-Tagebuch</h2>
-            <p className="gedaempft text-sm tabular-nums">{daten ? `${alle.length} ${alle.length === 1 ? 'Aufnahme' : 'Aufnahmen'}` : 'wird geladen …'}</p>
+            <p className="gedaempft truncate text-sm tabular-nums">
+              {daten ? `${aufnahmenText(sichtbar.length)}${alleZeigen ? '' : ` aus „${titel}“`}` : 'wird geladen …'}
+            </p>
           </div>
           <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => { spieler.aus(); schliessen(); }}>Fertig</button>
         </div>
@@ -136,11 +184,20 @@ export function AufnahmeTagebuchBlatt({ schliessen }: { schliessen: () => void }
         <p className={`tb-hinweis text-sm ${waehlen ? 'waehlen' : ''}`} role="status">{hinweis}</p>
 
         <div className="tb-werkzeuge">
-          <select className="feld tb-filter" value={filterGilt ?? ''} onChange={(e) => setFilter(e.target.value || null)} aria-label="Nach Stück filtern">
-            <option value="">Alle Stücke</option>
-            {stuecke.map((s) => <option key={s.id} value={s.id}>{s.titel} ({s.anzahl})</option>)}
-          </select>
-          <button type="button" className="knopf knopf-leise knopf-klein" aria-pressed={!!waehlen} disabled={alle.length < 2}
+          {/* Aus der Bibliothek eingegrenzt: ihr Bereich oder alle. Steht beim Öffnen fest — kommt und geht nicht. */}
+          {titel !== null && (
+            <div className="segment tb-bereich" role="group" aria-label="Welche Aufnahmen">
+              <button type="button" aria-pressed={!alleZeigen} onClick={() => bereichSetzen(false)} disabled={!daten}>
+                <span className="tb-bereich-name">{titel}</span> <span className="sammlung-zahl">{imB.drin.length}</span>
+              </button>
+              <button type="button" aria-pressed={alleZeigen} onClick={() => bereichSetzen(true)} disabled={!daten}>
+                Alle <span className="sammlung-zahl">{alle.length}</span>
+              </button>
+            </div>
+          )}
+          <StueckWahl className="tb-filter" titel="Aufnahmen filtern" stuecke={mitAufnahmen} wert={filterGilt} waehlen={setFilter} disabled={!daten}
+            alle={{ text: 'Alle Stücke', info: aufnahmenText(sichtbar.length) }} info={(s) => aufnahmenText(stuecke.find((x) => x.id === s.id)?.anzahl ?? 0)} />
+          <button type="button" className="knopf knopf-leise knopf-klein" aria-pressed={!!waehlen} disabled={sichtbar.length < 2}
             onClick={() => { spieler.aus(); setPaar(null); setWaehlen(waehlen ? null : { erste: null }); }}>{waehlen ? 'Abbrechen' : 'Vergleichen'}</button>
           <button type="button" className="knopf knopf-klein tb-neu" onClick={() => { spieler.aus(); setNeu(true); }} disabled={!daten}>
             <span className="nav-aufnahme-punkt" aria-hidden="true" /> Neu
@@ -149,9 +206,9 @@ export function AufnahmeTagebuchBlatt({ schliessen }: { schliessen: () => void }
 
         <div className="tb-liste" aria-label="Aufnahmen">
           {(ladeFehler || spieler.fehler) && <p className="karte warnung" role="alert">{ladeFehler || spieler.fehler}</p>}
-          {daten && !alle.length && (
+          {daten && !gezeigt.length && (
             <div className="tb-leer">
-              <strong>Noch keine Aufnahme.</strong>
+              <strong>{filterTitel ? `Noch keine Aufnahme von „${filterTitel}“.` : alle.length ? `Keine Aufnahme aus „${titel}“.` : 'Noch keine Aufnahme.'}</strong>
               <span className="gedaempft text-sm">„Neu“ nimmt zu einem Stück auf, auf Wunsch mit einem Skill. Oder in den Noten: der rote Knopf in der Leiste nimmt auf, während du spielst.</span>
             </div>
           )}
@@ -186,6 +243,7 @@ export function AufnahmeTagebuchBlatt({ schliessen }: { schliessen: () => void }
               </ul>
             </section>
           ))}
+          {draussenText && <p className="tb-fuss gedaempft text-xs">{GERAET}</p>}
         </div>
 
         {paar && <Vergleich key={`${paar.a.aufnahme.id}-${paar.b.aufnahme.id}`} paar={paar} schliessen={() => setPaar(null)} />}
@@ -194,10 +252,33 @@ export function AufnahmeTagebuchBlatt({ schliessen }: { schliessen: () => void }
     seite.ziel,
   )}
   {neu && daten && (
-    <NeueAufnahme stuecke={daten.stuecke} vorwahl={filterGilt ?? alle[0]?.stueckId ?? null}
-      schliessen={() => setNeu(false)} gespeichert={() => { laden(); setNeu(false); }} />
+    <NeueAufnahme stuecke={daten.stuecke} vorwahl={vorwahl}
+      schliessen={() => setNeu(false)} gespeichert={() => { laden(true); setNeu(false); }} />
   )}
   </>);
+}
+
+// Zeile „Aufnahmen“ in der Bibliothek, direkt unter dem Stellen-Mix (Rückmeldung
+// Marlon 2026-11-19): Zahl und „zuletzt …“ der Aufnahmen dessen, was die
+// Bibliothek zeigt (Sammlung und Tag). Gleich gebaut und gleich hoch wie die
+// Mix-Zeile; beim Wechsel der Sammlung ändert sich nur der Text rechts.
+export function AufnahmenZeile({ noten, bereich, offen, oeffnen }: {
+  noten: Stueck[]; bereich: BibliotheksBereich; offen: boolean; oeffnen: () => void;
+}) {
+  const [jetzt] = useState(() => Date.now());
+  const alle = useMemo(() => tagebuch(noten, []), [noten]);
+  const b: Bereich = { sammlung: bereich.sammlung, tag: bereich.tag?.id ?? null };
+  const { drin } = tagebuchBereich(alle, noten, b);
+  const stand = aufnahmenStand(drin.length, alle.length, drin[0]?.aufnahme.am ?? null, jetzt, bereichTitel(bereich.sammlung, bereich.tag?.name ?? null));
+  return (
+    <button type="button" className={`mix-einstieg ${drin.length ? '' : 'ohne'}`} aria-haspopup="dialog" aria-expanded={offen} onClick={oeffnen}
+      aria-label={`Aufnahmen: ${stand}`}>
+      <span className="mix-symbol klein aufnahme-symbol" aria-hidden="true"><span className="nav-aufnahme-punkt" /></span>
+      <span className="mix-einstieg-titel">Aufnahmen</span>
+      <span className="mix-einstieg-stand">{stand}</span>
+      <span className="bib-pfeil" aria-hidden="true">›</span>
+    </button>
+  );
 }
 
 // ── Vergleichen: A (älter) und B (neuer) ── liegt unten über der Liste.
@@ -230,7 +311,7 @@ function Vergleich({ paar, schliessen }: { paar: { a: TagebuchEintrag; b: Tagebu
   };
   const spielen = async (welche: 'a' | 'b', ab: number, nachher: boolean) => {
     setFehler('');
-    audioSitzung('playback');
+    wiedergabeSitzung();
     try {
       const s = await bereit();
       const an = s[welche], andere = s[welche === 'a' ? 'b' : 'a'];
@@ -318,9 +399,8 @@ function NeueAufnahme({ stuecke, vorwahl, schliessen, gespeichert }: {
           <>
             <label className="tb-feld">
               <span className="kennzahl-label">Stück</span>
-              <select className="feld" value={stueckId} onChange={(e) => setStueckId(e.target.value)} disabled={aufnahme.laeuft}>
-                {sortiert.map((s) => <option key={s.id} value={s.id}>{s.titel}{s.stimme ? ` (${s.stimme})` : ''}</option>)}
-              </select>
+              <StueckWahl titel="Neue Aufnahme" stuecke={stuecke} wert={stueckId} waehlen={(id) => { if (id) setStueckId(id); }} disabled={aufnahme.laeuft}
+                info={(s) => (s.aufnahmen?.length ? aufnahmenText(s.aufnahmen.length) : '')} />
             </label>
             <label className="tb-feld">
               <span className="kennzahl-label">Skill (optional)</span>
@@ -334,6 +414,7 @@ function NeueAufnahme({ stuecke, vorwahl, schliessen, gespeichert }: {
               </select>
             </label>
             <p className="gedaempft min-h-[2.5em] text-xs">{skillId ? 'Mit Skill zählt die Aufnahme dort als heute geübt.' : 'Mit Skill findest du sie später beim Skill wieder und er zählt als heute geübt.'}</p>
+            <LautsprecherSchalter gesperrt={aufnahme.laeuft} className="mb-3" hinweis="An: Metronom aus dem Lautsprecher, es bleibt aus der Aufnahme draußen. Aus: für Kopfhörer — rohes Mikrofon, unverfälscht." />
             <button type="button" className={`tb-aufnehmen${aufnahme.laeuft ? ' laeuft' : ''}`} aria-pressed={aufnahme.laeuft}
               onClick={() => aufnahme.umschalten(skillId ? { skillId } : {})}>
               {aufnahme.laeuft

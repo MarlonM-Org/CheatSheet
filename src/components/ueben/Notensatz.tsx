@@ -15,7 +15,7 @@ import {
 } from '@/domain/notensatz';
 import { pruefen } from '@/domain/notenregeln';
 import { EINSTELLUNG_STANDARD } from '@/domain/einstellungen';
-import { audioSitzung, gespeichert, speichern } from './klang';
+import { gespeichert, speichern } from './klang';
 import { vorspielen, type Vorspiel } from './klavier';
 import { useMetronom } from './MetronomKontext';
 import { useStimmgeraetApi } from './StimmgeraetKontext';
@@ -268,7 +268,6 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern, tonartAend
     })() : [];
     const liste = [...noten, ...band].sort((x, y) => x.beginn - y.beginn);
     if (!liste.length) return;
-    audioSitzung('playback');
     const v = { ...vorspielen(liste, stimm.stimmung, stimm.kammerton, metro.laut), raf: 0, zeiger: stimmen.map(() => -1) };
     vorspiel.current = v;
     setSpielt(true);

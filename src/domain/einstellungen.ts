@@ -18,8 +18,14 @@
 //    Ohr-Trainer, Stufe der Hör-Übungen, Klang der Drone (ueben:drone-klang),
 //    Hell/Dunkel und Farbwelten, Lage der Fenster, zuletzt Geöffnetes,
 //    Filter, das Tempo (folgt den Stellen), der Verlauf des Ohr-Trainers, der
-//    Tagesstand von „Heute“, woraus der Stellen-Mix mischt … Tags und
-//    Tonprofile haben eigene Felder in der Sicherung.
+//    Tagesstand von „Heute“, die Ansicht der Stückauswahl (ueben:stueckwahl,
+//    F-23: nur { ansicht }, die Sammlung kommt von der Bibliothek), ob der Ton
+//    bei offenem Mikrofon aus dem Lautsprecher kommt (ueben:lautsprecher, B-20,
+//    samt den früheren ueben:einspiel-lautsprecher und ueben:stimm-verstaerken;
+//    Kopfhörer hat man am Gerät, nicht als Person), ob Klänge mit anderen Apps
+//    mischen (ueben:mischen) und ob das Metronom im Hintergrund weiterläuft
+//    (ueben:metronom-hintergrund, D-08) … Tags und Tonprofile haben eigene
+//    Felder in der Sicherung.
 // 4. Nicht gespeichert (VERALTET): Taktart, Nenner, Akzente, Unterteilung,
 //    Tempo-Trainer, Swing, Drone (Grundton, Farbe, Lautstärke), Etüden-Wahl. Jede Sitzung beginnt mit dem
 //    App-Standard; die alten Schlüssel räumt die App beim Start weg.

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { einzaehlKlicks, type BegleitKlick, type BegleitTon } from '@/domain/begleitung';
 import type { Stimmung } from '@/domain/ueben';
-import { audioSitzung, klangPuffer, useBeimVerlassen, verwerfen, wachHalten } from './klang';
+import { klangPuffer, useBeimVerlassen, verwerfen, wachHalten, wiedergabeSitzung } from './klang';
 import { klangSpielen, klingend } from './klavier';
 import { useMetronom } from './MetronomKontext';
 import { useStimmgeraetApi } from './StimmgeraetKontext';
@@ -108,7 +108,7 @@ export function useBegleiter() {
     stoppen();
     if (!o.takte.length) return;
     if (metroLaeuft.current) metroStopp();
-    audioSitzung('playback');
+    wiedergabeSitzung();
     const ctx = new AudioContext({ latencyHint: 'interactive' });
     ctx.resume().catch(() => { /* egal — geplant wird auf der Audio-Uhr */ });
     const master = ctx.createGain(), klick = ctx.createGain();

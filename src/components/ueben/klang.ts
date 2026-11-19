@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import { EINSTELLUNGEN_GELADEN, EINSTELLUNGEN_STAND, istAenderung, neuerStand, standLesen, type MetronomKlang } from '@/domain/einstellungen';
+import { MISCHEN_SCHLUESSEL, MISCHEN_STANDARD, schalterAnfang, sitzungFuer } from '@/domain/lautsprecher';
+import { HINTERGRUND_SCHLUESSEL, HINTERGRUND_STANDARD } from '@/domain/taktgeber';
 
 // Klänge für das Metronom, einmal synthetisiert und als Puffer abgelegt —
 // kurz, trocken und mit klarem Anschlag, damit man sie im Ensemble-Lärm hört.
@@ -42,38 +44,83 @@ export function klangPuffer(ctx: BaseAudioContext, klang: Klang, art: Art): Audi
   return puffer;
 }
 
+function roh(k: string): string | null {
+  try { return localStorage.getItem(k); } catch { return null; }
+}
+
+// Ein Schalter am Gerät (localStorage, reist nicht mit der Sicherung): beim
+// ersten Lesen aus dem Speicher, geschrieben über speichern(), alle Anzeigen
+// hören mit (useSchalter). `nachher` läuft nach jedem Umschalten, noch in der
+// Tipp-Geste (etwa: Audio-Sitzung neu setzen).
+export interface Schalter {
+  standard: boolean;
+  an: () => boolean;
+  setzen: (an: boolean) => void;
+  abonnieren: (z: () => void) => () => void;
+}
+export function geraeteSchalter(
+  schluessel: string, standard: boolean,
+  anfang: (lesen: (k: string) => string | null) => boolean = (lesen) => schalterAnfang(lesen, schluessel, standard),
+  nachher?: () => void,
+): Schalter {
+  let wert: boolean | null = null;
+  const zuhoerer = new Set<() => void>();
+  const an = () => {
+    if (typeof window === 'undefined') return standard;
+    if (wert === null) wert = anfang(roh);
+    return wert;
+  };
+  return {
+    standard, an,
+    setzen(neu) {
+      if (an() === neu) return;
+      wert = neu;
+      speichern(schluessel, neu);
+      nachher?.();
+      for (const z of zuhoerer) z();
+    },
+    abonnieren(z) { zuhoerer.add(z); return () => { zuhoerer.delete(z); }; },
+  };
+}
+export function useSchalter(s: Schalter): [boolean, (an: boolean) => void] {
+  const an = useSyncExternalStore(s.abonnieren, s.an, () => s.standard);
+  return [an, s.setzen];
+}
+
+// Mit anderen Apps mischen (D-08): gilt für jeden Klang, solange kein
+// Mikrofon offen ist. Umschalten setzt die Sitzung sofort.
+export const mischenSchalter = geraeteSchalter(MISCHEN_SCHLUESSEL, MISCHEN_STANDARD, undefined, () => sitzungSetzen());
+// Metronom im Hintergrund (D-08): nur ohne Mischen (@/domain/taktgeber).
+export const hintergrundSchalter = geraeteSchalter(HINTERGRUND_SCHLUESSEL, HINTERGRUND_STANDARD);
+
 type AudioSessionNavigator = Navigator & { audioSession?: { type: string } };
-type Sitzung = 'playback' | 'play-and-record';
-// iPhone/iPad: Wiedergabe auch bei Stummschalter (wo der Browser es kann).
-// Solange ein Mikrofon offen ist (mikrofonOffen), gilt immer
-// „play-and-record" — mit „playback" (Metronom startet, während das
-// Stimmgerät hört) stellte iOS das Mikrofon stumm.
-let gewuenscht: Sitzung = 'playback';
+// Audio-Sitzung (iPhone/iPad ab iOS 16.4, wo der Browser sie kennt) nach der
+// Regel in @/domain/lautsprecher: Solange ein Mikrofon offen ist,
+// „play-and-record“, sonst „playback“ (Ton auch bei Stummschalter, im
+// Hintergrund weiter) oder — mit „Mit anderen Apps mischen“ — „ambient“.
+// Früher blieb nach Stimmgerät, Einsingen oder Ohr-Trainer „play-and-record“
+// stehen, bis zufällig das Metronom startete — Hör-Übungen, Spickzettel,
+// Griffe spielten dann womöglich in Telefon-Lautstärke (so berichten es
+// WebKit-Fehlermeldungen; auf dem Gerät nicht beobachtet).
 let mikrofone = 0;
 function sitzungSetzen() {
   const nav = navigator as AudioSessionNavigator;
-  try { if (nav.audioSession) nav.audioSession.type = mikrofone > 0 ? 'play-and-record' : gewuenscht; } catch { /* egal */ }
+  try { if (nav.audioSession) nav.audioSession.type = sitzungFuer(mikrofone, mischenSchalter.an()); } catch { /* egal */ }
 }
-export function audioSitzung(typ: Sitzung) {
-  gewuenscht = typ;
+// Vor jedem Ton aufrufen, in der Tipp-Geste (Metronom, Vorspielen, Drone,
+// Referenzton, Aufnahmen abspielen).
+export function wiedergabeSitzung() {
   sitzungSetzen();
 }
-// Ein offenes Mikrofon anmelden; die Rückgabe meldet es wieder ab.
+// Ein Mikrofon anmelden — vor getUserMedia, damit iOS die Sitzung schon
+// umgestellt hat, wenn es aufgeht (sonst klingt der Ton danach leiser). Die
+// Rückgabe meldet es wieder ab, auch wenn getUserMedia scheitert.
 export function mikrofonOffen(): () => void {
   mikrofone++;
   sitzungSetzen();
   let offen = true;
   return () => { if (!offen) return; offen = false; mikrofone--; sitzungSetzen(); };
 }
-
-// Was das Mikrofon liefern soll. `verarbeitet`: Echo-Unterdrückung und
-// Verstärkung des Browsers — auf iPhone/iPad dasselbe wie Freisprechen:
-// hört auch aus Abstand, Ton kommt aus dem Lautsprecher. Sonst das rohe
-// Mikrofon, unverfälscht, nah dran (iPhone: Hörer statt Lautsprecher).
-// Rauschunterdrückung nie — sie nimmt gehaltene Töne als Dauergeräusch.
-export const mikrofonWunsch = (verarbeitet: boolean): MediaTrackConstraints => (verarbeitet
-  ? { echoCancellation: true, noiseSuppression: false, autoGainControl: true }
-  : { echoCancellation: false, noiseSuppression: false, autoGainControl: false });
 
 // iPhone/iPad, vor allem als Home-Bildschirm-App: Geht die App in den
 // Hintergrund, unterbricht iOS jeden AudioContext. Zurück im Vordergrund
@@ -89,6 +136,15 @@ export function verwerfen(ctx: AudioContext | undefined) {
 export function useBeimVerlassen(tun: () => void) {
   useEffect(() => {
     const wechsel = () => { if (document.visibilityState === 'hidden') tun(); };
+    document.addEventListener('visibilitychange', wechsel);
+    return () => document.removeEventListener('visibilitychange', wechsel);
+  }, [tun]);
+}
+
+// Gegenstück: Ruft `tun` auf, wenn die App wieder vorn ist. `tun` sollte stabil sein.
+export function useBeimZurueckkommen(tun: () => void) {
+  useEffect(() => {
+    const wechsel = () => { if (document.visibilityState === 'visible') tun(); };
     document.addEventListener('visibilitychange', wechsel);
     return () => document.removeEventListener('visibilitychange', wechsel);
   }, [tun]);

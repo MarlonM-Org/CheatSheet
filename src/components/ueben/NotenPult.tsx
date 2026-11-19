@@ -19,6 +19,7 @@ import {
   STUECK_NEU,
 } from './lokal';
 import { AufnahmenListe, useAufnahme } from './Aufnahmen';
+import { AufnahmeTagebuchBlatt } from './AufnahmeTagebuch';
 import { EinspielenDialog, type Vorlage } from './Einspielen';
 import { LesezeichenKontext, MehrKnopf, StueckKontext, useHalten } from './Kontext';
 import { TagEtikett } from './Tags';
@@ -178,7 +179,9 @@ function StueckBlatt({ noten, quelle, pdf, stellen, lesezeichen, lesezeichenGeae
   // „Eigene Stücke daraus“: der Abschnitt erscheint auf Wunsch.
   const [teilen, setTeilen] = useState(teilenAnfang);
   const [tags] = useState<Tag[]>(() => tagsLaden());
-  useEscape(schliessen, !kontext);
+  // Das Aufnahme-Tagebuch, auf dieses Stück gefiltert: vergleichen (A/B), neu aufnehmen (I-20).
+  const [tagebuch, setTagebuch] = useState(false);
+  useEscape(schliessen, !kontext && !tagebuch);
   const fokus = useDialogFokus<HTMLDivElement>();
 
   return (
@@ -213,7 +216,10 @@ function StueckBlatt({ noten, quelle, pdf, stellen, lesezeichen, lesezeichenGeae
           </>
         )}
         <h3 className="abschnitt-titel">Aufnahmen</h3>
-        <AufnahmenListe stueck={noten} stellen={stellen} geaendert={aufnahmenGeaendert} />
+        <AufnahmenListe stueck={noten} stellen={stellen} geaendert={aufnahmenGeaendert} zumTagebuch={() => setTagebuch(true)} />
+        {tagebuch && (
+          <AufnahmeTagebuchBlatt filterStart={noten.id} offen={noten.id} geaendert={aufnahmenGeaendert} schliessen={() => setTagebuch(false)} />
+        )}
         <h3 className="abschnitt-titel">Stellen</h3>
         <UebeAnsicht pdf={pdf} noten={noten} stellen={stellen} bpm={bpm} neuLaden={neuLaden} tempoSetzen={tempoSetzen} zeigen={zeigen} />
       </div>

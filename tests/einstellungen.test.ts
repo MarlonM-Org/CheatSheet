@@ -45,6 +45,7 @@ describe('Welche Einstellungen mitreisen', () => {
     for (const k of ['ueben:modus', 'ueben:thema-hell', 'ueben:thema-dunkel', 'ueben:lage-metronom', 'metro:bpm', 'ueben:metronom-an',
       'ueben:offen', 'ueben:zuletzt', 'ueben:sort', 'ueben:sammlung', 'ueben:tag', 'ueben:mix', 'ueben:mix-an', 'ueben:mix-offen',
       'ueben:letzte-sicherung', 'ueben:sicherung-erinnern', 'ueben:geloescht', 'ueben:tags', 'ueben:tonprofile', 'ueben:ohr-verlauf', 'ueben:heute', 'ueben:tonleiter-grundton', 'ueben:tonleiter-art', 'ueben:drone-klang',
+      'ueben:stueckwahl',
       EINSTELLUNGEN_STAND, 'toString', '__proto__', 'constructor']) {
       expect(istMitreisend(k), k).toBe(false);
       expect(istLernstand(k), k).toBe(false);
@@ -165,6 +166,16 @@ describe('Lesen aus der Sicherung', () => {
   it('ältere Sicherung mit Metronom und Lernstand: Metronom übergangen, Lernstand bleibt', () => {
     const e = einstellungenLesen({ stand: 9, werte: { 'metro:takt': 3, 'metro:klang': 'glocke', 'stimm:st': 'Es', 'ueben:jamkarte': [] } });
     expect(e).toEqual({ stand: 9, werte: { 'stimm:st': 'Es' }, lernstand: { 'ueben:jamkarte': [] } });
+  });
+  // B-19: „Woraus“ des Stellen-Mix auf der Lernen-Seite ist abgeschafft. Der
+  // Schlüssel war ein Filter am Gerät; ein Rest im Speicher reist nicht mit,
+  // und in einer Sicherung wird er überlesen.
+  it('abgeschafft: ueben:mix-woraus reist nicht und stört nicht', () => {
+    expect(istMitreisend('ueben:mix-woraus')).toBe(false);
+    const woraus = { sammlung: 'Märsche', tag: null };
+    expect(einstellungenSammeln(speicher({ 'ueben:mix-woraus': woraus, 'stimm:st': 'Es' }))).toEqual({ 'stimm:st': 'Es' });
+    expect(einstellungenLesen({ stand: 7, werte: { 'ueben:mix-woraus': woraus, 'stimm:st': 'Es' } })).toEqual({ stand: 7, werte: { 'stimm:st': 'Es' }, lernstand: {} });
+    expect(einstellungenLesen({ stand: 7, werte: { 'ueben:mix-woraus': woraus } })).toBeNull();
   });
 });
 

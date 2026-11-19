@@ -658,6 +658,7 @@ details[open] > summary::before { transform: rotate(90deg); }
 }
 .ios-schalter:checked { background: var(--messing); border-color: var(--messing); }
 .ios-schalter:checked::after { transform: translateX(18px); }
+.ios-schalter:disabled { opacity: 0.45; cursor: not-allowed; }
 @media (prefers-reduced-motion: reduce) { .ios-schalter, .ios-schalter::after { transition: none; } }
 
 /* Ansicht-Menü: Popover unter der Leiste, Fang-Fläche schließt daneben. */
@@ -866,6 +867,10 @@ details[open] > summary::before { transform: rotate(90deg); }
 .mix-symbol.klein { width: 28px; height: 28px; border-radius: 6px; }
 .mix-symbol.klein svg { width: 16px; height: 16px; }
 .mix-einstieg.ohne .mix-symbol { background: var(--flaeche2); color: var(--gedaempft); }
+/* Zeile „Aufnahmen“ (unter dem Mix): roter Punkt wie am Aufnahmeknopf. */
+.mix-symbol.aufnahme-symbol { background: var(--flaeche2); }
+.mix-symbol.aufnahme-symbol .nav-aufnahme-punkt { width: 11px; height: 11px; }
+.mix-einstieg.ohne .aufnahme-symbol .nav-aufnahme-punkt { background: var(--leise); }
 .mix-symbol.gross { width: 56px; height: 56px; border-radius: 14px; }
 .mix-symbol.gross svg { width: 28px; height: 28px; }
 
@@ -896,9 +901,11 @@ details[open] > summary::before { transform: rotate(90deg); }
     padding: calc(1rem + env(safe-area-inset-top, 0px)) max(1.5rem, calc((100% - 1040px) / 2)) 1.5rem;
   }
 }
-/* Breit: Stellen-Mix, Ohr-Trainer, Hör-Übungen nebeneinander, Stand unter dem Titel. */
+/* Breit: Ohr-Trainer und Hör-Übungen nebeneinander, Stand unter dem Titel.
+   Zwei Spalten für zwei Zeilen — der Stellen-Mix steht seit B-19 wieder in
+   der Bibliothek, eine dritte Spalte bliebe leer. */
 @container lernen (min-width: 680px) {
-  .lernen-ueben { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .lernen-ueben { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .lernen-ueben .mix-einstieg {
     display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "s t p" "s st p";
     column-gap: 10px; row-gap: 1px; align-items: center; min-height: 64px; padding-block: 10px;
@@ -909,10 +916,6 @@ details[open] > summary::before { transform: rotate(90deg); }
   .lernen-ueben .bib-pfeil { grid-area: p; }
 }
 .lernen-titel { font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--leise); margin: 0.6rem 2px -0.2rem; }
-/* „Woraus“ im Mix-Blatt: Chips je Zeile seitlich schiebbar, nichts bricht um. */
-.mix-woraus { display: flex; flex-direction: column; gap: 6px; }
-.mix-woraus-chips { display: flex; gap: 6px; overflow-x: auto; margin: 0 -1.25rem; padding: 0 1.25rem 2px; scrollbar-width: none; }
-.mix-woraus-chips::-webkit-scrollbar { display: none; }
 .hoer-wahl { display: flex; flex-direction: column; gap: 8px; }
 .hoer-wahl .mix-einstieg { min-height: 58px; padding-block: 8px; }
 .hoer-wahl .bib-unterzeile { white-space: normal; }
@@ -1126,6 +1129,46 @@ small .stern { display: inline-block; width: 0.95em; height: 0.95em; vertical-al
 .sammlung-wahl { border: 1px solid var(--linie); border-radius: 6px; overflow: hidden; }
 .sammlung-wahl li + li { border-top: 1px solid var(--linie); }
 .sammlung-wahl label { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 0 12px; cursor: pointer; font-weight: 600; }
+/* Stückauswahl nach Sammlungen (F-23, ./StueckWahl.tsx): ein Knopf wie ein
+   Auswahlfeld, das Blatt liegt über allem (auch über „Neue Aufnahme“, 85).
+   Feste Höhe: Ansicht und Sammlung wechseln nur die Liste, nichts rückt. */
+.sw-knopf { display: flex; align-items: center; gap: 8px; text-align: left; font-weight: 600; }
+.sw-knopf:disabled { opacity: 0.5; }
+.sw-knopf-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sw-knopf svg { flex: none; width: 16px; height: 16px; fill: none; stroke: var(--gedaempft); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.sw-hintergrund { z-index: 88; }
+.sw-blatt { display: flex; flex-direction: column; gap: 10px; height: 88vh; overflow: hidden; padding-bottom: 0; }
+.sw-blatt > * { flex-shrink: 0; }
+@media (min-width: 640px) { .sw-blatt { height: min(80vh, 46rem); max-width: 30rem; } }
+.sw-oben { display: flex; align-items: center; gap: 12px; min-height: 28px; margin-bottom: -6px; }
+.sw-titel { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+.sw-ansicht { margin: 0; }
+.sw-ansicht button { padding-inline: 0.6rem; }
+.sw-liste {
+  flex: 1 1 0 !important; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 12px;
+  margin: 0 -1.25rem; padding: 2px 1.25rem calc(1.5rem + env(safe-area-inset-bottom, 0px));
+}
+.sw-liste > * { flex-shrink: 0; }
+.sw-kopf { position: sticky; top: -2px; z-index: 1; display: flex; align-items: baseline; gap: 6px; padding: 6px 2px 5px; background: var(--karte); }
+.sw-gruppe { border: 1px solid var(--linie); border-radius: 6px; overflow: hidden; }
+.sw-gruppe li + li { border-top: 1px solid var(--linie); }
+.sw-zeile { width: 100%; display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 6px 12px; text-align: left; }
+.sw-zeile:active { background: var(--flaeche); }
+.sw-zeile[aria-checked="true"] { background: var(--messing-hell); }
+.sw-zeile-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+/* Lange Titel brechen um statt „…“ — beim Wählen zählt jedes Wort. */
+.sw-zeile-text > * { white-space: normal; overflow-wrap: anywhere; }
+.sw-haken { flex: none; width: 1rem; font-weight: 800; color: var(--messing); }
+/* Suche im Auswahl-Blatt: oben, über den Chips — die Tastatur deckt nur das
+   untere Ende der Liste. 16px Schrift: iOS zoomt sonst beim Antippen hinein. */
+.sw-suche { min-height: 42px; font-size: 16px; -webkit-appearance: none; appearance: none; }
+.sw-chip-leer { opacity: 0.5; }
+/* Chips seitlich schiebbar, eine Zeile — sie brechen nie um, sonst rückte die
+   Liste je nach Zahl und Namen. (Die Klasse mix-woraus-chips, auf die F-23
+   zuerst setzte, fiel mit B-19 weg; seitdem brachen die Chips um.) */
+.sw-chips { display: flex; gap: 6px; overflow-x: auto; margin: 0 -1.25rem; padding: 0 1.25rem 2px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.sw-chips::-webkit-scrollbar { display: none; }
+.sw-nichts { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 10px 2px; color: var(--gedaempft); font-size: 0.9rem; }
 @media (pointer: coarse) { .sammlung-chip { min-height: 2.5rem; } }
 
 /* „+ Noten“ mit Menü; die Zielsammlung steht unübersehbar oben. */
@@ -1567,7 +1610,7 @@ ol.stichpunkte { list-style: decimal; }
 .aufnahme-spielen.an { background: var(--messing); color: var(--messing-text); }
 .aufnahme-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .aufnahme-text strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.aufnahme-zusammen { display: flex; align-items: center; gap: 4px; flex: none; }
+.aufnahme-zusammen { display: flex; align-items: center; gap: 4px; flex: none; align-self: flex-start; min-height: 32px; }
 @media (prefers-reduced-motion: reduce) { .nav-aufnahme[aria-pressed="true"] { animation: none; } }
 
 /* Aufnahmeleiste (G-05): liegt unten über dem Notenblatt, oberhalb des
@@ -1646,25 +1689,45 @@ ol.stichpunkte { list-style: decimal; }
 .skill-heute-kopf strong { font-size: 1rem; }
 .skill-woche { font-size: 0.78rem; color: var(--gedaempft); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .skill-woche.fertig { color: var(--gut); font-weight: 650; }
-.skill-heute-bloecke li { display: flex; align-items: center; gap: 6px; padding: 8px 0; min-height: 58px; }
+/* Ein Block (I-09): Art · Skill · Aufgabe · Knöpfe. Feste Höhe — Name eine
+   Zeile, Aufgabe drei, Knopfzeile —, damit „Anderer Vorschlag“ nur den Inhalt
+   tauscht und nichts darunter rückt; der volle Text steht im Detail. */
+.skill-heute-bloecke li { display: flex; flex-direction: column; align-items: stretch; gap: 2px; padding: 10px 0 8px; min-width: 0; }
 .skill-heute-bloecke li + li { border-top: 1px solid var(--linie); }
-.skill-heute-text { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; }
-.skill-heute-name { font-weight: 650; font-size: 0.92rem; line-height: 1.25; text-align: left; }
+.skill-heute-oben { position: relative; display: flex; flex-direction: column; gap: 2px; min-width: 0; padding-right: 36px; }
+.skill-heute-art { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--messing); }
+.skill-heute-art.aufgefuellt { color: var(--leise); }
+.skill-heute-name { display: flex; align-items: flex-start; min-width: 0; max-width: 100%; font-weight: 650; font-size: 0.95rem; line-height: 1.3; text-align: left; }
+.skill-heute-name > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.skill-heute-aufgabe {
+  font-size: 0.82rem; line-height: 1.35; color: var(--gedaempft); min-height: calc(3 * 1.35em);
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden;
+}
 .skill-heute-bloecke li.erledigt .skill-heute-name { color: var(--gedaempft); }
-.skill-heute-knoepfe { flex: none; display: flex; align-items: center; gap: 2px; }
-.skill-anderer { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 6px; color: var(--messing); }
+.skill-heute-knoepfe { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 6px; min-height: 2.75rem; }
+.skill-heute-werkzeug { min-width: 0; flex: 0 1 auto; justify-content: center; }
+/* „Anderer Vorschlag“ oben rechts im Block, über Art und Name. */
+.skill-anderer { position: absolute; top: -8px; right: 0; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 6px; color: var(--messing); }
 .skill-anderer svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .skill-anderer:active { background: var(--flaeche2); }
+.skill-heute-los, .skill-heute-fertig { margin-left: auto; }
 .skill-heute-los { min-width: 5.6rem; justify-content: center; }
 .skill-heute-fertig { min-width: 5.6rem; min-height: 38px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 650; color: var(--gut); }
-/* Breit (Lernen auf dem iPad): die drei Blöcke nebeneinander, Knöpfe unten rechts. */
+/* Kein „Lerne ich“ (oder zu wenig für 30 Minuten): ein Satz und der Weg zur Kartei. */
+.skill-heute-hinweis { display: flex; align-items: center; gap: 12px; padding: 6px 0 8px; font-size: 0.85rem; line-height: 1.4; color: var(--gedaempft); }
+.skill-heute-bloecke + .skill-heute-hinweis { border-top: 1px solid var(--linie); }
+.skill-heute-hinweis p { flex: 1; min-width: 0; }
+.skill-heute-hinweis .knopf { flex: none; }
+/* Breit (Lernen auf dem iPad): die Blöcke nebeneinander; Name bis zwei, Aufgabe bis fünf Zeilen. */
 @container (min-width: 640px) {
-  .skill-heute-bloecke { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .skill-heute-bloecke li { flex-direction: column; align-items: stretch; justify-content: space-between; gap: 10px; padding: 8px 14px 12px; }
+  .skill-heute-bloecke { display: grid; grid-template-columns: repeat(var(--bloecke, 3), minmax(0, 1fr)); }
+  .skill-heute-bloecke li { padding: 8px 14px 10px; }
   .skill-heute-bloecke li:first-child { padding-left: 0; }
   .skill-heute-bloecke li:last-child { padding-right: 0; }
   .skill-heute-bloecke li + li { border-top: 0; border-left: 1px solid var(--linie); }
-  .skill-heute-knoepfe { justify-content: flex-end; }
+  .skill-heute-name { min-height: calc(2 * 1.3em); }
+  .skill-heute-name > span { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+  .skill-heute-aufgabe { min-height: calc(5 * 1.35em); -webkit-line-clamp: 5; line-clamp: 5; }
 }
 
 .skill-filter { display: flex; gap: 6px; overflow-x: auto; margin: 0 -1.25rem; padding: 0 1.25rem 2px; scrollbar-width: none; }
@@ -1985,6 +2048,9 @@ button.ohr-note { background: none; color: inherit; font: inherit; cursor: point
 /* Nur lange Namen trennen („Transpo-nieren“), Beschreibungen brechen an Leerzeichen. */
 .werkzeug-text strong { font-size: 0.9rem; line-height: 1.2; -webkit-hyphens: auto; hyphens: auto; }
 .werkzeug-text span { font-size: 0.75rem; color: var(--gedaempft); line-height: 1.25; }
+/* Aufnahme-Tagebuch: führt in die Bibliothek (kein Blatt) — roter Punkt, Pfeil rechts. */
+.werkzeug-zeichen.tb-zeichen { color: var(--warnung); }
+.werkzeug-pfeil { margin-left: auto; padding-left: 4px; }
 
 /* Spielhilfe (I-15): Streifen über der Stellen-Leiste — absolut, liegt über
    den Noten, verschiebt nichts; feste Maße, ‹ › ändern nur den Inhalt. */
@@ -2030,6 +2096,11 @@ button.ohr-note { background: none; color: inherit; font: inherit; cursor: point
 .tb-hinweis.waehlen { background: var(--messing-hell); font-weight: 650; }
 .tb-werkzeuge { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
 .tb-filter { grid-column: 1 / -1; min-width: 0; }
+/* Aus der Bibliothek eingegrenzt: „Märsche · Tag | Alle“ über die ganze Breite. */
+.tb-bereich { grid-column: 1 / -1; width: 100%; margin: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+.tb-bereich button { display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; min-height: 2.75rem; }
+.tb-bereich-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.tb-fuss { margin: 0; padding: 4px 2px; }
 .tb-werkzeuge .knopf { justify-content: center; min-height: 2.75rem; }
 .tb-werkzeuge .knopf[aria-pressed="true"] { border-color: var(--messing); background: var(--messing-hell); color: var(--tinte); }
 .tb-neu { gap: 6px; }

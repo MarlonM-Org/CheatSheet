@@ -93,6 +93,15 @@ describe('Übe-Sicherung', () => {
     expect(einstellungenLesen(k.einstellungen)).toBeNull();
   });
 
+  // B-19: „Woraus“ des Stellen-Mix ist weg. `ueben:mix-woraus` reiste nie mit;
+  // steht es trotzdem in einer Datei (fremd, von Hand), lädt sie wie bisher.
+  it('überliest den abgeschafften Schlüssel ueben:mix-woraus', async () => {
+    const leer = { noten: [], stellen: [], anmerkungen: [] };
+    const datei = await sicherungPacken(leer, 'cheatsheet', 1, { einstellungen: { stand: 5, werte: { 'ueben:mix-woraus': { sammlung: 'Märsche', tag: null }, 'stimm:st': 'Es' } } });
+    const { kopf } = await sicherungLesen(datei);
+    expect(einstellungenLesen(kopf.einstellungen)).toEqual({ stand: 5, werte: { 'stimm:st': 'Es' }, lernstand: {} });
+  });
+
   it('kaputtes Einstellungs-Feld: Datei lädt, Einstellungen bleiben weg', async () => {
     const leer = { noten: [], stellen: [], anmerkungen: [] };
     const datei = await sicherungPacken(leer, 'fremd', 1, { einstellungen: { stand: 5, werte: { 'stimm:a': 'sehr hoch', 'ueben:modus': 'dunkel' } } });

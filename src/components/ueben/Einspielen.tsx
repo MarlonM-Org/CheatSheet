@@ -13,7 +13,8 @@ import { akkordeNachfuehren, rahmenTakte, type Rahmen } from '@/domain/akkordrah
 import { akkordTakte, alsKlaenge, begleitungBauen, istStil, type BegleitStil } from '@/domain/begleitung';
 import { schlaegeJeTakt } from '@/domain/takt';
 import { frequenzZuTon, grundfrequenz, type Stimmung } from '@/domain/ueben';
-import { audioSitzung, gespeichert, speichern } from './klang';
+import { gespeichert, speichern, wiedergabeSitzung } from './klang';
+import { useLautsprecher } from './lautsprecher';
 import { useMikrofonSpur } from './mikrofonspur';
 import { stueckAnlegen, stueckNeuSchreiben } from './lokal';
 import { useMetronom } from './MetronomKontext';
@@ -35,7 +36,8 @@ import { ohneCancelAbbrechen } from './dateiwahl';
 // Rechnen in @/domain/notation; Tonhöhen wie beim Stimmgerät (YIN), schon
 // notiert fürs Instrument (Stimmung aus dem Stimmgerät).
 //
-// Mikrofon: Mit „Lautsprecher“ (Vorgabe) läuft die Sprachverarbeitung des
+// Mikrofon: Mit „Lautsprecher“ (Vorgabe; seit B-20 eine Geräte-Einstellung
+// für alle Klänge, @/domain/lautsprecher) läuft die Sprachverarbeitung des
 // Browsers — Verstärkung und Echo-Unterdrückung, auf dem iPhone dasselbe wie
 // Freisprechen beim Telefonieren: der Klick kommt aus dem Lautsprecher, das
 // Mikrofon hört auch aus Abstand, und der Klick bleibt aus der Aufnahme
@@ -50,7 +52,6 @@ const FEINHEIT_SCHLUESSEL = 'ueben:einspiel-feinheit';
 const LESART_SCHLUESSEL = 'ueben:einspiel-lesart';
 const KLICK_SCHLUESSEL = 'ueben:einspiel-klick';
 const TONART_SCHLUESSEL = 'ueben:einspiel-tonart';
-const LAUTSPRECHER_SCHLUESSEL = 'ueben:einspiel-lautsprecher';
 // Pegel, ab dem ein Fenster als Ton gilt (−50 dBFS), für Audio-Dateien;
 // das Mikrofon regelt mikrofonspur.ts.
 const MINDEST_PEGEL = 0.003;
@@ -112,8 +113,8 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
   const setLesart = (l: Lesart) => { setLesartRoh(l); speichern(LESART_SCHLUESSEL, l); };
   const [klickWeiter, setKlickWeiterRoh] = useState(() => gespeichert(KLICK_SCHLUESSEL, true));
   const setKlickWeiter = (an: boolean) => { setKlickWeiterRoh(an); speichern(KLICK_SCHLUESSEL, an); };
-  const [lautsprecher, setLautsprecherRoh] = useState(() => gespeichert(LAUTSPRECHER_SCHLUESSEL, true));
-  const setLautsprecher = (an: boolean) => { setLautsprecherRoh(an); speichern(LAUTSPRECHER_SCHLUESSEL, an); };
+  // Lautsprecher (B-20): eine Wahl fürs ganze Gerät, auch in der Aufnahmeleiste.
+  const [lautsprecher, setLautsprecher] = useLautsprecher();
   // Tonart (notiert, wie das Stimmgerät zeigt): zieht die Töne auf die Leiter
   // und setzt die Vorzeichen; leer = keine Tonart, Töne bleiben, wie gehört.
   const [tonartAbc, setTonartAbcRoh] = useState(() => (vorlage ? vorlage.gelesen.tonart?.abc ?? '' : rahmen ? rahmen.tonart?.abc ?? '' : gespeichert<string>(TONART_SCHLUESSEL, 'C')));
@@ -327,7 +328,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
   const aufnehmen = useCallback(() => {
     setFehler('');
     void mikrofonStarten({
-      raster: rasterRef.current, lautsprecher, klickWeiter, metro: { klang: metro.klang, laut: metro.laut, zweiVier: metro.swing.zweiVier },
+      raster: rasterRef.current, klickWeiter, metro: { klang: metro.klang, laut: metro.laut, zweiVier: metro.swing.zweiVier },
       stimmung: einst.current.stimmung, kammerton: einst.current.kammerton,
       einzaehlTakte: 1, vorlauf: null, maxTakte: MAX_TAKTE,
       beiPhase: setPhase,
@@ -335,7 +336,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
       beiEnde: (liste, ok) => { if (ok) { setSpur(liste); setStart(0); setPhase('vorschlag'); } else setPhase('bereit'); },
       beiFehler: setFehler,
     });
-  }, [mikrofonStarten, metro.klang, metro.laut, metro.swing.zweiVier, klickWeiter, lautsprecher, zeichnen]);
+  }, [mikrofonStarten, metro.klang, metro.laut, metro.swing.zweiVier, klickWeiter, zeichnen]);
 
   // ── Audio-Datei ──
   const dateiLaden = useCallback(async (f: File) => {
@@ -384,7 +385,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
     if (wiedergabe.current) return wiedergabeAus();
     const a = audio.current;
     if (!a) return;
-    audioSitzung('playback');
+    wiedergabeSitzung();
     const ctx = new AudioContext();
     const q = ctx.createBufferSource();
     q.buffer = a; q.connect(ctx.destination);
@@ -544,9 +545,9 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
                 <span>Klick während der Aufnahme</span>
                 <input type="checkbox" role="switch" className="ios-schalter" checked={klickWeiter} disabled={festesRaster} onChange={(e) => setKlickWeiter(e.target.checked)} />
               </label>
-              <label className="einspiel-feld">
+              <label className="einspiel-feld" title="Gilt fürs ganze Gerät (Einstellungen)">
                 <span>Lautsprecher</span>
-                <input type="checkbox" role="switch" className="ios-schalter" checked={lautsprecher} disabled={festesRaster} onChange={(e) => setLautsprecher(e.target.checked)} />
+                <input type="checkbox" role="switch" className="ios-schalter" checked={lautsprecher} disabled={mikroAktiv} onChange={(e) => setLautsprecher(e.target.checked)} />
               </label>
             </>
           )}
@@ -565,9 +566,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
                   <span className="einspiel-punkt" aria-hidden="true" />
                 </button>
                 <p className="gedaempft text-sm">Ein Takt wird eingezählt, dann läuft die Aufnahme. Eine Stimme: singen, summen, Trompete, Bass{stimmungHinweis}.</p>
-                <p className="gedaempft text-xs">{lautsprecher
-                  ? 'Lautsprecher an: wie Freisprechen — der Klick kommt aus dem Lautsprecher, das Mikrofon hört auch aus etwas Abstand, der Klick bleibt aus der Aufnahme draußen.'
-                  : 'Lautsprecher aus: das rohe Mikrofon ohne Verstärkung — nah am Mund singen; auf dem iPhone kommt der Klick dann leise aus dem Hörer.'}</p>
+                <p className="gedaempft text-xs">Lautsprecher an: wie Freisprechen — der Klick kommt aus dem Lautsprecher und bleibt aus der Aufnahme draußen, das Mikrofon hört auch aus etwas Abstand. Aus: das rohe Mikrofon für Kopfhörer — ohne Kopfhörer nah am Mund singen, der Klick kommt dann leise aus dem Hörer.</p>
               </>
             )}
             {mikroAktiv && (
@@ -637,7 +636,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
       </div>
       {leiste && phase === 'vorschlag' && quelle === 'leer' && (
         <Aufnahmeleiste stimmen={stimmen} aktiv={blattStand.aktiv} stumm={blattStand.stumm} auswahlTakt={blattStand.auswahl?.takt ?? null}
-          raster={raster} blattRaster={blattRaster} tonart={tonart} lesart={lesart} setLesart={setLesart} lautsprecher={lautsprecher} setLautsprecher={setLautsprecher}
+          raster={raster} blattRaster={blattRaster} tonart={tonart} lesart={lesart} setLesart={setLesart}
           metro={{ klang: metro.klang, laut: metro.laut, zweiVier: metro.swing.zweiVier }} stimmung={stimm.stimmung} kammerton={stimm.kammerton}
           vorschauAendern={setVorschau} zustandAendern={setLeistenZustand} uebernehmen={leisteUebernehmen} schliessen={leisteSchliessen}
           akkordBegleitung={hatAkkorde ? begleitKlaenge : undefined} />

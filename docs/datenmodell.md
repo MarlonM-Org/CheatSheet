@@ -97,6 +97,10 @@ nur die Angaben (`id`, `am`, `dauer` in Sekunden, `typ` wie `audio/mp4`,
 optional `seite`, `stelleId`, `titel`, seit I-20 `skillId` = Skill der Kartei); die Audio-Bytes liegen in
 `dateien` unter der `id` der Aufnahme (`{ id, daten, typ }`, wie die PDF
 des Stücks unter dessen id). Kein neuer Speicher, keine neue Version.
+Ein echtes Stück **ohne** PDF ist nicht vorgesehen — nur als Fehlerfall
+(PDF bei der Übernahme verloren). Geprüft 2026-11-19 für „ein neues Stück
+aufnehmen“ (I-20): Öffnen, Sicherung (`nurLesbare`) und `.uebe` v1 setzen
+die PDF voraus; Optionen und offene Entscheidung in der ROADMAP.
 
 Ein virtuelles Stück hat keinen eigenen Eintrag in `dateien`, es zeigt die
 Seiten `von`–`bis` aus der PDF von `quelle.stueckId`.

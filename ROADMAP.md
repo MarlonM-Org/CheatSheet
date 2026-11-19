@@ -12,7 +12,10 @@ Stand: 2026-11-19.
 
 **Die Noten sind die App.** Alles andere (Metronom, Stimmgerät, Einstellungen)
 sind Werkzeuge, die über den Noten schweben. Lernen (B-18) ist neben der
-Bibliothek der zweite Ort, der sich als Seite über die Noten legt. Eine lokal laufende, statische
+Bibliothek der zweite Ort, der sich als Seite über die Noten legt — für
+grundlegende musikalische Fähigkeiten (Gehör, Harmonie, Technik,
+Improvisation), nicht für die Arbeit an den eigenen Stücken: Die bleibt in
+der Bibliothek, samt Stellen-Mix (B-19). Eine lokal laufende, statische
 Web-App: alle Daten bleiben auf dem Gerät, kein Login, kein Server. Vorbild
 für Notenmanagement und Übe-Komfort ist **forScore** (https://forscore.co) —
 nicht in der Breite, aber in der Sorgfalt.
@@ -117,13 +120,15 @@ Alles hier hat Code und Tests; was fehlt, ist der Praxisbeweis auf iPhone
 oder iPad. Vorher auf jedem Gerät eine Sicherung erstellen.
 
 - A-08 · Schmale Sicherung: Einstellungen in drei Gruppen, Lernstand je Eintrag zusammengeführt, Striche gerundet und ausgedünnt, `entfernt` begrenzt, Tempo-Verlauf verdichtet · `einstellungen.ts`, `skills.ts`, `licks.ts`, `jamkarte.ts`, `notenpult.ts`, `stellen.ts` getestet. Prüfen: Checkliste in A-08.
+- I-09 · „Heute“ aus den „Lerne ich“-Skills aller Bereiche (Umbau 2026-11-19): bis drei Blöcke à 10 Minuten, aufgefüllt mit ☆/Verblasstem, Aufgabe je Skill, Etüden/Licks/Jam-Karte/Spickzettel/Drone/Griffweisen/Transponieren/Metronom voreingestellt, Plan des Tages fest · Regeln und alter Tagesstand in `tests/skills.test.ts`, im Browser (iPhone 390 × 844, iPad 820 × 1180) mit 0, 1, 3 und 5 markierten Skills durchgespielt. Prüfen: Checkliste in I-09.
+- B-19 · Stellen-Mix zurück in der Bibliothek (Zeile unter den Sammlungen, Punkt an „Noten“), Lernen nur für Grundlagen; „Woraus“, `ueben:mix-woraus` und `mixQuelle` entfernt · Laden alter Sicherungen getestet, im Browser (iPhone und iPad hoch/quer) durchgespielt. Prüfen: Checkliste in B-19.
 - I-04/I-19/G-01 · Begleitung aus Akkorden, Jam-Karte mit Übe-Anleitung, Komponieren mit Akkorden, Akkorde antippen (2026-11-19) · `begleitung.ts`, `akkordrahmen.ts`, Akkorde im ABC getestet; im Browser (iPhone- und iPad-Ansicht, künstliches Mikrofon) durchgespielt, Ton nur im Kopf-losen Browser gemessen (Frequenzen, Klicks), nie gehört auf dem Gerät.
   - Jam-Karte, Blues in B♭: Akkorde gleich groß, auch bei geteilten Takten; Blue Bossa (Em7♭5 A7alt) und All the Things (vier Teile) lesbar auf dem iPhone?
   - ▶: Einzähler, dann Bass, Klavier und Klick auf 2 und 4 im Kreis; der Takt leuchtet passend; Tempo-Regler wirkt ab dem nächsten Takt; Stil wechseln, Klick aus; Metronom und Begleitung laufen nie gleichzeitig. Klingt der Bass auf dem iPhone-Lautsprecher? Lautstärke-Verhältnis Bass/Klavier/Klick?
   - „So übst du damit“: Hörbeispiele Grundtöne / Guide Tones / Arpeggien mit Notenzeile (notiert in C für B-Klarinette beim Blues in B♭), Vorzeichen richtig geschrieben (Es über F7).
   - „Komponieren“: leeres Blatt mit Akkorden, ▶ spielt die Begleitung, ● ab Takt 1 mit Begleitung (Kopfhörer und Lautsprecher) — taucht das Klavier als Noten im Vorschlag auf? Speichern, in der Bibliothek öffnen, Komponieren am Stück: Akkorde und Stil kommen zurück.
   - Eigenes Stück: Takte antippen, Grundton → Art, „›“, „wie davor“, zweiter Akkord, Hören; „Als Text“ zeigt dasselbe.
-- B-18 · Ort „Lernen“ und vier Knöpfe unten (Lernen · Noten | Stimmgerät · Metronom) · `ortUmschalten` und `mixQuelle` getestet, im Browser (iPhone-Ansicht) durchgespielt. Prüfen: Checkliste in B-18.
+- B-18 · Ort „Lernen“ und vier Knöpfe unten (Lernen · Noten | Stimmgerät · Metronom) · `ortUmschalten` getestet (`mixQuelle` mit B-19 entfernt), im Browser (iPhone-Ansicht) durchgespielt. Prüfen: Checkliste in B-18.
 - B-17 · Bibliothek öffnet beim offenen Stück · `zumOffenen` getestet. Prüfen: in A–Z ein Stück weit unten öffnen, „Noten“ tippen — offenes und nächstes Stück sichtbar, ohne Ruckeln; danach Sortieren oder Filtern springt nicht.
 - B-16 · Doppeltipp auf eine Stelle: heran und Schreibmodus, noch einer zurück in den Spielmodus · `aufStelle` in `zoom.ts` getestet; vom iPad bestätigt („funktioniert gut“). Beim Lesen zoomt der Doppeltipp auf 300 % um den Tipp (`umPunkt`, Faktor vom iPad bestätigt) und schaltet ebenfalls den Schreibmodus ein; der zweite Doppeltipp schaltet beides aus.
 - G-02/G-03 · Einsingen oder Audio laden (`Einspielen.tsx`, `notation.ts` mit synthetischer Messlatte „Alle meine Entchen“) · einmal auf dem iPhone probiert (Mund dicht am Mikrofon), seitdem Lesart, Tonart, Anschläge, Latenz und Pegel umgebaut — echte Stimme noch nie gegen den neuen Stand.
@@ -138,6 +143,8 @@ oder iPad. Vorher auf jedem Gerät eine Sicherung erstellen.
   - An: Klick kommt aus dem Lautsprecher, Singen aus 30–50 cm Abstand wird erkannt, der Klick taucht nicht als Noten in der Spur auf.
   - Aus: Klick aus dem Hörer, nah am Mund singen — erkennt die Spur dasselbe?
   - Schalter bleibt nach Neustart (`ueben:einspiel-lautsprecher`); Pegelschwelle −50 dBFS: leises Singen kommt an, Raumgeräusche werden nicht zu Noten.
+- B-20 · Lautsprecher für alle Klänge: eine Geräte-Einstellung (`ueben:lautsprecher`) statt drei Schaltern, Audio-Sitzung nach dem Mikrofon zurück auf Wiedergabe; seit Marlons Rückmeldung (2026-11-19) auch in Etüden, Licks, Hör-Übungen, Spickzettel und Griffe, Vorgabe „an“, Kopfhörer-Erkennung geprüft und verworfen (iOS verrät Webseiten den Audio-Weg nicht) · `lautsprecher.ts` getestet, im Browser (iPhone- und iPad-Größe) an allen Orten umgeschaltet, nichts verschiebt sich; iOS-Verhalten nur aus WebKit-Quelltext und Fehlerberichten. Prüfen: Checkliste in B-20 (sie ersetzt die Punkte zum Lautsprecher-Schalter direkt darüber).
+- D-08 · Metronom im Hintergrund (Vorgabe an) und „Mit anderen Apps mischen“ (Vorgabe aus, Sitzung „ambient“), Sperrbildschirm-Steuerung · `taktgeber.ts` getestet (Vorlauf 5 s im Hintergrund, Zurückholen, Trainer), im Browser mit nachgestelltem App-Wechsel geprüft; ob iOS den Ton im Hintergrund durchlässt (laut Berichten ab iOS 17.5), zeigt nur das Gerät. Prüfen: Checkliste in D-08.
 - G-01 · Notenblatt (`Notensatz.tsx`, `notensatz.ts` getestet) — Schreiben, Noten setzen und verschieben, Palette, Bogen, Takt +/−; seit `08f426e` auch 32tel, Triolen, Löschen/Einfügen · brandneu, nur im Browser gesehen.
   - iPad: Noten mit dem Finger treffen (Skala 1,4 ab 700 px); Ziehen scrollt, ▲▼ und ▲8 ▼8 verschieben; iPhone hochkant: zwei Takte je Zeile lesbar?
   - Notenwert: kürzer (Pause füllt auf), länger (frisst bis zum Taktstrich), punktiert, Achtel-/Sechzehntel-/Vierteltriole, 32tel — zeichnet abcjs alles sauber?
@@ -187,6 +194,8 @@ oder iPad. Vorher auf jedem Gerät eine Sicherung erstellen.
   - Sicherung mit virtuellen Stücken auf das zweite Gerät laden.
 - F-13 (Teil) · „Ordner wählen“ auf dem iPhone · ROADMAP selbst: „auf dem Gerät noch zu prüfen“ (iOS ≥ 18.4).
   - iCloud-Ordner mit Unterordnern wählen → Unterordner werden Sammlungen, nicht geladene iCloud-Dateien werden genannt, nichts doppelt.
+- F-23 · Stückauswahl nach Sammlungen und durchsuchbar (Aufnahme-Tagebuch: Filter und „Neu“ → Stück; seit 2026-11-19 Start bei der Sammlung der Bibliothek, Suchfeld, Vorwahl des offenen Stücks, Kontext-Blatt „Sammlungen …“ in Bibliotheks-Reihenfolge) · `stueckAuswahl`, `wahlStart`, Suche und `neueAufnahmeVorwahl` getestet, im Browser durchgespielt (iPhone 390 × 844, iPad 820 × 1180); die Bildschirmtastatur nur auf dem Gerät. Prüfen: Checklisten in F-23.
+- I-20 · Aufnahmen über die Bibliothek (Zeile „Aufnahmen“ unter dem Stellen-Mix, eingegrenzt auf Sammlung/Tag, „Alle“; ⋯ → „Aufnahmen …“ je Stück; Stück-Blatt abgestimmt; Kachel in Lernen führt in die Bibliothek) · `tagebuchBereich`, `aufnahmenStand`, `ortSprung` getestet, im Browser mit Fake-Mikrofon durchgespielt (iPhone und iPad). Prüfen: Checkliste in I-20.
 - B-08 · Scroll-Ring/Pedal · `geste.ts` getestet, keine Rückmeldung mit echtem Ring notiert.
   - Ring über AssistiveTouch: Probefeld in den Einstellungen zeigt Richtung und Weg; blättert auf den Noten, im Mix Stelle für Stelle; „Hoch und runter tauschen“.
 - C-04 · Tonprofil · `tonprofil.ts` getestet, Mikrofon-Pipeline des Stimmgeräts; keine Rückmeldung notiert.
@@ -210,7 +219,8 @@ oder iPad. Vorher auf jedem Gerät eine Sicherung erstellen.
 - I-01 · Ohr-Trainer · erste Fassung im Browser gebaut (2026-11-16), nie auf dem Gerät.
 - I-02, I-03, I-05, I-06 · Lernpfad, Song-Liste, Impro-Feedback, Mitspielen nach Gehör · Vision. I-04 (Begleitung aus Akkorden) seit 2026-11-19 gebaut, s. o.
 - I-07…I-09 · Skill-Kartei, Hör-Übungen per Antippen, „Heute“-Einheit · im Bau (2026-11-16). I-10 · Vision.
-- I-11…I-20 · Werkzeuge (Spickzettel, Transponieren, Griffe, Etüden, Spielhilfe, Licks, Swing-Metronom, Drone, Jam-Karte, Aufnahme-Tagebuch) · erste Fassung im Browser gebaut (2026-11-16), nie auf dem Gerät.
+- I-11…I-20 · Werkzeuge (Spickzettel, Transponieren, Griffe, Etüden, Spielhilfe, Licks, Swing-Metronom, Drone, Jam-Karte, Aufnahme-Tagebuch) · erste Fassung im Browser gebaut (2026-11-16), nie auf dem Gerät. Das Tagebuch liegt seit 2026-11-19 über der Bibliothek (oben, „zu prüfen“).
+- I-20 (Rest) · „Ein neues Stück aufnehmen“ (ohne vorhandene Noten) · geprüft, nicht gebaut: Ein Stück ohne PDF passt nicht in die Regel „genau eine PDF“ und nicht in `.uebe` v1. Optionen A–D in I-20, Empfehlung A (erzeugte Titelseite); Entscheidung Marlon.
 - H-01 (Rest), H-02…H-05 · Sicherung ohne PDFs, Ordner am Rechner, OneDrive/Drive/iCloud · Entscheidung zum Leitbild („kein Login“) offen.
 
 ### Was Marlon jetzt tun sollte
@@ -353,23 +363,22 @@ steht nicht mehr ganz links.
 `src/domain/leiste.ts`, getestet):
 - **Symbol** Treppe mit Fahne (Stufen, Lernpfad). **Punkt** am Lernen-Knopf
   nur, solange ein Stellen-Mix läuft — wie „läuft“ am Metronom, keine
-  Erinnerung an offene Einheiten.
+  Erinnerung an offene Einheiten. *(Seit B-19 sitzt der Punkt am
+  Noten-Knopf: Der Mix wird wieder in der Bibliothek gestartet.)*
 - **Lernen-Seite** (wie die Bibliothek über den Noten, öffnet immer oben):
   „Heute · 30 Min.“ (I-09, aus der Skill-Kartei hierher gezogen) · „Üben“
-  mit Stellen-Mix, Ohr-Trainer und Hör-Übungen (neu direkt: Auswahl-Blatt
+  mit Ohr-Trainer und Hör-Übungen (bis B-19 auch Stellen-Mix; neu direkt: Auswahl-Blatt
   Intervalle/Dreiklänge/Septakkorde mit Stufe, jede Runde zählt auf ihren
   Skill) · „Mein Stand“ mit Skills und den Balken je Bereich. Was aus
   I-02…I-10 kommt, erscheint dort, sobald es gebaut ist — vorher nichts
   Ausgegrautes.
 - **Bibliothek** ohne die drei Zeilen: nur noch Sammlungen, Tags, Liste.
-- **Stellen-Mix „Woraus“**: Das Mix-Blatt wählt selbst — alle Noten oder
-  eine Sammlung (Reihenfolge wie in der Leiste), dazu alle Tags.
-  Gemerkt am Gerät in `ueben:mix-woraus` (ein Filter, reist nicht mit);
-  noch nichts gemerkt → die zuletzt in der Bibliothek gewählte Sammlung und
-  der Tag; was es nicht mehr gibt, wird „alle“ (`mixQuelle` in
-  `src/domain/stellen.ts`, getestet). Die Chips bleiben beim Wählen stehen,
-  nur Zahl und Knopf ändern sich; hat die Sammlung keine Stellen, steht das
-  in der Zahl-Zeile (die Anleitung kommt nur ganz ohne Stellen).
+  *(Seit B-19 ist die Zeile „Stellen-Mix“ zurück; Skills und Ohr-Trainer
+  bleiben in Lernen.)*
+- ~~**Stellen-Mix „Woraus“**~~ — *mit B-19 entfernt:* Das Mix-Blatt wählte
+  selbst — alle Noten oder eine Sammlung, dazu alle Tags —, gemerkt am Gerät
+  in `ueben:mix-woraus` (Regel `mixQuelle`). Seit B-19 mischt der Mix
+  wieder, was die Bibliothek zeigt.
 - Escape schließt erst ein offenes Blatt, dann die Seite. Auf 320 px Breite
   (iPhone SE) passen alle vier Beschriftungen (dort weniger gesperrt).
 - **Rückmeldung iPad (2026-11-17):** Als Leiste links (460 px wie die
@@ -379,7 +388,8 @@ steht nicht mehr ganz links.
   (die Bibliothek bleibt die Leiste links), der Inhalt steht in einer
   mittigen Spalte bis 1040 px. Die Raster richten sich nach der Breite der
   Spalte (Container-Queries): ab 640 px stehen die drei „Heute“-Blöcke
-  nebeneinander, ab 680 px Stellen-Mix · Ohr-Trainer · Hör-Übungen und vier
+  nebeneinander, ab 680 px Stellen-Mix · Ohr-Trainer · Hör-Übungen (seit
+  B-19 ohne Mix: Ohr-Trainer · Hör-Übungen in zwei Spalten) und vier
   Werkzeug-Spalten; schmaler bleibt alles wie auf dem iPhone. Lange Namen
   der Werkzeuge werden getrennt statt abgeschnitten. Geprüft im Browser bei
   820 × 1180, 1180 × 820 und 390 × 844: nichts läuft über.
@@ -389,8 +399,8 @@ steht nicht mehr ganz links.
   Arbeits-Blätter aus Lernen auf dem iPad (ab 740 px) zur **ganzen Seite**
   über der Leiste: alle Werkzeuge, Ohr-Trainer, Hör-Übung und Skill-Kartei;
   der Inhalt in derselben mittigen Spalte wie Lernen, „Fertig“ führt zur
-  Übersicht zurück. Auswahl- und Rückfrage-Blätter (Mix-Optionen,
-  Hör-Auswahl, Markierung, Skill-Detail, Formulare) bleiben klein; über den
+  Übersicht zurück. Auswahl- und Rückfrage-Blätter (Hör-Auswahl,
+  Markierung, Skill-Detail, Formulare; bis B-19 die Mix-Optionen) bleiben klein; über den
   Noten (Spickzettel aus der Spielhilfe) und auf dem Handy bleibt alles
   ein Blatt (`seite.tsx`: Kontext `GrosseSeiten` aus Lernen).
   - **Leiste bleibt bedienbar:** Die Seiten liegen in der App-Schale unter
@@ -421,10 +431,309 @@ steht nicht mehr ganz links.
   Lernen → Bibliothek ersetzt Lernen.
 - Metronom und Stimmgerät bei offenem Lernen: Widget schwebt darüber, der
   Ohr-Trainer hört trotzdem richtig.
-- Stellen-Mix aus Lernen starten: Seite schließt, Stelle auf dem Pult, Punkt
-  am Lernen-Knopf; Mix beenden → Punkt weg. „Woraus“ wechseln: Zahl und
-  Knopf stimmen, Bibliotheks-Filter bleibt unberührt.
+- ~~Stellen-Mix aus Lernen starten, Punkt am Lernen-Knopf, „Woraus“
+  wechseln~~ — entfällt mit B-19 (Mix in der Bibliothek, Checkliste dort).
 - „Heute“ → Üben → Runde: Block erledigt, Ohr-Trainer-Zeile zeigt den neuen Stand.
+
+### B-19 · Stellen-Mix zurück in die Bibliothek, Lernen nur für Grundlagen — umgesetzt 2026-11-19, zu prüfen
+
+**Entscheidung Marlon (2026-11-19):** „Der Stellen-Mix soll wieder zurück
+über die PDFs einer Sammlung. Dort ist er sinnvoll aufgehoben. Bei Lernen
+soll es nicht um Stückarbeit, sondern um grundlegende musikalische Skills
+gehen.“ Damit gilt: **Lernen** ist der Ort für grundlegende musikalische
+Fähigkeiten (Gehör, Harmonie, Klarinetten-Technik, Improvisation,
+Mitspielen nach Gehör); was an den eigenen Noten arbeitet (PDFs, Stellen),
+gehört in die **Bibliothek**.
+
+**Umgesetzt** (`Bibliothek.tsx`, `StellenMix.tsx`, `Lernen.tsx`,
+`UntereLeiste.tsx`, `UebeZentrale.tsx`):
+- **Bibliothek:** Zeile „Stellen-Mix“ direkt unter den Sammlungen, über
+  Tags, Werkzeugzeile und Liste. Sie mischt, was die Bibliothek gerade
+  zeigt — gewählte Sammlung und Tag (ein gemerkter Tag, den es in der
+  Sammlung nicht gibt, ruht wie in F-20). Tippen öffnet die Mix-Optionen wie
+  vor B-18: woraus (nur Anzeige: „aus „Märsche“ · Tag“), nur offene, nur
+  Favoriten, Zahl, „Mix starten“ / „Weiter bei n von m“ / „Neu mischen“.
+  Ein laufender Mix heißt in seiner Zeile „Weiter bei …“.
+- **Bedienregel:** Die Zeile steht *über* den Tags, weil deren Zeile je
+  Sammlung kommt und geht (F-20). Beim Wechsel der Sammlung oder des Tags
+  ändern sich nur Zahl und Text, die Zeile bleibt gleich hoch an ihrem
+  Platz. Beim Öffnen kommt sie im selben Lesevorgang wie Sammlungen und
+  Liste — vorher ist die Bibliothek leer, nichts rückt nach. (Ein eigener
+  Platzhalter wäre selbst gerutscht, sobald die Sicherungs-Erinnerung
+  darüber erscheint; darum keiner.) Escape schließt erst die Mix-Optionen,
+  dann die Bibliothek.
+- **Punkt** in der unteren Leiste, solange ein Mix läuft: jetzt am
+  **Noten**-Knopf — dort startet man den Mix und findet „Weiter bei …“ —,
+  nicht mehr an „Lernen“.
+- **Lernen** ohne Stellen-Mix: „Heute“, Üben (Ohr-Trainer, Hör-Übungen; ab
+  680 px Spaltenbreite zwei nebeneinander statt drei, keine leere Spalte),
+  Werkzeuge, Mein Stand. Lernen liest keine Stücke und Stellen mehr.
+- **Entfernt:** die Wahl „Woraus“ im Mix-Blatt, der Geräte-Schlüssel
+  `ueben:mix-woraus` und die Regel `mixQuelle` (`src/domain/stellen.ts`,
+  samt Tests). Der Schlüssel war ein Filter am Gerät und reiste nie mit;
+  ältere Sicherungen laden unverändert, und steht er doch in einer Datei,
+  wird er überlesen (`einstellungen.test.ts`, `sicherung.test.ts`). Ein
+  Rest im Speicher eines Geräts wird nicht mehr gelesen und stört nicht.
+  Unverändert bleiben die Runden je Bereich (`ueben:mix…`), die Schalter
+  `ueben:mix-offen`/`ueben:mix-favoriten` und der laufende Mix
+  (`ueben:mix-an`): Ein Mix, der beim Update läuft, läuft weiter, und eine
+  Runde aus „Woraus“ geht weiter, sobald die Bibliothek dieselbe Sammlung
+  und denselben Tag zeigt.
+- **Frage an Marlon, erledigt (2026-11-19):** Den Block
+  „Stück/Mitspielen“ in „Heute“ gibt es nicht mehr — erledigt durch den
+  Umbau von I-09 („Heute“ aus den „Lerne ich“-Skills aller Bereiche). Die
+  Repertoire-Skills (I-07) bleiben in der Kartei (Marlon, 2026-11-19: „ja“):
+  Mitspielen und Repertoire nach Gehör, keine PDF-Stückarbeit.
+- **Bleibt vorerst in Lernen — Frage an Marlon:** die
+  Jam-Karte (I-19, Akkordfolgen, keine PDFs) und das Aufnahme-Tagebuch
+  (I-20): Es dient dem Üben mit Aufnahmen (auch zu einem Skill), legt die
+  Aufnahmen aber an einem Stück der Bibliothek ab.
+  - **Antwort Marlon (2026-11-19), Jam-Karte:** bleibt in Lernen — „ja,
+    warum nicht“.
+  - **Antwort Marlon (2026-11-19), Aufnahme-Tagebuch:** „Die Aufnahmen
+    sollten über die Bibliothek abrufbar sein. Also sollte der Button für
+    das Aufnahme-Tagebuch zur Bibliothek leiten, oder? Und da dann ein neues
+    Stück aufnehmen, basically, oder pro Stück eine Aufnahme oder mehrere.“
+    Umgesetzt in I-20: Zeile „Aufnahmen“ unter dem Stellen-Mix, die Kachel in
+    Lernen führt dorthin; „ein neues Stück aufnehmen“ ist geprüft, aber nicht
+    gebaut (Optionen in I-20, Entscheidung offen).
+- **Geprüft im Browser** (Chromium, iPhone 390 × 844, iPad 820 × 1180 und
+  1180 × 820, acht Stücke in drei Sammlungen, zwei Tags, sieben Stellen):
+  Zeile über der Liste; Sammlung mit und ohne Tags gewechselt und Tag
+  gewählt — Zeile bleibt auf demselben Pixel, 48 px hoch; Optionen ohne
+  „Woraus“, Escape schließt nur sie; Mix starten → Punkt an „Noten“,
+  „Weiter bei 2 von 4“; Schalter „Stellen“ aus → Punkt weg; Lernen auf
+  allen drei Größen ohne Lücke, nichts läuft über.
+
+**Auf dem Gerät prüfen:**
+- iPhone und iPad: „Noten“ → Zeile „Stellen-Mix“ unter den Sammlungen.
+  Sammlung wechseln (eine mit Tags, eine ohne) und einen Tag antippen: nur
+  Zahl und Text ändern sich, die Zeile springt nicht.
+- Mix starten: Bibliothek schließt, Stelle auf dem Pult, Punkt an „Noten“.
+  Eine Stelle weiter, „Noten“ → „Weiter bei 2 von …“. Schalter „Stellen“ aus
+  oder „Fertig“ nach der Runde → Punkt weg.
+- Mix-Optionen: „nur offene“ und „nur Favoriten“ wie gewohnt; die Anzeige
+  „aus „…“ · Tag“ stimmt mit der Bibliothek überein.
+- Lief beim Update ein Mix (aus Lernen gestartet), läuft er weiter; der
+  Punkt sitzt jetzt an „Noten“.
+- Lernen auf iPhone und iPad hoch/quer: kein Stellen-Mix mehr, Ohr-Trainer
+  und Hör-Übungen auf dem iPad nebeneinander, keine Lücke.
+
+### B-20 · Lautsprecher für alle Klänge — umgesetzt 2026-11-19, zu prüfen
+
+Wunsch Marlon (2026-11-19): „Es sollte für alle Feature mit Sound Ausgabe
+die Möglichkeit geben, das mit dem Lautsprecher zu machen. Also nicht nur
+normaler Gerät Sound.“ Gelesen als: der Schalter „Lautsprecher“ aus G-03
+(Einsingen) für jede Funktion, die Ton ausgibt. Eine externe Box ist damit
+vermutlich nicht gemeint (offene Frage unten).
+
+**Bestand — wo klingt etwas, wo hört zugleich das Mikrofon:**
+
+| Klang | Mikrofon zugleich |
+|---|---|
+| Metronom samt Swing (I-17) | wenn Stimmgerät oder Aufnahme (G-09, I-20) laufen |
+| Drone (I-18), auch in der Spielhilfe (I-15) | beim Intonieren mit dem Stimmgerät |
+| Einsingen, Aufnahmeleiste (G-03, G-05), Ohr-Trainer (I-01): Klick und Klavier-Vorlauf | immer (eigener Mikrofon-Lauf) |
+| Vorspielen mit Klavierklang: Notenblatt (G-04), Etüden, Licks, Spickzettel (auch aus der Jam-Karte), Hör-Übungen, Griffe, „Anhören“ im Ohr-Trainer | nur, wenn nebenbei das Stimmgerät läuft (Griffe schaltet sein Mikrofon vorher ab) |
+| Referenzton des Stimmgeräts | nie (schaltet das Mikrofon ab) |
+| Aufnahmen abspielen (G-09, Tagebuch I-20), Audio-Datei anhören beim Einsingen | nie |
+
+**Was iOS macht (Recherche 2026-11-19):**
+- Ohne Mikrofon kommt Web Audio aus dem Lautsprecher bzw. dem im
+  Kontrollzentrum gewählten Ausgang (Kopfhörer, Bluetooth, AirPlay). Ohne
+  Vorgabe behandelt WebKit reines Web Audio als „ambient“ (stumm beim
+  Stummschalter); `navigator.audioSession.type = 'playback'` (ab iOS 16.4,
+  laut WebKit-Entwickler zuverlässig ab iOS 17) klingt trotzdem.
+- Mit Mikrofon gilt „play-and-record“. WebKit setzt dafür „DefaultToSpeaker“,
+  solange die Seite nicht den Hörer als Ausgang gewählt hat. Mit
+  Sprachverarbeitung (Echo-Unterdrückung) läuft es wie Freisprechen: laut
+  aus dem Lautsprecher. Ohne kommt der Ton aus dem Hörer, viel leiser — so
+  am 26.10. beobachtet und so in WebKit-Fehler 326286 (iOS 26/27)
+  beschrieben. Rohes Mikrofon und Lautsprecher zugleich gibt es im Browser
+  nicht. Ob man den Ausgang wählen darf, ist in der Audio-Session-
+  Spezifikation noch offen (Issue #6).
+- Nach dem Mikrofon kann der Ton leiser bleiben (Telefon-Lautstärke) oder im
+  Hörer hängen (WebKit 236219, 271305, 295889). Abhilfe laut den Berichten:
+  die Sitzung wieder auf „playback“ setzen.
+- iOS 26.2 bis 27: Solange das Mikrofon mit Echo-Unterdrückung offen ist,
+  knackt die Wiedergabe (WebKit 326286, offen).
+- Externe Ausgänge: `AudioContext.setSinkId` und `selectAudioOutput` kann
+  Safari auf iOS nicht, `HTMLMediaElement.setSinkId` erst ab iOS 26. Die
+  AirPlay-Auswahl (`webkitShowPlaybackTargetPicker`) gibt es nur für
+  Medien-Elemente, nicht für Web Audio. Box oder AirPods wählt man im
+  Kontrollzentrum, und die App spielt dorthin.
+
+**Entscheidung (2026-11-19): eine Geräte-Einstellung „Lautsprecher“, keine
+Schalter je Funktion.** (1) Ob der Ton aus dem Lautsprecher soll, hängt an
+der Lage (Kopfhörer auf oder nicht), nicht am Werkzeug. Stimmgerät, Drone
+und Metronom laufen zugleich, und das offene Mikrofon bestimmt den Weg für
+alle Klänge. (2) Der Browser kennt nur einen Hebel: die Sprachverarbeitung
+des Mikrofons. Ohne Mikrofon kommt jeder Klang ohnehin aus dem
+Lautsprecher. Der Schalter wirkt also genau dann, wenn irgendwo das
+Mikrofon hört. (3) Die bisherigen Schalter waren dieselbe Wahl unter drei
+Namen: „Lautsprecher“ beim Einsingen, „Mikrofon verstärken“ im Stimmgerät
+und „Mit Kopfhörer“ im Ohr-Trainer (nicht gemerkt). Dass „verstärken aus“
+beim Stimmgerät auch die Drone in den Hörer legt, sah man nirgends.
+**Schnelle Schalter** liegen dort, wo Mikrofon und Ton zusammenkommen. Alle
+zeigen und ändern dieselbe Wahl:
+- Stimmgerät (statt „Mikrofon verstärken“) und Metronom (unter „Klang,
+  Lautstärke, Lautsprecher …“)
+- Drone
+- Einsingen und Aufnahmeleiste (wie bisher)
+- Ohr-Trainer (statt „Mit Kopfhörer“)
+- „Neue Aufnahme“ im Tagebuch und das Stück-Blatt unter „Aufnahmen“. Der
+  rote Knopf in der Leiste hat ohne Verschieben keinen Platz dafür.
+
+Zentral: Einstellungen → „Ton und Mikrofon“ mit Erklärung. Werkzeuge ohne
+eigenes Mikrofon (Etüden, Licks, Spickzettel, Hör-Übungen, Griffe,
+Notenblatt) bekommen keinen Schalter — *überholt durch die Rückmeldung
+unten: seit 2026-11-19 steht er auch dort.* Bedienregel: Der Hinweis neben jedem
+Schalter hängt nicht vom Zustand ab, darum verschiebt Umschalten nichts.
+Beim Einsingen war der Text vorher je nach Zustand verschieden lang.
+
+**Umgesetzt** (Regeln in `src/domain/lautsprecher.ts`, getestet in
+`tests/lautsprecher.test.ts`; Schalter und Speicher in
+`src/components/ueben/lautsprecher.tsx`):
+- `mikrofonWunsch(lautsprecher, zweck)`: Bei „an“ läuft die
+  Echo-Unterdrückung; die Verstärkung nur zum Erkennen (Stimmgerät,
+  Einsingen, Ohr-Trainer), beim Aufnehmen nie, sonst pumpen Instrumente.
+  Bei „aus“ das rohe Mikrofon. Rauschunterdrückung nie.
+  `sitzungFuer(offeneMikrofone)`: „play-and-record“, solange ein Mikrofon
+  offen ist, sonst „playback“.
+- Gemerkt am Gerät unter `ueben:lautsprecher` (reist nicht mit,
+  `einstellungen.ts`). Ist dort noch nichts, gilt `ueben:einspiel-lautsprecher`
+  (der Schalter, der schon „Lautsprecher“ hieß), dann
+  `ueben:stimm-verstaerken`, sonst „an“. Weichen die beiden alten
+  voneinander ab, gewinnt der Einsing-Schalter. Die alten Schlüssel bleiben
+  stehen, geschrieben wird nur der neue.
+- Audio-Sitzung an einer Stelle (`klang.ts`): Jedes Mikrofon meldet sich
+  vor `getUserMedia` an (`mikrofonOffen`) und danach ab. Jeder Klang setzt
+  vorher die Sitzung (`wiedergabeSitzung`, für alles Vorspielen in
+  `vorspielen`). **Behoben:** Nach Stimmgerät, Einsingen oder Ohr-Trainer
+  blieb „play-and-record“ stehen, bis zufällig Metronom oder Drone
+  starteten. So lange spielten Hör-Übungen, Spickzettel, Griffe und
+  „Anhören“ im Ohr-Trainer in dieser Sitzung, womöglich leiser. Außerdem
+  meldete die Aufnahme (G-09) ihr Mikrofon nicht an: Startete währenddessen
+  das Metronom, stellte es die Sitzung auf „playback“, und das Mikrofon
+  konnte verstummen.
+- Aufnahmen (G-09, I-20) folgen der Einstellung. „Aus“ heißt rohes Mikrofon:
+  mit Kopfhörer der beste Klang, und der Klick kommt nicht in die Aufnahme.
+  Bisher lief die Aufnahme immer mit Echo-Unterdrückung.
+- Läuft das Stimmgerät, öffnet Umschalten das Mikrofon sofort neu, noch in
+  der Tipp-Geste. Einsingen, Ohr-Trainer und Aufnahme übernehmen die Wahl
+  beim nächsten Start; während einer Aufnahme ist der Schalter dort gesperrt.
+
+**Auf dem Gerät prüfen** (iPhone, in Safari und als Home-Bildschirm-App;
+vorher eine Sicherung):
+- Übernahme: War beim Einsingen „Lautsprecher“ aus, steht der Schalter in
+  den Einstellungen auf aus. Alle Schalter zeigen dieselbe Stellung, auch
+  nach einem Neustart.
+- Ohne Kopfhörer, Lautsprecher an: Stimmgerät und Drone zugleich → die Drone
+  kommt laut aus dem Lautsprecher, und das Stimmgerät zeigt die Klarinette,
+  nicht die Drone. Mit dem Metronom ebenso. Roter Knopf und Metronom: Der
+  Klick ist laut zu hören und in der Aufnahme kaum.
+- Ohne Kopfhörer, Lautsprecher aus: derselbe Ablauf → Drone und Klick leise
+  aus dem Hörer (so erwartet). Umschalten bei laufendem Stimmgerät macht sie
+  sofort wieder laut.
+- Mit Kopfhörer, Lautsprecher aus (Kabel und AirPods): Der Ton kommt im
+  Kopfhörer. Hört das Stimmgerät über das iPhone-Mikrofon, oder schaltet iOS
+  bei AirPods auf deren Mikrofon (Freisprech-Profil, dumpfer Ton)? Bei einer
+  Aufnahme mit Klick im Kopfhörer ist der Klick nicht in der Aufnahme.
+- Nach dem Mikrofon: Stimmgerät stoppen, dann Hör-Übung, Spickzettel und
+  Griffe-„Anhören“ → volle Lautstärke aus dem Lautsprecher.
+- Erst die Aufnahme, dann das Metronom starten: Die Aufnahme enthält das
+  Spiel.
+- Stummschalter an: Metronom, Drone, Vorspielen und Aufnahmen klingen
+  trotzdem, ob mit oder ohne Mikrofon.
+- iOS 26.2 und neuer: Knackt der Klick, solange das Mikrofon mit
+  Lautsprecher an läuft (WebKit 326286)? Wenn ja, ist der Ausweg Kopfhörer
+  und Lautsprecher aus.
+- Bluetooth-Box über das Kontrollzentrum: Spielt das Metronom ohne Mikrofon
+  dort? Bleibt es dort, wenn das Stimmgerät angeht, oder springt iOS um?
+- Neue Orte (seit der Rückmeldung unten): Etüden, Licks (in einem Lick),
+  Hör-Übungen, Spickzettel (auch aus der Jam-Karte und der Spielhilfe),
+  Griffe — der Schalter zeigt dieselbe Stellung wie in den Einstellungen,
+  Umschalten verschiebt nichts.
+- Stimmgerät läuft, dann eine Etüde oder einen Lick vorspielen:
+  Lautsprecher an → laut aus dem Lautsprecher; aus → leise aus dem Hörer.
+- Kabel-Kopfhörer dran, Lautsprecher **an**, Stimmgerät und Drone: Die Drone
+  kommt im Kopfhörer, nicht im Lautsprecher. (Das bestätigt die Lesart „der
+  Ton geht so oder so zum angeschlossenen Gerät; ‚aus‘ ändert nur das
+  Mikrofon“.) Dasselbe mit AirPods: Ton in den AirPods? Welches Mikrofon
+  hört — iPhone oder AirPods?
+
+**Rückmeldung Marlon (2026-11-19)** auf die drei Fragen:
+1. Externe Box gemeint? „Ich meine einfach die integrierte laute Ausgabe vom
+   Gerät. Bei Anrufen kann ich ja z. B. auch auf Lautsprecher stellen.“ —
+   Die Lesart oben stimmt. Eine Ausgabe-Wahl (`setSinkId`) wird nicht gebaut.
+2. Schalter auch bei Etüden, Licks, Hör-Übungen? „Ja, eigentlich auch bei
+   denen. Wobei, eigentlich kann immer der Geräte-Lautsprecher genutzt
+   werden, außer es ist halt ein externes Gerät noch dran.“
+3. Mit Musik anderer Apps mischen (Stummschalter-Nachteil)? „Sehe nichts,
+   was dagegen spricht, gerne auch Metronom im Hintergrund spielbar.“ →
+   **D-08**.
+
+**Daraus gebaut:**
+- **Lautsprecher bleibt der Normalfall, Vorgabe „an“, ein Schalter von
+  Hand — keine Automatik.** Geprüft wurde, ob die App Kopfhörer oder ein
+  externes Gerät selbst erkennt: auf iOS nicht verlässlich. Den Audio-Weg
+  (AVAudioSession `currentRoute`) gibt WebKit Webseiten nicht heraus, auch
+  die Audio-Session-Spezifikation kennt ihn nicht. `enumerateDevices` zeigt
+  in WebKit vor der Mikrofon-Erlaubnis höchstens ein Gerät je Art ohne
+  Namen, danach die Mikrofone aus `availableInputs` („iPhone-Mikrofon“,
+  „AirPods“, „Headset-Mikrofon“). Kabel-Kopfhörer ohne Mikrofon,
+  Bluetooth-Boxen, Kopfhörer nur mit A2DP und AirPlay sind keine Eingänge und
+  tauchen dort nie auf. Ausgänge (`audiooutput`) listet der offene Teil von
+  WebKit auf iOS nicht; ob Apples nicht-öffentlicher Teil es seit iOS 26
+  (`setSinkId`) tut, ist offen — vermutlich auch dann erst nach der
+  Mikrofon-Erlaubnis. `devicechange` meldet nur Änderungen dieser Liste. Die
+  Erlaubnis gilt in der Home-Bildschirm-App oft nur bis zum nächsten Start.
+  Eine Automatik müsste also das Mikrofon öffnen, nur um nachzusehen
+  (Nebenwirkung, Leitbild), und sähe die häufigsten Fälle trotzdem nicht. Marlons Satz trifft dabei
+  ohnehin, was „an“ tut: WebKit setzt „DefaultToSpeaker“, und das gilt nur,
+  solange kein anderer Ausgang dran ist. Mit Kopfhörer oder Box kommt der Ton
+  dort an, auch bei „an“. „Aus“ ändert nur das Mikrofon (roh statt
+  Freisprechen) und lohnt sich mit Kopfhörern. Die Erklärung steht in den
+  Einstellungen; die Regel als Kommentar in `src/domain/lautsprecher.ts`.
+- **Schalter bei allen übrigen Funktionen mit Ton**, dieselbe Komponente
+  (`LautsprecherSchalter`) mit demselben Hinweis, fester Platz unter den
+  Abspiel-Knöpfen. Der Platz ist immer da, Umschalten verschiebt nichts
+  (im Browser gemessen: 0 Abweichungen):
+  - Etüden: unter „Vorspielen/Geübt“ und dem Hinweis (auf dem iPad als
+    ganze Seite in der linken Spalte).
+  - Licks: in der Lick-Ansicht direkt unter „▶ Vorspielen“. Die Liste hat
+    keinen Ton.
+  - Hör-Übungen: am Ende des Blatts, in Start, Frage und Ergebnis gleich.
+  - Spickzettel: unter „▶ Akkord · ▶ Leiter · ▶ Akkord, dann Leiter“; so
+    auch, wenn er aus der Jam-Karte oder der Spielhilfe kommt.
+  - Griffe: unter „▶ Anhören · Mikrofon“ (Griffe hat ein eigenes Mikrofon).
+  - Jam-Karte: seit I-04 (Begleitung aus Akkorden, auf `main` parallel
+    gebaut) klingt sie selbst — der Schalter steht im Block „Begleitung“
+    unter der Stand-Zeile (beim Zusammenführen ergänzt, 2026-11-19); ihre
+    Akkorde öffnen weiter den Spickzettel mit Schalter. Das Swing-Metronom ist Teil der
+    Metronom-Ansicht (Schalter seit B-20). Das Notenblatt spielt nur im
+    Einsing-/Komponieren-Dialog, der den Schalter hat. Im
+    Spielhilfe-Streifen über den Noten ist kein Platz ohne Wachsen; seine
+    Drone folgt derselben Wahl.
+- In den Einstellungen → „Ton und Mikrofon“ dazu „Mit anderen Apps mischen“
+  und „Metronom im Hintergrund“ (D-08).
+
+**Offen, Fragen an Marlon:**
+- Spielhilfe-Streifen über den Noten: dort ohne Schalter (er würde den
+  Streifen größer machen). In Ordnung?
+- Vorgaben in D-08 (Hintergrund an, Mischen aus) — passt das?
+
+Quellen: WebKit-Quelltext `AudioSessionIOS.mm` und
+`MediaSessionManagerCocoa.mm`; WebKit-Fehler 326286, 282939, 295889,
+236219, 271305, 264473; W3C Audio Session (w3.org/TR/audio-session);
+MDN `AudioSession.type`; caniuse `AudioContext.setSinkId`; LiveKit
+client-sdk-js PR 1635 (`HTMLMediaElement.setSinkId` ab iOS 26). Zur
+Geräte-Erkennung (2026-11-19): WebKit `MediaDevices.cpp`
+(`exposeDevices`), `AVAudioSessionCaptureDeviceManager.mm` (nur
+`availableInputs`, Lautsprecher über WebKitAdditions),
+`UnifiedWebPreferences.yaml` (`ExposeSpeakersEnabled`,
+`ExposeCaptureDevicesAfterCaptureEnabled`), Apple-Doku
+`AVAudioSessionCategoryOptionDefaultToSpeaker`.
 
 ---
 
@@ -436,7 +745,195 @@ steht nicht mehr ganz links.
 
 ## D — Metronom
 
-*(derzeit keine offenen Punkte — D-01…D-04 erledigt, siehe unten)*
+*(D-01…D-07 erledigt, siehe unten.)*
+
+### D-08 · Metronom im Hintergrund und mit anderen Apps — umgesetzt 2026-11-19, zu prüfen
+
+Wunsch Marlon (2026-11-19, Rückmeldung zu B-20): Mit Musik anderer Apps
+mischen — „Sehe nichts, was dagegen spricht, gerne auch Metronom im
+Hintergrund spielbar.“ Bis jetzt hielt das Metronom beim Verlassen der App
+an (D-02), und jeder Klang hielt Musik aus anderen Apps an (Sitzung
+„playback“, B-20). Anwendungsfall: Spotify, Moises oder iReal Pro spielen,
+das Metronom klickt dazu; oder CheatSheet liegt im Hintergrund, der
+Bildschirm ist gesperrt, das Metronom läuft weiter.
+
+**Recherche (2026-11-19; WebKit-Quelltext, Stand main, und Fehlerberichte):**
+- *Web Audio im Hintergrund.* Geht eine App in den Hintergrund, unterbricht
+  WebKit auf iOS jeden AudioContext (`MediaSessionManageriOS::
+  resetRestrictions`: Web Audio ist „BackgroundProcessPlaybackRestricted“).
+  Ausnahmen (`AudioContext::shouldOverrideBackgroundPlaybackRestriction`):
+  `navigator.audioSession.type` ist „playback“ oder „play-and-record“, oder an
+  `ctx.destination` hängt nichts (der Ton geht über einen
+  `MediaStreamAudioDestinationNode` hinaus). WebKit-Fehler 261554 (Kontext
+  trotz „playback“ angehalten) ist behoben, in WebKit seit 2024-03-01;
+  Entwickler berichten Hintergrund-Ton ab iOS 17.5 (iPadOS 17.5). In 17.0
+  bis 17.4 gab es Rückfälle; vor 16.4 gibt es `audioSession` gar nicht. Mit
+  „playback“ wird der Kontext außerdem „Now Playing“: Sperrbildschirm und
+  Kontrollzentrum zeigen ihn mit den Angaben aus `navigator.mediaSession`
+  (`AudioContext::nowPlayingInfo`).
+- *Timer im Hintergrund.* Verborgene Seiten bekommen ihre Timer in WebKit
+  gebündelt, im Sekundentakt (`DOMTimer::hiddenPageAlignmentInterval` = 1 s),
+  und `requestAnimationFrame` steht. Der
+  Taktgeber plante bisher nur 0,12 s voraus — im Hintergrund wären Lücken
+  von fast einer Sekunde entstanden.
+- *Home-Bildschirm-App.* Hintergrund-Ton geht dort laut Berichten seit
+  iOS 15.4. Berichtet ist aber auch, dass Web Audio nach der Rückkehr stumm
+  bleiben kann (iOS 18 bis 26, vielleicht in 26.2 behoben) — darum prüft
+  die App bei der Rückkehr, ob der Kontext noch läuft.
+- *Mischen.* WebKit lässt Seiten genau eine mischbare Sitzung: „ambient“
+  („transient“ ist dasselbe, `DOMAudioSession.cpp`). Sie wird zu
+  `AVAudioSessionCategoryAmbient`: Musik anderer Apps läuft weiter, der
+  Stummschalter gilt, und im Hintergrund unterbricht WebKit den Kontext (die
+  Ausnahme oben gilt nur für „playback“ und „play-and-record“). „playback“
+  und „play-and-record“ setzen kein „mit anderen mischen“ (`AudioSessionIOS.mm`;
+  `RemoteAudioSessionProxyManager::categoryCanMixWithOthers` kennt nur
+  Ambient): andere Musik hält an. Mit offenem Mikrofon muss es
+  „play-and-record“ sein (B-20), also hält die andere Musik dann immer an
+  (so auch WebKit 264473 für iOS 17.4). Andere Apps leiser stellen („ducken“)
+  können Seiten nicht.
+- *Folge:* Mischen und Hintergrund schließen sich aus. Metronom im
+  Hintergrund *zu* Musik einer anderen App geht nur, wenn jene App selbst
+  mischt (ihre Einstellung); sonst hält iOS das Metronom an, sobald dort
+  Musik startet.
+- *Andere Wege, geprüft und nicht gebaut:*
+  - Web Audio über `MediaStreamAudioDestinationNode` in ein `<audio>`: liefe
+    wohl auch vor iOS 17.5 im Hintergrund (nichts an `destination`, und
+    `<audio>` darf im Hintergrund spielen). Aber ein zweiter Tonweg mit mehr
+    Latenz, Taktpunkte und Klick laufen auseinander, und die Sitzung wird
+    „MediaPlayback“ wie bei „playback“ — beim Mischen kein Gewinn. Bleibt
+    der Ausweg, falls „playback“ auf Marlons Gerät nicht trägt.
+  - Vorgerenderte Schleife im `<audio loop>`: Safari springt am Ende zurück,
+    das gibt eine Lücke an der Schleifenstelle. Jede Änderung an Tempo,
+    Taktart, Akzenten oder Swing heißt neu rendern, der Trainer bräuchte eine
+    lange Datei. Ungenau und aufwendig.
+  - Media Session (Sperrbildschirm): gebaut, siehe unten.
+
+**Entscheidung (2026-11-19):**
+- Zwei Gerät-Einstellungen, in Einstellungen → „Ton und Mikrofon“ und im
+  Metronom unter „Klang, Lautstärke, Lautsprecher, Hintergrund,
+  Tempo-Trainer“ (dieselben Schalter):
+  - **„Metronom im Hintergrund“** (`ueben:metronom-hintergrund`), Vorgabe
+    **an**. Marlon wünscht es; Metronom-Apps arbeiten so; Anhalten geht auf
+    dem Sperrbildschirm. Lässt iOS den Ton doch nicht durch, steht das
+    Metronom bei der Rückkehr still wie bisher — schlechter als vorher wird
+    es nicht.
+  - **„Mit anderen Apps mischen“** (`ueben:mischen`), Vorgabe **aus**.
+    Gemischt gilt der Stummschalter: Ein stummes iPhone hieße ein stummes
+    Metronom, und das sieht aus wie kaputt (B-20 hat gerade „klingt trotz
+    Stummschalter“ gebaut). Gemischt läuft nichts im Hintergrund, und mit
+    Mikrofon geht es ohnehin nicht. Wer zu Spotify übt, schaltet es ein; der
+    Hinweis nennt den Haken.
+  - Mischen hat Vorrang: Ist es an, steht „Hintergrund“ auf aus und ist
+    gesperrt; die eigene Wahl bleibt gemerkt.
+- Nur das Metronom läuft im Hintergrund. Drone, Vorspielen, Stimmgerät,
+  Aufnahme und Einsingen halten beim Verlassen weiter an (ein Mikrofon im
+  Hintergrund gibt iOS Webseiten nicht).
+
+**Umgesetzt** (Regeln in `src/domain/taktgeber.ts`, getestet in
+`tests/taktgeber.test.ts`; Sitzung in `src/domain/lautsprecher.ts`, getestet
+in `tests/lautsprecher.test.ts`; Schalter in
+`src/components/ueben/lautsprecher.tsx`, Speicher in `klang.ts`):
+- `sitzungFuer(mikrofone, mischen)`: Mikrofon offen → „play-and-record“;
+  sonst gemischt → „ambient“, sonst „playback“. Umschalten setzt die Sitzung
+  sofort.
+- `imHintergrundWeiter({ hintergrund, mischen })`: nur mit Einstellung und
+  ohne Mischen.
+- Der Taktgeber ist jetzt eine reine Funktion (`taktgeberPlanen`, aus
+  `MetronomKontext` herausgelöst). Vorlauf vorn 0,12 s, im Hintergrund 5 s
+  (`vorlauf`). Jeder geplante Klick merkt sich den Stand davor. Zurück in der
+  App werden alle Klicks jenseits von 0,12 s gestoppt und ab dort mit den
+  Werten von jetzt neu geplant (`zurueckAb`). Getestet: in kleinen und großen
+  Schritten geplant ergibt dieselben Klicks (auch Swing, 6/8); Zurückholen
+  ohne Änderung ändert nichts; Tempo-, Taktart- und Akzentwechsel gelten ab
+  der Grenze im selben Raster; Trainer-Stufen sitzen auf der Eins, auch über
+  Vorlauf und Zurückholen. Verpasste Klicks (das Planen stand still, mehr als
+  50 ms zu spät) schweigen, statt im Schwall nachzukommen — das gilt auch
+  vorn bei einem Hänger.
+- Tempo von Hand (Tippen, ±1, Regler, Stelle D-04) geht direkt an den
+  laufenden Taktgeber. Die Trainer-Anzeige läuft über Timer und wirkt nicht
+  mehr zurück. Vorher konnte eine verspätete Anzeige das Tempo
+  zurückdrehen; mit 5 s Vorlauf wäre das ein Takt im falschen Tempo gewesen.
+  Zurückgeholte Klicks nehmen ihre Anzeige-Timer mit.
+- Verlassen: mit Hintergrund läuft das Metronom weiter und plant sofort 5 s
+  voraus, solange die Seite noch läuft; sonst wie D-02 (anhalten, Kontext
+  verwerfen). Zurück: Läuft der Kontext nicht mehr („interrupted“,
+  „suspended“), hält das Metronom ehrlich an — der nächste Tipp startet
+  mit frischem Ton. Sonst wird zurückgeholt und die Bildschirmsperre
+  (Wake Lock) neu angefordert.
+- Stopp nimmt auch schon geplante Klicks zurück (bis zu 5 s).
+- Sperrbildschirm (Media Session): „Metronom“, darunter „96 BPM · 4/4“
+  (`jetztLaeuft`), ▶ / ❚❚ / Stopp. Der Eintrag verschwindet mit dem
+  Audio-Kontext.
+- Im Browser (Chromium; iPhone 390 × 844, iPad 820 × 1180) mit
+  nachgestelltem `visibilitychange`: läuft weiter und ist 5 s voraus
+  geplant; zurück werden 7 von 12 geplanten Klicks zurückgeholt; −10 % gilt
+  sofort (Abstand 0,822 s bei 73 BPM). Mit Mischen oder ohne Hintergrund
+  hält Verlassen an. Schalter gespeichert, nach Neuladen da, Mischen sperrt
+  Hintergrund, nichts verschiebt sich. Ob iOS den Ton wirklich durchlässt,
+  zeigt nur das Gerät.
+
+**Grenzen:**
+- Vor iOS 17.5 (laut Berichten) hält iOS den Ton im Hintergrund trotzdem an;
+  bei der Rückkehr steht das Metronom still.
+- Startet eine andere App Musik (Spotify; Moises und iReal Pro vermutlich
+  auch), unterbricht iOS das Metronom, außer jene App mischt. Ob es danach
+  von selbst weiterläuft, entscheidet iOS. Anruf, Siri, Wecker unterbrechen
+  ebenso.
+- Gemischt: Stummschalter gilt, nichts im Hintergrund, und sobald ein
+  Mikrofon hört, hält die andere Musik an.
+- Im Hintergrund lässt sich nur anhalten und weiterlaufen lassen (Sperrbild-
+  schirm). Der Trainer zählt weiter; seine Anzeige kann bis zu einer Sekunde
+  nachhinken, die Taktpunkte stehen.
+- Es läuft, bis man es anhält — auch mit gesperrtem Bildschirm (Akku).
+- Am Rechner läuft das Metronom jetzt auch im Hintergrund-Tab weiter (die
+  Folge aus D-02 ist aufgehoben), außer „Hintergrund“ ist aus.
+
+**Auf dem Gerät prüfen** (iPhone und iPad, Safari und Home-Bildschirm-App;
+iOS-Version notieren):
+- Metronom an, Bildschirm sperren: klickt gleichmäßig weiter, mindestens zwei
+  Minuten, ohne Aussetzer. Der Sperrbildschirm zeigt „Metronom · … BPM ·
+  4/4“; ❚❚ hält an, ▶ startet wieder.
+- Metronom an, in eine andere App wechseln (Notizen, Moises ohne Wiedergabe):
+  klickt weiter. Zurück: Die Taktpunkte laufen mit, −1/+1, Taktart und
+  Akzente wirken sofort, nicht erst nach Sekunden.
+- Tempo-Trainer (alle 2 Takte +4), dann sperren: Das Tempo steigt hörbar
+  weiter; zurück zeigt die Anzeige das erreichte Tempo. 6/8, Swing und
+  „nur 2 und 4“ bleiben im Hintergrund, wie sie sind.
+- Während es im Hintergrund läuft, in Spotify (dann Moises, iReal Pro) Musik
+  starten: Hält das Metronom an? Läuft es nach dem Anhalten der Musik weiter?
+  Zurück in CheatSheet: kein Schwall von Klicks, und der Knopf zeigt ehrlich
+  „läuft“ oder „steht“.
+- „Mit anderen Apps mischen“ an: Spotify spielt, in CheatSheet das Metronom
+  starten → beide klingen. Stummschalter an → das Metronom schweigt
+  (erwartet), Spotify nicht. Stimmgerät an → Spotify hält an (erwartet). App
+  wechseln → das Metronom hält an (erwartet); „Hintergrund“ ist gesperrt.
+- „Metronom im Hintergrund“ aus: Verlassen hält an wie bisher; zurück
+  startet ein Tipp mit Ton.
+- Anruf, während es im Hintergrund läuft: danach still oder weiter? Bei der
+  Rückkehr hängt nichts.
+- Home-Bildschirm-App 10 min im Hintergrund (Metronom gestoppt), zurück:
+  Der nächste Start klingt sicher.
+- Akku: 15 min gesperrt mit laufendem Metronom — wie viel Prozent?
+
+**Offen, Fragen an Marlon:**
+- Vorgabe „Hintergrund an“ in Ordnung, oder lieber aus (Akku, läuft
+  versehentlich weiter)?
+- Brauchst du das Metronom zu Musik, während CheatSheet *nicht* vorn ist?
+  Das geht nur, wenn die andere App selbst mischt; sonst nur mit CheatSheet
+  vorn und „Mischen“ an.
+- Sollen Drone oder Vorspielen auch im Hintergrund weiterlaufen dürfen
+  (gleiche Technik)?
+
+Quellen: WebKit-Quelltext (main, 2026-11): `AudioContext.cpp`
+(`shouldOverrideBackgroundPlaybackRestriction`, `hasPlayBackAudioSession`,
+`nowPlayingInfo`), `MediaSessionManagerIOS.mm` (`resetRestrictions`),
+`MediaSessionManagerInterface.cpp` (`applicationDidEnterBackground`),
+`MediaSessionManagerCocoa.mm`, `AudioSessionIOS.mm`, `DOMAudioSession.cpp`,
+`RemoteAudioSessionProxyManager.cpp`, `DOMTimer.h`; WebKit-Fehler 261554, 237878, 251532,
+220879, 264473, 281955; W3C Audio Session; MDN `AudioSession.type`,
+Media Session API; Entwicklerberichte (GitHub: sadiss-org/sadiss #134 zu
+iOS 17.5, Larront/grimoire #244 zu iPadOS 17.5, DuarteSantos8/openGym
+PR 1128 zu „ambient“ zum Mischen).
 
 ---
 
@@ -511,6 +1008,156 @@ in der Leiste und am Abschnitt in der großen Ansicht. **Kein Icon** je
 Sammlung (bewusst weggelassen: nervt mehr, als es hilft). Speicher: Farben
 je Name, persönlich (reisen mit der Sicherung wie die Reihenfolge,
 `ueben:sammlungen-reihenfolge`), beim Umbenennen mitnehmen.
+
+### F-23 · Stückauswahl nach Sammlungen — umgesetzt 2026-11-19, zu prüfen
+
+Wunsch Marlon (2026-11-19): „Bei Aufnahme-Tagebuch sollte die Stückauswahl
+nach den Sammlungen strukturierbar sein. Das gilt für jede Stelle in der
+App, bei der die Stücke zur Auswahl stehen.“
+
+**Regel: Wo Stücke zur Auswahl stehen, sind sie nach Sammlungen geordnet
+und durchsuchbar.** Jede Stückauswahl — auch jede künftige — nimmt
+`StueckWahl.tsx` (gleiches Aussehen, gleiches Verhalten), kein eigenes
+`<select>`. Wo Sammlungen zur Wahl stehen, stehen sie in der Reihenfolge der
+Bibliothek (seit 2026-11-19 auch „Sammlungen …“ im Kontext-Blatt).
+
+**Entscheidung:**
+- **Eigenes Auswahl-Blatt statt `<select>` mit `<optgroup>`.** Im Feld steht
+  ein Knopf wie ein Auswahlfeld (gewähltes Stück, ▾); ein Tipp legt ein
+  Blatt darüber (iPhone von unten, iPad mittig), darunter rückt nichts.
+  Gegen das native Auswahlrad sprach: Dort lässt sich weder auf eine
+  Sammlung eingrenzen noch die Ansicht wechseln; ein Stück in zwei
+  Sammlungen stünde zweimal ohne Hinweis da; es gibt keine Unterzeile
+  (Stimme, Aufnahmen, „auch in …“); auf dem iPhone heißt es drehen und
+  „Fertig“ statt zweier Tipps; iPhone und iPad sähen verschieden aus. Das
+  Blatt spricht die Sprache der Bibliothek (Chips, Zeilen, Haken).
+- **Aufbau:** oben „Sammlungen | A–Z“, darunter die Chips „Alle · die
+  Sammlungen in der Reihenfolge der Bibliothek · Ohne Sammlung“ mit Zahl
+  (seitlich schiebbar), darunter die Liste. *Sammlungen:* je Sammlung eine
+  Gruppe mit Überschrift (bleibt beim Scrollen oben stehen), darin A–Z wie
+  in der Bibliothek (Zahlen als Zahlen, gleicher Titel nach Stimme), zuletzt
+  „Ohne Sammlung“. *A–Z:* eine Liste, jedes Stück einmal, seine Sammlungen in
+  der Unterzeile. Ein Chip grenzt in beiden Ansichten auf eine Sammlung bzw.
+  auf „Ohne Sammlung“ ein. Gezählt und gezeigt wird nur, was zur Wahl steht
+  (im Tagebuch-Filter: Stücke mit Aufnahmen); hat davon keines eine
+  Sammlung, fehlen Umschalter und Chips — eine Liste A–Z.
+- **Stücke in mehreren Sammlungen stehen in jeder davon**, mit „auch in …“ —
+  wie in der großen Ansicht (F-21). Man sucht ein Stück dort, wo man es
+  einsortiert hat; stünde es nur in der ersten Sammlung, fände man es in der
+  zweiten nicht. Das gewählte Stück trägt an jeder Stelle den Haken.
+- **Bedienregel:** Das Blatt hat eine feste Höhe; Umschalter und Chips
+  wechseln nur die Liste (sie beginnt dann oben). Tipp auf ein Stück wählt
+  und schließt; ✕, Tipp daneben oder Escape schließt nur das Blatt. Die
+  Wahl ändert den Bibliotheks-Filter nicht.
+- ~~**Vorwahl:** Ansicht und Eingrenzung sind am Gerät gemerkt, für alle
+  Auswahlen gemeinsam (`ueben:stueckwahl`). Noch keine Sammlung getippt →
+  die zuletzt in der Bibliothek gewählte (`ueben:sammlung`).~~ — *seit der
+  Rückmeldung vom 2026-11-19 (unten): immer die Sammlung der Bibliothek,
+  gemerkt ist nur die Ansicht.* Was es nicht mehr gibt, wird „Alle“; liegt
+  das gewählte Stück nicht in der Sammlung, ebenfalls „Alle“ — die Wahl
+  bleibt sichtbar und rückt beim Öffnen ins Bild.
+
+**Umsetzung** (`stueckAuswahl`, `wahlStart` in `src/domain/sammlungen.ts`,
+getestet; `src/components/ueben/StueckWahl.tsx`). Bestand vom 2026-11-19 —
+umgestellt:
+- Aufnahme-Tagebuch, Filter (bisher „Alle Stücke“ als `<select>`): Stücke
+  mit Aufnahmen und ihre Zahl, „Alle Stücke“ als erste Zeile.
+- Aufnahme-Tagebuch, „Neu“ → Stück (bisher `<select>` A–Z): alle Stücke,
+  in der Unterzeile die Zahl ihrer Aufnahmen.
+
+Durchgesehen, ohne Auswahl aus den eigenen Stücken (nichts umzustellen):
+Spielhilfe (hängt an der Stelle), Jam-Karte (eigene Session-Stücke, nicht
+die Bibliothek), Licks, Etüden, Skill-Kartei und „Heute“ (ohne Stückbezug),
+Sprünge (innerhalb eines Stücks), Kontext-Blatt (wirkt auf ein Stück;
+„Eigene Stücke daraus“ wählt Seiten), Sicherung und Übernehmen (alles auf
+einmal), Stellen-Mix „Woraus“ (wählt Sammlung und Tag, nicht Stücke —
+schon in der Reihenfolge der Bibliothek), Notenblatt/Einsingen und Scan
+(„Als Stück speichern“ legt ein neues an), Aufnehmen in den Noten (das
+offene Stück). Die Bibliothek selbst hat ihre Sammlungen schon.
+
+**Auf dem Gerät prüfen:**
+- iPhone: Tagebuch → Filter tippen: Blatt von unten, darunter rückt nichts;
+  der Chip der Bibliotheks-Sammlung ist vorgewählt; Chips seitlich schieben;
+  ein Stück tippen → Filter gesetzt, Blatt zu.
+- Ein Stück in zwei Sammlungen steht in beiden Gruppen mit „auch in …“,
+  gewählt mit Haken an beiden Stellen.
+- „A–Z“ ↔ „Sammlungen“ und Chips: nur die Liste wechselt, Kopf und Chips
+  bleiben stehen; nach dem Neustart der App dieselbe Ansicht (die Sammlung kommt seit 2026-11-19 von der Bibliothek).
+- „Neu“ → Stück: Blatt liegt über „Neue Aufnahme“; während der Aufnahme
+  lässt sich das Stück nicht wechseln.
+- iPad hoch und quer: Blatt mittig über dem Tagebuch (seit 2026-11-19 aus der Bibliothek, selbst ein Blatt); nach dem
+  Schließen sind Leiste und Widgets bedienbar wie vorher.
+- 30+ Stücke: Liste scrollt flüssig, Überschrift der Gruppe bleibt oben;
+  lange Titel brechen um.
+- VoiceOver: Der Knopf nennt „Stück wählen (…): Titel“, die Zeilen sind
+  Auswahlpunkte mit „ausgewählt“.
+
+**Rückmeldung Marlon (2026-11-19):**
+- Das Blatt soll immer bei der Sammlung starten, die gerade in der
+  Bibliothek gewählt ist, statt sich die eigene letzte Wahl zu merken: „ja“.
+- Suchfeld im Auswahl-Blatt: „wäre gut, ja“.
+- „Neue Aufnahme“ soll das gerade offene Stück vorwählen: „ja“.
+- „Sammlungen ändern“ im Kontext-Blatt in Bibliotheks-Reihenfolge statt
+  A–Z: „ja“.
+
+**Umsetzung (2026-11-19)** (`wahlStart`, `stueckAuswahl` mit Suche,
+`suchForm`/`suchWoerter`/`passtZurSuche`, `reihenfolgeLesen` in
+`src/domain/sammlungen.ts`; `neueAufnahmeVorwahl` in
+`src/domain/aufnahmetagebuch.ts` — alle zuerst als Test):
+- **Start bei der Bibliothek:** Jede Auswahl beginnt bei `ueben:sammlung`.
+  `ueben:stueckwahl` trägt nur noch `{ ansicht }` (Sammlungen | A–Z bleibt
+  gemerkt — das ist eine Vorliebe wie „A–Z | Zuletzt“ in der Bibliothek,
+  keine Eingrenzung). Ein älterer Stand mit `sammlung` darin wird
+  überlesen; der Schlüssel bleibt am Gerät und reist nicht mit
+  (`einstellungen.test.ts`).
+- **Suchfeld** oben im Blatt, unter „Stück wählen“, über den Chips: Titel,
+  Stimme, Komponist; Groß/klein, Akzente und ß egal („fucik“ findet
+  „Fučík“, „marsch“ findet „Märsche“), mehrere Wörter müssen alle
+  vorkommen. Gesucht wird in der gewählten Sammlung; die Chips bleiben
+  dieselben (nichts rückt), ihre Zahl nennt die Treffer, Chips ohne Treffer
+  sind blass. Nichts in der Sammlung, aber anderswo: „Nichts in „Märsche“
+  gefunden · In allen suchen · 2 Treffer“. Beim Suchen steht auch der
+  Komponist in der Unterzeile, die Zeile „Alle Stücke“ (Filter) ruht.
+  Escape leert erst die Suche, dann schließt es das Blatt. Kein Autofokus
+  (die Tastatur käme ungefragt).
+- **Tastatur (iPhone):** Das Blatt behält seine Höhe; das Suchfeld liegt im
+  oberen Drittel, die Tastatur deckt nur das untere Ende der Liste. Die
+  Liste bekommt unten so viel Platz, wie die Tastatur hoch ist
+  (`visualViewport`), damit jeder Treffer darüber scrollen kann. 16 px
+  Schrift im Feld, damit iOS beim Antippen nicht hineinzoomt.
+- **Chips brachen um** (Fehler aus dem Zusammenführen mit B-19: F-23 nutzte
+  die Klasse `mix-woraus-chips`, die B-19 entfernt hatte): Sie stehen
+  wieder in einer Zeile und lassen sich seitlich schieben (`.sw-chips`).
+- **„Neue Aufnahme“:** vorgewählt ist das im Tagebuch gefilterte Stück
+  (ausdrücklich gewählt), sonst das offene Stück (`UebeZentrale` gibt es
+  über die Bibliothek bzw. das Stück-Blatt weiter), sonst das der neuesten
+  Aufnahme, sonst A–Z das erste. Der Filter geht vor, weil „Aufnahmen …“ im
+  Kontext-Blatt eines anderen Stücks sonst das offene vorwählen würde.
+- **Kontext-Blatt „Sammlungen …“** in der Reihenfolge der Bibliothek
+  (`sammlungenOrdnen`, `ueben:sammlungen-reihenfolge`); `REIHENFOLGE` liegt
+  jetzt in `src/domain/sammlungen.ts`.
+- **Geprüft im Browser** (Chromium, iPhone 390 × 844, iPad 820 × 1180, acht
+  Stücke in drei Sammlungen, ein Tag, sieben Aufnahmen, ein alter
+  `ueben:stueckwahl` mit „Jazz“): Blatt startet bei „Märsche“ (Bibliothek),
+  nicht bei „Jazz“; „blue“ in Märsche → Hinweis, „In allen suchen“ → Blue
+  Bossa; „MARSCH“ und „fucik“ finden; Blatt und Liste vor und nach dem
+  Tippen auf demselben Pixel (iPhone 101/743 und 323/521 px); Escape leert,
+  zweites Escape schließt nur das Blatt; „Neu“ wählt Radetzky-Marsch (offen)
+  vor; Kontext-Blatt: Märsche · Orchester A · Jazz (Bibliothek) statt A–Z.
+  Die echte Bildschirmtastatur gibt es im Browser nicht.
+
+**Auf dem Gerät prüfen (Nachtrag 2026-11-19):**
+- iPhone: Bibliothek auf „Jazz“, dann Tagebuch → Neu → Stück: Das Blatt
+  steht auf „Jazz“; Bibliothek auf „Alle“ → Blatt auf „Alle“.
+- Suchfeld antippen: Tastatur kommt, das Blatt bleibt, wo es ist, nichts
+  zoomt; Treffer stehen über der Tastatur, der letzte lässt sich darüber
+  scrollen; ein Treffer-Tipp wählt und schließt (Tastatur geht mit).
+- Chips seitlich schieben, auch während der Suche; „Ohne Sammlung“ ganz
+  rechts erreichbar.
+- Ein Stück offen, Bibliothek → Aufnahmen → Neu: das offene Stück ist
+  vorgewählt.
+- ⋯ an einem Stück → Sammlungen …: Reihenfolge wie die Leiste der
+  Bibliothek (vorher eine Sammlung nach vorn schieben).
 
 ---
 
@@ -930,7 +1577,11 @@ Sorge: der Speicher.
   pumpen sonst). App-Wechsel beendet und sichert die Aufnahme.
 - **Im Stück-Blatt** der Abschnitt „Aufnahmen“: neueste zuerst, Name oder
   Zeitpunkt, Dauer, Seite/Stelle; ▶ anhören, „zusammen“ ankreuzen und
-  **übereinander abspielen**, umbenennen, löschen.
+  **übereinander abspielen**, umbenennen, löschen. *Seit 2026-11-19 mit dem
+  Aufnahme-Tagebuch abgestimmt (I-20): dieselben Angaben je Zeile (auch der
+  Skill), „zusammen“ unter dem Namen, und der Weg ins Tagebuch auf dieses
+  Stück gefiltert (Vergleichen A/B, „Neu“ mit Skill). Über die Bibliothek:
+  ⋯ an einem Stück → „Aufnahmen …“.*
 - **Speicher:** `MediaRecorder`, komprimiert (AAC `audio/mp4` auf iPhone
   und iPad, Opus/WebM in Chrome, 96 kbit/s): **etwa 0,7 MB je Minute**.
   Hundert Aufnahmen à zwei Minuten sind ~150 MB — das ist für IndexedDB
@@ -1222,7 +1873,10 @@ Leaves, Summertime, dazwischen ein Lieblingssong nach Gehör (z. B. Ashe
 (Stimmen stumm, langsamer, Tonart); (3) Impro über Backing-Track (iReal Pro
 oder YouTube) mit 3, dann 5 Tönen, Frage–Antwort. Ziel nach etwa drei
 Monaten: bei der Beginner-Session einen Blues und einen Standard mitspielen,
-einen Chorus improvisieren.
+einen Chorus improvisieren. „Heute“ (I-09) übernimmt davon seit 2026-11-19
+nur den Rahmen — 3 × 10 Minuten, 4 Einheiten pro Woche —; welche Blöcke es
+sind, bestimmen die Skills, die Marlon als „Lerne ich“ markiert. Die drei
+Felder oben sind eine Empfehlung, was man markiert, keine festen Fächer.
 
 **Abgrenzung:** Stimmen trennen, Songs transkribieren und Begleitspuren als
 Dateien bleiben bei fertigen Werkzeugen (Moises, iReal Pro) — passt zu G-06
@@ -1264,8 +1918,8 @@ dem Versuch zu sehen — es ist Gehörbildung, kein Vom-Blatt-Spielen.
 - Einstellungen (`ueben:ohr`: Stufe, Grundton, Tempo, Wechseln) und der
   Verlauf (`ueben:ohr-verlauf`, letzte 200 Runden) bleiben auf dem Gerät
   (seit A-08; vorher reisten die Einstellungen mit der Sicherung).
-- Einstieg: Zeile „Ohr-Trainer“ auf der Lernen-Seite unter dem Stellen-Mix
-  (seit B-18; vorher in der Bibliothek).
+- Einstieg: Zeile „Ohr-Trainer“ auf der Lernen-Seite unter „Üben“
+  (seit B-18; vorher in der Bibliothek; seit B-19 ohne Stellen-Mix davor).
 - **Geprüft im Browser** (Chrome, künstliches Mikrofon mit einer
   synthetischen Klarinette, 2026-11-16): Einzählen, Vorspiel, Aufnahme,
   Bewertung laufen durch; ein falsch gespielter Ton (Es statt D) wird als
@@ -1450,25 +2104,162 @@ Runde zählt auf den Skill (Dreiklänge → „Dur und Moll hören“). Nach dem
 Antworten spielt ein Tipp auf jede Antwort deren Klang (Vergleich). Letzte
 Stufe je Übung in `ueben:hoerquiz` (am Gerät; reiste bis A-08 mit der Sicherung).
 
-### I-09 · „Heute“: geführte Einheit — Bau 2026-11-16
+### I-09 · „Heute“: geführte Einheit — Bau 2026-11-16, Umbau 2026-11-19, zu prüfen
 
-Oben auf der Lernen-Seite (seit B-18; vorher oben in der Skill-Übersicht):
-„Heute · 30 Min.“ — drei Blöcke à 10 Minuten
-(Leitlinie aus I): **Ohr** (ein Skill mit Übung in der App, bevorzugt
-`lerne`/`will`, sonst der am stärksten verblasste), **Stück/Mitspielen**
-(ein Repertoire- oder Mitspiel-Skill, extern), **Impro** (ein
-Improvisations-Skill, extern). Auswahl deterministisch aus Markierungen,
-Stufen und Frische (pausierte nie; `kann` nur zum Auffrischen, wenn
-verblasst); „Anderer Vorschlag“ tauscht einen Block. Jeder Block: Start der
-App-Übung oder „Erledigt“ (zählt als geübt heute). Fortschritt der Woche:
-„2 von 4 Einheiten“.
+**Wunsch Marlon (2026-11-19):** „Ich dachte, in ‚Heute‘ stecken irgendwie
+alle Skills, die ich mir als ‚Ich lerne‘ markiert habe. … Dann gerne ändern
+zu Übungen von Skills, die ich dafür markiert hab.“ Bis dahin hatte „Heute“
+drei feste Fächer — Ohr (nur Skills mit App-Übung), Stück/Mitspielen, Impro
+—; ein „Lerne ich“ aus Klarinette, Technik oder Theorie kam nie vor.
 
-**Umgesetzt 2026-11-16:** Eine Einheit = ein Tag, an dem alle Blöcke mit
-Vorschlag erledigt sind; Woche ab Montag. Der Tagesstand (`ueben:heute`:
-Vorschlags-Wechsel, Erledigtes, Einheiten) bleibt am Gerät. Ein aus „Heute“
-gestarteter Ohr-Block ist erledigt, sobald die Übung eine Runde meldet.
-Reihenfolge der Kandidaten: lerne → will (je am längsten nicht geübt zuerst)
-→ verblasst (am stärksten zuerst) → offen (Voraussetzungen erfüllt zuerst).
+**Regel (seit 2026-11-19):**
+- **Rahmen** nach der Leitlinie (I): bis zu drei Blöcke à 10 Minuten,
+  Wochenziel 4 Einheiten. Eine Einheit = ein Tag, an dem alle Blöcke
+  erledigt sind; Woche ab Montag.
+- **Blöcke aus „Lerne ich“**, aus allen Bereichen, keine festen Fächer.
+  Zuerst, was am längsten nicht geübt wurde (bei Gleichstand die
+  Reihenfolge der Kartei). Bei mehr als drei rotiert es so über die Tage:
+  Was geübt ist, rückt nach hinten.
+- **Weniger als drei „Lerne ich“ (Entscheidung beim Bau):** bis drei
+  auffüllen, erst mit ☆ „Will ich“ (am längsten nicht geübt zuerst), dann
+  mit Verblasstem (am stärksten zuerst, auch „Kann ich“); der Block heißt
+  dann „Aufgefüllt · ☆ Will ich“ bzw. „Aufgefüllt · verblasst“ (grau statt
+  messingfarben). Reicht auch das nicht, gibt es weniger Blöcke („Heute ·
+  10 Min.“ bzw. „20 Min.“) und darunter einen Satz mit „Skills ›“. Warum so:
+  Die Leitlinie rechnet in Einheiten von 30 Minuten; ☆ ist Marlons eigene
+  Liste fürs Nächste, Verblasstes braucht Auffrischen (Prinzip der Kartei)
+  — beides hat er selbst gewählt oder schon geübt, Unberührtes wird nie
+  untergeschoben. Nie in „Heute“: „Gerade nicht“; ohne „Lerne ich“ oder ☆
+  nur, was verblasst ist.
+- **Nichts als „Lerne ich“ markiert:** keine Blöcke, nur der Satz
+  „Markiere in der Skill-Kartei, was du gerade lernst …“ mit „Skills ›“
+  (öffnet die Kartei darüber). Nichts Ausgegrautes.
+- **Erledigt** ist ein Block, sobald sein Skill heute geübt wurde — gleich
+  wo: eine Runde in Ohr-Trainer oder Hör-Übung, „Geübt“ in den Etüden,
+  Einschätzen eines Licks, „Heute gespielt“ in der Jam-Karte, „Heute geübt“
+  in Griffweisen oder Kartei, ein Metronom mit Swing-Achteln, „Erledigt“ im
+  Block. Erledigtes bleibt stehen, auch wenn sich die Markierung danach
+  ändert.
+- **Nichts verschiebt sich:** Der Plan des Tages wird festgehalten, sobald
+  er gezeigt wird; Üben (auch anderswo) ändert ihn nicht. Er ändert sich
+  nur, wenn ein Block nicht mehr passt (Markierung geändert → Ersatz an
+  derselben Stelle), wenn ein neues „Lerne ich“ eine offene Auffüllung
+  verdrängt (an ihrer Stelle) — oder durch „Anderer Vorschlag“. Jeder Block
+  hat eine feste Höhe (Name eine Zeile, Aufgabe drei; auf dem iPad zwei und
+  fünf, der volle Text steht im Detail).
+- **„Anderer Vorschlag“** (↻ oben rechts im Block) tauscht nur diesen Block
+  gegen den nächsten „Lerne ich“, der in keinem Block steht und heute noch
+  nicht geübt ist — reihum, nach dem letzten wieder der erste.
+  Auffüllungen tauschen untereinander. Stehen alle „Lerne ich“ schon da,
+  gibt es nichts zu tauschen: ↻ ist unsichtbar, sein Platz bleibt.
+
+**Übungen von Skills:** Jeder Block nennt, warum er da ist („Lerne ich ·
+Klarinette“), den Skill und eine **Aufgabe** für 10 Minuten — neu im
+Katalog für alle 49 Skills (`aufgabe`, höchstens 150 Zeichen, Tonhöhen
+notiert für B-Klarinette, z. B. „Blues in B♭ liegt für dich in C“). Darunter,
+womit:
+- **App-Übung** (Ohr-Trainer-Stufen, Hör-Übungen): „▶ Ohr-Trainer“ bzw.
+  „▶ Hör-Übung“ wie bisher; erledigt nach einer Runde.
+- **Werkzeug**, voreingestellt (`werkzeug` im Katalog):
+
+  | Werkzeug | Skills | geöffnet mit | meldet selbst |
+  |---|---|---|---|
+  | Etüden (I-14) | Dur-Tonleitern in 12 Tonarten · Dur-Tonleitern und Vorzeichen · Dreiklang- · Septakkord-Arpeggien · Guide Tones · Umspielung | Muster Tonleiter · Tonleiter · Dur-Dreiklang · maj7 · Guide Tones · Umspielung | „Geübt“ (nicht für Vorzeichen) |
+  | Licks (I-16) | Licks lernen und transponieren · Blues-Phrasen | Liste · „Blues-Wendung abwärts“ | Einschätzen |
+  | Jam-Karte (I-19) | Blues in B · Blue Bossa · Autumn Leaves · Summertime · Akkordtöne auf Zählzeiten | dem Stück · Blues in B♭ (einfach) | „Heute gespielt“ (nicht für Akkordtöne) |
+  | Spickzettel (I-11) | Akkordaufbau · Optionstöne · Modi der ii–V–I | C7 · C9 · Dm7 (notiert) | — |
+  | Drone (I-18) | Mit 3 Tönen improvisieren · Frage und Antwort · Weitere Modi | Grundton C (notiert) | — |
+  | Griffweisen (I-13) | Sauberes Clarion und Altissimo | H (erster Clarion-Ton) | „Heute geübt“ |
+  | Transponieren (I-12) | Tonart eines Songs finden | — | — |
+  | Metronom (I-17) | Swing-Achtel und Artikulation · Doppelzunge · Triolenzunge | volles Metronom über Lernen | Swing: sobald Swing-Achtel klingen |
+
+  Ohne Selbstmeldung bleibt „Erledigt“ im Block. Je eine Vorbelegung als
+  Prop: `muster` (Etüden), `lick` (Licks), `stueck` (Jam-Karte); Spickzettel,
+  Drone und Griffweisen hatten sie schon. Das Metronom gehört der Zentrale:
+  Der Block schickt `ueben:metronom-zeigen`, die Zentrale blendet das Widget
+  ein und öffnet „alles“. Bewusst **nicht** voreingestellt: Swing
+  einzuschalten änderte die gespeicherte Metronom-Einstellung auch für die
+  Noten (Nebenwirkung, Bedienregel).
+- **Sonst** (extern: iReal Pro, Moises, eigene Noten): die Aufgabe und
+  „Erledigt“.
+- Das **Detail** eines Skills (in Kartei und „Heute“) zeigt die Aufgabe
+  („So übst du · 10 Min.“) und denselben Knopf. Üben und Werkzeug schließen
+  erst das Detail — auf dem iPad läge die Übung nach der Stapelordnung
+  (Seite z 46, Blatt z 80) sonst *unter* dem Detail-Blatt.
+- **Fachlich nachgeschlagen** (auch im Kopf von `skillkatalog.ts`):
+  Swing-Artikulation (Off-Beat anstoßen, in die Zählzeit binden) —
+  jazzadvice.com, „The Beginner's Guide to Jazz Articulation“; über den Bruch
+  (A–H binden, rechte Hand liegen lassen) — DANSR, „Mind the Gap: Crossing
+  the Clarinet Break Demystified“ und „Right Hand Down (or not) on
+  Clarinet“; Doppelzunge (erst ohne Mundstück sprechen, mit Metronom langsam
+  steigern) — Robert Spring, „Multiple Articulation for Clarinet“
+  (bandworld.org); Guide Tones (Septime fällt zur Terz) —
+  learnjazzstandards.com; chromatische Annäherung und Umspielung (Ziel auf
+  der Zählzeit) — fundamental-changes.com, „Chromatic Approach Notes“,
+  jazz-guitar-licks.com, „Target Tones and Enclosures“; Stufen und Modi —
+  Mark Levine, „The Jazz Theory Book“.
+
+**Tagesstand `ueben:heute` (Gerät, reist nicht mit):** jetzt `{ tag, plan,
+einheiten }`, `plan` = Skill-ids der Blöcke. Ein Stand der alten Form
+(`wechsel`, `erledigt` je ohr/stueck/impro) vom selben Tag: Das dort
+Erledigte wird zu den ersten Blöcken (Reihenfolge ohr, stueck, impro) und
+gilt als erledigt — die alte Fassung hatte beim Erledigen „heute geübt“
+eingetragen —, der Rest kommt nach der neuen Regel dazu; die
+Vorschlags-Wechsel entfallen. Stimmt das nicht (Skill heute nicht geübt),
+wird der Block an derselben Stelle ersetzt. Alter Stand von gestern oder
+kaputte Werte: sauber neu. Die Einheiten bleiben immer. Gespeichert wird
+danach nur noch die neue Form. Kein Eingriff in IndexedDB oder Sicherung.
+
+**Umgesetzt 2026-11-19:** Regeln `heuteArt`, `heuteKandidaten`,
+`heuteVorschlag`, `heuteFestschreiben`, `andererVorschlag`, `heuteLesen`
+in `src/domain/skills.ts` (zuerst als Test, `tests/skills.test.ts`, samt
+altem Tagesstand); `aufgabe`/`werkzeug` in `src/domain/skillkatalog.ts`
+(getestet: jede Verknüpfung zeigt auf ein Muster, einen Lick, ein Stück,
+einen lesbaren Akkord, einen greifbaren Ton); Ansicht `HeuteAbschnitt` in
+`Skills.tsx`. **Geprüft im Browser** (Chromium, iPhone 390 × 844 und iPad
+820 × 1180): 0 markiert → nur der Satz, „Skills ›“ öffnet die Kartei; 1 →
+ein Block, „10 Min.“; 1 + ☆ → „Aufgefüllt · ☆ Will ich“, „20 Min.“; 3
+(Klarinette, Technik, Harmonie) → genau diese, kein ↻; 5 → drei Blöcke, ↻
+dreimal: nur dieser Block wechselt, alle Blöcke und die Überschrift „Üben“
+bleiben auf dem Pixel, nach dem dritten wieder der erste. „▶ Etüden“ öffnet
+mit Muster Tonleiter, „Geübt“ → Block ✓; „Erledigt“ verschiebt nichts;
+„▶ Hör-Übung“ (Intervalle), „▶ Metronom“ (volles Metronom über Lernen),
+„▶ Jam-Karte“ (Blues in B♭); alter Tagesstand übernommen und in neuer Form
+gespeichert; nichts läuft über.
+
+**Auf dem Gerät prüfen:**
+- iPhone und iPad: in der Kartei nacheinander 0, 1, 3 und 5 Skills aus
+  verschiedenen Bereichen als „Lerne ich“ markieren — stimmen Blöcke,
+  Minuten und „Aufgefüllt“? Bei 0: nur der Satz, „Skills ›“ öffnet die
+  Kartei.
+- ↻ bei fünf „Lerne ich“: nur dieser Block wechselt, nichts darunter rückt;
+  nach dem Durchlauf wieder der erste. Auf dem iPhone ↻ gut zu treffen?
+- Jeden Knopf einmal: Etüden (richtiges Muster), Licks (Blues-Wendung),
+  Jam-Karte (das Stück), Spickzettel (Akkord notiert), Drone (C),
+  Griffweisen (H), Transponieren, Metronom (Widget und „alles“ über Lernen;
+  Swing-Achtel an und starten → Block ✓). Fertig/Schließen führt zurück zu
+  „Heute“.
+- Ohr-Trainer und Hör-Übung aus dem Block: nach einer Runde ✓; Mikrofon und
+  Klang wie vorher.
+- Blöcke über den Tag verteilt erledigen, App dazwischen schließen: Der Plan
+  bleibt derselbe; alle erledigt → „✓ geschafft“, Wochenzähler +1.
+- Am nächsten Tag (mehr als drei „Lerne ich“): die gestern geübten stehen
+  hinten, andere vorn.
+- Gleich nach dem Update, wenn die alte Einheit von heute halb erledigt
+  war: das Erledigte steht als ✓ vorn, nichts ist kaputt.
+
+**Offene Fragen an Marlon:**
+- Ein Block gilt als erledigt, sobald der Skill heute irgendwo geübt wurde
+  (auch über die Ohr-Trainer-Zeile oder ein Werkzeug ohne „Heute“). Passt
+  das, oder soll nur zählen, was aus „Heute“ gestartet wurde?
+- Zählt eine kürzere Einheit (ein oder zwei Blöcke, weil nichts zum
+  Auffüllen da ist) für das Wochenziel? Derzeit ja.
+- Soll der Swing-Block das Metronom gleich auf Swing stellen? Das änderte
+  die gespeicherte Einstellung auch für die Noten — derzeit nein, er öffnet
+  nur das Metronom.
+- Passen die Aufgaben-Texte (Tempo-Angaben, „Blues in B♭ = C notiert“) zu
+  deinem Stand, und fehlt eine Verknüpfung, die du erwartest (z. B.
+  Pentatonik → Licks, Akkordfolgen → Jam-Karte)?
 
 ### I-10 · Später: Klarinetten-Checks, Akkordfolgen, Modi-Klang
 
@@ -1480,7 +2271,8 @@ spielen (braucht I-04).
 
 Marlon 2026-11-16: „Bau alles“ — zehn Ideen aus der Recherche. Alle
 Werkzeuge erreicht man auf der Seite **Lernen** (B-18) im Abschnitt **Werkzeuge**
-(Kacheln, je ein Blatt). Tonhöhen immer **notiert für die gewählte Stimmung**
+(Kacheln, je ein Blatt; die Kachel „Aufnahme-Tagebuch“ führt seit 2026-11-19
+in die Bibliothek, I-20). Tonhöhen immer **notiert für die gewählte Stimmung**
 (Stimmgerät), daneben klingend, wo es hilft.
 
 - **I-11 · Akkord-Spickzettel.** Akkordsymbol eingeben oder antippen (C,
@@ -1610,6 +2402,140 @@ Werkzeuge erreicht man auf der Seite **Lernen** (B-18) im Abschnitt **Werkzeuge*
   geübt). Eine Aufnahme **ohne Stück** gibt es nicht: Sie liegt im
   Datensatz eines Stücks, ein verstecktes Übungs-Stück sähe das Datenmodell
   nicht vor (bräuchte eine PDF, erschiene in der Bibliothek) — offen.
+
+  **Rückmeldung Marlon (2026-11-19):** „Die Aufnahmen sollten über die
+  Bibliothek abrufbar sein. Also sollte der Button für das Aufnahme-Tagebuch
+  zur Bibliothek leiten, oder? Und da dann ein neues Stück aufnehmen,
+  basically, oder pro Stück eine Aufnahme oder mehrere.“ Dazu (F-23): „Neue
+  Aufnahme“ wählt das offene Stück vor — „ja“.
+
+  **Umsetzung (2026-11-19)** — Aufnahmen über die Bibliothek
+  (`AufnahmeTagebuch.tsx`, `Bibliothek.tsx`, `Kontext.tsx`, `NotenPult.tsx`,
+  `Aufnahmen.tsx`, `Werkzeuge.tsx`, `UebeZentrale.tsx`; Regeln
+  `tagebuchBereich`, `imBereich`, `aufnahmenStand`, `zuletztKurz`,
+  `neueAufnahmeVorwahl` in `src/domain/aufnahmetagebuch.ts`, `ortSprung` in
+  `src/domain/leiste.ts`, zuerst als Test):
+  - **Zeile „Aufnahmen“** in der Bibliothek direkt unter dem Stellen-Mix,
+    über den Tags: roter Punkt, „Aufnahmen“, rechts „4 · zuletzt heute“,
+    „keine in „Orchester A · Wichtig üben““ oder „noch keine“. Sie zählt, was
+    die Bibliothek zeigt (Sammlung und Tag). **Bedienregel:** gleich gebaut
+    und gleich hoch wie die Mix-Zeile (48 px), immer da, sobald es Stücke
+    gibt; beim Wechsel der Sammlung oder des Tags ändert sich nur der Text.
+    Sie kommt im selben Lesen wie Sammlungen, Mix und Liste — nichts rückt
+    nach.
+  - **Tagebuch aus der Bibliothek** (Blatt über der Bibliothek, iPad mittig):
+    eingegrenzt auf deren Sammlung und Tag; oben „Märsche 4 | Alle 7“ (nur,
+    wenn die Bibliothek eingegrenzt ist — steht beim Öffnen fest, kommt und
+    geht nicht). Liegt außerhalb noch etwas, sagt es die Statuszeile:
+    „Unter „Alle“ noch 3 Aufnahmen, davon 2 mit Skill.“ — so bleiben
+    Aufnahmen zu Skills auffindbar, deren Stück woanders liegt; der Hinweis
+    „bleiben auf diesem Gerät“ steht dann am Ende der Liste. Filter je Stück
+    (F-23-Auswahl, nur Stücke mit Aufnahmen im Bereich), Vergleichen,
+    Abspielen, Name, Löschen wie bisher. Neue Aufnahmen, Umbenennen und
+    Löschen zählen gleich in der Zeile mit.
+  - **Je Stück eine oder mehrere:** ⋯ (oder Halten) an einem Stück →
+    „Aufnahmen …“ („2 · anhören, vergleichen, neu aufnehmen“ bzw. „Noch
+    keine — hier aufnehmen“) öffnet das Tagebuch auf dieses Stück gefiltert;
+    „Neu“ wählt es vor, auch ohne bisherige Aufnahme. In der Liste der
+    Bibliothek steht „2 Aufnahmen“ in der Unterzeile wie „3 Stellen“.
+  - **Stück-Blatt (G-09) abgestimmt:** Die Zeilen zeigen dieselben Angaben
+    wie das Tagebuch (Stelle oder Seite, Skill, Dauer; dieselben Regeln
+    `wo`/`dauerText`), „zusammen“ als eigene Zeile darunter (vorher drückte
+    es den Namen auf „Trio s…“). Darunter „Vergleichen und neu aufnehmen im
+    Tagebuch ›“ — das Tagebuch auf dieses Stück gefiltert, über dem
+    Stück-Blatt; Escape schließt erst das Tagebuch. Ohne Aufnahme: „Im
+    Tagebuch aufnehmen ›“.
+  - **Kachel in Lernen** „Aufnahme-Tagebuch · In der Bibliothek: alt gegen
+    neu ›“ (roter Punkt, Pfeil): ganzer Seitenwechsel in die Bibliothek
+    (`ortSprung`: das Ziel öffnet, Lernen weicht samt Unterseite; ein Sprung
+    schließt nie), dort liegt gleich das Tagebuch über der Liste. Danach gilt
+    die Leiste wie immer: „Lernen“ führt zurück, „Noten“ schließt die
+    Bibliothek. Die Aufnahme mit Skill („Neu“ → Skill) bleibt, wie sie war.
+  - **Geprüft im Browser** (Chromium mit Fake-Mikrofon, iPhone 390 × 844 und
+    iPad 820 × 1180; acht Stücke in Märsche/Orchester A/Jazz/ohne, ein Tag,
+    sechs Aufnahmen, zwei mit Skill): Zeile bei Märsche, Jazz, Alle,
+    Orchester A und Orchester A + Tag auf demselben Pixel (iPhone y 284,
+    48 px hoch); Tagebuch „3 Aufnahmen aus „Märsche““ mit Hinweis auf 3
+    weitere, 2 mit Skill; „Alle“ zeigt 6; „Neu“ wählt das offene
+    Radetzky-Marsch vor, Aufnahme 2 s mit Fake-Mikrofon gespeichert, Zeile
+    zählt danach 4; Kontext → „Aufnahmen …“ an „Take Five“ (ohne Aufnahme)
+    → leer, „Neu“ wählt Take Five; Kachel in Lernen → Bibliothek mit
+    Tagebuch, „Lernen“ zurück; Stück-Blatt → Tagebuch gefiltert, Escape
+    schließt nur das Tagebuch. Keine Fehler in der Konsole.
+
+  **„Ein neues Stück aufnehmen“ — geprüft, nicht gebaut (2026-11-19).**
+  Gemeint: etwas aufnehmen, für das es noch keine Noten (keine PDF) gibt, und
+  es landet als Stück in der Bibliothek. Ergebnis der Prüfung:
+  - *Datenbank:* Ein Datensatz in `stuecke` ohne Eintrag in `dateien` ginge
+    ohne Versionssprung — es gibt ihn heute schon als Fehlerfall (Übernahme
+    aus `ueben`, PDF verloren). Aber das Datenmodell sagt „Stück = Datensatz
+    und **genau eine PDF**“, und daran hängt viel:
+  - *Öffnen:* `NotenPult` liest `stueckDatei` → `DateiVerloren` („Die
+    PDF-Datei dieses Stücks ist auf dem Gerät nicht mehr lesbar …“), der
+    `NotenBetrachter` braucht ein geladenes PDF. Es bräuchte eine eigene
+    Ansicht ohne Noten. Ebenso Sonderwege für das Vorschaubild im
+    Kontext-Blatt, „Eigene Stücke daraus“, die Quelle virtueller Stücke und
+    die Doppelten-Erkennung beim Ordner-Import (Größe der PDF).
+  - *Sicherung (`sicherung.ts`, `lesbar.ts`):* `sicherungErstellen` prüft
+    jede PDF (`nurLesbare`); so ein Stück fiele heraus und stünde bei jeder
+    Sicherung unter „nicht lesbar“. Mitnehmen lässt es sich in `.uebe` v1
+    nicht: Jeder Eintrag unter `noten` bringt genau einen PDF-Teil mit (ein
+    leerer Teil wäre im Registerführer ein Stück mit kaputter PDF),
+    `virtuelle` verlangt eine `quelle`, und eine weitere Liste im Kopf
+    schließt CLAUDE.md aus („Nicht weiter ändern“). Der
+    Registerführer-Zuschnitt (`notenId` an Stellen und Anmerkungen) wäre
+    nicht das Problem — so ein Stück hätte keine —, sondern der Noten-Eintrag
+    selbst. Alte Dateien blieben ladbar, aber „Daten übertragen“ ließe ein
+    Stück der Bibliothek weg.
+  - *Darum nicht gebaut:* Es ginge nur, wenn die Regel „genau eine PDF“
+    fällt und das Stück bewusst nur auf dem Gerät bleibt — eine Entscheidung
+    über das Datenmodell, die Marlon treffen soll.
+
+  **Optionen — Entscheidung Marlon offen:**
+  - **A · Erzeugte Titelseite als PDF** (wie bei geschriebenen/eingesungenen
+    Stücken; die App schreibt PDFs schon selbst, `notenpdf.ts`, Scan F-07).
+    „Neu“ im Tagebuch bekommt „Neues Stück …“: Titel, Sammlung (die der
+    Bibliothek), dann aufnehmen. Angelegt wird ein gewöhnliches Stück mit
+    einer schlichten Seite (Titel, Stimme, „Noten folgen“, leere
+    Notenzeilen). *Für:* nichts an Datenbank oder Format; reist mit der
+    Sicherung (wenige KB); der Registerführer liest es wie jedes Stück; es
+    öffnet in den Noten, roter Knopf, Kontext-Blatt, Sammlungen, Tags wie
+    gewohnt; später ersetzt „Datei neu wählen“ die Seite durch die echten
+    Noten, die Aufnahmen bleiben. *Gegen:* eine Seite ohne Inhalt in der
+    Bibliothek (und nach einer Übertragung im Registerführer); auf dem
+    anderen Gerät kommt das Stück ohne seine Aufnahmen an (die reisen nie
+    mit). **Empfehlung**, weil alle Verträge bleiben.
+  - **B · Stück ohne PDF, nur auf diesem Gerät:** ein Merkmal am Stück (etwa
+    `nurAufnahmen`, kein neuer Speicher, keine Version — wie `aufnahmen` in
+    G-09), eine eigene Ansicht statt der Noten, die Sicherung lässt es
+    bewusst weg (mit eigener Meldung). *Für:* keine Schein-Seite. *Gegen:*
+    „genau eine PDF“ fällt (datenmodell.md ändern), jede Stelle, die eine
+    PDF erwartet, braucht einen Sonderweg — auch künftige; „Daten
+    übertragen“ nimmt ein Stück der Bibliothek nicht mit.
+  - **C · Format erweitern** (eigene Liste im Kopf der Sicherung): nach
+    CLAUDE.md nur mit neuer Version des `.uebe`-Formats samt Lesen der alten;
+    der Registerführer kennt sie nicht. Nicht empfohlen.
+  - **D · Ohne neues Stück:** an ein vorhandenes Stück aufnehmen (etwa eines
+    „Übungen“). Geht heute; trifft den Wunsch nur halb.
+
+  **Auf dem Gerät prüfen:**
+  - iPhone und iPad: „Noten“ → Zeile „Aufnahmen“ unter dem Stellen-Mix.
+    Sammlung wechseln (mit und ohne Tags) und einen Tag tippen: nur der Text
+    rechts ändert sich, die Zeile springt nicht.
+  - Zeile tippen: Tagebuch über der Bibliothek, „Märsche n | Alle m“; die
+    Statuszeile nennt, was unter „Alle“ noch liegt (mit Skill); „Alle“
+    zeigt es. Fertig → zurück in der Bibliothek, an derselben Stelle.
+  - Ein Stück offen, Tagebuch → Neu: das offene Stück ist vorgewählt;
+    aufnehmen (Mikrofon-Erlaubnis), beenden → die Aufnahme steht oben, die
+    Zeile zählt eine mehr.
+  - ⋯ an einem Stück → „Aufnahmen …“: Tagebuch nur mit diesem Stück; ohne
+    Aufnahme leer mit Hinweis, „Neu“ wählt das Stück vor.
+  - Stück öffnen, Titel tippen → Stück-Blatt → Aufnahmen: Name ganz
+    lesbar, „zusammen“ darunter; „… im Tagebuch ›“ → Vergleichen A/B geht.
+  - Lernen → Kachel „Aufnahme-Tagebuch“: Bibliothek mit Tagebuch; nach
+    „Fertig“ „Lernen“ tippen → Lernen-Übersicht; „Noten“ → Bibliothek zu.
+  - Eine Aufnahme mit Skill zu einem Stück außerhalb der gewählten Sammlung:
+    über „Alle“ auffindbar.
 
 ## Erledigt
 

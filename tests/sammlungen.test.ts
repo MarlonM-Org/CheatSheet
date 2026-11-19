@@ -1,8 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
   imFilter, mitSammlung, ohneSammlung, ordnerPlanen, reihenfolgeUmbenennen, reihenfolgeVerschieben, sammlungenAusPfad, sammlungenOrdnen, sammlungenUebersicht, sammlungenVon, sammlungName,
-  sammlungUmbenennen, sicherungFaellig,
+  OHNE_SAMMLUNG, passtZurSuche, reihenfolgeLesen, sammlungUmbenennen, sicherungFaellig, stueckAuswahl, suchForm, suchWoerter, wahlStart,
 } from '@/domain/sammlungen';
+
+describe('Reihenfolge der Sammlungen aus dem Speicher', () => {
+  it('nur Namen; Unsinn wird leer', () => {
+    expect(reihenfolgeLesen(['Märsche', 7, 'Jazz', null])).toEqual(['Märsche', 'Jazz']);
+    expect(reihenfolgeLesen('Märsche')).toEqual([]);
+    expect(reihenfolgeLesen(null)).toEqual([]);
+  });
+});
 
 describe('Sammlungen: Namen', () => {
   it('Name aus der Eingabe: Leerraum geglättet, nicht leer, nicht zu lang', () => {
@@ -128,4 +136,185 @@ describe('Reihenfolge der Sammlungen', () => {
     expect(reihenfolgeUmbenennen(['A', 'B', 'C'], 'C', 'a')).toEqual(['A', 'B']);
     expect(reihenfolgeUmbenennen(['A', 'B'], 'X', 'Y')).toEqual(['A', 'B']);
   });
+});
+
+describe('Stückauswahl nach Sammlungen (F-23)', () => {
+  // Bibliothek: „Märsche“ vorn, dann „Jazz“; „Orchester A“ fehlt in der Reihenfolge (kommt dahinter, A–Z).
+  const reihenfolge = ['Märsche', 'Jazz'];
+  const st = (id: string, titel: string, sammlungen?: string[], stimme = '') => ({ id, titel, stimme, ...(sammlungen ? { sammlungen } : {}) });
+  const stuecke = [
+    st('alte', 'Alte Kameraden', ['Märsche']),
+    st('flo', 'Florentiner', ['Orchester A', 'märsche']),
+    st('take', 'Take Five', ['Jazz']),
+    st('10', '10 kleine Stücke'),
+    st('2', '2 Etüden', []),
+    st('blue', 'Blue Bossa', ['Jazz'], 'Klarinette 2'),
+    st('blue1', 'Blue Bossa', ['Jazz'], 'Klarinette 1'),
+  ];
+  const ids = (g: { zeilen: { stueck: { id: string } }[] }) => g.zeilen.map((z) => z.stueck.id);
+
+  it('nach Sammlung: Reihenfolge der Bibliothek, darin A–Z (Zahlen als Zahlen, gleicher Titel nach Stimme), zuletzt „Ohne Sammlung“', () => {
+    const a = stueckAuswahl(stuecke, reihenfolge, 'sammlungen', null);
+    expect(a.gruppen.map((g) => [g.art, g.name])).toEqual([['sammlung', 'Märsche'], ['sammlung', 'Jazz'], ['sammlung', 'Orchester A'], ['ohne', '']]);
+    expect(a.gruppen.map(ids)).toEqual([['alte', 'flo'], ['blue1', 'blue', 'take'], ['flo'], ['2', '10']]);
+  });
+
+  it('ein Stück in zwei Sammlungen steht in beiden — mit der jeweils anderen als „auch“ (Schreibweise der Übersicht)', () => {
+    const a = stueckAuswahl(stuecke, reihenfolge, 'sammlungen', null);
+    const flo = a.gruppen.flatMap((g) => g.zeilen.filter((z) => z.stueck.id === 'flo').map((z) => [g.name, z.auch]));
+    expect(flo).toEqual([['Märsche', ['Orchester A']], ['Orchester A', ['Märsche']]]);
+    expect(a.gruppen[1].zeilen.every((z) => z.auch.length === 0)).toBe(true);
+  });
+
+  it('Chips: Sammlungen in der Reihenfolge der Bibliothek mit Zahl der wählbaren Stücke, dazu die Zahl ohne Sammlung', () => {
+    const a = stueckAuswahl(stuecke, reihenfolge, 'sammlungen', null);
+    expect(a.sammlungen).toEqual([{ name: 'Märsche', anzahl: 2 }, { name: 'Jazz', anzahl: 3 }, { name: 'Orchester A', anzahl: 1 }]);
+    expect(a.ohne).toBe(2);
+    // Nur was zur Wahl steht, zählt (etwa im Tagebuch: Stücke mit Aufnahmen).
+    const nurZwei = stueckAuswahl([stuecke[1], stuecke[2]], reihenfolge, 'sammlungen', null);
+    expect(nurZwei.sammlungen).toEqual([{ name: 'märsche', anzahl: 1 }, { name: 'Jazz', anzahl: 1 }, { name: 'Orchester A', anzahl: 1 }]);
+    expect(nurZwei.ohne).toBe(0);
+    expect(nurZwei.gruppen.map((g) => g.art)).toEqual(['sammlung', 'sammlung', 'sammlung']);
+  });
+
+  it('A–Z: eine Liste, jedes Stück einmal, mit all seinen Sammlungen', () => {
+    const a = stueckAuswahl(stuecke, reihenfolge, 'abc', null);
+    expect(a.gruppen.map((g) => g.art)).toEqual(['alle']);
+    expect(ids(a.gruppen[0])).toEqual(['2', '10', 'alte', 'blue1', 'blue', 'flo', 'take']);
+    expect(a.gruppen[0].zeilen.find((z) => z.stueck.id === 'flo')!.auch).toEqual(['Märsche', 'Orchester A']);
+    expect(a.gruppen[0].zeilen.find((z) => z.stueck.id === '10')!.auch).toEqual([]);
+  });
+
+  it('ohne jede Sammlung gibt es nichts zu gliedern: eine Liste A–Z', () => {
+    const a = stueckAuswahl([st('b', 'B'), st('a', 'A')], [], 'sammlungen', null);
+    expect(a.gruppen.map((g) => g.art)).toEqual(['alle']);
+    expect(ids(a.gruppen[0])).toEqual(['a', 'b']);
+    expect(a.sammlungen).toEqual([]);
+    expect(stueckAuswahl([], reihenfolge, 'sammlungen', null).gruppen).toEqual([]);
+  });
+
+  it('eingegrenzt auf eine Sammlung (Groß/klein egal) oder auf „Ohne Sammlung“ — in beiden Ansichten', () => {
+    for (const ansicht of ['sammlungen', 'abc'] as const) {
+      const m = stueckAuswahl(stuecke, reihenfolge, ansicht, 'MÄRSCHE');
+      expect(m.eingrenzung).toBe('Märsche');
+      expect(m.gruppen.map((g) => [g.art, g.name])).toEqual([['sammlung', 'Märsche']]);
+      expect(ids(m.gruppen[0])).toEqual(['alte', 'flo']);
+      expect(m.gruppen[0].zeilen[1].auch).toEqual(['Orchester A']);
+      const o = stueckAuswahl(stuecke, reihenfolge, ansicht, OHNE_SAMMLUNG);
+      expect(o.eingrenzung).toBe(OHNE_SAMMLUNG);
+      expect(o.gruppen.map((g) => g.art)).toEqual(['ohne']);
+      expect(ids(o.gruppen[0])).toEqual(['2', '10']);
+    }
+  });
+
+  it('eine Eingrenzung, die es unter den wählbaren Stücken nicht gibt, wird „alle“', () => {
+    expect(stueckAuswahl(stuecke, reihenfolge, 'sammlungen', 'Weihnachten').eingrenzung).toBeNull();
+    expect(stueckAuswahl([stuecke[1]], reihenfolge, 'sammlungen', OHNE_SAMMLUNG).eingrenzung).toBeNull();
+    expect(stueckAuswahl([stuecke[1]], reihenfolge, 'sammlungen', 'Weihnachten').gruppen.map((g) => g.name)).toEqual(['märsche', 'Orchester A']);
+  });
+
+  describe('beim Öffnen', () => {
+    // Rückmeldung Marlon (2026-11-19): Die Auswahl beginnt immer bei der
+    // Sammlung, die gerade in der Bibliothek gewählt ist — keine eigene
+    // gemerkte Eingrenzung mehr. Gemerkt bleibt nur die Ansicht.
+    it('immer bei der Sammlung der Bibliothek, Ansicht nach Sammlung', () => {
+      expect(wahlStart(null, 'jazz', stuecke, null)).toEqual({ ansicht: 'sammlungen', eingrenzung: 'Jazz' });
+      expect(wahlStart(null, null, stuecke, null)).toEqual({ ansicht: 'sammlungen', eingrenzung: null });
+    });
+    it('gemerkt ist nur die Ansicht; eine früher gemerkte Eingrenzung zählt nicht mehr', () => {
+      expect(wahlStart({ ansicht: 'abc' }, 'Jazz', stuecke, null)).toEqual({ ansicht: 'abc', eingrenzung: 'Jazz' });
+      // Stände von vor dem 2026-11-19 trugen auch eine Sammlung — die Bibliothek geht vor.
+      expect(wahlStart({ ansicht: 'abc', sammlung: 'Märsche' }, 'Jazz', stuecke, null)).toEqual({ ansicht: 'abc', eingrenzung: 'Jazz' });
+      expect(wahlStart({ ansicht: 'sammlungen', sammlung: null }, 'Jazz', stuecke, null).eingrenzung).toBe('Jazz');
+      expect(wahlStart({ sammlung: OHNE_SAMMLUNG }, 'Jazz', stuecke, null).eingrenzung).toBe('Jazz');
+      expect(wahlStart({ ansicht: 'abc', sammlung: 'Märsche' }, null, stuecke, null).eingrenzung).toBeNull();
+    });
+    it('Unsinn im Speicher zählt als nichts gemerkt', () => {
+      expect(wahlStart('kaputt', 'Jazz', stuecke, null)).toEqual({ ansicht: 'sammlungen', eingrenzung: 'Jazz' });
+      expect(wahlStart({ ansicht: 'quer', sammlung: 7 }, 'Jazz', stuecke, null)).toEqual({ ansicht: 'sammlungen', eingrenzung: 'Jazz' });
+      // Eine leere Sammlung gibt es nicht — auch die Bibliothek zeigt dann alle.
+      expect(wahlStart(null, '', stuecke, null).eingrenzung).toBeNull();
+    });
+    it('was es unter den wählbaren Stücken nicht gibt, wird „alle“', () => {
+      expect(wahlStart(null, 'Weihnachten', stuecke, null).eingrenzung).toBeNull();
+      expect(wahlStart(null, 'Jazz', [stuecke[1]], null).eingrenzung).toBeNull();
+    });
+    it('das gewählte Stück bleibt sichtbar: Liegt es nicht in der Sammlung der Bibliothek, beginnt die Wahl bei „alle“', () => {
+      expect(wahlStart(null, 'Jazz', stuecke, 'take').eingrenzung).toBe('Jazz');
+      expect(wahlStart(null, 'Jazz', stuecke, 'flo').eingrenzung).toBeNull();
+      expect(wahlStart(null, 'märsche', stuecke, 'flo').eingrenzung).toBe('Märsche');
+      // Ein gewähltes Stück, das gar nicht zur Wahl steht (gelöscht), stört nicht.
+      expect(wahlStart(null, 'Jazz', stuecke, 'weg').eingrenzung).toBe('Jazz');
+    });
+  });
+
+  // Suchfeld im Auswahl-Blatt (Rückmeldung Marlon 2026-11-19: „wäre gut, ja“).
+  describe('Suchen', () => {
+    const mitKomponist = [
+      ...stuecke,
+      { ...st('pomp', 'Pomp and Circumstance', ['Märsche'], 'Klarinette 1'), komponist: 'Edward Elgar' },
+      st('etude', 'Étude in Es', ['Orchester A']),
+      st('strasse', 'Auf der Straße'),
+    ];
+    it('Suchform: Groß/klein, Akzente und ß egal', () => {
+      expect(suchForm('Märsche')).toBe('marsche');
+      expect(suchForm('ÉTUDE')).toBe('etude');
+      expect(suchForm('Straße')).toBe('strasse');
+      expect(suchWoerter('  Blue   BOSSA ')).toEqual(['blue', 'bossa']);
+      expect(suchWoerter('   ')).toEqual([]);
+    });
+    it('sucht in Titel, Stimme und Komponist; alle Wörter müssen vorkommen, in beliebigem Feld', () => {
+      const p = mitKomponist.find((s) => s.id === 'pomp')!;
+      expect(passtZurSuche(p, suchWoerter('pomp'))).toBe(true);
+      expect(passtZurSuche(p, suchWoerter('elgar'))).toBe(true);
+      expect(passtZurSuche(p, suchWoerter('klarinette 1 elgar'))).toBe(true);
+      expect(passtZurSuche(p, suchWoerter('pomp bossa'))).toBe(false);
+      expect(passtZurSuche(p, [])).toBe(true);
+      expect(passtZurSuche(st('x', 'Etude'), suchWoerter('étu'))).toBe(true);
+      expect(passtZurSuche(st('x', 'Auf der Strasse'), suchWoerter('straße'))).toBe(true);
+      // Kein Komponist (oder Unsinn darin) stört nicht.
+      expect(passtZurSuche({ ...st('x', 'X'), komponist: 7 }, suchWoerter('x'))).toBe(true);
+    });
+    it('Treffer in jeder Ansicht; Gruppen ohne Treffer fallen weg', () => {
+      const a = stueckAuswahl(mitKomponist, reihenfolge, 'sammlungen', null, 'blue');
+      expect(a.treffer).toBe(2);
+      expect(a.gruppen.map((g) => [g.art, g.name])).toEqual([['sammlung', 'Jazz']]);
+      expect(ids(a.gruppen[0])).toEqual(['blue1', 'blue']);
+      const z = stueckAuswahl(mitKomponist, reihenfolge, 'abc', null, 'er');
+      expect(z.gruppen.map((g) => g.art)).toEqual(['alle']);
+      expect(ids(z.gruppen[0])).toEqual(['alte', 'strasse', 'flo']);
+      expect(z.gruppen[0].zeilen[2].auch).toEqual(['Märsche', 'Orchester A']);
+    });
+    it('Chips bleiben dieselben (nichts rückt), ihre Zahl nennt die Treffer', () => {
+      const ohne = stueckAuswahl(mitKomponist, reihenfolge, 'sammlungen', null);
+      const a = stueckAuswahl(mitKomponist, reihenfolge, 'sammlungen', null, 'marsch');
+      expect(a.sammlungen.map((s) => s.name)).toEqual(ohne.sammlungen.map((s) => s.name));
+      expect(a.sammlungen).toEqual([{ name: 'Märsche', anzahl: 0 }, { name: 'Jazz', anzahl: 0 }, { name: 'Orchester A', anzahl: 0 }]);
+      expect(a.ohneDa).toBe(true);
+      expect(a.ohne).toBe(0);
+      expect(a.treffer).toBe(0);
+      expect(a.gruppen).toEqual([]);
+      const b = stueckAuswahl(mitKomponist, reihenfolge, 'sammlungen', null, 'stra');
+      expect(b.ohne).toBe(1);
+      expect(b.gruppen.map((g) => g.art)).toEqual(['ohne']);
+    });
+    it('eingegrenzt sucht nur in der Sammlung; ohne Treffer dort bleibt sie gewählt, `treffer` nennt die übrigen', () => {
+      const a = stueckAuswahl(mitKomponist, reihenfolge, 'sammlungen', 'Märsche', 'take');
+      expect(a.eingrenzung).toBe('Märsche');
+      expect(a.gruppen).toEqual([]);
+      expect(a.treffer).toBe(1);
+      const b = stueckAuswahl(mitKomponist, reihenfolge, 'abc', 'Märsche', 'elgar');
+      expect(b.gruppen.map(ids)).toEqual([['pomp']]);
+      const o = stueckAuswahl(mitKomponist, reihenfolge, 'sammlungen', OHNE_SAMMLUNG, 'etüden');
+      expect(o.eingrenzung).toBe(OHNE_SAMMLUNG);
+      expect(o.gruppen.map(ids)).toEqual([['2']]);
+    });
+    it('ohne Suche wie bisher: alles zählt, `treffer` = alle', () => {
+      const a = stueckAuswahl(stuecke, reihenfolge, 'sammlungen', null, '   ');
+      expect(a.treffer).toBe(stuecke.length);
+      expect(a.ohneDa).toBe(true);
+      expect(a).toEqual(stueckAuswahl(stuecke, reihenfolge, 'sammlungen', null));
+    });
+  });
+
 });

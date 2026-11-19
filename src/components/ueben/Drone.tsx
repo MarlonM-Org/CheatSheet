@@ -8,7 +8,8 @@ import {
 } from '@/domain/drone';
 import { tonName } from '@/domain/tonprofil';
 import type { Stimmung } from '@/domain/ueben';
-import { audioSitzung, gespeichert, speichern, useBeimVerlassen, verwerfen, wachHalten } from './klang';
+import { gespeichert, speichern, useBeimVerlassen, verwerfen, wachHalten, wiedergabeSitzung } from './klang';
+import { LautsprecherSchalter } from './lautsprecher';
 import { ebeneAusblenden, ebeneBauen, ebeneSofortStoppen, hallBauen, type Ebene } from './droneKlang';
 import { klingend } from './klavier';
 import { useStimmgeraetApi } from './StimmgeraetKontext';
@@ -117,7 +118,7 @@ export function useDrone() {
   const starten = useCallback((o: DroneOpt) => {
     if (an.current) { aendern(o); return; }
     w.current = werteVon(o, w.current ?? undefined);
-    audioSitzung('playback');
+    wiedergabeSitzung();
     window.clearTimeout(schluss.current);
     // Ein unterbrochener Kontext bliebe auf iOS stumm: verwerfen, solange die Geste gilt.
     if (audio.current && audio.current.ctx.state !== 'running') { verwerfen(audio.current.ctx); audio.current = null; }
@@ -227,6 +228,8 @@ export function DroneBlatt({ schliessen, grundton }: { schliessen: () => void; g
         <label className="flex items-center gap-3 text-sm font-semibold">Lautstärke
           <input className="regler flex-1" type="range" min={0} max={1} step={0.05} value={ein.laut} onChange={(e) => setEin({ laut: Number(e.target.value) })} />
         </label>
+        {/* B-20: Intonieren heißt oft Stimmgerät dazu — dann entscheidet dieser Schalter, wo die Drone klingt. */}
+        <LautsprecherSchalter hinweis="An: die Drone bleibt im Lautsprecher, auch wenn das Stimmgerät mithört. Aus: für Kopfhörer — rohes Mikrofon." />
 
         <div className="flex flex-col items-center gap-2">
           <button className={`start-knopf ${drone.laeuft ? 'laeuft' : ''}`} type="button" aria-label={drone.laeuft ? 'Drone stoppen' : 'Drone starten'}

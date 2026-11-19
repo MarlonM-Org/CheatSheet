@@ -7,6 +7,7 @@ import {
   STUFEN_HINWEIS, stufenAnzahl, UEBUNG_NAMEN, wiedergabeText, type Frage, type HoerEinstellung, type HoerUebungId, type Richtung,
 } from '@/domain/hoerquiz';
 import { gespeichert, speichern } from './klang';
+import { LautsprecherSchalter } from './lautsprecher';
 import { skillErgebnis, skillFuerHoerUebung } from './skillspeicher';
 import { vorspielen, type Vorspiel } from './klavier';
 import { useMetronom } from './MetronomKontext';
@@ -222,6 +223,7 @@ export function HoerUebungBlatt({ uebung, schliessen, beiErgebnis }: {
             </div>
           </div>
         )}
+        <LautsprecherSchalter />
       </div>
     </div>,
     seite.ziel,

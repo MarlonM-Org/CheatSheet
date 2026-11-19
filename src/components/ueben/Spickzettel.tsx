@@ -7,6 +7,7 @@ import {
   leiterVorschlaege, SCHNELLWAHL, STIMMUNG_NAMEN, tonAusKlasse, tonDeutsch, tonSymbol, type Akkord,
 } from '@/domain/akkorde';
 import { AbcZeile } from './AbcZeile';
+import { LautsprecherSchalter } from './lautsprecher';
 import { useDialogFokus, useEscape } from './tasten';
 import { useVorspieler } from './vorspieler';
 import { useSeite } from './seite';
@@ -151,6 +152,7 @@ export function SpickzettelBlatt({ schliessen, akkord: anfang, eingabe: anfangsE
           <button type="button" className="knopf knopf-leise" disabled={!leiter} onClick={() => leiter && spielen(leiterKlaenge(leiter))}>▶ Leiter</button>
           <button type="button" className="knopf breit" disabled={!notiert || !leiter} onClick={() => notiert && leiter && spielen(akkordUndLeiterKlaenge(notiert, leiter))}>▶ Akkord, dann Leiter</button>
         </div>
+        <LautsprecherSchalter />
 
         {vorschlaege.length > 0 && (
           <div className="space-y-2">

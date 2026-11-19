@@ -6,10 +6,11 @@ import { stand } from '@/domain/einspielen';
 import { ausDateiname, nachTitel, zeitpunkt, zumOffenen, zuordnen } from '@/domain/notenpult';
 import {
   dateiSchluessel, gleicheSammlung, imFilter, mitSammlung, ohneSammlung, ordnerPlanen, reihenfolgeUmbenennen, reihenfolgeVerschieben,
-  sammlungenOrdnen, sammlungenUebersicht, sammlungenVon, sammlungUmbenennen, sicherungFaellig,
+  REIHENFOLGE, sammlungenOrdnen, sammlungenUebersicht, sammlungenVon, sammlungUmbenennen, sicherungFaellig,
 } from '@/domain/sammlungen';
 import { notationText } from '@/domain/notation';
 import { quellenText, stellenJeStueck } from '@/domain/sicht';
+import type { MixBereich } from '@/domain/stellen';
 import { imTagFilter, mitTag, tagsVon, tagUebersicht, type Tag } from '@/domain/tags';
 import { gespeichert, speichern } from './klang';
 import { zuletztAus } from '@/domain/speicher';
@@ -18,21 +19,25 @@ import {
   stueckeLoeschen, tagsLaden, tagsSetzen, vorgaengerDa, zuletztListe, type Stelle, type Stueck,
   SICHERUNG_ERINNERN,
 } from './lokal';
+import { AufnahmenZeile, AufnahmeTagebuchBlatt } from './AufnahmeTagebuch';
 import { MehrKnopf, SammlungKontext, StueckKontext, useHalten } from './Kontext';
 import { HinzufuegenMenue, SammlungenLeiste, SammlungWahl } from './Sammlungen';
 import { SammlungenAnsicht } from './SammlungenAnsicht';
 import { EinspielenDialog, type EinspielQuelle } from './Einspielen';
 import { bilderWaehlen, ScanDialog, type ScanArt } from './Scan';
 import { useSicherungLaden } from './Sicherung';
+import { MixZeile } from './StellenMix';
 import { TagEtikett, TagFilter, TagWahl } from './Tags';
 import { fehlerGrund } from './speicherfehler';
 import { ohneCancelAbbrechen } from './dateiwahl';
 import { useEscape } from './tasten';
 
-// Bibliothek (B-02): Overlay über den Noten — Sammlungen (F-13), Tags (F-14),
-// Liste, Hinzufügen (Dateien oder Ordner); Einsortieren, Aktualisieren und
-// Löschen im Auswahl-Modus. Tipp auf ein Stück öffnet es vollflächig.
-export function Bibliothek({ offen, oeffnen, schliessen, einstellungen, offenEntfernt, aktualisiert, escapeAktiv, stand }: {
+// Bibliothek (B-02): Overlay über den Noten — Sammlungen (F-13), Stellen-Mix
+// der gezeigten Noten (F-11, seit B-19 wieder hier), Aufnahmen (I-20, seit
+// 2026-11-19 hier), Tags (F-14), Liste, Hinzufügen (Dateien oder Ordner);
+// Einsortieren, Aktualisieren und Löschen im Auswahl-Modus. Tipp auf ein
+// Stück öffnet es vollflächig.
+export function Bibliothek({ offen, oeffnen, schliessen, einstellungen, offenEntfernt, aktualisiert, escapeAktiv, stand, mixStarten, mixAktiv, aufnahmenAnfang = false }: {
   offen: string | null;
   // Öffnen — auf Wunsch gleich mit dem Stück-Blatt (Lesezeichen, Stellen).
   oeffnen: (id: string, blatt?: boolean | 'teilen') => void;
@@ -43,10 +48,15 @@ export function Bibliothek({ offen, oeffnen, schliessen, einstellungen, offenEnt
   escapeAktiv: boolean;
   // Ändert sich, wenn anderswo (Einstellungen) eine Sicherung geladen wurde.
   stand: number;
+  mixStarten: (neu: boolean, bereich: MixBereich) => void;
+  // Der gerade laufende Mix (null: keiner) — seine Runde heißt „Weiter bei …“.
+  mixAktiv: MixBereich | null;
+  // Gleich mit den Aufnahmen öffnen (Kachel „Aufnahme-Tagebuch“ in Lernen).
+  aufnahmenAnfang?: boolean;
 }) {
   const [anzahl, setAnzahl] = useState<number | null>(null);
   const [gewaehlt, setGewaehlt] = useState<number | null>(null);
-  // Ein offenes Kontext-Blatt (F-08) schluckt Escape selbst.
+  // Ein offenes Kontext-Blatt (F-08) oder die Mix-Optionen schlucken Escape selbst.
   const [kontextOffen, setKontextOffen] = useState(false);
   useEscape(schliessen, escapeAktiv && !kontextOffen);
 
@@ -68,15 +78,13 @@ export function Bibliothek({ offen, oeffnen, schliessen, einstellungen, offenEnt
         </button>
       </div>
       <div className="bib-inhalt">
-        <NotenListe offen={offen} oeffnen={oeffnen} anzahlMelden={setAnzahl} auswahlMelden={setGewaehlt} offenEntfernt={offenEntfernt} aktualisiert={aktualisiert} stand={stand} einstellungen={einstellungen} kontextMelden={setKontextOffen} />
+        <NotenListe offen={offen} oeffnen={oeffnen} anzahlMelden={setAnzahl} auswahlMelden={setGewaehlt} offenEntfernt={offenEntfernt} aktualisiert={aktualisiert} stand={stand} einstellungen={einstellungen} kontextMelden={setKontextOffen}
+          mixStarten={mixStarten} mixAktiv={mixAktiv} aufnahmenAnfang={aufnahmenAnfang} />
       </div>
       <div className="bib-fuss">Alles bleibt auf diesem Gerät. Kein Konto, kein Server.</div>
     </section>
   );
 }
-
-// Auch die Lernen-Seite ordnet die Sammlungen im „Woraus“ des Mix so (B-18).
-export const REIHENFOLGE = 'ueben:sammlungen-reihenfolge';
 
 // ── Dateien wählen ──
 type HandleFenster = Window & {
@@ -137,12 +145,14 @@ async function ausVerweis(n: Stueck): Promise<File | null> {
   } catch { return null; }
 }
 
-function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt, aktualisiert, stand: bibStand, einstellungen, kontextMelden }: {
+function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt, aktualisiert, stand: bibStand, einstellungen, kontextMelden, mixStarten, mixAktiv, aufnahmenAnfang }: {
   offen: string | null; oeffnen: (id: string, blatt?: boolean | 'teilen') => void; anzahlMelden: (n: number) => void; kontextMelden: (offen: boolean) => void;
   // Im Auswahl-Modus: wie viele gewählt sind (für den Kopf), sonst null.
   auswahlMelden: (n: number | null) => void;
   offenEntfernt: () => void; aktualisiert: (ids: string[]) => void; stand: number;
   einstellungen: () => void;
+  mixStarten: (neu: boolean, bereich: MixBereich) => void; mixAktiv: MixBereich | null;
+  aufnahmenAnfang: boolean;
 }) {
   const [noten, setNoten] = useState<Stueck[] | null>(null);
   const [stellen, setStellen] = useState<Stelle[]>([]);
@@ -177,7 +187,13 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
   const [fortschritt, setFortschritt] = useState('');
   // Kontext-Blatt (F-08): für ein Stück oder eine Sammlung.
   const [kontext, setKontext] = useState<{ art: 'stueck'; id: string } | { art: 'sammlung'; name: string } | null>(null);
-  useEffect(() => kontextMelden(kontext !== null || ansicht), [kontext, ansicht, kontextMelden]);
+  // Optionen des Stellen-Mix offen: Escape schließt erst sie, nicht die Bibliothek.
+  const [mixBlatt, setMixBlatt] = useState(false);
+  // Aufnahme-Tagebuch (I-20) über der Bibliothek: aus der Zeile „Aufnahmen“,
+  // aus dem Kontext-Blatt eines Stücks (gleich gefiltert) oder beim Öffnen
+  // aus Lernen. Es kommt erst, wenn die Liste da ist — mit dem Bereich, den sie zeigt.
+  const [tagebuchOffen, setTagebuchOffen] = useState<{ filter: string | null } | null>(() => (aufnahmenAnfang ? { filter: null } : null));
+  useEffect(() => kontextMelden(kontext !== null || ansicht || mixBlatt || tagebuchOffen !== null), [kontext, ansicht, mixBlatt, tagebuchOffen, kontextMelden]);
   // Kamera-Scan / Foto-Import (F-07): offener Dialog mit den zuerst gewählten Bildern.
   const [scan, setScan] = useState<{ art: ScanArt; start: File[] } | null>(null);
   // Selbst schreiben, Einsingen oder Audio laden (G-01/G-02/G-03): offener
@@ -437,6 +453,22 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
 
       {!!noten?.length && <SammlungenLeiste uebersicht={uebersicht} aktiv={aktiv} waehlen={sammlungWaehlen} halten={(name) => setKontext({ art: 'sammlung', name })} alle={() => setAnsicht(true)} />}
 
+      {/* Stellen-Mix (B-19): mischt, was die Liste zeigt. Direkt unter den
+          Sammlungen, über den Tags — deren Zeile kommt und geht je Sammlung
+          (F-20); so springt der Mix beim Wechsel nicht, nur sein Text ändert
+          sich. Er kommt im selben Lesen wie Sammlungen und Liste, vorher ist
+          die Bibliothek leer: Nichts rückt nach. */}
+      {!!noten?.length && (
+        <MixZeile sammlung={aktiv} tag={zielTag} noten={noten} stellen={stellen} starten={mixStarten} aktiv={mixAktiv} offenMelden={setMixBlatt} />
+      )}
+
+      {/* Aufnahmen (I-20, Rückmeldung Marlon 2026-11-19): gleich unter dem Mix,
+          aus demselben Grund — fest an ihrem Platz, gleich hoch; beim Wechsel
+          der Sammlung oder des Tags ändert sich nur der Text. */}
+      {!!noten?.length && (
+        <AufnahmenZeile noten={noten} bereich={{ sammlung: aktiv, tag: zielTag }} offen={tagebuchOffen !== null} oeffnen={() => setTagebuchOffen({ filter: null })} />
+      )}
+
       {!!noten?.length && tagUeber.length > 0 && <TagFilter uebersicht={tagUeber} aktiv={aktivTag} waehlen={tagWaehlen} />}
 
 
@@ -584,6 +616,7 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
         return (
           <StueckKontext stueck={n} stuecke={noten} anzahlStellen={stellenJe[n.id] ?? 0} schliessen={() => setKontext(null)}
             oeffnen={(blatt) => { setKontext(null); setAnsicht(false); oeffnen(n.id, blatt); }}
+            aufnahmen={() => { setKontext(null); setTagebuchOffen({ filter: n.id }); }}
             teilen={() => { setKontext(null); oeffnen(n.id, 'teilen'); }}
             dateiNeu={() => { setKontext(null); void aktualisieren([n]); }}
             geaendert={() => laden()}
@@ -591,7 +624,7 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
         );
       })()}
       {ansicht && noten && (
-        <SammlungenAnsicht uebersicht={uebersicht} noten={noten} stellenJe={stellenJe} aktiv={aktiv} escapeAktiv={kontext === null}
+        <SammlungenAnsicht uebersicht={uebersicht} noten={noten} stellenJe={stellenJe} aktiv={aktiv} escapeAktiv={kontext === null && tagebuchOffen === null}
           waehlen={(name) => { sammlungWaehlen(name); setAnsicht(false); }}
           halten={(name) => setKontext({ art: 'sammlung', name })}
           stueck={(id) => setKontext({ art: 'stueck', id })}
@@ -616,6 +649,10 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
             void sammlungAendern(kontext.name, (l) => ohneSammlung(l, kontext.name)).then(() => { if (aktiv && gleicheSammlung(aktiv, kontext.name)) sammlungWaehlen(null); });
           }} />
       )}
+      {tagebuchOffen && noten && (
+        <AufnahmeTagebuchBlatt bereich={{ sammlung: aktiv, tag: zielTag }} offen={offen} filterStart={tagebuchOffen.filter}
+          geaendert={laden} schliessen={() => setTagebuchOffen(null)} />
+      )}
     </div>
   );
 }
@@ -638,6 +675,7 @@ function StueckZeile({ n, tags, zuletzt, anzahlStellen, aktiv, quelle, auswaehle
         <span className="bib-unterzeile">
           {[n.stimme, quelle, notationText(n.notation), z ? `zuletzt ${zeitpunkt(z)}` : 'noch nicht geöffnet',
             anzahlStellen ? `${anzahlStellen} ${anzahlStellen === 1 ? 'Stelle' : 'Stellen'}` : '',
+            n.aufnahmen?.length ? `${n.aufnahmen.length} ${n.aufnahmen.length === 1 ? 'Aufnahme' : 'Aufnahmen'}` : '',
             !aktiv ? sammlungenVon(n).join(', ') : '',
             n.aktualisiert ? `aktualisiert ${datum(n.aktualisiert)}` : ''].filter(Boolean).join(' · ')}
         </span>
