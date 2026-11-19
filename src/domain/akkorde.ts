@@ -424,6 +424,21 @@ export const SCHNELLWAHL: readonly { endung: string; name: string }[] = [
   { endung: '7alt', name: '7alt' }, { endung: 'sus4', name: 'sus4' }, { endung: '7sus4', name: '7sus4' }, { endung: '+', name: '+' },
 ];
 
+/** Mehr Arten für die Akkord-Auswahl beim Eintragen (Jam-Karte, Komponieren): die Schnellwahl und Häufiges dazu. */
+export const AKKORD_ARTEN: readonly { endung: string; name: string }[] = [
+  ...SCHNELLWAHL.filter((s) => !['7#11', 'sus4', '+'].includes(s.endung)),
+  { endung: 'm9', name: 'm9' }, { endung: 'maj9', name: 'maj9' }, { endung: '13', name: '13' }, { endung: '7#9', name: '7♯9' },
+  { endung: '7#11', name: '7♯11' }, { endung: '6/9', name: '6/9' }, { endung: 'sus4', name: 'sus4' }, { endung: 'dim', name: '°' },
+  { endung: '+', name: '+' },
+];
+
+/** Ein Akkordsymbol in Grundton, Endung und Bass zerlegen (ASCII wie `akkordText`): "Bbm7" → Bb · m7; null, wenn unlesbar. */
+export function akkordTeile(text: string): { grund: string; endung: string; bass: string } | null {
+  const a = akkordLesen(text);
+  return a ? { grund: tonSymbol(a.grund, true), endung: endungText(a.struktur, true), bass: a.bass ? tonSymbol(a.bass, true) : '' } : null;
+}
+export const akkordAusTeilen = (t: { grund: string; endung: string; bass?: string }) => `${t.grund}${t.endung}${t.bass ? `/${t.bass}` : ''}`;
+
 // ════════════════════════════════════════════════════════════════════
 // Leitern (Tonleitern, Modi)
 // ════════════════════════════════════════════════════════════════════

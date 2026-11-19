@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  A_KLARINETTE, akkordAbc, akkordKlaenge, akkordLesen, akkordMidi, akkordName, akkordPruefen, akkordText, akkordTransponieren, akkordUndLeiterKlaenge,
+  A_KLARINETTE, AKKORD_ARTEN, akkordAbc, akkordAusTeilen, akkordTeile, akkordKlaenge, akkordLesen, akkordMidi, akkordName, akkordPruefen, akkordText, akkordTransponieren, akkordUndLeiterKlaenge,
   akkordVersetzen, enharmonisch, folgeBequem, folgeLesen, folgeText, folgeTextTransponieren, funktion, guideTones, klarinettenSchwierigkeit, LEITERN,
   leiterAbc, leiterBauen, leiterKlaenge, leiterMidi, leiterVorschlaege, SCHNELLWAHL, STIMMUNG_INTERVALL, STIMMUNGEN, tonartAusKlasse, tonartBequem,
   tonartEnharmonisch, tonartLesen, tonartName, tonartSymbol, tonartTransponieren, tonAusKlasse, tonDeutsch, tonDeutschMitOktave, tonKlasse, tonLesen,
@@ -458,5 +458,24 @@ describe('Klänge und Notenzeile', () => {
     expect(leiterAbc(leiterBauen('halbtonGanzton', ton('G')))).toContain('G_A^AB^cdefg');
     expect(leiterAbc(leiterBauen('ganztonHalbton', ton('C')))).toContain('CD_EF_G_A=AB');
     expect(akkordAbc(a('F#'))).toContain('[^F^A^c]8');
+  });
+});
+
+describe('Akkord-Auswahl: Teile', () => {
+  it('zerlegt und setzt zusammen', () => {
+    expect(akkordTeile('Bbm7')).toEqual({ grund: 'Bb', endung: 'm7', bass: '' });
+    expect(akkordTeile('F#dim7')).toEqual({ grund: 'F#', endung: 'dim7', bass: '' });
+    expect(akkordTeile('C/E')).toEqual({ grund: 'C', endung: '', bass: 'E' });
+    expect(akkordTeile('Quatsch')).toBeNull();
+    expect(akkordAusTeilen({ grund: 'Eb', endung: 'maj7' })).toBe('Ebmaj7');
+    expect(akkordAusTeilen({ grund: 'C', endung: '', bass: 'E' })).toBe('C/E');
+  });
+  it('jede Art liest sich und ihre Endung bleibt dieselbe', () => {
+    for (const s of AKKORD_ARTEN) {
+      const t = akkordTeile(`Eb${s.endung}`);
+      expect(t, s.endung).not.toBeNull();
+      expect(t!.endung, s.endung).toBe(s.endung);
+    }
+    expect(new Set(AKKORD_ARTEN.map((s) => s.endung)).size).toBe(AKKORD_ARTEN.length);
   });
 });

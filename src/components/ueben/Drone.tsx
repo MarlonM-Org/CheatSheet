@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  DRONE_STANDARD, droneLautPruefen, droneStimmen, FARBE_HINWEIS, FARBE_NAME, FARBEN, klasseName, stimmenPegel, tonklasse,
-  type DroneEinstellung, type DroneFarbe,
+  DRONE_STANDARD, droneLautPruefen, droneStimmen, FARBE_HINWEIS, FARBE_NAME, FARBEN, KLAENGE, KLANG_HINWEIS, KLANG_NAME, klangPruefen, klasseName,
+  stimmenPegel, tonklasse, type DroneEinstellung, type DroneFarbe, type DroneKlang,
 } from '@/domain/drone';
 import { tonName } from '@/domain/tonprofil';
 import type { Stimmung } from '@/domain/ueben';
 import { gespeichert, speichern, useBeimVerlassen, verwerfen, wachHalten, wiedergabeSitzung } from './klang';
 import { LautsprecherSchalter } from './lautsprecher';
+import { ebeneAusblenden, ebeneBauen, ebeneSofortStoppen, hallBauen, type Ebene } from './droneKlang';
 import { klingend } from './klavier';
 import { useStimmgeraetApi } from './StimmgeraetKontext';
 import { useDialogFokus, useEscape } from './tasten';
@@ -17,7 +18,7 @@ import { useSeite } from './seite';
 
 // Drone (I-18): ein ruhiger Liegeklang (Grundton, Quinte, Akkord- oder
 // Modusfarbe) zum Improvisieren und Intonieren. Erzeugt, keine Datei.
-// Töne und Voicing: @/domain/drone. Hier nur die Klangerzeugung.
+// Töne und Voicing: @/domain/drone. Klangprofile: ./droneKlang.
 //
 // ── useDrone() — wiederverwendbar (z. B. Spielhilfe in den Noten, I-15) ──
 //   const { laeuft, starten, stoppen, aendern } = useDrone();
@@ -28,6 +29,8 @@ import { useSeite } from './seite';
 //   grundton    notierte MIDI-Zahl (beliebige Oktave) oder Tonklasse 0–11 (0 = C);
 //               die Drone legt ihn selbst in die Lage C3–H3 (notiert)
 //   farbe       'grundton' | 'quinte' (Standard) | 'dur' | 'moll' | 'dorisch' | 'mixolydisch'
+//   klang       'weich' | 'orgel' | 'streicher' | 'tanpura'; fehlt er, gilt die
+//               zuletzt im Drone-Blatt gewählte (auf dem Gerät, ueben:drone-klang)
 //   lautstaerke 0–1 (Standard 0,5)
 //   stimmung    Stimmung des Instruments ('B' = B-Klarinette …) und
 //   kammerton   Hz für A: gelten für notiert → klingend. Fehlt eines,
@@ -37,77 +40,39 @@ import { useSeite } from './seite';
 // App (Hintergrund, Sperre), hält sie an (iOS unterbricht den Ton ohnehin);
 // `laeuft` wird dann false. starten() während sie läuft wirkt wie aendern().
 // aendern() ohne laufende Drone merkt sich nur die Werte.
-export interface DroneOpt { grundton: number; farbe?: DroneFarbe; lautstaerke?: number; stimmung?: Stimmung; kammerton?: number }
+export interface DroneOpt { grundton: number; farbe?: DroneFarbe; klang?: DroneKlang; lautstaerke?: number; stimmung?: Stimmung; kammerton?: number }
 type Werte = Required<DroneOpt>;
 
 const EINSCHWINGEN = 0.45;  // Zeitkonstante (s) beim Einsetzen — etwa 1,3 s bis voll
 const UEBERGANG = 0.3;      // beim Wechsel von Ton oder Farbe
 const AUSKLINGEN = 0.3;     // beim Stoppen
-const NACHLAUF = 2.6;       // so lange bleibt der Kontext nach dem Stoppen, bis die Töne leise genug sind
+const NACHLAUF = 4;         // so lange bleibt der Kontext nach dem Stoppen, bis Töne und Hall leise genug sind
+// Klangprofil: bleibt auf dem Gerät, reist nicht mit der Sicherung (@/domain/einstellungen).
+const KLANG_SCHLUESSEL = 'ueben:drone-klang';
+const klangGespeichert = () => klangPruefen(gespeichert<unknown>(KLANG_SCHLUESSEL, null));
 
 const werteVon = (o: DroneOpt, alt?: Werte): Werte => ({
   grundton: o.grundton,
   farbe: o.farbe ?? alt?.farbe ?? 'quinte',
+  klang: o.klang ?? alt?.klang ?? klangGespeichert(),
   lautstaerke: droneLautPruefen(o.lautstaerke ?? alt?.lautstaerke),
   stimmung: o.stimmung ?? alt?.stimmung ?? gespeichert<Stimmung>('stimm:st', 'B'),
   kammerton: o.kammerton ?? alt?.kammerton ?? gespeichert('stimm:a', 442),
 });
 const pegelFuer = (laut: number) => 0.45 * laut * laut;
 
-interface Ebene { gain: GainNode; oszis: OscillatorNode[] }
-
-// Eine Schicht: je Stimme zwei leicht verstimmte Sinus und ein leiser
-// Dreieck, durch einen Tiefpass. Die Schicht blendet selbst ein und aus.
-function ebeneBauen(ctx: AudioContext, ziel: AudioNode, w: Werte, zeitkonstante: number): Ebene {
-  const jetzt = ctx.currentTime;
+// Eine Schicht im laufenden Klang: Töne rein gestimmt (@/domain/drone), Pegel je Stimme.
+function schicht(ctx: AudioContext, master: GainNode, hall: AudioNode, w: Werte, zeitkonstante: number): Ebene {
   const stimmen = droneStimmen(w.grundton, w.farbe);
-  const freq = stimmen.map((s) => klingend(s.midi, w.stimmung, w.kammerton));
-  const pegel = stimmenPegel(stimmen, freq);
-  const gain = ctx.createGain();
-  gain.gain.setValueAtTime(0, jetzt);
-  gain.gain.setTargetAtTime(1, jetzt, zeitkonstante);
-  const filter = ctx.createBiquadFilter();
-  filter.type = 'lowpass';
-  filter.frequency.value = 1100;
-  filter.Q.value = 0.3;
-  filter.connect(gain);
-  gain.connect(ziel);
-  const oszis: OscillatorNode[] = [];
-  freq.forEach((f, i) => {
-    const stimme = ctx.createGain();
-    stimme.gain.value = pegel[i];
-    stimme.connect(filter);
-    for (const [typ, verstimmt, anteil] of [['sine', -6, 0.42], ['sine', 6, 0.42], ['triangle', 0, 0.2]] as const) {
-      const o = ctx.createOscillator();
-      o.type = typ;
-      o.frequency.value = f;
-      o.detune.value = verstimmt;
-      const g = ctx.createGain();
-      g.gain.value = anteil;
-      o.connect(g); g.connect(stimme);
-      o.start(jetzt);
-      oszis.push(o);
-    }
-  });
-  return { gain, oszis };
-}
-
-function ebeneAusblenden(ctx: AudioContext, e: Ebene, zeitkonstante: number) {
-  const jetzt = ctx.currentTime;
-  try {
-    e.gain.gain.cancelScheduledValues(jetzt);
-    e.gain.gain.setValueAtTime(e.gain.gain.value, jetzt);
-    e.gain.gain.setTargetAtTime(0, jetzt, zeitkonstante);
-  } catch { /* Kontext schon zu */ }
-  for (const o of e.oszis) { try { o.stop(jetzt + zeitkonstante * 9); } catch { /* schon gestoppt */ } }
-  e.oszis[0]?.addEventListener('ended', () => { try { e.gain.disconnect(); } catch { /* egal */ } });
+  const freq = stimmen.map((s) => klingend(s.midi, w.stimmung, w.kammerton) * Math.pow(2, s.cent / 1200));
+  return ebeneBauen(ctx, master, hall, w.klang, stimmen, freq, stimmenPegel(stimmen, freq), zeitkonstante);
 }
 
 export function useDrone() {
   const [laeuft, setLaeuft] = useState(false);
   const an = useRef(false);
   const w = useRef<Werte | null>(null);
-  const audio = useRef<{ ctx: AudioContext; master: GainNode; ebene: Ebene | null; alte: Ebene[] } | null>(null);
+  const audio = useRef<{ ctx: AudioContext; master: GainNode; hall: AudioNode; ebene: Ebene | null; alte: Ebene[] } | null>(null);
   const schluss = useRef(0);
   const freigeben = useRef<(() => void) | null>(null);
 
@@ -124,7 +89,7 @@ export function useDrone() {
     const lief = an.current;
     an.current = false;
     if (a) {
-      for (const e of [a.ebene, ...a.alte]) if (e) { if (hart) { for (const o of e.oszis) { try { o.stop(); } catch { /* egal */ } } } else ebeneAusblenden(a.ctx, e, AUSKLINGEN); }
+      for (const e of [a.ebene, ...a.alte]) if (e) { if (hart) ebeneSofortStoppen(e); else ebeneAusblenden(a.ctx, e, AUSKLINGEN); }
       a.ebene = null; a.alte = [];
     }
     kontextZu(hart);
@@ -141,11 +106,12 @@ export function useDrone() {
     const a = audio.current;
     if (!an.current || !a) return;
     a.master.gain.setTargetAtTime(pegelFuer(neu.lautstaerke), a.ctx.currentTime, 0.06);
-    const klangGleich = tonklasse(neu.grundton) === tonklasse(alt.grundton) && neu.farbe === alt.farbe && neu.stimmung === alt.stimmung && neu.kammerton === alt.kammerton;
+    const klangGleich = tonklasse(neu.grundton) === tonklasse(alt.grundton) && neu.farbe === alt.farbe && neu.klang === alt.klang
+      && neu.stimmung === alt.stimmung && neu.kammerton === alt.kammerton;
     if (klangGleich) return;
     // Übergang: neue Schicht blendet ein, die alte aus — kein Klick, kein Loch.
     if (a.ebene) { ebeneAusblenden(a.ctx, a.ebene, UEBERGANG); a.alte.push(a.ebene); }
-    a.ebene = ebeneBauen(a.ctx, a.master, neu, UEBERGANG);
+    a.ebene = schicht(a.ctx, a.master, a.hall, neu, UEBERGANG);
     a.alte = a.alte.slice(-3);
   }, []);
 
@@ -161,12 +127,12 @@ export function useDrone() {
       const master = ctx.createGain();
       master.gain.value = pegelFuer(w.current.lautstaerke);
       master.connect(ctx.destination);
-      audio.current = { ctx, master, ebene: null, alte: [] };
+      audio.current = { ctx, master, hall: hallBauen(ctx, master), ebene: null, alte: [] };
     }
     const a = audio.current;
     a.ctx.resume().catch(() => { /* egal */ }); // nicht abwarten: kehrt auf iOS teils nie zurück
     a.master.gain.setTargetAtTime(pegelFuer(w.current.lautstaerke), a.ctx.currentTime, 0.06);
-    a.ebene = ebeneBauen(a.ctx, a.master, w.current, EINSCHWINGEN);
+    a.ebene = schicht(a.ctx, a.master, a.hall, w.current, EINSCHWINGEN);
     an.current = true;
     setLaeuft(true);
     void wachHalten().then((f) => { if (an.current) freigeben.current = f; else f?.(); });
@@ -205,15 +171,17 @@ export function DroneBlatt({ schliessen, grundton }: { schliessen: () => void; g
     return grundton === undefined ? e : { ...e, grundton: tonklasse(grundton) };
   });
   const setEin = (t: Partial<DroneEinstellung>) => { const n = { ...ein, ...t }; setEinRoh(n); speichern(SCHLUESSEL, n); };
+  const [klang, setKlangRoh] = useState<DroneKlang>(klangGespeichert);
+  const setKlang = (k: DroneKlang) => { setKlangRoh(k); speichern(KLANG_SCHLUESSEL, k); };
   useEscape(schliessen);
 
   const { aendern } = drone;
   useEffect(() => {
-    aendern({ grundton: ein.grundton, farbe: ein.farbe, lautstaerke: ein.laut, stimmung: stimm.stimmung, kammerton: stimm.kammerton });
-  }, [aendern, ein.grundton, ein.farbe, ein.laut, stimm.stimmung, stimm.kammerton]);
+    aendern({ grundton: ein.grundton, farbe: ein.farbe, klang, lautstaerke: ein.laut, stimmung: stimm.stimmung, kammerton: stimm.kammerton });
+  }, [aendern, ein.grundton, ein.farbe, klang, ein.laut, stimm.stimmung, stimm.kammerton]);
 
   const toene = droneStimmen(ein.grundton, ein.farbe).map((s) => tonName(s.midi));
-  const optionen = () => ({ grundton: ein.grundton, farbe: ein.farbe, lautstaerke: ein.laut, stimmung: stimm.stimmung, kammerton: stimm.kammerton });
+  const optionen = () => ({ grundton: ein.grundton, farbe: ein.farbe, klang, lautstaerke: ein.laut, stimmung: stimm.stimmung, kammerton: stimm.kammerton });
 
   return createPortal(
     <div className={`blatt-hintergrund${seite.klasse}`} onClick={schliessen}>
@@ -224,6 +192,16 @@ export function DroneBlatt({ schliessen, grundton }: { schliessen: () => void; g
             <p className="gedaempft text-sm">Ein ruhiger Klangteppich zum Improvisieren und Intonieren. Er klingt, solange dieses Blatt offen ist.</p>
           </div>
           <button type="button" className="knopf knopf-leise knopf-klein" onClick={schliessen}>Fertig</button>
+        </div>
+
+        <div className="space-y-2">
+          <span className="kennzahl-label">Klang</span>
+          <div className="dr-klaenge" role="group" aria-label="Klang">
+            {KLAENGE.map((k) => (
+              <button key={k} type="button" aria-pressed={k === klang} onClick={() => setKlang(k)}>{KLANG_NAME[k]}</button>
+            ))}
+          </div>
+          <p className="gedaempft dr-klang-hinweis text-sm">{KLANG_HINWEIS[klang]}</p>
         </div>
 
         <div className="space-y-2">
@@ -259,7 +237,7 @@ export function DroneBlatt({ schliessen, grundton }: { schliessen: () => void; g
             {drone.laeuft ? <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" /></svg>
               : <svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" fill="currentColor" /></svg>}
           </button>
-          <p className="gedaempft dr-status text-sm" aria-live="polite">{drone.laeuft ? `Läuft · ${klasseName(ein.grundton)} ${FARBE_NAME[ein.farbe]}` : 'Gestoppt'}</p>
+          <p className="gedaempft dr-status text-sm" aria-live="polite">{drone.laeuft ? `Läuft · ${klasseName(ein.grundton)} ${FARBE_NAME[ein.farbe]} · ${KLANG_NAME[klang]}` : 'Gestoppt'}</p>
         </div>
       </div>
     </div>,

@@ -7,7 +7,7 @@
 // (eigene, Wiederholungsstand). Was zum Gerät gehört, bleibt:
 // Hell/Dunkel und Farbwelten, Lage der Fenster, zuletzt Geöffnetes, Filter,
 // das Tempo (folgt den Stellen), der Verlauf des Ohr-Trainers (ueben:ohr-verlauf),
-// der Tagesstand von „Heute“ (ueben:heute).
+// der Tagesstand von „Heute“ (ueben:heute), der Klang der Drone (ueben:drone-klang).
 // Tags und Tonprofile haben eigene Felder.
 // Ebenfalls am Gerät: die Ansicht der Stückauswahl (ueben:stueckwahl, F-23, { ansicht }
 // — die Sammlung kommt seit 2026-11-19 immer von der Bibliothek, ueben:sammlung).

@@ -195,6 +195,41 @@ export function teileAusText(eingabe: string): JamTeil[] {
 }
 export const teileAlsText = (teile: readonly JamTeil[]) => teile.map((x) => `${x.name}: ${x.akkorde}`).join('\n');
 
+// ── Entwurf: Teile mit Takten zum Antippen (Akkord-Auswahl im Formular) ──
+// Der Text des Formulars bleibt die Quelle; der Entwurf zerlegt ihn in Teile
+// und Takte (Symbole, wie getippt — auch Unlesbares bleibt stehen, damit
+// nichts verloren geht) und schreibt ihn zurück.
+
+export interface TeilEntwurf { name: string; takte: string[][] }
+
+/** Akkord-Text eines Teils in Takte: Taktstriche trennen (`%` wiederholt den Takt davor), ohne Striche ist jeder Akkord ein Takt. */
+export function takteAusText(akkorde: string): string[][] {
+  const t = akkorde.replace(/\|\||\|:|:\||[[\]]/g, '|');
+  const roh = t.includes('|')
+    ? t.split(/[|\n]/).map((x) => x.trim()).filter(Boolean).map((x) => x.split(/\s+/))
+    : t.split(/\s+/).filter(Boolean).map((x) => [x]);
+  const takte: string[][] = [];
+  for (const takt of roh) {
+    if (takt.length === 1 && takt[0] === '%') { if (takte.length) takte.push([...takte[takte.length - 1]]); continue; }
+    takte.push(takt);
+  }
+  return takte;
+}
+
+export const entwurfAusText = (eingabe: string): TeilEntwurf[] =>
+  teileAusText(eingabe).map((t) => ({ name: t.name, takte: takteAusText(t.akkorde) }));
+
+export const entwurfAlsText = (teile: readonly TeilEntwurf[]): string =>
+  teile.map((t) => `${t.name}: ${t.takte.length ? `| ${t.takte.map((x) => x.join(' ')).join(' | ')} |` : ''}`).join('\n');
+
+/** Name für einen neuen Teil: der nächste Buchstabe nach dem letzten (A, B, C …). */
+export function naechsterTeilName(teile: readonly TeilEntwurf[]): string {
+  const buchstaben = teile.map((t) => /^[A-Z]/.exec(t.name)?.[0]).filter((b): b is string => !!b);
+  if (!buchstaben.length) return 'A';
+  const hoechster = buchstaben.reduce((a, b) => (a > b ? a : b));
+  return hoechster >= 'Z' ? 'Z' : String.fromCharCode(hoechster.charCodeAt(0) + 1);
+}
+
 export interface JamEingabe { titel: string; komponist: string; form: string; tonart: string; gefuehl: string; akkorde: string; notiz: string }
 
 /** Formular → eigenes Stück. Eingabe notiert wird nach klingend umgerechnet (gespeichert ist immer klingend).

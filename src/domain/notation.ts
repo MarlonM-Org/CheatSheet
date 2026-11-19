@@ -9,7 +9,9 @@
 // Stelle, damit sie ohne Oberfläche verbessert werden kann.
 
 import type { Notation } from './bestand';
-import { einheitenJeSchlag, istNenner, istZusammengesetzt, type Nenner } from './takt';
+import { akkordLesen, akkordText, tonKlasse } from './akkorde';
+import { akkordLagen } from './begleitung';
+import { einheitenJeSchlag, istNenner, istZusammengesetzt, schlaegeJeTakt, type Nenner } from './takt';
 import { median } from './ueben';
 
 // Ein Rahmen der Tonhöhenspur: `zeit` in Sekunden ab Schlag 1 von Takt 1
@@ -613,7 +615,21 @@ export function abcTon(midi: number): string {
   return name + ','.repeat(Math.max(0, 4 - oktave));
 }
 
-export interface AbcKopf { titel: string; komponist?: string }
+export interface AbcKopf {
+  titel: string; komponist?: string;
+  /** Stil der Begleitung aus den Akkorden (./begleitung) — als Kommentar im Kopf, abcjs überliest ihn. */
+  begleitung?: string;
+}
+
+// Akkordsymbole je Takt (Leadsheet, I-04): `akkorde[i]` die Akkorde von Takt
+// i (ASCII wie „Bb7“, „Dm7b5“), mehrere teilen den Takt auf Schläge
+// (`akkordLagen`: zwei in 4/4 auf 1 und 3). Sie stehen über der ersten
+// Stimme, als ABC-Akkordsymbol an der Note, die an ihrer Stelle beginnt —
+// beginnt dort keine, an der, die dort klingt (mehrere an einer Note stehen
+// dann übereinander). Gelesen werden sie der Reihe nach je Takt zurück.
+export type TaktAkkorde = readonly (readonly string[])[];
+// „dim“ als ° (abcjs macht aus „o“ hinter dem Grundton ein °), ♭/♯ setzt abcjs selbst.
+const akkordAbc = (s: string) => `"${s.replace(/dim/g, 'o').replace(/"/g, '')}"`;
 
 // Schreibweise mit Vorzeichen wie in der Notation: Die Tonart setzt die
 // Vorzeichen des Takts, ein gesetztes Vorzeichen gilt bis zum Taktstrich für
@@ -635,9 +651,12 @@ class Vorzeichenstand {
   private readonly tonartVz: Map<string, string>;
   constructor(private tonart: Tonart | null | undefined) { this.tonartVz = vorzeichenDerTonart(tonart); }
   neuerTakt() { this.stand.clear(); }
-  schreiben(midi: number): string {
+  // `vorzug`: Schreibweise je Tonklasse aus den Akkorden des Takts ('^' Kreuz, '_' B) — über F7 ist es Es, nicht Dis.
+  schreiben(midi: number, vorzug?: ReadonlyMap<number, string>): string {
     const oktave = Math.floor(midi / 12) - 1;
-    const [buchstabe, vz] = (this.tonart && this.tonart.kreuze < 0 ? B_NAMEN : KREUZ_NAMEN)[((midi % 12) + 12) % 12];
+    const klasse = ((midi % 12) + 12) % 12;
+    const wunsch = vorzug?.get(klasse);
+    const [buchstabe, vz] = (wunsch ? wunsch === '_' : this.tonart && this.tonart.kreuze < 0) ? B_NAMEN[klasse] : KREUZ_NAMEN[klasse];
     const schluessel = `${buchstabe}${oktave}`;
     const aktuell = this.stand.get(schluessel) ?? this.tonartVz.get(buchstabe) ?? '';
     const zeichen = vz === aktuell ? '' : vz === '' ? '=' : vz;
@@ -657,7 +676,7 @@ export const alsAbc = (takte: readonly Takt[], r: Raster, kopf: AbcKopf, tonart:
 // ihren Takten; abcjs setzt sie als Akkolade mit gleichen Taktstrichen.
 // Eine namenlose Stimme im Violinschlüssel kommt ohne V: aus (so bleibt
 // jedes bisher gespeicherte Stück gleich).
-export function alsAbcStimmen(stimmen: readonly Stimme[], r: Raster, kopf: AbcKopf, tonart: Tonart | null = null): string {
+export function alsAbcStimmen(stimmen: readonly Stimme[], r: Raster, kopf: AbcKopf, tonart: Tonart | null = null, akkorde: TaktAkkorde = []): string {
   const schlag = einheitenJeSchlag(r.zaehler, r.nenner);
   const einzeln = stimmen.length === 1 && !stimmen[0].name && stimmen[0].schluessel === 'violin';
   const clef = (s: Stimme) => ABC_CLEF[s.schluessel] ?? 'treble';
@@ -668,14 +687,52 @@ export function alsAbcStimmen(stimmen: readonly Stimme[], r: Raster, kopf: AbcKo
     `M:${r.zaehler}/${r.nenner}`,
     `L:1/${r.feinheit}`,
     `Q:${schlag}/${r.nenner}=${r.bpm}`,
+    ...(kopf.begleitung ? [`% begleitung: ${kopf.begleitung}`] : []),
     ...(einzeln ? [] : stimmen.map((s, i) => `V:${i + 1} name="${s.name.replace(/"/g, "'")}" clef=${clef(s)}`)),
     `K:${tonart?.abc ?? 'C'}`,
   ];
-  const koerper = stimmen.map((s, i) => (einzeln ? '' : `V:${i + 1}\n`) + taktText(s.takte, r, tonart));
+  const koerper = stimmen.map((s, i) => (einzeln ? '' : `V:${i + 1}\n`) + taktText(s.takte, r, tonart, akkorde, i === 0));
   return zeilen.join('\n') + '\n' + koerper.join('') ;
 }
 
-function taktText(takte: readonly Takt[], r: Raster, tonart: Tonart | null): string {
+// Welche Note eines Takts trägt welche Akkordsymbole (Index → Symbole)?
+export function akkordAnNoten(t: Takt, symbole: readonly string[], r: Raster): Map<number, string[]> {
+  const an = new Map<number, string[]>();
+  if (!symbole.length || !t.noten.length) return an;
+  const js = zellenJeSchlag(r);
+  const starts: number[] = [];
+  let pos = 0;
+  for (const n of t.noten) { starts.push(pos); pos += n.dauer; }
+  const lagen = akkordLagen(symbole.length, schlaegeJeTakt(r.zaehler, r.nenner)).map((l) => l * js);
+  symbole.forEach((sym, k) => {
+    const p = lagen[k], bis = k + 1 < lagen.length ? lagen[k + 1] : Infinity;
+    let j = starts.findIndex((st, i) => st >= p - 1e-9 && st < bis - 1e-9 && !an.has(i));
+    if (j < 0) {
+      // Keine Note beginnt hier: die, die klingt (oder die letzte).
+      j = starts.length - 1;
+      while (j > 0 && starts[j] > p + 1e-9) j--;
+    }
+    an.set(j, [...(an.get(j) ?? []), sym]);
+  });
+  return an;
+}
+
+// Schreibweise der schwarzen Tasten aus den Akkorden eines Takts: wie die Akkordtöne geschrieben sind (A7 → Cis, F7 → Es).
+export function vorzugAusAkkorden(symbole: readonly string[]): Map<number, string> {
+  const m = new Map<number, string>();
+  for (const sym of symbole) {
+    const a = akkordLesen(sym);
+    if (!a) continue;
+    for (const t of [...(a.bass ? [a.bass] : []), ...a.toene.map((x) => x.ton)]) {
+      if (Math.abs(t.vz) !== 1) continue;
+      const k = tonKlasse(t);
+      if (!m.has(k)) m.set(k, t.vz > 0 ? '^' : '_');
+    }
+  }
+  return m;
+}
+
+function taktText(takte: readonly Takt[], r: Raster, tonart: Tonart | null, akkorde: TaktAkkorde = [], symboleSchreiben = true): string {
   const js = zellenJeSchlag(r);
   const text: string[] = [];
   const vorzeichen = new Vorzeichenstand(tonart);
@@ -691,11 +748,14 @@ function taktText(takte: readonly Takt[], r: Raster, tonart: Tonart | null): str
   takte.forEach((t, i) => {
     let pos = 0;
     vorzeichen.neuerTakt();
-    const noten = t.noten.map((n) => {
+    const symbole = symboleSchreiben ? akkordAnNoten(t, akkorde[i] ?? [], r) : new Map<number, string[]>();
+    const vorzug = akkorde[i]?.length ? vorzugAusAkkorden(akkorde[i]) : undefined;
+    const noten = t.noten.map((n, k) => {
       // Triole: geschrieben anderthalbfach, die Klammer `(3:2:k` vor der ersten Note.
       const w = n.triole ? (n.dauer * 3) / 2 : n.dauer;
       const d = w === 1 ? '' : String(w);
-      const s = (n.gruppe ? `(3:2:${n.gruppe}` : '') + (auf.has(n) ? '(' : '') + (n.midi === null ? 'z' : vorzeichen.schreiben(n.midi)) + d + (n.bindung ? '-' : '') + (zu.has(n) ? ')' : '');
+      const akk = (symbole.get(k) ?? []).map(akkordAbc).join('');
+      const s = (n.gruppe ? `(3:2:${n.gruppe}` : '') + akk + (auf.has(n) ? '(' : '') + (n.midi === null ? 'z' : vorzeichen.schreiben(n.midi, vorzug)) + d + (n.bindung ? '-' : '') + (zu.has(n) ? ')' : '');
       pos += n.dauer;
       return pos % js === 0 ? `${s} ` : s;
     }).join('');
@@ -710,7 +770,13 @@ function taktText(takte: readonly Takt[], r: Raster, tonart: Tonart | null): str
 // Damit lässt sich ein gespeichertes Stück wieder bearbeiten. null, wenn der
 // Text nicht so aussieht.
 // `takte` ist die erste Stimme (für Einstimmiges), `stimmen` alle.
-export interface Gelesen { takte: Takt[]; stimmen: Stimme[]; raster: Raster; tonart: Tonart | null; titel: string }
+export interface Gelesen {
+  takte: Takt[]; stimmen: Stimme[]; raster: Raster; tonart: Tonart | null; titel: string;
+  /** Akkordsymbole je Takt der ersten Stimme (leer: keine). */
+  akkorde: string[][];
+  /** Stil der Begleitung, falls im Kopf vermerkt. */
+  begleitung?: string;
+}
 const STAMMTOENE: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 export function abcLesen(text: string): Gelesen | null {
   const zeilen = text.split(/\r?\n/);
@@ -719,7 +785,10 @@ export function abcLesen(text: string): Gelesen | null {
   const koerper: string[] = [];
   const meta: { name: string; schluessel: Schluessel }[] = [];
   let schluesselEinzeln: Schluessel = 'violin';
+  let begleitung: string | undefined;
   for (const z of zeilen) {
+    const b = kopf ? /^%\s*begleitung:\s*(\w+)/.exec(z) : null;
+    if (b) { begleitung = b[1]; continue; }
     const m = kopf ? /^([A-Za-z]):(.*)$/.exec(z) : null;
     if (m) {
       const wert = m[2].trim();
@@ -745,32 +814,47 @@ export function abcLesen(text: string): Gelesen | null {
     else { if (!abschnitte.length) abschnitte.push({ nr: 1, zeilen: [] }); abschnitte[abschnitte.length - 1].zeilen.push(z); }
   }
   const stimmen: Stimme[] = [];
+  const akkordeJe: string[][][] = [];
   for (const a of abschnitte) {
-    const takte = takteLesen(a.zeilen.join(' '), tonart);
-    if (!takte) return null;
+    const gelesen = takteLesen(a.zeilen.join(' '), tonart);
+    if (!gelesen) return null;
     const m = meta[a.nr - 1];
-    stimmen[a.nr - 1] = { name: m?.name ?? '', schluessel: m?.schluessel ?? schluesselEinzeln, takte };
+    stimmen[a.nr - 1] = { name: m?.name ?? '', schluessel: m?.schluessel ?? schluesselEinzeln, takte: gelesen.takte };
+    akkordeJe[a.nr - 1] = gelesen.akkorde;
   }
   const gueltig = stimmen.filter((s): s is Stimme => !!s);
   if (!gueltig.length || !gueltig[0].takte.length) return null;
-  return { takte: gueltig[0].takte, stimmen: gueltig, raster: r, tonart, titel };
+  const erste = stimmen.findIndex((s) => !!s);
+  const akkorde = akkordeJe[erste] ?? [];
+  return { takte: gueltig[0].takte, stimmen: gueltig, raster: r, tonart, titel, akkorde: akkorde.some((x) => x.length) ? akkorde : [], ...(begleitung ? { begleitung } : {}) };
 }
 
-function takteLesen(quelle: string, tonart: Tonart | null): Takt[] | null {
+function takteLesen(quelle: string, tonart: Tonart | null): { takte: Takt[]; akkorde: string[][] } | null {
   const vorzeichenTonart = vorzeichenDerTonart(tonart);
   const stand = new Map<string, string>();
   const takte: Takt[] = [];
+  const akkorde: string[][] = [];
   let noten: Note[] = [];
+  let symbole: string[] = [];
   let triole = 0;
   const VZ: Record<string, number> = { '^': 1, _: -1, '=': 0 };
   const muster = /\s+|\(3:2:(\d+)|(\|\]?)|(\(?)([\^_=]?)([A-Ga-gz])([',]*)(\d*)(-?)(\)?)/y;
   muster.lastIndex = 0;
   while (muster.lastIndex < quelle.length) {
+    // Akkordsymbol "Cm7" vor einer Note (Anmerkungen mit Lage-Zeichen ^_<>@ überlesen).
+    if (quelle[muster.lastIndex] === '"') {
+      const ende = quelle.indexOf('"', muster.lastIndex + 1);
+      if (ende < 0) return null;
+      const text = quelle.slice(muster.lastIndex + 1, ende).trim();
+      if (text && !/^[\^_<>@]/.test(text)) { const a = akkordLesen(text.replace(/°/g, 'o')); symbole.push(a ? akkordText(a, { ascii: true }) : text); }
+      muster.lastIndex = ende + 1;
+      continue;
+    }
     const m = muster.exec(quelle);
     if (!m) return null;
     if (m[0].trim() === '') continue;
     if (m[1]) { triole = Number(m[1]); continue; } // Klammer: gilt für die nächsten k Noten
-    if (m[2]) { if (noten.length) { takte.push({ noten }); noten = []; } stand.clear(); continue; }
+    if (m[2]) { if (noten.length) { takte.push({ noten }); akkorde.push(symbole); noten = []; symbole = []; } stand.clear(); continue; }
     const [, , , bogenAuf, vz, buchstabe, oktaven, dauerText, bindung, bogenZu] = m;
     const w = dauerText ? Number(dauerText) : 1;
     const n: Note = { midi: null, dauer: triole ? (w * 2) / 3 : w };
@@ -791,7 +875,7 @@ function takteLesen(quelle: string, tonart: Tonart | null): Takt[] | null {
     noten.push(n);
     if (triole) triole--;
   }
-  if (noten.length) takte.push({ noten });
+  if (noten.length) { takte.push({ noten }); akkorde.push(symbole); }
   // Triolen-Gruppen: aufeinanderfolgende Triolen-Noten je Takt bilden eine Gruppe.
   for (const t of takte) {
     let k = 0;
@@ -803,7 +887,7 @@ function takteLesen(quelle: string, tonart: Tonart | null): Takt[] | null {
       k = ende;
     }
   }
-  return takte;
+  return { takte, akkorde };
 }
 
 // Den Titel im ABC-Kopf tauschen (Umbenennen eines geschriebenen Stücks:

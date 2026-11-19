@@ -54,6 +54,45 @@ export function klavierTon(ctx: BaseAudioContext, ziel: AudioNode, frequenz: num
   osc.stop(ende + 0.3); osc2.stop(ende + 0.3);
 }
 
+// Bass der Begleitung (I-04): gezupft — Obertöne, die auch ein
+// Handy-Lautsprecher wiedergibt (der Grundton allein wäre dort kaum zu
+// hören), ein Tiefpass, der schnell zugeht, kurzer Anschlag, ausklingend.
+const bassWellen = new WeakMap<BaseAudioContext, PeriodicWave>();
+function bassWelle(ctx: BaseAudioContext): PeriodicWave {
+  let w = bassWellen.get(ctx);
+  if (!w) {
+    const amp = [0, 1, 0.7, 0.45, 0.28, 0.16, 0.08, 0.04];
+    w = ctx.createPeriodicWave(new Float32Array(amp.length), Float32Array.from(amp), { disableNormalization: false });
+    bassWellen.set(ctx, w);
+  }
+  return w;
+}
+export function bassTon(ctx: BaseAudioContext, ziel: AudioNode, frequenz: number, beginn: number, dauer: number, staerke = 1) {
+  const osc = ctx.createOscillator();
+  osc.setPeriodicWave(bassWelle(ctx));
+  osc.frequency.value = frequenz;
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.Q.value = 0.7;
+  filter.frequency.setValueAtTime(Math.max(frequenz * 8, 700), beginn);
+  filter.frequency.setTargetAtTime(Math.max(frequenz * 3, 260), beginn + 0.01, 0.12);
+  const gain = ctx.createGain();
+  const pegel = staerke * 0.42;
+  const ende = beginn + dauer;
+  gain.gain.setValueAtTime(0, beginn);
+  gain.gain.linearRampToValueAtTime(pegel, beginn + 0.006);
+  gain.gain.setTargetAtTime(pegel * 0.55, beginn + 0.006, 0.25);
+  gain.gain.setTargetAtTime(0, ende, 0.04);
+  osc.connect(filter); filter.connect(gain); gain.connect(ziel);
+  osc.start(beginn); osc.stop(ende + 0.3);
+}
+
+// Ein Klang mit seiner Stimme: Bass gezupft, alles andere Klavier.
+export function klangSpielen(ctx: BaseAudioContext, ziel: AudioNode, k: Klang, frequenz: number, beginn: number) {
+  if (k.stimme === 'bass') bassTon(ctx, ziel, frequenz, beginn, k.dauer, k.staerke ?? 1);
+  else klavierTon(ctx, ziel, frequenz, beginn, k.dauer, k.staerke ?? 1);
+}
+
 // Notierte Tonhöhe → klingende Frequenz (Instrument und Kammerton wie im Stimmgerät).
 export const klingend = (midi: number, stimmung: Stimmung, kammerton: number) => tonFrequenz(midi - STIMMUNGEN[stimmung], kammerton);
 
@@ -77,7 +116,7 @@ export function vorspielen(liste: readonly Klang[], stimmung: Stimmung, kammerto
     const bis = ctx.currentTime - beginn + 2;
     while (naechster < liste.length && liste[naechster].beginn < bis) {
       const k = liste[naechster++];
-      klavierTon(ctx, master, klingend(k.midi, stimmung, kammerton), beginn + k.beginn, k.dauer);
+      klangSpielen(ctx, master, k, klingend(k.midi, stimmung, kammerton), beginn + k.beginn);
     }
     if (naechster < liste.length) timer = window.setTimeout(planen, 500);
   };
