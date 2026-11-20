@@ -195,6 +195,7 @@ oder iPad. Vorher auf jedem Gerät eine Sicherung erstellen.
 - F-13 (Teil) · „Ordner wählen“ auf dem iPhone · ROADMAP selbst: „auf dem Gerät noch zu prüfen“ (iOS ≥ 18.4).
   - iCloud-Ordner mit Unterordnern wählen → Unterordner werden Sammlungen, nicht geladene iCloud-Dateien werden genannt, nichts doppelt.
 - F-23 · Stückauswahl nach Sammlungen und durchsuchbar (Aufnahme-Tagebuch: Filter und „Neu“ → Stück; seit 2026-11-19 Start bei der Sammlung der Bibliothek, Suchfeld, Vorwahl des offenen Stücks, Kontext-Blatt „Sammlungen …“ in Bibliotheks-Reihenfolge) · `stueckAuswahl`, `wahlStart`, Suche und `neueAufnahmeVorwahl` getestet, im Browser durchgespielt (iPhone 390 × 844, iPad 820 × 1180); die Bildschirmtastatur nur auf dem Gerät. Prüfen: Checklisten in F-23.
+- G-11 · Zum Bearbeiten umwandeln (⋯ am Stück: PDF an eine Erkennungs-App auf dem iPad teilen, deren MusicXML wählen, Entwurf im Notenblatt öffnen, als neues Stück speichern; das Original bleibt) · `musicxml.ts` getestet (XML, `.mxl`, Stimmen, Auftakt, Triolen, Meldungen, ABC hin und zurück); im Browser (iPhone 390 × 844, iPad 820 × 1180) mit selbst geschriebener MusicXML und `.mxl` durchgespielt. Nie mit echter Ausgabe von PlayScore oder Newzik, nie auf dem Gerät. Prüfen: Checkliste in G-11.
 - I-20 · Aufnahmen über die Bibliothek (Zeile „Aufnahmen“ unter dem Stellen-Mix, eingegrenzt auf Sammlung/Tag, „Alle“; ⋯ → „Aufnahmen …“ je Stück; Stück-Blatt abgestimmt; Kachel in Lernen führt in die Bibliothek) · `tagebuchBereich`, `aufnahmenStand`, `ortSprung` getestet, im Browser mit Fake-Mikrofon durchgespielt (iPhone und iPad). Prüfen: Checkliste in I-20.
 - B-08 · Scroll-Ring/Pedal · `geste.ts` getestet, keine Rückmeldung mit echtem Ring notiert.
   - Ring über AssistiveTouch: Probefeld in den Einstellungen zeigt Richtung und Weg; blättert auf den Noten, im Mix Stelle für Stelle; „Hoch und runter tauschen“.
@@ -210,12 +211,12 @@ oder iPad. Vorher auf jedem Gerät eine Sicherung erstellen.
 - F-04 · Flags/Merker · Speicher `merker` da, keine Oberfläche.
 - F-09 · Drag & Drop · nichts begonnen.
 - F-12 (Rest) · Notenwert des Zieltempos, Reserve fest 10 %.
-- G-01 (Rest) · Vorzeichen direkt setzen, Wiederholungszeichen, Phrasierungsbögen, weitere Schlüssel (Alt, Tenor), Import/Export `.abc`/MusicXML, Filter „nur Geschriebene“.
+- G-01 (Rest) · Vorzeichen direkt setzen, Wiederholungszeichen, Phrasierungsbögen, weitere Schlüssel (Alt, Tenor), Import `.abc`, MusicXML über „+ Noten“ (über ⋯ → „Zum Bearbeiten umwandeln“ seit G-11), Export `.abc`/MusicXML, Filter „nur Geschriebene“.
 - G-02/G-03 (Rest) · Triolen in der Erkennung; legato gesungene gleiche Töne bleiben eine Note (Grenze des Verfahrens).
 - G-04 (Rest) · Klick dazu, Einzählen, Soundfonts mit Instrumentwahl je Stimme.
 - G-09 (Rest) · Aufnahmen je Stelle aus dem Stellen-Blatt starten, Aufnahme neben dem Vorspielen laufen lassen, Vergleich mit Zeitversatz, Speicherübersicht je Stück, Aufnahmen in der Sicherung (optional, groß).
 - G-06 · Ganze Songs · bleibt Vision; Experiment (G-08) sagt: nichts bauen.
-- G-11 · PDF/Foto zum Bearbeiten umwandeln (Notenerkennung) · Wunsch 2026-11-20, nichts gebaut; drei Wege, Empfehlung MusicXML-Import zuerst; Entscheidung Marlon.
+- G-11 (Rest) · Erkennung in der App (Weg 2) · offen bis zum Experiment; Weg 1 (Erkennungs-App auf dem iPad, MusicXML-Import) seit 2026-11-20 gebaut, s. o.
 - G-07 · Klänge einstellen · erst nach G-04.
 - I-01 · Ohr-Trainer · erste Fassung im Browser gebaut (2026-11-16), nie auf dem Gerät.
 - I-02, I-03, I-05, I-06 · Lernpfad, Song-Liste, Impro-Feedback, Mitspielen nach Gehör · Vision. I-04 (Begleitung aus Akkorden) seit 2026-11-19 gebaut, s. o.
@@ -1782,8 +1783,71 @@ Experiment: homr am Rechner auf drei echte Stücke aus der Bibliothek
 Audiveris und PlayScore vergleichen. Das Experiment entscheidet, ob Weg 2
 den Aufwand lohnt.
 
-**Entscheidung Marlon offen:** Weg 1, Weg 2 oder beide. Außerdem: Welches
-Programm erkennt bei Weg 1 (App auf dem iPad oder Rechner)?
+**Entschieden (Marlon, 2026-11-20):** Weg 1, erkannt wird mit einer App
+auf dem iPad. Weg 2 bleibt offen, bis das Experiment oben gemacht ist.
+
+**Gebaut (2026-11-20):**
+
+- **Einstieg:** ⋯ am Stück (Bibliothek und Stück-Blatt) → „Zum Bearbeiten
+  umwandeln …“, nur bei Stücken ohne Notenquelle (importierte PDF, Foto,
+  Scan; auch virtuelle Stücke). Ein Blatt über dem Inhalt führt durch drei Schritte:
+  **PDF teilen** (Teilen-Menü des iPad → Erkennungs-App oder „In Dateien
+  sichern“; ohne Teilen-Menü „PDF sichern“), **dort erkennen und als
+  MusicXML sichern**, **MusicXML-Datei wählen**. Genannt werden PlayScore 2
+  und Newzik; beide exportieren MusicXML nur im Abo (laut App Store und
+  Testberichten, nicht selbst geprüft).
+- **Datei:** `.musicxml`, `.xml` und gepacktes `.mxl` (ZIP, entpackt mit
+  dem `DecompressionStream` des Browsers, Safari ab 16.4), UTF-8 oder
+  UTF-16, partwise und timewise. Die Dateiwahl hat kein `accept`, weil iOS
+  sonst `.musicxml`/`.mxl` ausgraut, wenn keine App die Endung kennt.
+  Eine PDF oder sonstige Datei bekommt eine klare Meldung.
+- **Umwandeln** (`src/domain/musicxml.ts`, getestet): eigener kleiner
+  XML-Leser (kein DOMParser, damit die Tests ohne Browser laufen). Je Teil
+  und `<voice>` eine Stimme mit dem Schlüssel ihres Systems (Violin, Bass,
+  Alt, Tenor; Oktav-Violinschlüssel eine Oktave höher notiert). Dauern aufs
+  Blattraster (96 Zellen je Ganze), am Einsatz gerundet. Triolen ordnet das
+  Blatt selbst über die Lage der Einsätze (`legen`). Haltebögen und
+  Bindebögen bleiben, bei Akkorden der oberste Ton. Tonart und Taktart aus
+  dem ersten Takt, Tempo aus `<sound tempo>` oder `<metronome>`,
+  umgerechnet auf den Schlag. Auftakt: vorn mit Pausen auf einen ganzen
+  Takt aufgefüllt, ebenso der kurze Schlusstakt. Andere Takte, die nicht
+  zur Taktart passen, bleiben, wie sie sind, und sind im Notenblatt rot
+  (dort hat die Erkennung meist etwas verpasst).
+- **Gemeldet** wird, was wegfällt oder sich ändert: Wiederholungen und
+  Volten, Sprungzeichen, Dynamik und Artikulation, Liedtext,
+  Akkordsymbole, Vorschläge, Stichnoten, Akkorde, Tonart- und Taktwechsel,
+  unbekannte Tonart oder Taktart, Schlüssel, Auftakt, rote Takte,
+  gerundete Rhythmen. Die Liste steht im Blatt vor dem Öffnen.
+- **Notenblatt:** „Im Notenblatt öffnen“ zeigt den Entwurf als
+  „Komponieren“ (Titel des Originals). „Als Stück speichern“ legt ein
+  **neues** Stück an, `art: geschrieben`, in denselben Sammlungen und mit
+  denselben Tags. Das Original bleibt unverändert. Danach geht alles wie
+  bei einem geschriebenen Stück: Komponieren, Transponieren
+  (Mehr → „Transponieren · alle Stimmen“), Vorspielen, Stellen.
+- **Kein neues Feld, kein Schemawechsel:** Das neue Stück ist ein
+  geschriebenes Stück wie jedes andere.
+- **Bedienregel:** Das Blatt hat eine feste Höhe, damit Ergebnis und
+  Meldungen nichts verschieben. Auf dem Telefon rollt es zum Ergebnis,
+  wenn das außer Sicht liegt.
+
+**Prüfen auf dem iPad** (vorher eine Sicherung erstellen):
+
+- ⋯ an einem gescannten Stück → „Zum Bearbeiten umwandeln …“ →
+  „PDF teilen …“: Erscheint PlayScore 2 bzw. Newzik im Teilen-Menü?
+- In der App erkennen lassen, als MusicXML exportieren, „In Dateien
+  sichern“. Welche Endung kommt heraus (`.musicxml`, `.mxl`, `.xml`)?
+- „MusicXML-Datei wählen …“: Bietet iOS die Datei an (nicht ausgegraut)?
+  Liest die App sie? Stimmen Stimmen, Takte, Tonart und Taktart in der
+  Zusammenfassung?
+- „Im Notenblatt öffnen“: Wie viele Takte sind rot, wie viel ist
+  nachzubessern? Vorspielen, transponieren, speichern. Liegt das neue
+  Stück in derselben Sammlung, ist das Original unverändert?
+- Ehrliche Einschätzung festhalten: Hilft der Entwurf, oder ist
+  Abschreiben schneller? Danach entscheidet sich, ob Weg 2 lohnt.
+
+**Offen:** Weg 2 (Erkennung in der App), MusicXML auch über „+ Noten“
+laden (ohne Original), Akkordsymbole (`<harmony>`) als Akkorde des
+Notenblatts übernehmen, Wiederholungen ausschreiben.
 
 ### G-08 · Wo läuft das? Offline-App, eigener Rechner oder Server (Einschätzung 2026-10-26)
 

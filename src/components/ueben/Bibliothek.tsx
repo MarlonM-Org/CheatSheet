@@ -24,6 +24,7 @@ import { MehrKnopf, SammlungKontext, StueckKontext, useHalten } from './Kontext'
 import { HinzufuegenMenue, SammlungenLeiste, SammlungWahl } from './Sammlungen';
 import { SammlungenAnsicht } from './SammlungenAnsicht';
 import { EinspielenDialog, type EinspielQuelle } from './Einspielen';
+import { UmwandelnBlatt } from './Umwandeln';
 import { bilderWaehlen, ScanDialog, type ScanArt } from './Scan';
 import { useSicherungLaden } from './Sicherung';
 import { MixZeile } from './StellenMix';
@@ -193,7 +194,9 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
   // aus dem Kontext-Blatt eines Stücks (gleich gefiltert) oder beim Öffnen
   // aus Lernen. Es kommt erst, wenn die Liste da ist — mit dem Bereich, den sie zeigt.
   const [tagebuchOffen, setTagebuchOffen] = useState<{ filter: string | null } | null>(() => (aufnahmenAnfang ? { filter: null } : null));
-  useEffect(() => kontextMelden(kontext !== null || ansicht || mixBlatt || tagebuchOffen !== null), [kontext, ansicht, mixBlatt, tagebuchOffen, kontextMelden]);
+  // Zum Bearbeiten umwandeln (G-11): Blatt für dieses Stück.
+  const [umwandeln, setUmwandeln] = useState<Stueck | null>(null);
+  useEffect(() => kontextMelden(kontext !== null || ansicht || mixBlatt || tagebuchOffen !== null || umwandeln !== null), [kontext, ansicht, mixBlatt, tagebuchOffen, umwandeln, kontextMelden]);
   // Kamera-Scan / Foto-Import (F-07): offener Dialog mit den zuerst gewählten Bildern.
   const [scan, setScan] = useState<{ art: ScanArt; start: File[] } | null>(null);
   // Selbst schreiben, Einsingen oder Audio laden (G-01/G-02/G-03): offener
@@ -618,13 +621,15 @@ function NotenListe({ offen, oeffnen, anzahlMelden, auswahlMelden, offenEntfernt
             oeffnen={(blatt) => { setKontext(null); setAnsicht(false); oeffnen(n.id, blatt); }}
             aufnahmen={() => { setKontext(null); setTagebuchOffen({ filter: n.id }); }}
             teilen={() => { setKontext(null); oeffnen(n.id, 'teilen'); }}
+            umwandeln={() => { setKontext(null); setUmwandeln(n); }}
             dateiNeu={() => { setKontext(null); void aktualisieren([n]); }}
             geaendert={() => laden()}
             geloescht={(ids) => { setKontext(null); setMeldung(`„${n.titel}“ gelöscht.`); if (offen && ids.includes(offen)) offenEntfernt(); laden(); }} />
         );
       })()}
+      {umwandeln && <UmwandelnBlatt stueck={umwandeln} angelegt={() => laden()} schliessen={() => setUmwandeln(null)} />}
       {ansicht && noten && (
-        <SammlungenAnsicht uebersicht={uebersicht} noten={noten} stellenJe={stellenJe} aktiv={aktiv} escapeAktiv={kontext === null && tagebuchOffen === null}
+        <SammlungenAnsicht uebersicht={uebersicht} noten={noten} stellenJe={stellenJe} aktiv={aktiv} escapeAktiv={kontext === null && tagebuchOffen === null && umwandeln === null}
           waehlen={(name) => { sammlungWaehlen(name); setAnsicht(false); }}
           halten={(name) => setKontext({ art: 'sammlung', name })}
           stueck={(id) => setKontext({ art: 'stueck', id })}

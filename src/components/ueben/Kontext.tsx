@@ -133,7 +133,7 @@ export function StueckDaumen({ stueck }: { stueck: Stueck }) {
 
 // ── Stück ──
 
-export function StueckKontext({ stueck, stuecke, anzahlStellen, oeffnen, aufnahmen, dateiNeu, teilen, geaendert, geloescht, schliessen }: {
+export function StueckKontext({ stueck, stuecke, anzahlStellen, oeffnen, aufnahmen, dateiNeu, teilen, umwandeln, geaendert, geloescht, schliessen }: {
   stueck: Stueck;
   // Alle Stücke (für Quellen-Titel, Sammlungen zur Auswahl).
   stuecke: Stueck[];
@@ -146,6 +146,8 @@ export function StueckKontext({ stueck, stuecke, anzahlStellen, oeffnen, aufnahm
   dateiNeu?: () => void;
   // „Eigene Stücke daraus“: zeigt das Formular (im Stück-Blatt) oder öffnet das Stück dort.
   teilen?: () => void;
+  // „Zum Bearbeiten umwandeln“ (G-11): Noten aus einer Erkennungs-App übernehmen — nur bei Stücken ohne Quelle.
+  umwandeln?: () => void;
   geaendert: (neu: Partial<Stueck>) => void;
   geloescht: (ids: string[]) => void;
   schliessen: () => void;
@@ -181,6 +183,7 @@ export function StueckKontext({ stueck, stuecke, anzahlStellen, oeffnen, aufnahm
       name: 'Aufnahmen …', tun: () => aufnahmen!(), aus: !aufnahmen,
       hinweis: stueck.aufnahmen?.length ? `${stueck.aufnahmen.length} · anhören, vergleichen, neu aufnehmen` : 'Noch keine — hier aufnehmen',
     },
+    { name: 'Zum Bearbeiten umwandeln …', hinweis: 'Noten über eine Erkennungs-App (MusicXML) ins Notenblatt holen — neues Stück, das Original bleibt', tun: () => umwandeln!(), aus: !umwandeln || !!stueck.notation },
     { name: 'Eigene Stücke daraus …', hinweis: 'Seitenbereich oder je Lesezeichen ein Stück', tun: () => teilen!(), aus: !teilen || !!stueck.quelle },
     { name: 'Datei neu wählen', hinweis: 'Dieselbe PDF neu einlesen, Stellen und Anmerkungen bleiben', tun: () => dateiNeu!(), aus: !dateiNeu || !!stueck.quelle },
     { name: 'Löschen …', art: 'warn', hinweis: stueck.quelle ? 'Nur dieses Stück; die Quelle bleibt' : 'Mit Stellen und Anmerkungen', tun: () => void loeschen() },

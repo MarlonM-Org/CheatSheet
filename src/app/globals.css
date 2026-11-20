@@ -1926,6 +1926,13 @@ ol.stichpunkte { list-style: decimal; }
 .jam-anleitung { gap: 10px; }
 .jam-schritte { display: flex; flex-direction: column; gap: 6px; padding-left: 1.3rem; list-style: decimal; font-size: 0.9rem; line-height: 1.4; }
 .jam-schritte strong { font-weight: 750; }
+/* Zum Bearbeiten umwandeln (G-11): drei Schritte, Knopf unter dem Text. Feste
+   Höhe: Ergebnis und Meldungen erscheinen darin, das Blatt selbst rückt nicht. */
+.blatt.umwandeln { height: min(92vh, 60rem); }
+.umwandeln-schritte { display: flex; flex-direction: column; gap: 12px; padding-left: 1.3rem; list-style: decimal; font-size: 0.95rem; line-height: 1.4; }
+.umwandeln-schritte strong { font-weight: 750; }
+.umwandeln-schritte li > div { margin-top: 6px; }
+.umwandeln-hinweise { display: flex; flex-direction: column; gap: 3px; padding-left: 1.1rem; list-style: disc; }
 .jam-beispiele { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--linie); border-radius: 8px; }
 .jam-beispiele .hoer-gruppe { flex-wrap: nowrap; }
 .jam-beispiele .hoer-gruppe button { padding: 0 6px; font-size: 0.85rem; }

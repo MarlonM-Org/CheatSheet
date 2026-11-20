@@ -22,6 +22,7 @@ import { AufnahmenListe, useAufnahme } from './Aufnahmen';
 import { AufnahmeTagebuchBlatt } from './AufnahmeTagebuch';
 import { EinspielenDialog, type Vorlage } from './Einspielen';
 import { LesezeichenKontext, MehrKnopf, StueckKontext, useHalten } from './Kontext';
+import { UmwandelnBlatt } from './Umwandeln';
 import { TagEtikett } from './Tags';
 import { useMetronom } from './MetronomKontext';
 import { NotenBetrachter, type Ziel } from './NotenBetrachter';
@@ -181,7 +182,9 @@ function StueckBlatt({ noten, quelle, pdf, stellen, lesezeichen, lesezeichenGeae
   const [tags] = useState<Tag[]>(() => tagsLaden());
   // Das Aufnahme-Tagebuch, auf dieses Stück gefiltert: vergleichen (A/B), neu aufnehmen (I-20).
   const [tagebuch, setTagebuch] = useState(false);
-  useEscape(schliessen, !kontext && !tagebuch);
+  // Zum Bearbeiten umwandeln (G-11): legt ein neues Stück an, dieses bleibt.
+  const [umwandeln, setUmwandeln] = useState(false);
+  useEscape(schliessen, !kontext && !tagebuch && !umwandeln);
   const fokus = useDialogFokus<HTMLDivElement>();
 
   return (
@@ -204,9 +207,11 @@ function StueckBlatt({ noten, quelle, pdf, stellen, lesezeichen, lesezeichenGeae
         {kontext && stuecke && (
           <StueckKontext stueck={noten} stuecke={stuecke} anzahlStellen={stellen.length} schliessen={() => setKontext(false)}
             teilen={() => { setKontext(false); setTeilen(true); }}
+            umwandeln={() => { setKontext(false); setUmwandeln(true); }}
             geaendert={(neu) => umbenannt(neu)}
             geloescht={() => { setKontext(false); geloescht(); }} />
         )}
+        {umwandeln && <UmwandelnBlatt stueck={noten} schliessen={() => setUmwandeln(false)} />}
         <h3 className="abschnitt-titel">Lesezeichen</h3>
         <LesezeichenListe noten={noten} pdf={pdf} lesezeichen={lesezeichen} geaendert={lesezeichenGeaendert} seiteZeigen={seiteZeigen} />
         {teilen && !istVirtuell(noten) && (
