@@ -1826,6 +1826,13 @@ auf dem iPad. Weg 2 bleibt offen, bis das Experiment oben gemacht ist.
   (Mehr → „Transponieren · alle Stimmen“), Vorspielen, Stellen.
 - **Kein neues Feld, kein Schemawechsel:** Das neue Stück ist ein
   geschriebenes Stück wie jedes andere.
+- **Warum und welche App** (Wunsch Marlon 2026-11-22: „warum man was
+  tut“): ein „i“ neben der Überschrift legt eine Karte über das Blatt.
+  Sie erklärt, warum eine zweite App nötig ist (für CheatSheet ist eine
+  PDF ein Bild; Notenerkennung braucht große Erkennungsprogramme, die
+  App läuft ohne Server), welche App (PlayScore 2, Newzik, jede mit
+  MusicXML-Export), warum MusicXML, was danach passiert und wohin die
+  PDF geht. Jeder der drei Schritte sagt außerdem kurz, wozu er dient.
 - **Bedienregel:** Das Blatt hat eine feste Höhe, damit Ergebnis und
   Meldungen nichts verschieben. Auf dem Telefon rollt es zum Ergebnis,
   wenn das außer Sicht liegt.

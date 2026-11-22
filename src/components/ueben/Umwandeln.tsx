@@ -18,6 +18,8 @@ import { useDialogFokus, useEscape } from './tasten';
 // an die App geben, dort erkennen lassen und als MusicXML sichern, die Datei
 // hier wählen. Dann öffnet das Notenblatt den Entwurf; „Als Stück speichern“
 // legt ein neues Stück an (gleiche Sammlungen und Tags), das Original bleibt.
+// Das „i“ neben der Überschrift erklärt, warum es eine zweite App braucht und
+// welche (Wunsch Marlon 2026-11-22: „warum man was tut“).
 
 type TeilenNavigator = Navigator & { canShare?: (d: { files: File[] }) => boolean };
 
@@ -61,7 +63,8 @@ export function UmwandelnBlatt({ stueck, angelegt, schliessen }: {
   const [liest, setLiest] = useState(false);
   const [notenblatt, setNotenblatt] = useState(false);
   const [fertigMeldung, setFertigMeldung] = useState('');
-  useEscape(schliessen, !notenblatt);
+  const [info, setInfo] = useState(false);
+  useEscape(schliessen, !notenblatt && !info);
   const fokus = useDialogFokus<HTMLDivElement>();
   // Auf dem Telefon liegt das Ergebnis unter dem Knopf außer Sicht: nur dann hinscrollen.
   const ergebnisKarte = useRef<HTMLDivElement>(null);
@@ -121,20 +124,23 @@ export function UmwandelnBlatt({ stueck, angelegt, schliessen }: {
           <div ref={fokus} tabIndex={-1} className="blatt umwandeln space-y-4" role="dialog" aria-modal="true" aria-label={`Zum Bearbeiten umwandeln: ${stueck.titel}`} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start gap-3">
               <div className="min-w-0 flex-1">
-                <h2 className="text-xl font-extrabold">Zum Bearbeiten umwandeln</h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xl font-extrabold">Zum Bearbeiten umwandeln</h2>
+                  <button type="button" className="nav-info" onClick={() => setInfo(true)} aria-label="Warum eine zweite App, und welche?" title="Warum eine zweite App, und welche?">i</button>
+                </div>
                 <p className="gedaempft">{stueck.titel}</p>
               </div>
               <button type="button" className="knopf knopf-leise knopf-klein" onClick={schliessen}>{fertigMeldung ? 'Fertig' : 'Abbrechen'}</button>
             </div>
             <p className="text-sm">
-              Noten auf einem Bild kann CheatSheet nicht selbst lesen. Das übernimmt eine Noten-Erkennungs-App auf dem iPad, etwa
-              PlayScore 2 oder Newzik (der Export als MusicXML gehört dort meist zum Abo). Aus ihrer MusicXML-Datei wird hier ein
-              neues Stück, das sich im Notenblatt bearbeiten, vorspielen und transponieren lässt. Das Original bleibt, wie es ist.
+              Zum Bearbeiten, Transponieren und Vorspielen braucht CheatSheet jede Note einzeln. Auf einer PDF oder einem Foto
+              sind die Noten aber nur ein Bild. Herauslesen muss sie eine Noten-Erkennungs-App auf dem iPad, etwa PlayScore 2
+              oder Newzik — warum und welche, steht hinter dem „i“.
             </p>
             <ol className="umwandeln-schritte">
               <li>
                 <strong>PDF an die Erkennungs-App geben.</strong>
-                <span className="gedaempft text-sm"> Im Teilen-Menü die App wählen — oder „In Dateien sichern“ und die Datei dort öffnen.{ausschnitt}</span>
+                <span className="gedaempft text-sm"> Dort werden die Noten gelesen. Im Teilen-Menü die App wählen — oder „In Dateien sichern“ und die PDF in der App öffnen.{ausschnitt}</span>
                 <div>
                   {!pdf ? <button type="button" className="knopf knopf-leise knopf-klein" disabled>PDF teilen …</button>
                     : pdf.teilbar ? <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => void teilen()}>PDF teilen …</button>
@@ -142,12 +148,12 @@ export function UmwandelnBlatt({ stueck, angelegt, schliessen }: {
                 </div>
               </li>
               <li>
-                <strong>Erkennen lassen und prüfen.</strong>
-                <span className="gedaempft text-sm"> Grobe Fehler gleich dort korrigieren, dann als MusicXML exportieren und „In Dateien sichern“.</span>
+                <strong>Erkennen lassen, prüfen, als MusicXML sichern.</strong>
+                <span className="gedaempft text-sm"> Was dort schon stimmt, musst du hier nicht mehr korrigieren. MusicXML ist das Austauschformat, das Notenprogramme verstehen — auch CheatSheet. In der App exportieren und „In Dateien sichern“.</span>
               </li>
               <li>
                 <strong>Hier übernehmen.</strong>
-                <span className="gedaempft text-sm"> Die Datei (.musicxml, .mxl oder .xml) aus „Dateien“ wählen.</span>
+                <span className="gedaempft text-sm"> Die Datei (.musicxml, .mxl oder .xml) aus „Dateien“ wählen. Daraus wird ein neues Stück zum Bearbeiten; das Original bleibt mit Stellen und Anmerkungen.</span>
                 <div>
                   <button type="button" className="knopf knopf-klein" onClick={() => void waehlen()} disabled={liest}>{liest ? 'Wird gelesen …' : 'MusicXML-Datei wählen …'}</button>
                 </div>
@@ -171,6 +177,7 @@ export function UmwandelnBlatt({ stueck, angelegt, schliessen }: {
                 <button type="button" className="knopf" onClick={() => setNotenblatt(true)}>Im Notenblatt öffnen</button>
               </div>
             )}
+            {info && <UmwandelnInfo schliessen={() => setInfo(false)} />}
           </div>
         </div>,
         document.body,
@@ -182,5 +189,44 @@ export function UmwandelnBlatt({ stueck, angelegt, schliessen }: {
           schliessen={() => setNotenblatt(false)} />
       )}
     </>
+  );
+}
+
+// Hinter dem „i“: warum eine zweite App, welche, warum MusicXML, was danach
+// passiert. Liegt über dem Blatt; Tippen irgendwo schließt (wie bei den Stellen).
+function UmwandelnInfo({ schliessen }: { schliessen: () => void }) {
+  useEscape(schliessen);
+  return createPortal(
+    <div className="stellen-info" role="dialog" aria-modal="true" aria-label="Warum eine zweite App?" onClick={schliessen}>
+      <div className="stellen-info-karte">
+        <p className="abschnitt-titel !text-lg">Warum eine zweite App?</p>
+        <ul className="stichpunkte text-sm">
+          <li>Eine PDF oder ein Foto ist für CheatSheet ein Bild aus Punkten. Welche Note wo steht, weiß die App nicht.</li>
+          <li>Bearbeiten, transponieren und vorspielen geht nur, wenn jede Note als Tonhöhe und Dauer vorliegt — wie bei selbst geschriebenen Stücken.</li>
+          <li>Noten aus einem Bild zu lesen heißt Notenerkennung. Dafür braucht es große, trainierte Erkennungsprogramme. CheatSheet läuft ohne Server und ohne Konto ganz auf deinem Gerät und hat so etwas nicht eingebaut.</li>
+        </ul>
+        <p className="text-sm font-semibold">Welche App?</p>
+        <ul className="stichpunkte text-sm">
+          <li><strong>PlayScore 2</strong>: liest Fotos und PDFs, auch mehrere Seiten.</li>
+          <li><strong>Newzik</strong>: Notenleser, macht aus PDFs bearbeitbare Noten.</li>
+          <li>Den Export als MusicXML gibt es bei beiden meist nur im Abo. Jede andere App, die MusicXML exportiert, geht auch. Mit CheatSheet ausprobiert ist noch keine davon.</li>
+        </ul>
+        <p className="text-sm font-semibold">Warum MusicXML?</p>
+        <ul className="stichpunkte text-sm">
+          <li>Das gemeinsame Format für Noten: Notenprogramme schreiben und lesen es, CheatSheet liest es ein.</li>
+        </ul>
+        <p className="text-sm font-semibold">Was danach passiert</p>
+        <ul className="stichpunkte text-sm">
+          <li>Aus der Datei wird ein neues Stück in denselben Sammlungen, mit denselben Tags. Das Original bleibt mit Stellen und Anmerkungen.</li>
+          <li>Keine Erkennung ist fehlerfrei: Takte, die nicht aufgehen, sind im Notenblatt rot. Wiederholungen, Dynamik und Liedtext fallen weg — was genau, sagt CheatSheet vor dem Öffnen.</li>
+        </ul>
+        <p className="text-sm font-semibold">Deine Noten</p>
+        <ul className="stichpunkte text-sm">
+          <li>Die Erkennungs-App bekommt die PDF, die du ihr gibst. Ob sie auf dem iPad rechnet oder hochlädt, steht in ihrer Beschreibung. CheatSheet selbst schickt nichts weg.</li>
+        </ul>
+        <p className="gedaempft text-xs">Tippen schließt</p>
+      </div>
+    </div>,
+    document.body,
   );
 }
