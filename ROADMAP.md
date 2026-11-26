@@ -196,6 +196,7 @@ oder iPad. Vorher auf jedem Gerät eine Sicherung erstellen.
   - iCloud-Ordner mit Unterordnern wählen → Unterordner werden Sammlungen, nicht geladene iCloud-Dateien werden genannt, nichts doppelt.
 - F-23 · Stückauswahl nach Sammlungen und durchsuchbar (Aufnahme-Tagebuch: Filter und „Neu“ → Stück; seit 2026-11-19 Start bei der Sammlung der Bibliothek, Suchfeld, Vorwahl des offenen Stücks, Kontext-Blatt „Sammlungen …“ in Bibliotheks-Reihenfolge) · `stueckAuswahl`, `wahlStart`, Suche und `neueAufnahmeVorwahl` getestet, im Browser durchgespielt (iPhone 390 × 844, iPad 820 × 1180); die Bildschirmtastatur nur auf dem Gerät. Prüfen: Checklisten in F-23.
 - G-11 · Zum Bearbeiten umwandeln (⋯ am Stück: PDF an eine Erkennungs-App auf dem iPad teilen, deren MusicXML wählen, Entwurf im Notenblatt öffnen, als neues Stück speichern; das Original bleibt) · `musicxml.ts` getestet (XML, `.mxl`, Stimmen, Auftakt, Triolen, Meldungen, ABC hin und zurück); im Browser (iPhone 390 × 844, iPad 820 × 1180) mit selbst geschriebener MusicXML und `.mxl` durchgespielt. Nie mit echter Ausgabe von PlayScore oder Newzik, nie auf dem Gerät. Prüfen: Checkliste in G-11.
+- G-12 · Rhythmus der Erkennung (Achtel, Sechzehntel, Triolen, Swing mit Regler 50–75 %), Swing aus der Aufnahme gemessen und angeboten, „Swing“ im Kopf und beim Vorspielen, Audio- und Video-Dateien, Ziehen & Ablegen · `rhythmus.ts` und Swing in `notation.ts` getestet, im Browser (iPhone 390 × 844, iPad 820 × 1180) mit erzeugten wav-, webm- und mp4-Dateien durchgespielt. Nie mit einer echten Aufnahme, nie auf dem Gerät. Prüfen: Checkliste in G-12.
 - I-20 · Aufnahmen über die Bibliothek (Zeile „Aufnahmen“ unter dem Stellen-Mix, eingegrenzt auf Sammlung/Tag, „Alle“; ⋯ → „Aufnahmen …“ je Stück; Stück-Blatt abgestimmt; Kachel in Lernen führt in die Bibliothek) · `tagebuchBereich`, `aufnahmenStand`, `ortSprung` getestet, im Browser mit Fake-Mikrofon durchgespielt (iPhone und iPad). Prüfen: Checkliste in I-20.
 - B-08 · Scroll-Ring/Pedal · `geste.ts` getestet, keine Rückmeldung mit echtem Ring notiert.
   - Ring über AssistiveTouch: Probefeld in den Einstellungen zeigt Richtung und Weg; blättert auf den Noten, im Mix Stelle für Stelle; „Hoch und runter tauschen“.
@@ -218,7 +219,7 @@ oder iPad. Vorher auf jedem Gerät eine Sicherung erstellen.
 - G-06 · Ganze Songs · bleibt Vision; Experiment (G-08) sagt: nichts bauen.
 - G-11 (Rest) · Erkennung in der App (Weg 2) · offen bis zum Experiment; Weg 1 (Erkennungs-App auf dem iPad, MusicXML-Import) seit 2026-11-20 gebaut, s. o.
 - G-07 · Klänge einstellen · erst nach G-04.
-- G-12 · Aufnahme eines Solos transkribieren, Swing und Stil erkennen · nicht gebaut; gemessen: mit Raster Sechzehntel mischt die Erkennung ab etwa 62 % Swing gerade und punktierte Achtel im selben Takt. Vorschlag (Swing-Anteil fürs ganze Stück, drei Lesarten, Video als Quelle) und offene Frage zur Schreibweise in G-12.
+- G-12 (Rest) · Stil von Hand wählen, Messlatte mit echten Paaren (Aufnahme + Noten), gemischte Stücke (gerade und Triolen) automatisch, Swing-Klick beim Einsingen. Rhythmus-Wahl, Swing-Regler, Messung und Video-Dateien seit 2026-11-26 gebaut, s. o.
 - G-13 · Noten als Untertitel für Videos · Vision, erst nach G-12; Entscheidung offen, ob „Aufnahme mit mitlaufenden Noten“ in die App gehört.
 - I-01 · Ohr-Trainer · erste Fassung im Browser gebaut (2026-11-16), nie auf dem Gerät.
 - I-02, I-03, I-05, I-06 · Lernpfad, Song-Liste, Impro-Feedback, Mitspielen nach Gehör · Vision. I-04 (Begleitung aus Akkorden) seit 2026-11-19 gebaut, s. o.
@@ -1851,7 +1852,7 @@ auf dem iPad. Weg 2 bleibt offen, bis das Experiment oben gemacht ist.
 laden (ohne Original), Akkordsymbole (`<harmony>`) als Akkorde des
 Notenblatts übernehmen, Wiederholungen ausschreiben.
 
-### G-12 · Aufnahme eines Solos transkribieren: Swing und Stil erkennen — Wunsch 2026-11-26, nicht gebaut
+### G-12 · Aufnahme eines Solos transkribieren: Swing und Stil erkennen — Wunsch 2026-11-26, erster Teil gebaut, zu prüfen
 
 Aus einem Gespräch (2026-11-26, Sprachnotiz): Eine **Aufnahme
 transkribieren** wäre „für unseren Use Case das Beste“. Gemeint ist: Eine
@@ -1890,7 +1891,10 @@ Noten. Drei Wünsche dazu:
   gemischt** gerade Achtel und „punktierte Achtel + Sechzehntel“, bei 67 %
   (triolisch) durchgehend punktiert. Schwankt der Swing, wechselt die
   Schreibweise von Schlag zu Schlag. Das ist genau das Problem aus dem
-  Gespräch.
+  Gespräch. Nachtrag (im Browser, erzeugte Datei mit 64 % ± 4): Dort las
+  auch „Sechzehntel“ gerade Achtel, weil die Latenz-Schätzung die ganze
+  Spur ein Stück vorzieht. Ob es kippt, hängt also an Tempo, Swing und
+  Latenz — verlässlich ist erst die Wahl „Swing“.
 
 **Einschätzung und Vorschlag** (ohne Modelle machbar, reines Rechnen auf
 den Einsätzen wie in `notation.ts`):
@@ -1934,9 +1938,85 @@ den Einsätzen wie in `notation.ts`):
    `decodeAudioData` liest, auf dem Gerät prüfen.
 
 **Reihenfolge:** zuerst 7 und 1–3 (kleiner Umbau in `notation.ts` und im
-Einsing-Dialog), dann 4; 5 erst nach den Messungen aus 6. **Offen vor dem
-Bau:** Wie soll Swing auf dem Blatt stehen: gerade Achtel mit „Swing“
-(Jazz-Brauch) oder ausgeschrieben triolisch?
+Einsing-Dialog), dann 4; 5 erst nach den Messungen aus 6.
+
+**Wunsch, zweiter Teil (aus demselben Gespräch):** Vor dem Start einer
+Aufnahme oder bevor man eine mp3 „reinschmeißt“, braucht es
+Einstellmöglichkeiten. Audiodateien verschiedener Typen sollen hinein. Die
+Granularität soll sich besser einstellen lassen: Bisher gibt es Achtel und
+Sechzehntel, dazu sollen triolisch und Swing kommen, Swing in
+verschiedenen Stärkegraden. Ideal ist ein kleiner Regler, der einstellt,
+wie viel eines ganzen Schlags die erste Achtel einnimmt; wie man das gut
+darstellt, ist zu überlegen. Ziel: Die Aufnahmen werden richtig
+interpretiert.
+
+**Gebaut (2026-11-26, Punkte 1–4 und 7 von oben), zu prüfen:**
+
+- **Rhythmus statt „Kleinster Wert“** im Einsing-Dialog (Mikrofon und
+  Audio-Datei): Achtel · Sechzehntel · Triolen · Swing. Darunter ein
+  **Swing-Regler** (50–75 %, wie lang die erste Achtel des Viertels ist)
+  mit Bild: ein Viertel als Balken, „lang“ und „kurz“ im Verhältnis, Striche
+  bei 50 % (gerade) und 67 % (triolisch). Den Regler bewegen schaltet auf
+  Swing. Die Wahl bleibt nach der Aufnahme umlegbar: dieselbe Spur wird
+  neu gelesen (Tempo und Taktart bleiben beim Mikrofon fest wie bisher). In
+  6/8 sind Triolen und Swing gesperrt (Schlag schon dreigeteilt). Gemerkt
+  nur am Gerät (`ueben:einspiel-feinheit` mit der Einteilung, alte Werte
+  8/16 werden gelesen; `ueben:einspiel-swing`).
+- **Swing aus der Aufnahme gemessen** (Gesamtbild): Je zwei Abstände
+  zwischen Einsätzen, die zusammen ein Viertel ergeben, sind ein
+  Achtelpaar; der Median ihres Lang-Anteils ist der Swing. Das braucht
+  weder Latenz noch Lage der Eins; Sechzehntel-Läufe, Viertel und Triolen
+  zählen nicht. Unter dem Regler steht dann „In der Aufnahme: Achtel
+  lang-kurz, ≈ 63 %“ mit „Swing 63 % übernehmen“ (der Knopf wird nach dem
+  Übernehmen unsichtbar, die Zeile behält ihre Höhe).
+- **Rechnen** (`src/domain/rhythmus.ts`, `notation.ts`, getestet in
+  `tests/rhythmus.test.ts`): Swing → die Einsätze werden vor dem Runden
+  „entswingt“ (Nachschlag beim Anteil → Schlagmitte, stückweise linear je
+  Viertel), dann wie bisher auf Sechzehntel gerundet. Triolen → Raster aus
+  drei Zellen je Viertel, aufs Blatt gelegt (das Blatt schreibt die
+  Klammern). Die Latenz wird passend zum Muster geschätzt (Triolen:
+  Periode ein Drittel Viertel; Swing: Suche über die Lagen 0 und Anteil).
+- **Schreibweise (vorläufig, Rückmeldung abwarten):** Swing steht als
+  gerade Achtel mit „Swing“ vor dem Tempo (`Q:"Swing" 1/4=120`, Anteil als
+  Kommentar `% swing: 63`, beides weiter `.uebe`-Version 1, ältere Stände
+  überlesen es). Beim **Vorspielen** swingt das Notenblatt mit dem Anteil
+  (der grüne Zeiger läuft mit). Wer ausgeschrieben triolisch will, wählt
+  „Triolen“.
+- **Aufnahmeleiste** (G-05): dieselbe Wahl als Auswahl neben der Lesart,
+  vor und nach der Aufnahme; der Swing-Anteil kommt aus dem Dialog.
+  Übernimmt man eine Swing-Aufnahme, gilt das Stück als Swing.
+- **Dateien:** Die Auswahl nimmt jetzt auch aac, aif, opus, ogg, flac und
+  Videos (mp4, mov, m4v, webm: gelesen wird die Tonspur). Am Rechner oder
+  iPad lässt sich die Datei auf den Dialog **ziehen** (gestrichelter
+  Rahmen), auch aus der Quelle Mikrofon oder Schreiben heraus; andere
+  Dateien werden mit Meldung abgelehnt.
+- Im Browser durchgespielt (iPhone 390 × 844, iPad 820 × 1180) mit
+  erzeugten Dateien: Swing 64 % ± 4 → gemessen 63 %, als Swing vier Takte
+  gerade Achtel mit „Swing“; Achteltriolen bei 100 bpm → zwei Takte, acht
+  Triolen-Klammern (als Sechzehntel gelesen: keine); dieselbe Swing-Datei
+  als webm- und mp4-Video per Ziehen geladen. Nie auf dem Gerät, nie mit
+  einer echten Aufnahme.
+
+**Prüfen:**
+
+- Eine echte Swing-Aufnahme (Saxofon- oder Gitarrensolo) als Datei laden:
+  Was misst die App, stimmt das mit dem Gefühl? Mit „übernehmen“ und mit
+  Sechzehnteln vergleichen: Welche Lesart braucht weniger Korrektur?
+- Regler von gerade bis 75 % ziehen: Ändert sich der Vorschlag plausibel,
+  und rückt dabei nichts? Ist das Balkenbild verständlich?
+- Ein Stück mit Achteltriolen (oder 12/8-Gefühl in 4/4) mit „Triolen“
+  lesen; Viertel dazwischen bleiben Viertel?
+- Swing-Stück speichern, wieder öffnen (Komponieren): steht „Swing“ über
+  dem Stück, swingt das Vorspielen noch?
+- iPhone: ein Video aus „Dateien“ wählen (mov); iPad: Datei aus „Dateien“
+  per Split View auf den Dialog ziehen.
+- Mikrofon mit Swing: Klick und Einzähler wie bisher (der Klick swingt
+  nicht), Ergebnis wie bei der Datei?
+
+**Offen:** Stil von Hand wählen (5), Messlatte mit echten Paaren (6),
+gemischte Stücke (gerade und Triolen im selben Stück automatisch
+erkennen), Swing-Klick beim Einsingen. Sechzehntel im Swing werden durch
+die Entswingung leicht verzerrt — nicht eigens getestet.
 
 ### G-13 · Noten als Untertitel für Videos (Reels) — Wunsch 2026-11-26, Vision
 

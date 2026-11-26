@@ -3,12 +3,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  alsAbcStimmen, bandpegel, effektivwert, FEINHEITEN, LESARTEN, notenDateiname, rastern, taktDauer, tempoAusTipps, TONARTEN, tonartFinden, versatzSchaetzen,
-  zellenDauer, zellenJeSchlag, type Feinheit, type Gelesen, type Lesart, type Raster, type Stimme, type Tonrahmen,
+  alsAbcStimmen, bandpegel, effektivwert, LESARTEN, notenDateiname, taktDauer, tempoAusTipps, TONARTEN, tonartFinden,
+  zellenDauer, zellenJeSchlag, type Gelesen, type Lesart, type Raster, type Stimme, type Tonrahmen,
 } from '@/domain/notation';
+import {
+  ANTEIL_MAX, ANTEIL_MIN, anteilLesen, EINTEILUNGEN, einteilungLesen, einteilungMoeglich, erkennungsRaster, swingAnteil, swingSchaetzen, transkribieren,
+  wirksam, type Einteilung, type Rhythmus,
+} from '@/domain/rhythmus';
 import type { Stueck } from '@/domain/bestand';
 import { TAKTARTEN, taktartText, type Nenner } from '@/domain/takt';
-import { aufBlatt, aufsBlattStimmen, einstimmig, leeresBlatt, skalieren, type Klang } from '@/domain/notensatz';
+import { aufBlatt, aufsBlattStimmen, einstimmig, leeresBlatt, type Klang } from '@/domain/notensatz';
 import { akkordeNachfuehren, rahmenTakte, type Rahmen } from '@/domain/akkordrahmen';
 import { akkordTakte, alsKlaenge, begleitungBauen, istStil, type BegleitStil } from '@/domain/begleitung';
 import { schlaegeJeTakt } from '@/domain/takt';
@@ -44,11 +48,19 @@ import { ohneCancelAbbrechen } from './dateiwahl';
 // draußen. Ohne ist es das rohe Mikrofon (iOS: dann Hörer statt Lautsprecher
 // und ohne Verstärkung) — nah am Mund, aber unverfälscht. Die Aufnahme
 // selbst wird nicht behalten: Angehört wird das Transkribierte (Notensatz).
+//
+// Rhythmus (G-12, @/domain/rhythmus): vor der Aufnahme oder dem Laden wählt
+// man, wie ein Schlag geteilt wird — Achtel, Sechzehntel, Triolen oder Swing
+// mit Regler (wie lang die erste Achtel ist, 50–75 % des Viertels). Nach der
+// Aufnahme bleibt die Wahl umlegbar (dieselbe Spur, neu gelesen); die App
+// misst den Swing der Aufnahme und bietet ihn an.
 
 export type EinspielQuelle = 'mikro' | 'datei' | 'leer';
 type Phase = 'bereit' | 'zaehlt' | 'nimmt' | 'rechnet' | 'vorschlag';
 
+// Die Einteilung (früher die Feinheit 8 oder 16) und der Swing-Anteil — nur am Gerät.
 const FEINHEIT_SCHLUESSEL = 'ueben:einspiel-feinheit';
+const SWING_SCHLUESSEL = 'ueben:einspiel-swing';
 const LESART_SCHLUESSEL = 'ueben:einspiel-lesart';
 const KLICK_SCHLUESSEL = 'ueben:einspiel-klick';
 const TONART_SCHLUESSEL = 'ueben:einspiel-tonart';
@@ -65,7 +77,9 @@ const KLAR = 0.85;
 
 const luft = () => new Promise<void>((ok) => setTimeout(ok, 0));
 
-const ACCEPT = 'audio/*,.m4a,.mp3,.wav,.aac,.aiff,.caf,.ogg,.flac';
+// Audio und Video (nur die Tonspur wird gelesen) — was der Browser dekodieren kann.
+const ACCEPT = 'audio/*,video/*,.m4a,.mp3,.wav,.aac,.aif,.aiff,.caf,.ogg,.oga,.opus,.flac,.webm,.mp4,.m4v,.mov';
+const istMedium = (f: File) => /^(audio|video)\//.test(f.type) || /\.(m4a|mp3|wav|aac|aif|aiff|caf|ogg|oga|opus|flac|webm|mp4|m4v|mov)$/i.test(f.name);
 function audioWaehlen(): Promise<File | null> {
   return new Promise((ok) => {
     let fertig = false;
@@ -113,8 +127,16 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
   const [tempoText, setTempoText] = useState<string | null>(null);
   const tempoUebernehmen = () => { const n = Number(tempoText); if (n) setBpm(n); setTempoText(null); };
   const [taktart, setTaktart] = useState<[number, Nenner]>(grundlage ? [grundlage.raster.zaehler, grundlage.raster.nenner] : rahmen ? [4, 4] : [metro.takt, metro.nenner]);
-  const [feinheit, setFeinheitRoh] = useState<Feinheit>(() => (gespeichert<number>(FEINHEIT_SCHLUESSEL, 16) === 8 ? 8 : 16));
-  const setFeinheit = (f: Feinheit) => { setFeinheitRoh(f); speichern(FEINHEIT_SCHLUESSEL, f); };
+  // Rhythmus der Erkennung: Einteilung und Swing-Anteil.
+  const [rhythmus, setRhythmusRoh] = useState<Rhythmus>(() => ({
+    einteilung: einteilungLesen(gespeichert<unknown>(FEINHEIT_SCHLUESSEL, 16)), anteil: anteilLesen(gespeichert<unknown>(SWING_SCHLUESSEL, 60)),
+  }));
+  const setRhythmus = (neu: Partial<Rhythmus>) => {
+    const r = { ...rhythmus, ...neu };
+    if (r.einteilung !== rhythmus.einteilung) speichern(FEINHEIT_SCHLUESSEL, r.einteilung);
+    if (r.anteil !== rhythmus.anteil) speichern(SWING_SCHLUESSEL, r.anteil);
+    setRhythmusRoh(r);
+  };
   // Lesart der Erkennung: melodisch (gehaltene Töne) oder rhythmisch (kurze Töne, Schwellen folgen dem Tempo).
   const [lesart, setLesartRoh] = useState<Lesart>(() => (gespeichert<string>(LESART_SCHLUESSEL, 'melodisch') === 'rhythmisch' ? 'rhythmisch' : 'melodisch'));
   const setLesart = (l: Lesart) => { setLesartRoh(l); speichern(LESART_SCHLUESSEL, l); };
@@ -134,7 +156,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
   const tonartAnzeige = useMemo(() => tonartFinden(tonartBlatt ?? tonartAbc), [tonartBlatt, tonartAbc]);
   const tonartBlattRef = useRef(tonartBlatt);
   useEffect(() => { tonartBlattRef.current = tonartBlatt; }, [tonartBlatt]);
-  const raster = useMemo<Raster>(() => ({ bpm, zaehler: taktart[0], nenner: taktart[1], feinheit }), [bpm, taktart, feinheit]);
+  const raster = useMemo<Raster>(() => erkennungsRaster({ bpm, zaehler: taktart[0], nenner: taktart[1] }, rhythmus), [bpm, taktart, rhythmus]);
   const rasterRef = useRef(raster);
   useEffect(() => { rasterRef.current = raster; }, [raster]);
   const einst = useRef({ kammerton: stimm.kammerton, stimmung: stimm.stimmung as Stimmung });
@@ -162,16 +184,19 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
   // Rastern: Spur ab Taktanfang, um die geschätzte Latenz vorgezogen
   // (Aufnahmeweg und Einrasten der Tonerkennung verspäten alle Einsätze
   // gleichmäßig), mit Tonart.
-  const erkannt = useMemo(() => {
-    if (phase !== 'vorschlag' || quelle === 'leer') return [];
-    const abStart = spur.map((f) => ({ ...f, zeit: f.zeit - start }));
-    const versatz = versatzSchaetzen(abStart, raster);
-    // Aufs Blattraster (96 Zellen: 32tel, Triolen) gebracht.
-    return skalieren(rastern(versatz ? abStart.map((f) => ({ ...f, zeit: f.zeit - versatz })) : abStart, raster, { tonart, lesart }), raster.feinheit);
-  }, [phase, quelle, spur, start, raster, tonart, lesart]);
+  // Nach der Einteilung (Achtel, Sechzehntel, Triolen, Swing) gerundet, aufs Blattraster (96 Zellen) gebracht.
+  const abStart = useMemo(() => (phase !== 'vorschlag' || quelle === 'leer' ? [] : spur.map((f) => ({ ...f, zeit: f.zeit - start }))), [phase, quelle, spur, start]);
+  const erkannt = useMemo(() => (abStart.length ? transkribieren(abStart, raster, rhythmus, { tonart, lesart }).takte : []), [abStart, raster, rhythmus, tonart, lesart]);
+  // Der Swing der Aufnahme, aus dem Gesamtbild gemessen (null: zu wenige Achtelpaare).
+  const gemessen = useMemo(() => (abStart.length ? swingSchaetzen(abStart, raster, lesart) : null), [abStart, raster, lesart]);
   const blattRaster = useMemo(() => aufBlatt(raster), [raster]);
   // Schreiben: ein leerer Takt in der Taktart (Tempo und Tonart ändern das Blatt nicht).
   const [zaehler, nenner] = taktart;
+  // Swing des Blatts: bei Aufnahme und Datei aus der Wahl; beim Schreiben aus dem Stück (oder einer Aufnahme im Stück).
+  const [swingLeer, setSwingLeer] = useState(grundlage?.swing ?? 0);
+  // Was gilt (Triolen und Swing gibt es in 6/8 nicht — dann Sechzehntel).
+  const wirkt: Einteilung = wirksam(rhythmus, zaehler, nenner).einteilung;
+  const blattSwing = quelle === 'leer' ? swingLeer : swingAnteil(rhythmus, zaehler, nenner);
   const leer = useMemo(() => {
     const b = aufBlatt({ bpm: 60, zaehler, nenner, feinheit: 16 });
     return rahmen?.akkorde.length ? rahmenTakte(rahmen.akkorde, b) : leeresBlatt(b);
@@ -252,9 +277,11 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
   const leisteSchliessen = useCallback(() => { setLeiste(false); setVorschau(null); setLeistenZustand('scharf'); }, []);
   const leisteUebernehmen = useCallback((neu: Stimme[], naechsterTakt: number) => {
     aendern(neu);
+    const sw = swingAnteil(rhythmus, raster.zaehler, raster.nenner);
+    if (sw) setSwingLeer(sw);
     const s = blattStand.aktiv;
     setAuswahlVorgabe({ stimme: s, takt: Math.min(naechsterTakt, Math.max(0, (neu[s]?.takte.length ?? 1) - 1)), note: 0 });
-  }, [aendern, blattStand.aktiv]);
+  }, [aendern, blattStand.aktiv, rhythmus, raster.zaehler, raster.nenner]);
 
   // Begleitung aus den Akkorden beim Aufnehmen: Klänge ab `ziel − vor` bis `ziel + n` Takte, Zeit ab dem Zieltakt.
   const begleitKlaenge = useCallback((ziel: number, vor: number, n: number): Klang[] => {
@@ -429,7 +456,9 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
     stoppen(false); wiedergabeAus();
     setQuelle(q); setSpur([]); setStart(0); setDauer(0); setDateiName(''); setPhase(q === 'leer' ? 'vorschlag' : 'bereit'); setFehler('');
     // Zum Schreiben wechseln nimmt den Vorschlag mit — da geht es ja weiter.
-    setBearbeitet(q === 'leer' && phase === 'vorschlag' && takte.length ? { basis: basisLeer, stimmen } : null);
+    const mit = q === 'leer' && phase === 'vorschlag' && takte.length > 0;
+    setBearbeitet(mit ? { basis: basisLeer, stimmen } : null);
+    if (mit) setSwingLeer(blattSwing);
   };
   const nochmal = () => { wiedergabeAus(); setSpur([]); setStart(0); setDauer(0); setDateiName(''); setBearbeitet(null); setPhase('bereit'); };
 
@@ -438,7 +467,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
     if (!takte.length || laeuft) return;
     setFehler('');
     const name = titel.trim() || vorlage?.stueck.titel || entwurf?.titel || (quelle === 'mikro' ? 'Eingesungen' : quelle === 'leer' ? 'Neues Stück' : dateiName.replace(/\.[^.]+$/, '') || 'Aus Audio');
-    const text = alsAbcStimmen(stimmen, blattRaster, { titel: name, ...(hatAkkorde ? { begleitung: stil } : {}) }, tonartAnzeige, akkorde);
+    const text = alsAbcStimmen(stimmen, blattRaster, { titel: name, ...(hatAkkorde ? { begleitung: stil } : {}), ...(blattSwing ? { swing: blattSwing } : {}) }, tonartAnzeige, akkorde);
     try {
       setLaeuft('Noten werden gezeichnet …');
       await luft();
@@ -466,6 +495,27 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
   }
 
   const beschaeftigt = phase === 'zaehlt' || phase === 'nimmt' || phase === 'rechnet' || !!laeuft || leisteBeschaeftigt;
+
+  // Ziehen und Ablegen: eine Audio- oder Video-Datei auf den Dialog werfen —
+  // wechselt zur Quelle „Audio-Datei“ und liest sie (nicht beim Komponieren
+  // und nicht, solange etwas läuft).
+  const [zieht, setZieht] = useState(false);
+  const ablegenMoeglich = !komponieren && !beschaeftigt;
+  const ziehen = (e: React.DragEvent) => {
+    if (!ablegenMoeglich || !Array.from(e.dataTransfer.types).includes('Files')) return;
+    e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; setZieht(true);
+  };
+  const ablegen = (e: React.DragEvent) => {
+    setZieht(false);
+    if (!ablegenMoeglich) return;
+    const f = Array.from(e.dataTransfer.files)[0];
+    if (!f) return;
+    e.preventDefault();
+    if (!istMedium(f)) { setFehler(`„${f.name}“ ist keine Audio- oder Video-Datei.`); return; }
+    if (quelle !== 'datei') { stoppen(false); wiedergabeAus(); setQuelle('datei'); setSpur([]); setStart(0); setDauer(0); setDateiName(''); setBearbeitet(null); }
+    else wiedergabeAus();
+    void dateiLaden(f);
+  };
   useEscape(() => { if (!beschaeftigt) schliessen(); });
   useEffect(() => () => { stoppen(false); wiedergabeAus(); }, [stoppen, wiedergabeAus]);
 
@@ -489,7 +539,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
       </div>
 
       {/* Mitte: Inhalt scrollt; die Aufnahmeleiste liegt darüber am unteren Rand, der Fuß mit „Speichern“ bleibt frei. */}
-      <div className="scan-mitte">
+      <div className={`scan-mitte ${zieht ? 'zieht' : ''}`} onDragOver={ziehen} onDragEnter={ziehen} onDragLeave={(e) => { if (e.currentTarget === e.target) setZieht(false); }} onDrop={ablegen}>
       <div className="scan-inhalt" style={leiste ? { paddingBottom: '10rem' } : undefined}>
         {fehler && <p className="karte warnung" role="alert">{fehler}</p>}
 
@@ -521,14 +571,17 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
           </div>
           {quelle !== 'leer' && (
             <>
-              <div className="einspiel-feld">
-                <span>Kleinster Wert</span>
-                <div className="segment !mx-0" role="group" aria-label="Kleinster Notenwert (Erkennung)">
-                  {FEINHEITEN.map((f) => (
-                    <button key={f.feinheit} type="button" aria-pressed={feinheit === f.feinheit} disabled={festesRaster} onClick={() => setFeinheit(f.feinheit)}>{f.name}</button>
+              <div className="einspiel-feld einspiel-rhythmus">
+                <span>Rhythmus</span>
+                <div className="segment !mx-0" role="group" aria-label="Rhythmus der Erkennung: wie ein Schlag geteilt wird">
+                  {EINTEILUNGEN.map((e) => (
+                    <button key={e.einteilung} type="button" aria-pressed={wirkt === e.einteilung} disabled={!einteilungMoeglich(e.einteilung, zaehler, nenner)}
+                      onClick={() => setRhythmus({ einteilung: e.einteilung })} title={e.hinweis}>{e.name}</button>
                   ))}
                 </div>
               </div>
+              <SwingWahl anteil={rhythmus.anteil} an={wirkt === 'swing'} moeglich={einteilungMoeglich('swing', zaehler, nenner)}
+                setzen={(anteil) => setRhythmus({ einteilung: 'swing', anteil })} gemessen={gemessen} hatSpur={abStart.length > 0} />
               <div className="einspiel-feld">
                 <span>Lesart</span>
                 <div className="segment !mx-0" role="group" aria-label="Lesart der Erkennung">
@@ -602,8 +655,8 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
           <div className="einspiel-mitte">
             {phase === 'bereit' && (
               <>
-                <button type="button" className="knopf" onClick={() => void audioWaehlen().then((f) => f && dateiLaden(f))}>Audio-Datei wählen</button>
-                <p className="gedaempft text-sm">Sprachmemo (m4a), mp3, wav — eine Stimme, kein ganzer Song. Vom iPhone: Sprachmemo teilen → „In Dateien sichern“, dann hier wählen{stimmungHinweis}.</p>
+                <button type="button" className="knopf" onClick={() => void audioWaehlen().then((f) => f && dateiLaden(f))}>Audio- oder Video-Datei wählen</button>
+                <p className="gedaempft text-sm">Sprachmemo (m4a), mp3, wav, aac, flac, ogg — oder ein Video (mp4, mov): gelesen wird die Tonspur. Eine Stimme, kein ganzer Song; höchstens fünf Minuten. Am Rechner oder iPad die Datei einfach hierher ziehen. Vom iPhone: Sprachmemo teilen → „In Dateien sichern“, dann hier wählen{stimmungHinweis}.</p>
               </>
             )}
             {phase === 'rechnet' && <p className="gedaempft text-sm" role="status">{laeuft}</p>}
@@ -629,7 +682,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
                   hervorgehoben={vorschau ? { stimme: blattStand.aktiv, von: vorschau.von, bis: vorschau.bis, farbe: 'messing' } : null}
                   aufnehmen={quelle === 'leer' && !leiste && typeof navigator !== 'undefined' && !!navigator.mediaDevices ? () => setLeiste(true) : undefined}
                   beiStand={setBlattStand} auswahlVorgabe={auswahlVorgabe}
-                  akkorde={akkorde} begleitung={{ stil, setzen: setStil }} />
+                  akkorde={akkorde} begleitung={{ stil, setzen: setStil }} swing={blattSwing} />
               : (
                 <div className="einspiel-zeile">
                   <p className="gedaempft text-sm">Kein Ton erkannt. Näher ans Mikrofon, lauter, oder eine andere Datei.</p>
@@ -644,7 +697,7 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
       </div>
       {leiste && phase === 'vorschlag' && quelle === 'leer' && (
         <Aufnahmeleiste stimmen={stimmen} aktiv={blattStand.aktiv} stumm={blattStand.stumm} auswahlTakt={blattStand.auswahl?.takt ?? null}
-          raster={raster} blattRaster={blattRaster} tonart={tonart} lesart={lesart} setLesart={setLesart}
+          raster={raster} blattRaster={blattRaster} tonart={tonart} lesart={lesart} setLesart={setLesart} rhythmus={rhythmus} setRhythmus={setRhythmus}
           metro={{ klang: metro.klang, laut: metro.laut, zweiVier: metro.swing.zweiVier }} stimmung={stimm.stimmung} kammerton={stimm.kammerton}
           vorschauAendern={setVorschau} zustandAendern={setLeistenZustand} uebernehmen={leisteUebernehmen} schliessen={leisteSchliessen}
           akkordBegleitung={hatAkkorde ? begleitKlaenge : undefined} />
@@ -656,5 +709,45 @@ export function EinspielenDialog({ quelle: quelleStart, sammlungen, tags, vorlag
       </form>
     </div>,
     document.body,
+  );
+}
+
+// Swing-Regler (G-12): wie lang die erste Achtel eines Viertels ist (50 %
+// gerade … 67 % triolisch … 75 %). Das Bild zeigt ein Viertel, geteilt in
+// lang und kurz, mit Strichen bei 50 % und 67 %. Den Regler bewegen schaltet
+// auf Swing. Nach einer Aufnahme steht darunter, was die App darin misst,
+// mit „Übernehmen“. Die Zeile ist immer da und behält ihre Höhe — nichts
+// rückt, wenn die Wahl wechselt.
+function SwingWahl({ anteil, an, moeglich, setzen, gemessen, hatSpur }: {
+  anteil: number; an: boolean; moeglich: boolean; setzen: (anteil: number) => void; gemessen: number | null; hatSpur: boolean;
+}) {
+  // Der Knopf steht da, sobald es einen Swing zu übernehmen gibt, und wird nur
+  // unsichtbar, wenn er schon gilt — so bleibt die Zeile gleich hoch.
+  const angebot = moeglich && hatSpur && gemessen !== null && gemessen > 53;
+  const uebernehmen = angebot && (!an || Math.abs(gemessen - anteil) >= 2);
+  const text = !moeglich ? 'In dieser Taktart ist der Schlag schon dreigeteilt — kein Swing, keine Triolen.'
+    : hatSpur && gemessen !== null ? (gemessen <= 53 ? `In der Aufnahme: gerade Achtel (≈ ${gemessen} %).` : `In der Aufnahme: Achtel lang-kurz, ≈ ${gemessen} %.`)
+      : hatSpur ? 'In der Aufnahme sind zu wenige Achtelpaare, um den Swing zu messen.'
+        : an ? 'Die erste Achtel jedes Viertels ist lang: 50 % gerade, 60 % locker, 67 % triolisch. Geschrieben wird gerade, mit „Swing“ über dem Stück.'
+          : 'Regler bewegen schaltet auf Swing. Nach der Aufnahme misst die App, wie stark es swingt.';
+  return (
+    <div className={`einspiel-swing ${an ? '' : 'aus'}`} role="group" aria-label="Swing">
+      <span className="einspiel-swing-name">Swing {an ? `${anteil} %` : 'aus'}</span>
+      <div className="einspiel-swingbild" aria-hidden="true">
+        <span style={{ width: `${anteil}%` }}>lang</span>
+        <span>kurz</span>
+        <i style={{ left: '50%' }} /><i style={{ left: `${200 / 3}%` }} />
+      </div>
+      <span />
+      <input className="regler" type="range" min={ANTEIL_MIN} max={ANTEIL_MAX} step={1} value={anteil} disabled={!moeglich}
+        onChange={(e) => setzen(Number(e.target.value))} aria-label="Swing: Anteil der ersten Achtel am Viertel" aria-valuetext={`${anteil} Prozent`} />
+      <p className="einspiel-swing-hinweis gedaempft text-xs" aria-live="polite">
+        {text}
+        {angebot && (
+          <button type="button" className="knopf knopf-leise knopf-klein" onClick={() => setzen(gemessen!)} disabled={!uebernehmen}
+            style={uebernehmen ? undefined : { visibility: 'hidden' }} aria-hidden={!uebernehmen}>Swing {gemessen} % übernehmen</button>
+        )}
+      </p>
+    </div>
   );
 }

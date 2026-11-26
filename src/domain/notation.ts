@@ -277,8 +277,17 @@ export function silbengrenzen(rahmen: readonly Tonrahmen[], tiefe = 10, vorher =
 // Nur, wenn die Einsätze einheitlich liegen (Konsistenz ≥ `mindest`) —
 // sonst wäre es Synkopik, keine Latenz. Die Spur wird um den Wert
 // vorgezogen (`zeit - versatz`).
-export function versatzSchaetzen(rahmen: readonly Tonrahmen[], r: Raster, mindest = 0.4): number {
-  const achtel = (60 / r.bpm) / (einheitenJeSchlag(r.zaehler, r.nenner) === 3 ? 3 : 2);
+//
+// `muster` (G-12): Bei Triolen ist die Periode die Triolen-Achtel (ein
+// Drittel des Viertels) statt der Achtel. Bei Swing liegen die Einsätze auf
+// zwei Lagen im Viertel (0 und `swing` %), nicht periodisch — dort wird der
+// Versatz gesucht, der die meisten Einsätze nah an diese Lagen bringt
+// (Abstand begrenzt, damit Läufe und Verzierungen nicht ziehen). Ohne Muster
+// rechnet sie wie bisher.
+export interface VersatzMuster { triolen?: boolean; swing?: number }
+export function versatzSchaetzen(rahmen: readonly Tonrahmen[], r: Raster, mindest = 0.4, muster: VersatzMuster = {}): number {
+  const viertel = viertelDauer(r);
+  const achtel = muster.triolen ? viertel / 3 : (60 / r.bpm) / (einheitenJeSchlag(r.zaehler, r.nenner) === 3 ? 3 : 2);
   const glatt = hysterese(rahmen);
   const wechsel: number[] = [];
   let vorher: number | null = null;
@@ -287,6 +296,7 @@ export function versatzSchaetzen(rahmen: readonly Tonrahmen[], r: Raster, mindes
     vorher = f.midi;
   }
   if (wechsel.length < 4) return 0;
+  if (muster.swing && muster.swing > 50) return swingVersatz(wechsel, viertel, muster.swing / 100);
   let x = 0, y = 0;
   for (const t of wechsel) { const w = ((t % achtel) / achtel) * 2 * Math.PI; x += Math.cos(w); y += Math.sin(w); }
   x /= wechsel.length; y /= wechsel.length;
@@ -294,6 +304,51 @@ export function versatzSchaetzen(rahmen: readonly Tonrahmen[], r: Raster, mindes
   const winkel = (Math.atan2(y, x) + 2 * Math.PI) % (2 * Math.PI);
   const versatz = (winkel / (2 * Math.PI)) * achtel;
   return versatz < 0.015 ? 0 : versatz;
+}
+
+// Versatz für geswingte Achtel: in 5-ms-Schritten über [0, Achtel), Kosten
+// je Einsatz das Quadrat seines Abstands zur nächsten Lage (0, Anteil, 1 —
+// in Vierteln), höchstens 0,12. Liegt danach nicht die Hälfte der Einsätze
+// näher als 0,06 Viertel an einer Lage, ist es keine Latenz: 0.
+function swingVersatz(wechsel: readonly number[], viertel: number, anteil: number): number {
+  const lagen = [0, anteil, 1];
+  const abstand = (t: number) => {
+    const f = (((t / viertel) % 1) + 1) % 1;
+    return Math.min(...lagen.map((l) => Math.abs(f - l)));
+  };
+  let beste = { v: 0, kosten: Infinity };
+  for (let v = 0; v < viertel / 2; v += 0.005) {
+    let k = 0;
+    for (const t of wechsel) k += Math.min(abstand(t - v), 0.12) ** 2;
+    if (k < beste.kosten - 1e-9) beste = { v, kosten: k };
+  }
+  const nah = wechsel.filter((t) => abstand(t - beste.v) < 0.06).length;
+  if (nah < wechsel.length / 2) return 0;
+  return beste.v < 0.015 ? 0 : beste.v;
+}
+
+// Dauer eines Viertels in Sekunden — der Bezug für Swing und Triolen (in
+// einfachen Taktarten; in 2/2 ist das Viertel ein halber Schlag).
+export const viertelDauer = (r: Raster) => (60 / r.bpm / einheitenJeSchlag(r.zaehler, r.nenner)) * (r.nenner / 4);
+
+// Swing (G-12): Gespielt liegt der Nachschlag jedes Viertels bei `anteil` %
+// (50 gerade … 67 triolisch, wie beim Swing-Metronom I-17), geschrieben in
+// der Mitte. `entswingen` rechnet eine gespielte Zeit in die geschriebene
+// um — stückweise linear je Viertel: [0, Anteil] → [0, ½], [Anteil, 1] →
+// [½, 1]; Schlag und Nachschlag landen genau auf dem Achtelraster,
+// Sechzehntel dazwischen nur ungefähr. `einswingen` ist die Umkehrung (fürs
+// Vorspielen eines Swing-Stücks).
+export function entswingen(t: number, viertel: number, anteil: number): number {
+  const a = anteil / 100;
+  if (!(a > 0.5 && a < 1) || viertel <= 0) return t;
+  const k = Math.floor(t / viertel), f = t / viertel - k;
+  return (k + (f <= a ? (f * 0.5) / a : 0.5 + ((f - a) * 0.5) / (1 - a))) * viertel;
+}
+export function einswingen(t: number, viertel: number, anteil: number): number {
+  const a = anteil / 100;
+  if (!(a > 0.5 && a < 1) || viertel <= 0) return t;
+  const k = Math.floor(t / viertel), f = t / viertel - k;
+  return (k + (f <= 0.5 ? f * 2 * a : a + (f - 0.5) * 2 * (1 - a))) * viertel;
 }
 
 // Erlaubte Notenwerte in Zellen, absteigend: die ganze Note und ihre
@@ -545,7 +600,9 @@ export function einsaetzeRastern(starts: readonly number[], r: Raster, strafe = 
   return zellen.reverse();
 }
 
-export interface RasterOptionen { tonart?: Tonart | null; lesart?: Lesart }
+// `swing`: Anteil der ersten Achtel am Viertel in % (G-12) — die Einsätze
+// werden vor dem Runden entswingt, geschrieben wird gerade.
+export interface RasterOptionen { tonart?: Tonart | null; lesart?: Lesart; swing?: number }
 
 // Spur → Takte. Erst Tonstücke in Sekunden (`segmentieren`), dann die
 // Legato-Regel: Nur die Einsätze werden gerundet; jede Note dauert bis zum
@@ -559,8 +616,11 @@ export interface RasterOptionen { tonart?: Tonart | null; lesart?: Lesart }
 export function rastern(rahmen: readonly Tonrahmen[], r: Raster, optionen: RasterOptionen = {}): Takt[] {
   const dz = zellenDauer(r), js = zellenJeSchlag(r);
   const lesart = optionen.lesart ?? 'melodisch';
-  const stuecke = segmentieren(rahmen, { ...segmentOptionen(lesart, r), tonart: optionen.tonart ?? null });
-  if (!stuecke.length) return [];
+  const roh = segmentieren(rahmen, { ...segmentOptionen(lesart, r), tonart: optionen.tonart ?? null });
+  if (!roh.length) return [];
+  const sw = optionen.swing && optionen.swing > 50 && !istZusammengesetzt(r.zaehler, r.nenner) ? optionen.swing : 0;
+  const q = viertelDauer(r);
+  const stuecke = sw ? roh.map((s) => ({ ...s, start: entswingen(s.start, q, sw), ende: entswingen(s.ende, q, sw) })) : roh;
   // Rhythmisch: Sechzehntel-Offbeats sind erwartbar, die Strafe dafür kleiner.
   const starts = einsaetzeRastern(stuecke.map((s) => s.start), r, lesart === 'rhythmisch' ? 0.15 : 0.35);
   const pause = Math.max(0.15, (dz * js) / 2);
@@ -619,6 +679,8 @@ export interface AbcKopf {
   titel: string; komponist?: string;
   /** Stil der Begleitung aus den Akkorden (./begleitung) — als Kommentar im Kopf, abcjs überliest ihn. */
   begleitung?: string;
+  /** Swing (G-12): Anteil der ersten Achtel in %. Im Kopf `Q:"Swing" …` (abcjs zeigt „Swing“ vor dem Tempo) und als Kommentar `% swing: 62`. */
+  swing?: number;
 }
 
 // Akkordsymbole je Takt (Leadsheet, I-04): `akkorde[i]` die Akkorde von Takt
@@ -686,8 +748,9 @@ export function alsAbcStimmen(stimmen: readonly Stimme[], r: Raster, kopf: AbcKo
     ...(kopf.komponist ? [`C:${kopf.komponist}`] : []),
     `M:${r.zaehler}/${r.nenner}`,
     `L:1/${r.feinheit}`,
-    `Q:${schlag}/${r.nenner}=${r.bpm}`,
+    `Q:${kopf.swing ? '"Swing" ' : ''}${schlag}/${r.nenner}=${r.bpm}`,
     ...(kopf.begleitung ? [`% begleitung: ${kopf.begleitung}`] : []),
+    ...(kopf.swing ? [`% swing: ${Math.round(kopf.swing)}`] : []),
     ...(einzeln ? [] : stimmen.map((s, i) => `V:${i + 1} name="${s.name.replace(/"/g, "'")}" clef=${clef(s)}`)),
     `K:${tonart?.abc ?? 'C'}`,
   ];
@@ -776,6 +839,8 @@ export interface Gelesen {
   akkorde: string[][];
   /** Stil der Begleitung, falls im Kopf vermerkt. */
   begleitung?: string;
+  /** Swing-Anteil in %, falls im Kopf vermerkt (`% swing: 62`). */
+  swing?: number;
 }
 const STAMMTOENE: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 export function abcLesen(text: string): Gelesen | null {
@@ -786,9 +851,12 @@ export function abcLesen(text: string): Gelesen | null {
   const meta: { name: string; schluessel: Schluessel }[] = [];
   let schluesselEinzeln: Schluessel = 'violin';
   let begleitung: string | undefined;
+  let swing: number | undefined;
   for (const z of zeilen) {
     const b = kopf ? /^%\s*begleitung:\s*(\w+)/.exec(z) : null;
     if (b) { begleitung = b[1]; continue; }
+    const sw = kopf ? /^%\s*swing:\s*(\d+)/.exec(z) : null;
+    if (sw) { const a = Number(sw[1]); if (a > 50 && a <= 75) swing = a; continue; }
     const m = kopf ? /^([A-Za-z]):(.*)$/.exec(z) : null;
     if (m) {
       const wert = m[2].trim();
@@ -826,7 +894,7 @@ export function abcLesen(text: string): Gelesen | null {
   if (!gueltig.length || !gueltig[0].takte.length) return null;
   const erste = stimmen.findIndex((s) => !!s);
   const akkorde = akkordeJe[erste] ?? [];
-  return { takte: gueltig[0].takte, stimmen: gueltig, raster: r, tonart, titel, akkorde: akkorde.some((x) => x.length) ? akkorde : [], ...(begleitung ? { begleitung } : {}) };
+  return { takte: gueltig[0].takte, stimmen: gueltig, raster: r, tonart, titel, akkorde: akkorde.some((x) => x.length) ? akkorde : [], ...(begleitung ? { begleitung } : {}), ...(swing ? { swing } : {}) };
 }
 
 function takteLesen(quelle: string, tonart: Tonart | null): { takte: Takt[]; akkorde: string[][] } | null {
