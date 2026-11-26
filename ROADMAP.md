@@ -6,7 +6,7 @@ Punkt ein; wer etwas fertigstellt, hakt ab und verschiebt den Punkt nach
 „Erledigt“ (unten). Größere Richtungsentscheidungen bitte als kurzen Absatz
 hier dokumentieren, nicht nur im Chat.
 
-Stand: 2026-11-20.
+Stand: 2026-11-26.
 
 ## Leitbild
 
@@ -70,7 +70,7 @@ Soundbearbeitung.
 | M4 | **Notenmanagement I** | Metadaten, Flags, Drag & Drop (Sammlungen F-13, Lesezeichen/virtuelle Stücke F-03 und Kontext-Blatt F-08 erledigt) | F-01, F-04, F-09 |
 | M5 | **Üben & Setlisten** | Setlisten (Stellen-Mix F-11, Tonprofil C-04, Sprünge F-05, Halbseiten-Blättern F-06, Blättern je Seite F-16 und Favoriten im Mix F-17 schon erledigt) — *zurückgestellt 2026-10-23: Marlon ordnet bisher über Dateinamen, Setlisten sind Zukunftsthema* | F-02 |
 | M6 | **Extras** | Stempel/Formen (Kamera-Scan F-07, Themes B-04 und Design B-05 erledigt) — *vorgezogen 2026-10-23, vor M4 und M5* | E-04 |
-| M7 | **Komponieren** (Vision) | Noteneingabe, Rhythmus-/Melodie-Transkription; Ausbau: Vorspielen, Einspielen Takt für Takt, Song-Transkription, Klänge; Ort offen: App oder separates Werkzeug (Wunsch 2026-10-26) | G-01…G-11 |
+| M7 | **Komponieren** (Vision) | Noteneingabe, Rhythmus-/Melodie-Transkription; Ausbau: Vorspielen, Einspielen Takt für Takt, Song-Transkription, Klänge; Ort offen: App oder separates Werkzeug (Wunsch 2026-10-26); Soli mit Swing, Noten zu Videos (Wunsch 2026-11-26) | G-01…G-13 |
 | M8 | **Geräteübergreifend** (Vision, Entscheidung offen) | Noten und Übe-Daten über die eigene Cloud auf mehreren Geräten | H-01…H-05 |
 | M9 | **Freies Spielen** (Vision, begonnen 2026-11-16) | Nach Gehör mitspielen, improvisieren, begleiten: Ohr-Trainer zuerst, dann Lernpfad, Song-Liste, Begleitung aus Akkorden, Impro-Feedback | I-01…I-20 |
 
@@ -218,6 +218,8 @@ oder iPad. Vorher auf jedem Gerät eine Sicherung erstellen.
 - G-06 · Ganze Songs · bleibt Vision; Experiment (G-08) sagt: nichts bauen.
 - G-11 (Rest) · Erkennung in der App (Weg 2) · offen bis zum Experiment; Weg 1 (Erkennungs-App auf dem iPad, MusicXML-Import) seit 2026-11-20 gebaut, s. o.
 - G-07 · Klänge einstellen · erst nach G-04.
+- G-12 · Aufnahme eines Solos transkribieren, Swing und Stil erkennen · nicht gebaut; gemessen: mit Raster Sechzehntel mischt die Erkennung ab etwa 62 % Swing gerade und punktierte Achtel im selben Takt. Vorschlag (Swing-Anteil fürs ganze Stück, drei Lesarten, Video als Quelle) und offene Frage zur Schreibweise in G-12.
+- G-13 · Noten als Untertitel für Videos · Vision, erst nach G-12; Entscheidung offen, ob „Aufnahme mit mitlaufenden Noten“ in die App gehört.
 - I-01 · Ohr-Trainer · erste Fassung im Browser gebaut (2026-11-16), nie auf dem Gerät.
 - I-02, I-03, I-05, I-06 · Lernpfad, Song-Liste, Impro-Feedback, Mitspielen nach Gehör · Vision. I-04 (Begleitung aus Akkorden) seit 2026-11-19 gebaut, s. o.
 - I-07…I-09 · Skill-Kartei, Hör-Übungen per Antippen, „Heute“-Einheit · im Bau (2026-11-16). I-10 · Vision.
@@ -1848,6 +1850,121 @@ auf dem iPad. Weg 2 bleibt offen, bis das Experiment oben gemacht ist.
 **Offen:** Weg 2 (Erkennung in der App), MusicXML auch über „+ Noten“
 laden (ohne Original), Akkordsymbole (`<harmony>`) als Akkorde des
 Notenblatts übernehmen, Wiederholungen ausschreiben.
+
+### G-12 · Aufnahme eines Solos transkribieren: Swing und Stil erkennen — Wunsch 2026-11-26, nicht gebaut
+
+Aus einem Gespräch (2026-11-26, Sprachnotiz): Eine **Aufnahme
+transkribieren** wäre „für unseren Use Case das Beste“. Gemeint ist: Eine
+Person spielt allein ein Solo (Saxofon, Gitarre), die App schreibt die
+Noten. Drei Wünsche dazu:
+
+- **Swing-Gefühl erkennen.** Die Aufnahmen sind „angeswingt“, also nicht
+  exakt triolisch, mal mit mehr, mal mit weniger Swing. Die App soll
+  entscheiden, ob es eher triolisch oder eher gerade gemeint ist, und zwar
+  aus dem **Gesamtbild** („wo was am meisten vorkommt“), nicht Note für
+  Note.
+- **Sinn für Stilistik** („sehr advanced“): Ein Marsch ist wahrscheinlich
+  gerade gemeint (in der Sprachnotiz „16.8“, wohl gerade Sechzehntel oder
+  6/8), ein Swing-Stück mit Achteltriolen bzw. geswingten Achteln.
+- **Echte Aufnahmen als Datensatz.** Einzeln aufgenommene Stimmen sind ein
+  klarer Datensatz. Es gibt eigene Instagram-Videos, in denen jemand allein
+  ein Solo spielt, mit eingeblendeten, **vorher geschriebenen** Noten. Das
+  sind Paare aus Aufnahme und richtigen Noten. Beim nächsten Besuch sollen
+  weitere Einzelaufnahmen entstehen.
+
+**Stand heute:**
+
+- Audio-Datei → Noten gibt es (G-03): „Selbst schreiben“ → Quelle
+  Audio-Datei, eine Stimme, bis fünf Minuten. Tempo, Taktart und kleinster
+  Wert (Achtel/Sechzehntel) stellt man von Hand ein. Video-Dateien (mp4,
+  mov) bietet die Dateiauswahl nicht an (`ACCEPT` in `Einspielen.tsx`
+  nennt nur Audio).
+- Triolen kann das Notenblatt (G-01, 96 Zellen), die Erkennung nicht: Sie
+  rundet auf Achtel oder Sechzehntel (Rest G-02/G-03).
+- **Gemessen (2026-11-26)** an einer künstlichen Spur, zwei Takte
+  geswingte Achtel bei 120 bpm durch `rastern`. Mit Raster **Achtel** wird
+  jeder Swing-Anteil (50–67 %, auch schwankend ± 4 %) zu geraden Achteln.
+  So schreibt man Swing üblicherweise, nur fehlt die Angabe „Swing“. Mit
+  Raster **Sechzehntel**, das ein Solo mit Läufen braucht, kippt es: Bis
+  etwa 60 % kommen gerade Achtel heraus, ab etwa 62 % **im selben Takt
+  gemischt** gerade Achtel und „punktierte Achtel + Sechzehntel“, bei 67 %
+  (triolisch) durchgehend punktiert. Schwankt der Swing, wechselt die
+  Schreibweise von Schlag zu Schlag. Das ist genau das Problem aus dem
+  Gespräch.
+
+**Einschätzung und Vorschlag** (ohne Modelle machbar, reines Rechnen auf
+den Einsätzen wie in `notation.ts`):
+
+1. **Swing-Anteil schätzen** (`src/domain/`, zuerst als Test): die Lage
+   jedes Einsatzes im Schlag bestimmen und die Nachschläge (etwa 35–80 %
+   des Schlags) sammeln. Ihr Median ist der Swing-Anteil, auf derselben
+   Skala wie beim Swing-Metronom (I-17: 50 gerade, 60 locker,
+   67 triolisch). Entschieden wird fürs ganze Stück (oder je Abschnitt),
+   nicht je Note.
+2. **Drei Lesarten statt Rundung je Note:** *gerade* (Nachschläge bei etwa
+   50 %); *Swing* (lang-kurz, 55–70 %: als gerade Achtel geschrieben, im
+   Kopf „Swing“, der Anteil wird gemerkt); *triolisch* (drei gleiche
+   Einsätze je Schlag: Triolen, oder 6/8 bzw. 12/8 vorschlagen, wenn das
+   ganze Stück so läuft). Das ist der regelbasierte Teil der „Stilistik“:
+   Wird der Schlag in zwei gleiche, in lang-kurz oder in drei gleiche Teile
+   geteilt? Im Dialog steht das als Vorschlag mit Schalter („Swing
+   erkannt, ≈ 62 %“, umlegbar auf gerade oder triolisch), wie Tonart und
+   Lesart.
+3. **Sechzehntel im Swing:** Läufe in Sechzehnteln bleiben gerade, nur die
+   Achtel-Ebene swingt. Bei „Swing“ werden die Einsätze vor dem Rastern
+   zurückgerechnet (Nachschlag beim Anteil → Schlagmitte), danach läuft
+   `rastern` wie heute.
+4. **Vorspielen (G-04)** eines Swing-Stücks swingt mit dem gemerkten
+   Anteil. Sonst klingt die Transkription nicht wie die Aufnahme.
+5. **Stil automatisch erkennen** (Marsch, Swing, Latin, Ballade) aus dem
+   Klang wäre Genre-Erkennung mit Modell und Trainingsdaten. Das kommt erst
+   in Frage, wenn 1–4 an echten Aufnahmen tragen. Eine Stilwahl von Hand
+   als Vorgabe für 2 ist billig.
+6. **Datensatz als Messlatte, nicht als Training:** Für ein eigenes Modell
+   reicht eine Handvoll Paare nicht. Für den Prüfstand
+   (`experimente/transkription/vergleichen.py`) sind sie genau richtig:
+   Schwellen und Swing-Grenzen einstellen und messen, wie viele Noten
+   stimmen. Je Beispiel gebraucht: die Aufnahme (Original-Video oder
+   Tonspur), die Noten als MusicXML aus dem Notenprogramm, Tempo und
+   Instrument (klingend oder notiert). Die Dateien bleiben außerhalb des
+   Repos, denn das Repo ist öffentlich (Audio und `aufnahmen/` stehen in
+   `experimente/transkription/.gitignore`).
+7. **Video als Quelle:** mp4/mov in der Dateiauswahl zulassen und nur die
+   Tonspur lesen. Das ist klein; ob Safari Video-Dateien mit
+   `decodeAudioData` liest, auf dem Gerät prüfen.
+
+**Reihenfolge:** zuerst 7 und 1–3 (kleiner Umbau in `notation.ts` und im
+Einsing-Dialog), dann 4; 5 erst nach den Messungen aus 6. **Offen vor dem
+Bau:** Wie soll Swing auf dem Blatt stehen: gerade Achtel mit „Swing“
+(Jazz-Brauch) oder ausgeschrieben triolisch?
+
+### G-13 · Noten als Untertitel für Videos (Reels) — Wunsch 2026-11-26, Vision
+
+Aus demselben Gespräch: Für gesprochene Videos erzeugt Instagram
+Untertitel automatisch. Für Musik **Noten als Untertitel** automatisch zu
+erzeugen, „so wie auf dem Insta-Reel“, wäre „sehr sick“. Bisher werden die
+Noten vorher geschrieben und von Hand im Video eingeblendet; viele
+YouTube-Kanäle machen das genauso von Hand.
+
+**Einschätzung:**
+
+- Das sind zwei Teile. (a) Die Noten selbst: Das ist G-12. Fürs
+  Veröffentlichen müssen sie stimmen, also wird ohnehin im Notenblatt
+  nachgebessert. (b) Die Noten **zeitgleich zur Aufnahme** zeigen: Das ist
+  neu. Die Transkription kennt den Einsatz jeder Note in Sekunden, wirft
+  ihn aber weg, und das Audio wird nicht gespeichert (G-03).
+- **Günstige Stufe in der App:** die Aufnahme abspielen, die Noten laufen
+  mit (Takt hervorgehoben, die Zeile blättert mit; beim Vorspielen läuft
+  die Note schon heute mit, G-04). Das Video entsteht per
+  Bildschirmaufnahme auf dem iPhone. Das passt zum Leitbild, wenn
+  „Aufnahmen zum Vergleichen“ (I-20) auch „Aufnahme mit mitlaufenden
+  Noten“ umfasst. Entscheidung offen.
+- **Fertiges Video mit eingebrannten Noten** (Video rein, Video mit
+  Notenzeile raus) ist Videobearbeitung und im Leitbild außen vor. Im
+  Browser ginge es (Canvas, WebCodecs), auf dem iPhone aber langsam.
+  Passender wäre ein separates Werkzeug auf dem Rechner (G-08, Variante 2):
+  Notenzeilen als Bilder mit Zeitstempeln, ffmpeg legt sie übers Video.
+- **Reihenfolge:** erst G-12 an echten Aufnahmen, danach entscheiden.
 
 ### G-08 · Wo läuft das? Offline-App, eigener Rechner oder Server (Einschätzung 2026-10-26)
 
