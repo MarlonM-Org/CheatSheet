@@ -8,11 +8,15 @@
 // dort von selbst) → ■ → prüfen (die erkannten Takte liegen als Vorschau im
 // Blatt, Einfügen oder Ersetzen, − +, Lesart umlegbar) → Übernehmen schreibt
 // sie als einen Rückgängig-Schritt; die Leiste steht danach auf dem Folgetakt.
+// Der Rhythmus der Erkennung (Achtel, Sechzehntel, Triolen, Swing — G-12)
+// ist derselbe wie im Einsing-Dialog und hier vor und nach der Aufnahme
+// umlegbar; der Swing-Anteil kommt von dort.
 // Konzept und Begründungen: reports/Einspielen im Stück UX.md.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { LESARTEN, rastern, versatzSchaetzen, type Lesart, type Raster, type Stimme, type Takt, type Tonart, type Tonrahmen } from '@/domain/notation';
-import { leererTakt, skalieren, type Klang } from '@/domain/notensatz';
+import { LESARTEN, versatzSchaetzen, type Lesart, type Raster, type Stimme, type Takt, type Tonart, type Tonrahmen } from '@/domain/notation';
+import { leererTakt, type Klang } from '@/domain/notensatz';
+import { EINTEILUNGEN, einteilungMoeglich, swingAnteil, transkribieren, wirksam, type Einteilung, type Rhythmus } from '@/domain/rhythmus';
 import { abschnittKuerzen, bereichSetzen, bereichTakte, nachlaufKuerzen, takteEinsetzen, vorgabeArt, vorlaufKlaenge, type Bereich, type EinsetzArt } from '@/domain/taktaufnahme';
 import { schlaegeJeTakt, taktartText } from '@/domain/takt';
 import type { Stimmung } from '@/domain/ueben';
@@ -30,11 +34,12 @@ const LAGE_SCHLUESSEL = 'ueben:lage-aufnahme';
 export type LeistenZustand = 'scharf' | 'zaehlt' | 'nimmt' | 'pruefen';
 export interface Vorschau { stimmen: Stimme[]; von: number; bis: number }
 
-export function Aufnahmeleiste({ stimmen, aktiv, stumm, auswahlTakt, raster, blattRaster, tonart, lesart, setLesart,
+export function Aufnahmeleiste({ stimmen, aktiv, stumm, auswahlTakt, raster, blattRaster, tonart, lesart, setLesart, rhythmus, setRhythmus,
   metro, stimmung, kammerton, vorschauAendern, zustandAendern, uebernehmen, schliessen, akkordBegleitung }: {
   stimmen: Stimme[]; aktiv: number; stumm: number[]; auswahlTakt: number | null;
   raster: Raster; blattRaster: Raster; tonart: Tonart | null;
   lesart: Lesart; setLesart: (l: Lesart) => void;
+  rhythmus: Rhythmus; setRhythmus: (r: Partial<Rhythmus>) => void;
   metro: { klang: MetronomKlang; laut: number; zweiVier: boolean }; stimmung: Stimmung; kammerton: number;
   // Die Vorschau fürs Blatt (null: keine) und der Zustand (zum Sperren der Palette).
   vorschauAendern: (v: Vorschau | null) => void;
@@ -81,10 +86,11 @@ export function Aufnahmeleiste({ stimmen, aktiv, stumm, auswahlTakt, raster, bla
   // ── Vorschlag aus der Spur ──
   const erkannt = useMemo<{ takte: Takt[]; nachklangWeg: boolean }>(() => {
     if (zustand !== 'pruefen' || !spur.length) return { takte: [], nachklangWeg: false };
-    const roh = skalieren(rastern(spur, raster, { tonart, lesart }), raster.feinheit);
+    // Die Spur ist schon um die Latenz vorgezogen (beim Stopp gemessen).
+    const roh = transkribieren(spur, raster, rhythmus, { tonart, lesart, versatz: 0 }).takte;
     const gekuerzt = nachlaufKuerzen(roh, blattRaster);
     return { takte: gekuerzt, nachklangWeg: gekuerzt.length < roh.length };
-  }, [zustand, spur, raster, blattRaster, tonart, lesart]);
+  }, [zustand, spur, raster, blattRaster, tonart, lesart, rhythmus]);
   const n = Math.min(anzahl ?? erkannt.takte.length, erkannt.takte.length);
   const art: EinsetzArt = artWahl ?? vorgabeArt(takte, zielTakt, erkannt.takte.length || 1, bis !== null || !!akkordBegleitung);
   const setArt = setArtWahl;
@@ -112,7 +118,8 @@ export function Aufnahmeleiste({ stimmen, aktiv, stumm, auswahlTakt, raster, bla
       beiPhase: setZustand,
       beiEnde: (liste, ok) => {
         if (ok) {
-          const gemessen = versatzSchaetzen(liste, raster);
+          const w = wirksam(rhythmus, raster.zaehler, raster.nenner);
+          const gemessen = versatzSchaetzen(liste, raster, 0.4, { triolen: w.einteilung === 'triolen', swing: swingAnteil(w, raster.zaehler, raster.nenner) });
           const versatz = gemessen || letzterVersatz;
           if (gemessen) setLetzterVersatz(gemessen);
           setSpur(versatz ? liste.map((f) => ({ ...f, zeit: f.zeit - versatz })) : liste);
@@ -123,7 +130,7 @@ export function Aufnahmeleiste({ stimmen, aktiv, stumm, auswahlTakt, raster, bla
       },
       beiFehler: (t) => { setFehler(t); setZustand('scharf'); },
     });
-  }, [vorlauf, zielTakt, bis, stimmen, blattRaster, stumm, aktiv, begleitung, mikrofonStarten, raster, metro, stimmung, kammerton, letzterVersatz, akkordBegleitung, mitAkkorden, takte.length]);
+  }, [vorlauf, zielTakt, bis, stimmen, blattRaster, stumm, aktiv, begleitung, mikrofonStarten, raster, metro, stimmung, kammerton, letzterVersatz, akkordBegleitung, mitAkkorden, takte.length, rhythmus]);
   const stoppen = () => mikrofonStoppen(zustand === 'nimmt');
   const verwerfen = () => { setSpur([]); setZustand('scharf'); };
   const nochmal = () => { setSpur([]); setZustand('scharf'); starten(); };
@@ -199,6 +206,7 @@ export function Aufnahmeleiste({ stimmen, aktiv, stumm, auswahlTakt, raster, bla
             <div className="notensatz-block" role="group" aria-label="Lesart">
               {LESARTEN.map((l) => <button key={l.lesart} type="button" aria-pressed={lesart === l.lesart} onClick={() => setLesart(l.lesart)} title={l.hinweis}>{l.name}</button>)}
             </div>
+            <RhythmusWahl rhythmus={rhythmus} setRhythmus={setRhythmus} zaehler={raster.zaehler} nenner={raster.nenner} />
             <div className="notensatz-menue">
               <button type="button" className="notensatz-menue-knopf" aria-expanded={menue} aria-haspopup="true" onClick={() => setMenue(!menue)}>Vorlauf ▾</button>
               {menue && (
@@ -250,6 +258,7 @@ export function Aufnahmeleiste({ stimmen, aktiv, stumm, auswahlTakt, raster, bla
             <div className="notensatz-block" role="group" aria-label="Lesart">
               {LESARTEN.map((l) => <button key={l.lesart} type="button" aria-pressed={lesart === l.lesart} onClick={() => setLesart(l.lesart)} title={l.hinweis}>{l.name}</button>)}
             </div>
+            <RhythmusWahl rhythmus={rhythmus} setRhythmus={setRhythmus} zaehler={raster.zaehler} nenner={raster.nenner} />
             {/* Die Entscheidung in einer eigenen Zeile, rechts — nichts scrollt. */}
             <div className="aufnahme-aktionen">
               <button type="button" className="knopf knopf-leise knopf-klein" onClick={verwerfen}>Verwerfen</button>
@@ -267,5 +276,23 @@ export function Aufnahmeleiste({ stimmen, aktiv, stumm, auswahlTakt, raster, bla
         )}
       </div>
     </div>
+  );
+}
+
+// Rhythmus der Erkennung, kompakt als Auswahl (der Swing-Regler liegt im
+// Einsing-Dialog; hier gilt sein Anteil).
+function RhythmusWahl({ rhythmus, setRhythmus, zaehler, nenner }: {
+  rhythmus: Rhythmus; setRhythmus: (r: Partial<Rhythmus>) => void; zaehler: number; nenner: Raster['nenner'];
+}) {
+  const wirkt = wirksam(rhythmus, zaehler, nenner).einteilung;
+  return (
+    <select className="feld feld-zahl aufnahme-rhythmus" value={wirkt} onChange={(e) => setRhythmus({ einteilung: e.target.value as Einteilung })}
+      aria-label="Rhythmus der Erkennung" title="Wie ein Schlag geteilt wird — Achtel, Sechzehntel, Triolen oder Swing">
+      {EINTEILUNGEN.map((e) => (
+        <option key={e.einteilung} value={e.einteilung} disabled={!einteilungMoeglich(e.einteilung, zaehler, nenner)}>
+          {e.einteilung === 'swing' ? `Swing ${rhythmus.anteil} %` : e.name}
+        </option>
+      ))}
+    </select>
   );
 }

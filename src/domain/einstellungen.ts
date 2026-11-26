@@ -24,7 +24,9 @@
 //    samt den früheren ueben:einspiel-lautsprecher und ueben:stimm-verstaerken;
 //    Kopfhörer hat man am Gerät, nicht als Person), ob Klänge mit anderen Apps
 //    mischen (ueben:mischen) und ob das Metronom im Hintergrund weiterläuft
-//    (ueben:metronom-hintergrund, D-08) … Tags und Tonprofile haben eigene
+//    (ueben:metronom-hintergrund, D-08), der Rhythmus der Erkennung beim
+//    Einsingen (ueben:einspiel-feinheit: Einteilung, früher 8/16;
+//    ueben:einspiel-swing: Swing-Anteil, G-12) … Tags und Tonprofile haben eigene
 //    Felder in der Sicherung.
 // 4. Nicht gespeichert (VERALTET): Taktart, Nenner, Akzente, Unterteilung,
 //    Tempo-Trainer, Swing, Drone (Grundton, Farbe, Lautstärke), Etüden-Wahl. Jede Sitzung beginnt mit dem

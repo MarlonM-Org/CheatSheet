@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { AbcElem, ClickListenerDrag, TuneObject } from 'abcjs';
-import { alsAbcStimmen, SCHLUESSEL, taktDauer, type Raster, type Stimme, type Takt, type Tonart, tonartTransponieren,
+import { alsAbcStimmen, einswingen, SCHLUESSEL, taktDauer, viertelDauer, type Raster, type Stimme, type Takt, type Tonart, tonartTransponieren,
 } from '@/domain/notation';
+import { geswingt } from '@/domain/rhythmus';
 import { akkordKlaenge, akkordLesen } from '@/domain/akkorde';
 import { akkordeVersetzen } from '@/domain/akkordrahmen';
 import { akkordTakte, alsKlaenge, BEGLEIT_STILE, begleitungBauen, STIL_NAMEN, type BegleitStil } from '@/domain/begleitung';
@@ -57,7 +58,7 @@ const lagenVon = (s: Stimme) => s.takte.flatMap((t, takt) => t.noten.map((_, not
 export interface Hervorgehoben { stimme: number; von: number; bis: number; farbe: 'messing' | 'warnung' }
 export interface BlattStand { auswahl: BlattPos | null; aktiv: number; stumm: number[]; takte: number }
 
-export function Notenblatt({ stimmen, raster, tonart, titel, aendern, tonartAendern, verlauf, hervorgehoben, aufnehmen, beiStand, auswahlVorgabe, akkorde = [], begleitung }: {
+export function Notenblatt({ stimmen, raster, tonart, titel, aendern, tonartAendern, verlauf, hervorgehoben, aufnehmen, beiStand, auswahlVorgabe, akkorde = [], begleitung, swing = 0 }: {
   stimmen: Stimme[]; raster: Raster; tonart: Tonart | null; titel: string;
   // Ohne `aendern` nur ansehen und vorspielen. Mit `akkorde`: neue Akkordsymbole je Takt
   // (sonst führt sie, wer das Blatt hält, mit den Takten nach).
@@ -77,10 +78,12 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern, tonartAend
   akkorde?: string[][];
   // Begleitung aus den Akkorden beim Vorspielen: Stil, änderbar.
   begleitung?: { stil: BegleitStil; setzen: (s: BegleitStil) => void };
+  // Swing (G-12): Anteil der ersten Achtel in % — „Swing“ im Kopf, das Vorspielen swingt (0: gerade).
+  swing?: number;
 }) {
   const metro = useMetronom();
   const stimm = useStimmgeraetApi();
-  const abc = useMemo(() => alsAbcStimmen(stimmen, raster, { titel }, tonart, akkorde), [stimmen, raster, titel, tonart, akkorde]);
+  const abc = useMemo(() => alsAbcStimmen(stimmen, raster, { titel, ...(swing ? { swing } : {}) }, tonart, akkorde), [stimmen, raster, titel, tonart, akkorde, swing]);
   const hatAkkorde = akkorde.some((x) => x.length);
   // Begleitung beim Vorspielen (nur mit Akkorden) und die Akkord-Auswahl (Takt, an dem sie öffnet).
   const [mitBegleitung, setMitBegleitung] = useState(true);
@@ -134,7 +137,11 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern, tonartAend
   const [umfang] = useState(() => gespeichert('ueben:tonprofil-umfang', EINSTELLUNG_STANDARD['ueben:tonprofil-umfang']));
   const hinweise = useMemo(() => pruefen(stimmen, raster, tonart, { umfang: { von: umfang.von, bis: umfang.bis } }), [stimmen, raster, tonart, umfang]);
   const [alleHinweise, setAlleHinweise] = useState(false);
-  const zeiten = useMemo(() => stimmen.map((s) => notenZeiten(s.takte, raster)), [stimmen, raster]);
+  // Beginn jeder Note beim Vorspielen — bei Swing geswingt (der Zeiger läuft mit dem Klang).
+  const zeiten = useMemo(() => stimmen.map((s) => {
+    const z = notenZeiten(s.takte, raster);
+    return swing ? { ...z, zeiten: z.zeiten.map((t) => einswingen(t, viertelDauer(raster), swing)) } : z;
+  }), [stimmen, raster, swing]);
   const gesamt = Math.max(0, ...zeiten.map((z) => z.gesamt));
 
   const farbe = useCallback((name: string, sonst: string) => (bild.current ? getComputedStyle(bild.current).getPropertyValue(name).trim() || sonst : sonst), []);
@@ -256,7 +263,7 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern, tonartAend
   const abspielen = useCallback(() => {
     if (vorspiel.current) return anhalten();
     const ab = auswahl ? zeiten[auswahl.stimme]?.zeiten[index(auswahl)] ?? 0 : 0;
-    const noten = klaengeAlle(stimmen, raster, stumm).filter((k) => k.beginn + k.dauer > ab + 1e-6)
+    const noten = geswingt(klaengeAlle(stimmen, raster, stumm), raster, swing).filter((k) => k.beginn + k.dauer > ab + 1e-6)
       .map((k) => (k.beginn < ab ? { ...k, dauer: k.dauer - (ab - k.beginn), beginn: 0 } : { ...k, beginn: k.beginn - ab }));
     // Begleitung aus den Akkorden ab dem Takt der Auswahl (was vor `ab` beginnt, fällt weg).
     const band = hatAkkorde && mitBegleitung && begleitung ? (() => {
@@ -289,7 +296,7 @@ export function Notenblatt({ stimmen, raster, tonart, titel, aendern, tonartAend
     };
     v.raf = requestAnimationFrame(schleife);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [anhalten, auswahl, stimmen, raster, stumm, zeiten, gesamt, stimm.stimmung, stimm.kammerton, metro.laut, farbe, faerben, hatAkkorde, mitBegleitung, begleitung, akkorde, takte.length]);
+  }, [anhalten, auswahl, stimmen, raster, stumm, zeiten, gesamt, stimm.stimmung, stimm.kammerton, metro.laut, farbe, faerben, hatAkkorde, mitBegleitung, begleitung, akkorde, takte.length, swing]);
   useEffect(() => () => { vorspiel.current?.stopp(); cancelAnimationFrame(vorspiel.current?.raf ?? 0); }, []);
   useEffect(() => { if (vorspiel.current) anhalten(); }, [stimmen, anhalten]);
 
